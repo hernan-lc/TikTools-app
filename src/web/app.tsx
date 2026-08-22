@@ -3,10 +3,13 @@ import { render } from 'preact';
 
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
 import {
+  AnalyticsView,
+  ConnectView,
   LiveFeed,
-  SettingsModal,
-  SidebarControl,
+  NavigationRail,
+  SettingsView,
   TopNav,
+  type AppTab,
   type ConnectionStatus,
   type DisplayEvent,
   type EventFilter,
@@ -49,6 +52,7 @@ applyTheme(initialTheme);
 document.documentElement.lang = initialLocale;
 
 function App() {
+  const [activeTab, setActiveTab] = useState<AppTab>('feed');
   const [uniqueId, setUniqueId] = useState(initialUsername);
   const [cookie, setCookie] = useState('');
   const [activeCreator, setActiveCreator] = useState(initialUsername);
@@ -72,7 +76,6 @@ function App() {
   
   const [autoScroll, setAutoScroll] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   
   const nextEventId = useRef(0);
   const activeCreatorRef = useRef(initialUsername);
@@ -95,7 +98,7 @@ function App() {
     saveTheme(theme);
   }, [theme]);
 
-  // Handle messages from the host runtime
+  // Handle messages from the native runtime
   useEffect(() => {
     const receive = (raw: string): void => {
       let message: HostMessage;
@@ -133,7 +136,7 @@ function App() {
         setEvents((current) => [
           ...current,
           { ...ev, id: nextEventId.current++, receivedAt: Date.now() },
-        ].slice(-250));
+        ].slice(-300));
 
         if (!autoScroll) {
           setUnreadCount((c) => c + 1);
@@ -152,7 +155,7 @@ function App() {
             id: nextEventId.current++,
             receivedAt: Date.now(),
           },
-        ].slice(-250));
+        ].slice(-300));
       }
     };
 
@@ -162,12 +165,12 @@ function App() {
     };
   }, [locale, autoScroll]);
 
-  // Handle smooth scroll when new events arrive and autoScroll is active
+  // Smooth scroll when new events arrive and autoScroll is active
   useEffect(() => {
-    if (autoScroll && streamContainerRef.current) {
+    if (activeTab === 'feed' && autoScroll && streamContainerRef.current) {
       streamContainerRef.current.scrollTop = streamContainerRef.current.scrollHeight;
     }
-  }, [events, autoScroll]);
+  }, [events, autoScroll, activeTab]);
 
   const handleConnect = (userToConnect?: string): void => {
     const target = normalizeUsername(userToConnect || uniqueId);
@@ -183,6 +186,7 @@ function App() {
     activeCreatorRef.current = target;
     saveUsername(target);
     setRecents(addRecentUsername(target));
+    setActiveTab('feed');
 
     send({
       type: 'connect',
@@ -196,6 +200,7 @@ function App() {
     resetEvents();
     setStatus('connecting');
     setActiveCreator('🎲 ' + t(locale, 'searchingRooms'));
+    setActiveTab('feed');
     send({
       type: 'pick-live',
       sessionCookie: cookie.trim(),
@@ -253,51 +258,66 @@ function App() {
         activeCreator={activeCreator}
         onThemeToggle={handleThemeToggle}
         onLocaleToggle={handleLocaleToggle}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onReconnect={handleReconnect}
+        onDisconnect={handleDisconnect}
       />
 
-      <div className="workspace-grid">
-        <SidebarControl
+      <div className="workspace-body">
+        <NavigationRail
           locale={locale}
-          uniqueId={uniqueId}
-          cookie={cookie}
-          status={status}
-          telemetry={telemetry}
-          recents={recents}
-          error={error}
-          onUniqueIdChange={setUniqueId}
-          onCookieChange={setCookie}
-          onConnect={() => handleConnect()}
-          onPickLive={handlePickLive}
-          onReconnect={handleReconnect}
-          onDisconnect={handleDisconnect}
-          onSelectRecent={handleSelectRecent}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
 
-        <LiveFeed
-          locale={locale}
-          events={events}
-          filter={filter}
-          searchQuery={searchQuery}
-          autoScroll={autoScroll}
-          unreadCount={unreadCount}
-          onFilterChange={setFilter}
-          onSearchChange={setSearchQuery}
-          onToggleAutoScroll={handleToggleAutoScroll}
-          onClearFeed={resetEvents}
-          streamContainerRef={(el) => (streamContainerRef.current = el)}
-        />
+        {activeTab === 'feed' && (
+          <LiveFeed
+            locale={locale}
+            events={events}
+            filter={filter}
+            searchQuery={searchQuery}
+            autoScroll={autoScroll}
+            unreadCount={unreadCount}
+            onFilterChange={setFilter}
+            onSearchChange={setSearchQuery}
+            onToggleAutoScroll={handleToggleAutoScroll}
+            onClearFeed={resetEvents}
+            streamContainerRef={(el) => (streamContainerRef.current = el)}
+          />
+        )}
+
+        {activeTab === 'analytics' && (
+          <AnalyticsView
+            locale={locale}
+            telemetry={telemetry}
+            events={events}
+          />
+        )}
+
+        {activeTab === 'connect' && (
+          <ConnectView
+            locale={locale}
+            uniqueId={uniqueId}
+            cookie={cookie}
+            status={status}
+            recents={recents}
+            error={error}
+            onUniqueIdChange={setUniqueId}
+            onCookieChange={setCookie}
+            onConnect={() => handleConnect()}
+            onPickLive={handlePickLive}
+            onSelectRecent={handleSelectRecent}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsView
+            locale={locale}
+            theme={theme}
+            onLocaleChange={setLocale}
+            onThemeChange={setTheme}
+          />
+        )}
       </div>
-
-      {settingsOpen ? (
-        <SettingsModal
-          locale={locale}
-          theme={theme}
-          onLocaleChange={setLocale}
-          onThemeChange={setTheme}
-          onClose={() => setSettingsOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

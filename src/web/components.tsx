@@ -5,6 +5,7 @@ import type { UiEvent } from '../shared/messages.ts';
 import { t, type Locale } from './i18n.ts';
 import type { Theme } from './preferences.ts';
 
+export type AppTab = 'feed' | 'analytics' | 'connect' | 'settings';
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'retrying' | 'disconnected' | 'error';
 export type DisplayEvent = UiEvent & { id: number; receivedAt: number };
 export type EventFilter = 'all' | 'chat' | 'gift' | 'like' | 'social';
@@ -16,7 +17,9 @@ export type StreamTelemetry = {
   members: number;
 };
 
-// SVG Icon Helpers
+// ==========================================
+// 🎨 SVG Icon Library
+// ==========================================
 export function IconTikTok() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -27,7 +30,7 @@ export function IconTikTok() {
 
 export function IconChat() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
@@ -35,7 +38,7 @@ export function IconChat() {
 
 export function IconGift() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 12 20 22 4 22 4 12" />
       <rect x="2" y="7" width="20" height="5" />
       <line x1="12" y1="22" x2="12" y2="7" />
@@ -47,7 +50,7 @@ export function IconGift() {
 
 export function IconHeart() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
     </svg>
   );
@@ -55,11 +58,51 @@ export function IconHeart() {
 
 export function IconUsers() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+export function IconBarChart() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="20" x2="12" y2="10" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="16" />
+    </svg>
+  );
+}
+
+export function IconRadio() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="2" />
+      <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+    </svg>
+  );
+}
+
+export function IconDice() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
+      <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function IconSparkles() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
   );
 }
@@ -75,7 +118,7 @@ export function IconSettings() {
 
 export function IconSearch() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -84,7 +127,7 @@ export function IconSearch() {
 
 export function IconRefresh() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 4 23 10 17 10" />
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
@@ -93,9 +136,61 @@ export function IconRefresh() {
 
 export function IconPower() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
       <line x1="12" y1="2" x2="12" y2="12" />
+    </svg>
+  );
+}
+
+export function IconTrash() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
+export function IconArrowDown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <polyline points="19 12 12 19 5 12" />
+    </svg>
+  );
+}
+
+export function IconSun() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+}
+
+export function IconMoon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
+export function IconGlobe() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   );
 }
@@ -118,7 +213,9 @@ function getAvatarColor(username: string): string {
   return gradients[idx] ?? gradients[0];
 }
 
-// Top Bar Navigation Component
+// ==========================================
+// 🚀 Top Navigation Component
+// ==========================================
 type TopNavProps = {
   locale: Locale;
   theme: Theme;
@@ -126,7 +223,8 @@ type TopNavProps = {
   activeCreator: string;
   onThemeToggle: () => void;
   onLocaleToggle: () => void;
-  onOpenSettings: () => void;
+  onReconnect: () => void;
+  onDisconnect: () => void;
 };
 
 export function TopNav({
@@ -136,7 +234,8 @@ export function TopNav({
   activeCreator,
   onThemeToggle,
   onLocaleToggle,
-  onOpenSettings,
+  onReconnect,
+  onDisconnect,
 }: TopNavProps) {
   const isConnected = status === 'connected';
   const isBusy = status === 'connecting' || status === 'retrying';
@@ -144,7 +243,7 @@ export function TopNav({
   return (
     <header className="top-nav">
       <div className="brand-section">
-        <div className="brand-logo">
+        <div className="brand-logo" data-tooltip="TikTok LIVE" data-tooltip-pos="bottom">
           <IconTikTok />
         </div>
         <div className="brand-info">
@@ -159,7 +258,7 @@ export function TopNav({
 
       <div className="top-center">
         {activeCreator ? (
-          <div className="active-creator-pill">
+          <div className="active-creator-pill" data-tooltip={`Status: ${status}`} data-tooltip-pos="bottom">
             <span className={`status-dot ${isConnected ? 'online' : isBusy ? 'busy' : 'offline'}`} />
             <span>@{activeCreator.replace(/^@/, '')}</span>
           </div>
@@ -167,242 +266,91 @@ export function TopNav({
       </div>
 
       <div className="top-actions">
+        {isConnected ? (
+          <>
+            <button
+              className="btn-icon"
+              type="button"
+              data-tooltip={t(locale, 'reconnect')}
+              data-tooltip-pos="bottom"
+              onClick={onReconnect}
+            >
+              <IconRefresh />
+            </button>
+            <button
+              className="btn-icon btn-danger"
+              type="button"
+              data-tooltip={t(locale, 'disconnect')}
+              data-tooltip-pos="bottom"
+              onClick={onDisconnect}
+            >
+              <IconPower />
+            </button>
+          </>
+        ) : null}
+
         <button
           className="btn-icon"
           type="button"
-          title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          data-tooltip={t(locale, 'switchTheme')}
+          data-tooltip-pos="bottom"
           onClick={onThemeToggle}
         >
-          {theme === 'dark' ? '☀️' : '🌙'}
+          {theme === 'dark' ? <IconSun /> : <IconMoon />}
         </button>
+
         <button
           className="btn-icon"
           type="button"
-          title="Switch Language"
+          data-tooltip={t(locale, 'switchLanguage') + ` (${locale.toUpperCase()})`}
+          data-tooltip-pos="bottom"
           onClick={onLocaleToggle}
         >
-          <span style={{ fontSize: '11px', fontWeight: 800 }}>{locale.toUpperCase()}</span>
-        </button>
-        <button
-          className="btn-icon"
-          type="button"
-          title={t(locale, 'openPreferences')}
-          onClick={onOpenSettings}
-        >
-          <IconSettings />
+          <IconGlobe />
         </button>
       </div>
     </header>
   );
 }
 
-// Sidebar Control & Telemetry Panel
-type SidebarControlProps = {
+// ==========================================
+// 🧭 Minimalist Navigation Rail Component
+// ==========================================
+type NavigationRailProps = {
   locale: Locale;
-  uniqueId: string;
-  cookie: string;
-  status: ConnectionStatus;
-  telemetry: StreamTelemetry;
-  recents: string[];
-  error: string;
-  onUniqueIdChange: (val: string) => void;
-  onCookieChange: (val: string) => void;
-  onConnect: () => void;
-  onPickLive: () => void;
-  onReconnect: () => void;
-  onDisconnect: () => void;
-  onSelectRecent: (username: string) => void;
+  activeTab: AppTab;
+  onTabChange: (tab: AppTab) => void;
 };
 
-export function SidebarControl({
-  locale,
-  uniqueId,
-  cookie,
-  status,
-  telemetry,
-  recents,
-  error,
-  onUniqueIdChange,
-  onCookieChange,
-  onConnect,
-  onPickLive,
-  onReconnect,
-  onDisconnect,
-  onSelectRecent,
-}: SidebarControlProps) {
-  const isConnected = status === 'connected';
-  const isBusy = status === 'connecting' || status === 'retrying';
-  const [showCookieInput, setShowCookieInput] = useState(Boolean(cookie));
-
-  const handleFormSubmit = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
-    e.preventDefault();
-    onConnect();
-  };
+export function NavigationRail({ locale, activeTab, onTabChange }: NavigationRailProps) {
+  const navTabs: Array<{ id: AppTab; tooltip: string; icon: JSX.Element }> = [
+    { id: 'feed', tooltip: t(locale, 'tabFeed'), icon: <IconChat /> },
+    { id: 'analytics', tooltip: t(locale, 'tabAnalytics'), icon: <IconBarChart /> },
+    { id: 'connect', tooltip: t(locale, 'tabConnect'), icon: <IconRadio /> },
+    { id: 'settings', tooltip: t(locale, 'tabSettings'), icon: <IconSettings /> },
+  ];
 
   return (
-    <aside className="sidebar">
-      {/* Connect Card */}
-      <section className="sidebar-card">
-        <h3>{t(locale, 'configuration')}</h3>
-        <form onSubmit={handleFormSubmit}>
-          <div className="form-group">
-            <label htmlFor="creator-handle">{t(locale, 'creatorHandle')}</label>
-            <div className="input-wrapper has-prefix">
-              <span className="input-prefix">@</span>
-              <input
-                id="creator-handle"
-                type="text"
-                value={uniqueId}
-                placeholder="creator_handle"
-                spellcheck={false}
-                autoComplete="off"
-                onInput={(e) => onUniqueIdChange(e.currentTarget.value)}
-              />
-            </div>
-          </div>
-
-          {showCookieInput ? (
-            <div className="form-group">
-              <label htmlFor="session-cookie">
-                {t(locale, 'authenticatedCookie')} <span style={{ opacity: 0.6 }}>({t(locale, 'optional')})</span>
-              </label>
-              <input
-                id="session-cookie"
-                type="password"
-                value={cookie}
-                placeholder="sessionid=..."
-                spellcheck={false}
-                onInput={(e) => onCookieChange(e.currentTarget.value)}
-              />
-            </div>
-          ) : (
-            <div style={{ marginBottom: '8px' }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ fontSize: '11px', padding: '3px 8px', width: 'auto' }}
-                onClick={() => setShowCookieInput(true)}
-              >
-                + {t(locale, 'authenticatedCookie')}
-              </button>
-            </div>
-          )}
-
-          {error ? <div className="error">{error}</div> : null}
-
-          <div className="form-actions">
-            {!isConnected ? (
-              <>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={isBusy || !uniqueId.trim()}
-                >
-                  {isBusy ? t(locale, 'connecting') : t(locale, 'connect')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-cyan"
-                  title={t(locale, 'pickLive')}
-                  disabled={isBusy}
-                  onClick={onPickLive}
-                >
-                  🎲
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={onReconnect}
-                >
-                  <IconRefresh /> {t(locale, 'reconnect')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={onDisconnect}
-                >
-                  <IconPower /> {t(locale, 'disconnect')}
-                </button>
-              </>
-            )}
-          </div>
-        </form>
-      </section>
-
-      {/* Live Stream Telemetry Counter */}
-      <section className="sidebar-card">
-        <h3>Stream Metrics</h3>
-        <div className="telemetry-grid">
-          <div className="telemetry-item">
-            <div className="telemetry-icon chats">
-              <IconChat />
-            </div>
-            <div className="telemetry-data">
-              <span className="telemetry-value">{telemetry.chats.toLocaleString()}</span>
-              <span className="telemetry-label">{t(locale, 'statsChats')}</span>
-            </div>
-          </div>
-
-          <div className="telemetry-item">
-            <div className="telemetry-icon gifts">
-              <IconGift />
-            </div>
-            <div className="telemetry-data">
-              <span className="telemetry-value">{telemetry.gifts.toLocaleString()}</span>
-              <span className="telemetry-label">{t(locale, 'statsGifts')}</span>
-            </div>
-          </div>
-
-          <div className="telemetry-item">
-            <div className="telemetry-icon likes">
-              <IconHeart />
-            </div>
-            <div className="telemetry-data">
-              <span className="telemetry-value">{telemetry.likes.toLocaleString()}</span>
-              <span className="telemetry-label">{t(locale, 'statsLikes')}</span>
-            </div>
-          </div>
-
-          <div className="telemetry-item">
-            <div className="telemetry-icon members">
-              <IconUsers />
-            </div>
-            <div className="telemetry-data">
-              <span className="telemetry-value">{telemetry.members.toLocaleString()}</span>
-              <span className="telemetry-label">{t(locale, 'statsMembers')}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Streamers */}
-      <section className="sidebar-card">
-        <h3>{t(locale, 'recentStreamers')}</h3>
-        {recents.length > 0 ? (
-          <div className="recent-list">
-            {recents.map((creator) => (
-              <button
-                key={creator}
-                type="button"
-                className="recent-chip"
-                onClick={() => onSelectRecent(creator)}
-              >
-                @{creator}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <span className="empty-recents">{t(locale, 'noRecents')}</span>
-        )}
-      </section>
-    </aside>
+    <nav className="nav-rail" aria-label="Main Navigation">
+      {navTabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          className={`nav-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+          data-tooltip={tab.tooltip}
+          data-tooltip-pos="right"
+          onClick={() => onTabChange(tab.id)}
+        >
+          {tab.icon}
+        </button>
+      ))}
+    </nav>
   );
 }
 
-// Event Stream & Feed Component
+// ==========================================
+// 💬 Live Feed View Component
+// ==========================================
 type LiveFeedProps = {
   locale: Locale;
   events: DisplayEvent[];
@@ -430,12 +378,12 @@ export function LiveFeed({
   onClearFeed,
   streamContainerRef,
 }: LiveFeedProps) {
-  const filterOptions: Array<{ key: EventFilter; label: string; icon?: string }> = [
-    { key: 'all', label: t(locale, 'filterAll') },
-    { key: 'chat', label: t(locale, 'filterChats') },
-    { key: 'gift', label: t(locale, 'filterGifts') },
-    { key: 'like', label: t(locale, 'filterLikes') },
-    { key: 'social', label: t(locale, 'filterSocial') },
+  const filterButtons: Array<{ key: EventFilter; tooltip: string; icon: JSX.Element }> = [
+    { key: 'all', tooltip: t(locale, 'filterAll'), icon: <IconSparkles /> },
+    { key: 'chat', tooltip: t(locale, 'filterChats'), icon: <IconChat /> },
+    { key: 'gift', tooltip: t(locale, 'filterGifts'), icon: <IconGift /> },
+    { key: 'like', tooltip: t(locale, 'filterLikes'), icon: <IconHeart /> },
+    { key: 'social', tooltip: t(locale, 'filterSocial'), icon: <IconUsers /> },
   ];
 
   const filteredEvents = events.filter((ev) => {
@@ -447,26 +395,26 @@ export function LiveFeed({
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchAuthor = ev.author.toLowerCase().includes(q);
-      const matchText = ev.text.toLowerCase().includes(q);
-      return matchAuthor || matchText;
+      return ev.author.toLowerCase().includes(q) || ev.text.toLowerCase().includes(q);
     }
     return true;
   });
 
   return (
     <main className="feed-pane">
-      {/* Filter and Search Bar */}
+      {/* Filter & Search Bar */}
       <div className="feed-toolbar">
-        <div className="filter-pills">
-          {filterOptions.map((opt) => (
+        <div className="filter-icon-group">
+          {filterButtons.map((btn) => (
             <button
-              key={opt.key}
+              key={btn.key}
               type="button"
-              className={`filter-pill ${filter === opt.key ? 'active' : ''}`}
-              onClick={() => onFilterChange(opt.key)}
+              className={`filter-icon-btn ${filter === btn.key ? 'active' : ''}`}
+              data-tooltip={btn.tooltip}
+              data-tooltip-pos="bottom"
+              onClick={() => onFilterChange(btn.key)}
             >
-              {opt.label}
+              {btn.icon}
             </button>
           ))}
         </div>
@@ -485,6 +433,8 @@ export function LiveFeed({
             <button
               type="button"
               className="search-clear"
+              data-tooltip="Clear search"
+              data-tooltip-pos="left"
               onClick={() => onSearchChange('')}
             >
               ✕
@@ -493,11 +443,13 @@ export function LiveFeed({
         </div>
       </div>
 
-      {/* Message Stream */}
+      {/* Message Stream Area */}
       <div className="feed-stream" ref={streamContainerRef}>
         {filteredEvents.length === 0 ? (
           <div className="feed-empty">
-            <div className="empty-icon">💬</div>
+            <div className="empty-icon">
+              <IconChat />
+            </div>
             <p>{t(locale, 'messagesEmpty')}</p>
           </div>
         ) : (
@@ -525,7 +477,7 @@ export function LiveFeed({
         )}
       </div>
 
-      {/* Jump to latest unread button */}
+      {/* Floating Jump to Latest Button */}
       {!autoScroll && unreadCount > 0 ? (
         <div className="feed-floating-bar">
           <button
@@ -534,32 +486,36 @@ export function LiveFeed({
             style={{ height: '30px', fontSize: '12px', padding: '0 12px', borderRadius: '15px' }}
             onClick={onToggleAutoScroll}
           >
-            ⬇ {t(locale, 'scrollToBottom', { count: unreadCount })}
+            <IconArrowDown /> {t(locale, 'scrollToBottom', { count: unreadCount })}
           </button>
         </div>
       ) : null}
 
-      {/* Feed Bottom Status & Actions */}
+      {/* Footer Info & Actions */}
       <footer className="feed-footer-info">
         <span>
           {t(locale, filteredEvents.length === 1 ? 'messageCountOne' : 'messageCountMany', { count: filteredEvents.length })}
         </span>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           <button
             type="button"
-            className="btn-secondary"
-            style={{ fontSize: '11px', padding: '3px 8px', height: '24px' }}
+            className="btn-icon"
+            style={{ width: '28px', height: '28px' }}
+            data-tooltip={autoScroll ? t(locale, 'autoScrollOn') : t(locale, 'autoScrollPaused')}
+            data-tooltip-pos="top"
             onClick={onToggleAutoScroll}
           >
-            {autoScroll ? '🟢 ' + t(locale, 'autoScrollOn') : '⏸️ ' + t(locale, 'autoScrollPaused')}
+            {autoScroll ? '🟢' : '⏸️'}
           </button>
           <button
             type="button"
-            className="btn-secondary"
-            style={{ fontSize: '11px', padding: '3px 8px', height: '24px' }}
+            className="btn-icon"
+            style={{ width: '28px', height: '28px' }}
+            data-tooltip={t(locale, 'clearFeed')}
+            data-tooltip-pos="top"
             onClick={onClearFeed}
           >
-            🗑️ {t(locale, 'clearFeed')}
+            <IconTrash />
           </button>
         </div>
       </footer>
@@ -567,41 +523,295 @@ export function LiveFeed({
   );
 }
 
-// Settings Modal Component
-type SettingsModalProps = {
+// ==========================================
+// 📊 Stream Analytics View Component
+// ==========================================
+type AnalyticsViewProps = {
+  locale: Locale;
+  telemetry: StreamTelemetry;
+  events: DisplayEvent[];
+};
+
+export function AnalyticsView({ locale, telemetry, events }: AnalyticsViewProps) {
+  // Compute top active chatters
+  const authorCounts = new Map<string, number>();
+  events.forEach((ev) => {
+    authorCounts.set(ev.author, (authorCounts.get(ev.author) ?? 0) + 1);
+  });
+  const topChatters = Array.from(authorCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const totalEvents = telemetry.chats + telemetry.gifts + telemetry.likes + telemetry.members;
+
+  return (
+    <div className="view-container">
+      <div className="analytics-pane">
+        <header className="analytics-header">
+          <h2>
+            <IconBarChart /> {t(locale, 'tabAnalytics')}
+          </h2>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            {t(locale, 'messageCountMany', { count: totalEvents })}
+          </span>
+        </header>
+
+        {/* 4 Metric Cards */}
+        <div className="stats-grid-large">
+          <div className="stats-card-large">
+            <div className="stats-icon-large chats">
+              <IconChat />
+            </div>
+            <div>
+              <div className="stats-val-large">{telemetry.chats.toLocaleString()}</div>
+              <div className="stats-lbl-large">{t(locale, 'statsChats')}</div>
+            </div>
+          </div>
+
+          <div className="stats-card-large">
+            <div className="stats-icon-large gifts">
+              <IconGift />
+            </div>
+            <div>
+              <div className="stats-val-large">{telemetry.gifts.toLocaleString()}</div>
+              <div className="stats-lbl-large">{t(locale, 'statsGifts')}</div>
+            </div>
+          </div>
+
+          <div className="stats-card-large">
+            <div className="stats-icon-large likes">
+              <IconHeart />
+            </div>
+            <div>
+              <div className="stats-val-large">{telemetry.likes.toLocaleString()}</div>
+              <div className="stats-lbl-large">{t(locale, 'statsLikes')}</div>
+            </div>
+          </div>
+
+          <div className="stats-card-large">
+            <div className="stats-icon-large members">
+              <IconUsers />
+            </div>
+            <div>
+              <div className="stats-val-large">{telemetry.members.toLocaleString()}</div>
+              <div className="stats-lbl-large">{t(locale, 'statsMembers')}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Active Chatters Card */}
+        <div className="connect-card" style={{ width: '100%' }}>
+          <h2>
+            <IconUsers /> {t(locale, 'topChatters')}
+          </h2>
+          {topChatters.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {topChatters.map(([author, count], idx) => (
+                <div
+                  key={author}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--line)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--tt-pink)' }}>#{idx + 1}</span>
+                    <span style={{ fontWeight: 600 }}>@{author}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {count} {count === 1 ? 'event' : 'events'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+              {t(locale, 'noData')}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 📡 Connect / Streamers View Component
+// ==========================================
+type ConnectViewProps = {
+  locale: Locale;
+  uniqueId: string;
+  cookie: string;
+  status: ConnectionStatus;
+  recents: string[];
+  error: string;
+  onUniqueIdChange: (val: string) => void;
+  onCookieChange: (val: string) => void;
+  onConnect: () => void;
+  onPickLive: () => void;
+  onSelectRecent: (username: string) => void;
+};
+
+export function ConnectView({
+  locale,
+  uniqueId,
+  cookie,
+  status,
+  recents,
+  error,
+  onUniqueIdChange,
+  onCookieChange,
+  onConnect,
+  onPickLive,
+  onSelectRecent,
+}: ConnectViewProps) {
+  const isBusy = status === 'connecting' || status === 'retrying';
+  const [showCookie, setShowCookie] = useState(Boolean(cookie));
+
+  const handleSubmit = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
+    e.preventDefault();
+    onConnect();
+  };
+
+  return (
+    <div className="view-container">
+      <div className="connect-pane">
+        <div className="connect-card">
+          <h2>
+            <IconRadio /> {t(locale, 'connectToLive')}
+          </h2>
+          <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+            {t(locale, 'setupLead')}
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="connect-creator">{t(locale, 'creatorHandle')}</label>
+              <div className="input-wrapper has-prefix">
+                <span className="input-prefix">@</span>
+                <input
+                  id="connect-creator"
+                  type="text"
+                  placeholder="creator_handle"
+                  value={uniqueId}
+                  spellcheck={false}
+                  autoComplete="off"
+                  onInput={(e) => onUniqueIdChange(e.currentTarget.value)}
+                />
+              </div>
+            </div>
+
+            {showCookie ? (
+              <div className="form-group">
+                <label htmlFor="connect-cookie">
+                  {t(locale, 'authenticatedCookie')} <span style={{ opacity: 0.6 }}>({t(locale, 'optional')})</span>
+                </label>
+                <input
+                  id="connect-cookie"
+                  type="password"
+                  placeholder="sessionid=..."
+                  value={cookie}
+                  spellcheck={false}
+                  onInput={(e) => onCookieChange(e.currentTarget.value)}
+                />
+              </div>
+            ) : (
+              <div style={{ marginBottom: '10px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ fontSize: '11px', padding: '4px 10px' }}
+                  onClick={() => setShowCookie(true)}
+                >
+                  + {t(locale, 'authenticatedCookie')}
+                </button>
+              </div>
+            )}
+
+            {error ? <div className="error-banner">{error}</div> : null}
+
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isBusy || !uniqueId.trim()}
+              >
+                {isBusy ? t(locale, 'connecting') : t(locale, 'connect')}
+              </button>
+              <button
+                type="button"
+                className="btn-cyan"
+                data-tooltip={t(locale, 'pickLive')}
+                data-tooltip-pos="top"
+                disabled={isBusy}
+                onClick={onPickLive}
+              >
+                <IconDice />
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Recent Streamers Card */}
+        <div className="connect-card">
+          <h2>
+            <IconUsers /> {t(locale, 'recentStreamers')}
+          </h2>
+          {recents.length > 0 ? (
+            <div className="recent-list">
+              {recents.map((creator) => (
+                <button
+                  key={creator}
+                  type="button"
+                  className="recent-chip"
+                  data-tooltip={`Connect to @${creator}`}
+                  data-tooltip-pos="top"
+                  onClick={() => onSelectRecent(creator)}
+                >
+                  @{creator}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t(locale, 'noRecents')}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// ⚙️ Settings / Preferences View Component
+// ==========================================
+type SettingsViewProps = {
   locale: Locale;
   theme: Theme;
   onLocaleChange: (l: Locale) => void;
   onThemeChange: (t: Theme) => void;
-  onClose: () => void;
 };
 
-export function SettingsModal({
-  locale,
-  theme,
-  onLocaleChange,
-  onThemeChange,
-  onClose,
-}: SettingsModalProps) {
+export function SettingsView({ locale, theme, onLocaleChange, onThemeChange }: SettingsViewProps) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-window" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <header className="modal-header">
-          <h2>⚙️ {t(locale, 'preferences')}</h2>
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        </header>
+    <div className="view-container">
+      <div className="connect-pane">
+        <div className="connect-card">
+          <h2>
+            <IconSettings /> {t(locale, 'preferences')}
+          </h2>
+          <p style={{ margin: '0 0 16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+            {t(locale, 'preferencesLead')}
+          </p>
 
-        <div className="modal-body">
           <div className="form-group">
-            <label htmlFor="settings-lang">{t(locale, 'language')}</label>
+            <label htmlFor="settings-language">{t(locale, 'language')}</label>
             <select
-              id="settings-lang"
+              id="settings-language"
               value={locale}
               onChange={(e) => onLocaleChange(e.currentTarget.value as Locale)}
             >
@@ -611,9 +821,9 @@ export function SettingsModal({
           </div>
 
           <div className="form-group">
-            <label htmlFor="settings-theme">{t(locale, 'theme')}</label>
+            <label htmlFor="settings-theme-select">{t(locale, 'theme')}</label>
             <select
-              id="settings-theme"
+              id="settings-theme-select"
               value={theme}
               onChange={(e) => onThemeChange(e.currentTarget.value as Theme)}
             >
@@ -622,16 +832,10 @@ export function SettingsModal({
             </select>
           </div>
 
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+          <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
             ℹ️ {t(locale, 'cookiesMemory')}
           </div>
         </div>
-
-        <footer className="modal-footer">
-          <button type="button" className="btn-primary" onClick={onClose}>
-            {t(locale, 'done')}
-          </button>
-        </footer>
       </div>
     </div>
   );
