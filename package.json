@@ -14,6 +14,7 @@
     "typescript": "^6"
   },
   "dependencies": {
+    "preact": "^10.29.8",
     "tray-icon-node": "^0.1.2",
     "webview-napi": "^2.2.0"
   }

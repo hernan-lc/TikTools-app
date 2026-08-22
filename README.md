@@ -4,25 +4,26 @@ This is a small Bun desktop example built with:
 
 - [webview-napi](https://www.npmjs.com/package/webview-napi) for the native window and local WebView UI;
 - [tray-icon-node](https://www.npmjs.com/package/tray-icon-node) for the system-tray menu;
+- [Preact](https://preactjs.com/) for the small, component-based wizard UI;
 - [tiktok-signer](https://github.com/nglmercer/tiktok-signer), included as vendor/tiktok-signer, for its ttl-live Node client.
 
-The app has a three-step wizard:
+The app has a two-step wizard:
 
-1. choose anonymous guest mode or provide an optional authenticated TikTok cookie header;
-2. enter the creator handle, for example @creator;
-3. receive chat, gift, like, join, follow, and share events in the WebView.
+1. enter a creator handle and optionally provide an authenticated TikTok cookie header;
+2. receive chat, gift, like, join, follow, and share events in the WebView.
 
-The channel step also has “Pick a live automatically”. It follows the upstream example: it bootstraps an anonymous guest identity when needed, searches TikTok live rooms, chooses one result, and connects directly with its room ID.
+The setup step also has “Pick a live automatically”. It follows the upstream example: it bootstraps an anonymous guest identity when needed, searches TikTok live rooms, chooses one result, and connects directly with its room ID.
 
 The window hides to the system tray when it is closed. Use the tray menu to show it again or quit.
 
 ## Minimal architecture
 
-- Embedded webview-napi runtime: the native event loop is pumped by the Bun process.
-- One window plus one tray icon: closing the window hides it; the tray restores or quits it.
-- Inline HTML and vanilla JavaScript: no Bun.serve(), port 0, Preact, or Vue is needed for this wizard.
+- `Bun.serve({ port: 0 })` serves `src/web/index.html` and its bundled Preact/CSS assets on an ephemeral localhost port.
+- The embedded `webview-napi` window loads that URL, so the frontend stays modular and can use normal TypeScript modules and framework tooling.
+- `src/live-controller.ts` owns discovery, guest bootstrap, WebSocket reconnects, and event conversion; `src/bridge.ts` validates WebView IPC messages.
+- One native window plus one tray icon is enough: closing the window hides it, while the tray restores or quits it.
 
-Use a frontend framework only if this UI grows into a larger application with reusable screens and complex state. Add a second window only for a genuinely separate task; the current guest/authenticated flow fits cleanly in one window.
+Preact is a good fit here because it provides reusable components and predictable state with very little runtime overhead. Vue would also work, but would add a larger dependency and a second framework style without a benefit for this small wizard. A second native window is not needed unless settings or another independent workflow grows later.
 
 ## Run
 
@@ -40,6 +41,8 @@ bun install
 bun run typecheck
 bun run start
 ~~~~
+
+The server binds to port `0`, so the operating system selects a free local port. The selected URL is passed directly to the embedded WebView; no fixed port or separate frontend process is required.
 
 ## Session modes
 
