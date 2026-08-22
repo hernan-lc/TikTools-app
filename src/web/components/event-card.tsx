@@ -127,17 +127,25 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
                   src={event.giftDetails.imageUrl}
                   alt={event.giftDetails.name}
                   loading="lazy"
+                  referrerPolicy="no-referrer"
+                  decoding="async"
                   onError={(e) => {
                     const img = e.currentTarget as HTMLImageElement;
+                    console.warn('[gift-img-error]', event.giftDetails?.name, img.src.slice(0, 80));
                     img.style.display = 'none';
                     const fallback = img.nextElementSibling as HTMLElement | null;
                     if (fallback) fallback.style.display = 'inline-flex';
+                  }}
+                  onLoad={() => {
+                    // debug: image loaded successfully
+                    // console.log('[gift-img-loaded]', event.giftDetails?.name);
                   }}
                 />
               ) : null}
               <span
                 className="tt-gift-icon"
                 style={{ display: event.giftDetails?.imageUrl ? 'none' : 'inline-flex' }}
+                title={event.giftDetails?.name || 'Gift'}
               >
                 <IconGift />
               </span>{' '}

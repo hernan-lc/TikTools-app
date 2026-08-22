@@ -50,6 +50,23 @@ interface CountRow {
   count: number;
 }
 
+interface CreatorRow {
+  unique_id: string;
+  room_id: string | null;
+  nickname: string | null;
+  avatar_url: string | null;
+  title: string | null;
+  last_connected: number;
+  connect_count: number;
+  display_id: string | null;
+}
+
+interface AppStateRow {
+  key: string;
+  value: string;
+  updated_at: number;
+}
+
 export interface PointsConfig {
   currencyName: string;
   pointsPerCoin: number;
@@ -82,6 +99,24 @@ export interface ViewerRecord {
   totalShares: number;
   firstSeen: number;
   lastSeen: number;
+}
+
+export interface CreatorRecord {
+  uniqueId: string;
+  roomId: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+  title: string | null;
+  lastConnected: number;
+  connectCount: number;
+  displayId?: string;
+}
+
+export interface AppState {
+  lastCreator?: string;
+  lastRoomId?: string;
+  lastTitle?: string;
+  autoConnect?: boolean;
 }
 
 export interface PointAwardResult {
@@ -183,6 +218,29 @@ export class PointsDatabase {
         reason TEXT,
         metadata TEXT,
         created_at INTEGER
+      )
+    `);
+
+    // Creator history — recent creators & active creator
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS creator_history (
+        unique_id TEXT PRIMARY KEY,
+        room_id TEXT,
+        nickname TEXT,
+        avatar_url TEXT,
+        title TEXT,
+        last_connected INTEGER,
+        connect_count INTEGER DEFAULT 1,
+        display_id TEXT
+      )
+    `);
+
+    // Generic app state KV — lastCreator, lastRoomId, session cookie flags, etc.
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS app_state (
+        key TEXT PRIMARY KEY,
+        value TEXT,
+        updated_at INTEGER
       )
     `);
   }
@@ -462,5 +520,139 @@ export class PointsDatabase {
       this.db.query('UPDATE viewers SET points = 0, level = 1').run([]);
       this.db.query('DELETE FROM points_transactions').run([]);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Creator / Room persistence — mirrors RecentCreators + active creator in SQLite
+  // ---------------------------------------------------------------------------
+
+  public saveCreator(record: {
+    uniqueId: string;
+    roomId?: string | null;
+    nickname?: string | null;
+    avatarUrl?: string | null;
+    title?: string | null;
+    displayId?: string | null;
+  }): CreatorRecord {
+    const cleanId = record.uniqueId.trim().replace(/^@/, '');
+    const now = Date.now();
+    const existing = this.db.query('SELECT * FROM creator_history WHERE unique_id = ?').get([cleanId]) as CreatorRow | null;
+
+    if (!existing) {
+      this.db.query(`
+        INSERT INTO creator_history (unique_id, room_id, nickname, avatar_url, title, last_connected, connect_count, display_id)
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+      `).run([
+        cleanId,
+        record.roomId || null,
+        record.nickname || cleanId,
+        record.avatarUrl || null,
+        record.title || null,
+        now,
+        record.displayId || cleanId,
+      ]);
+    } else {
+      this.db.query(`
+        UPDATE creator_history SET
+          room_id = COALESCE(?, room_id),
+          nickname = COALESCE(?, nickname),
+          avatar_url = COALESCE(?, avatar_url),
+          title = COALESCE(?, title),
+          last_connected = ?,
+          connect_count = connect_count + 1,
+          display_id = COALESCE(?, display_id)
+        WHERE unique_id = ?
+      `).run([
+        record.roomId || null,
+        record.nickname || null,
+        record.avatarUrl || null,
+        record.title || null,
+        now,
+        record.displayId || null,
+        cleanId,
+      ]);
+    }
+
+    // also persist as active creator in app_state
+    this.setAppState('lastCreator', cleanId);
+    if (record.roomId) this.setAppState('lastRoomId', record.roomId);
+    if (record.title) this.setAppState('lastTitle', record.title);
+
+    return this.getCreator(cleanId) ?? {
+      uniqueId: cleanId,
+      roomId: record.roomId || null,
+      nickname: record.nickname || cleanId,
+      avatarUrl: record.avatarUrl || null,
+      title: record.title || null,
+      lastConnected: now,
+      connectCount: 1,
+    };
+  }
+
+  public getCreator(uniqueId: string): CreatorRecord | null {
+    const cleanId = uniqueId.trim().replace(/^@/, '');
+    const row = this.db.query('SELECT * FROM creator_history WHERE unique_id = ?').get([cleanId]) as CreatorRow | null;
+    if (!row) return null;
+    return {
+      uniqueId: row.unique_id,
+      roomId: row.room_id,
+      nickname: row.nickname,
+      avatarUrl: row.avatar_url,
+      title: row.title,
+      lastConnected: Number(row.last_connected ?? 0),
+      connectCount: Number(row.connect_count ?? 1),
+      displayId: row.display_id ?? row.unique_id,
+    };
+  }
+
+  public getRecentCreators(limit = 10): CreatorRecord[] {
+    const rows = this.db.query(`
+      SELECT * FROM creator_history
+      ORDER BY last_connected DESC
+      LIMIT ?
+    `).all([limit]) as CreatorRow[];
+    return rows.map((row) => ({
+      uniqueId: row.unique_id,
+      roomId: row.room_id,
+      nickname: row.nickname,
+      avatarUrl: row.avatar_url,
+      title: row.title,
+      lastConnected: Number(row.last_connected ?? 0),
+      connectCount: Number(row.connect_count ?? 1),
+      displayId: row.display_id ?? row.unique_id,
+    }));
+  }
+
+  public getActiveCreator(): CreatorRecord | null {
+    const last = this.getAppState('lastCreator');
+    if (!last) return null;
+    return this.getCreator(last);
+  }
+
+  public clearCreatorHistory(): void {
+    this.db.query('DELETE FROM creator_history').run([]);
+    this.db.query("DELETE FROM app_state WHERE key IN ('lastCreator','lastRoomId','lastTitle')").run([]);
+  }
+
+  // Generic KV
+  public setAppState(key: string, value: string): void {
+    const now = Date.now();
+    this.db.query(`
+      INSERT INTO app_state (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run([key, value, now]);
+  }
+
+  public getAppState(key: string): string | null {
+    const row = this.db.query('SELECT value FROM app_state WHERE key = ?').get([key]) as AppStateRow | null;
+    return row?.value ?? null;
+  }
+
+  public getAllAppState(): Record<string, string> {
+    const rows = this.db.query('SELECT key, value FROM app_state').all([]) as AppStateRow[];
+    const out: Record<string, string> = {};
+    for (const r of rows) out[r.key] = r.value;
+    return out;
   }
 }

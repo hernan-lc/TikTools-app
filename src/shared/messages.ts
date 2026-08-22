@@ -54,6 +54,17 @@ export type ViewerRecord = {
   lastSeen: number;
 };
 
+export type CreatorRecord = {
+  uniqueId: string;
+  roomId: string | null;
+  nickname: string | null;
+  avatarUrl: string | null;
+  title: string | null;
+  lastConnected: number;
+  connectCount: number;
+  displayId?: string;
+};
+
 export type PageMessage =
   | { type: 'connect'; uniqueId: string; sessionCookie: string; roomId?: string }
   | { type: 'pick-live'; sessionCookie: string }
@@ -62,7 +73,13 @@ export type PageMessage =
   | { type: 'update-points-config'; config: Partial<PointsConfig> }
   | { type: 'get-leaderboard'; limit?: number }
   | { type: 'reset-points'; uniqueId?: string }
-  | { type: 'adjust-points'; uniqueId: string; delta: number };
+  | { type: 'adjust-points'; uniqueId: string; delta: number }
+  | { type: 'get-creator'; uniqueId?: string }
+  | { type: 'get-recent-creators'; limit?: number }
+  | { type: 'get-app-state'; keys?: string[] }
+  | { type: 'set-app-state'; key: string; value: string }
+  | { type: 'clear-creator-history' }
+  | { type: 'debug-gift'; giftId?: string };
 
 export type TopViewerPayload = {
   rank: number;
@@ -80,6 +97,8 @@ export type HostMessage =
       status: 'connecting' | 'connected' | 'disconnected';
       uniqueId?: string;
       title?: string;
+      roomId?: string;
+      avatarUrl?: string;
     }
   | { type: 'live-event'; event: UiEvent }
   | { type: 'room-stats'; viewers: number; totalUsers: number; topViewers: TopViewerPayload[] }
@@ -93,4 +112,8 @@ export type HostMessage =
       delta: number;
       totalPoints: number;
       level: number;
-    };
+    }
+  | { type: 'creator-state'; creator: CreatorRecord | null }
+  | { type: 'recent-creators'; creators: CreatorRecord[] }
+  | { type: 'app-state'; state: Record<string, string> }
+  | { type: 'gift-debug'; giftId?: string; iconUrl?: string; hasIcon: boolean; totalGifts: number };

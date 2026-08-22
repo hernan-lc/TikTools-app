@@ -1,4 +1,5 @@
 import type {
+  CreatorRecord,
   PointsConfig,
   TopViewerPayload,
   UiEvent,
@@ -29,4 +30,4 @@ export type StreamTelemetry = {
   members: number;
 };
 
-export type { PointsConfig, TopViewerPayload, ViewerRecord };
+export type { CreatorRecord, PointsConfig, TopViewerPayload, ViewerRecord };

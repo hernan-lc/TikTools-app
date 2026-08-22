@@ -1162,12 +1162,19 @@ input:focus, select:focus {
 :root[data-theme="light"] .tt-gift-text { color: #9a3412; }
 
 .tt-gift-img {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
   vertical-align: middle;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
   flex-shrink: 0;
+  background: rgba(255,255,255,0.92);
+  border-radius: 4px;
+  padding: 2px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+:root[data-theme="dark"] .tt-gift-img {
+  background: rgba(255,255,255,0.94);
 }
 
 .tt-gift-icon {

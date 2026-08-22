@@ -108,6 +108,57 @@ export class LiveController {
         });
         break;
       }
+      case 'get-creator': {
+        const creator = message.uniqueId
+          ? this.pointsDb.getCreator(message.uniqueId)
+          : this.pointsDb.getActiveCreator();
+        this.send({ type: 'creator-state', creator });
+        break;
+      }
+      case 'get-recent-creators': {
+        const creators = this.pointsDb.getRecentCreators(message.limit ?? 10);
+        this.send({ type: 'recent-creators', creators });
+        break;
+      }
+      case 'get-app-state': {
+        if (message.keys && message.keys.length > 0) {
+          const state: Record<string, string> = {};
+          for (const k of message.keys) {
+            const v = this.pointsDb.getAppState(k);
+            if (v !== null) state[k] = v;
+          }
+          this.send({ type: 'app-state', state });
+        } else {
+          this.send({ type: 'app-state', state: this.pointsDb.getAllAppState() });
+        }
+        break;
+      }
+      case 'set-app-state': {
+        this.pointsDb.setAppState(message.key, message.value);
+        this.send({ type: 'app-state', state: { [message.key]: message.value } });
+        break;
+      }
+      case 'clear-creator-history': {
+        this.pointsDb.clearCreatorHistory();
+        this.send({ type: 'recent-creators', creators: [] });
+        this.send({ type: 'creator-state', creator: null });
+        break;
+      }
+      case 'debug-gift': {
+        const giftId = message.giftId ?? '5655';
+        // find gift in current live's map if connected
+        const live: any = this.#live as any;
+        const gift: any = live?.gifts?.get?.(String(giftId));
+        this.send({
+          type: 'gift-debug',
+          giftId,
+          iconUrl: gift?.iconUrl,
+          hasIcon: Boolean(gift?.iconUrl),
+          totalGifts: live?.gifts?.size ?? 0,
+        });
+        console.log(`[debug-gift] giftId=${giftId} hasIcon=${Boolean(gift?.iconUrl)} iconUrl=${gift?.iconUrl?.slice(0,120) || 'MISSING'} totalGifts=${live?.gifts?.size ?? 0}`);
+        break;
+      }
     }
   }
 
@@ -136,12 +187,30 @@ export class LiveController {
 
     client.on('connected', (state: ClientState) => {
       if (generation !== this.#generation) return;
+
+      // Persist creator to SQLite (backend save)
+      const owner = state.roomInfo?.owner;
+      const creatorRecord = this.pointsDb.saveCreator({
+        uniqueId: state.uniqueId,
+        roomId: state.roomId,
+        nickname: owner?.nickname || state.uniqueId,
+        avatarUrl: owner?.avatarUrl || null,
+        title: state.roomInfo?.title || roomTitle(state),
+        displayId: owner?.uniqueId || state.uniqueId,
+      });
+      console.log(`[creator] saved @${creatorRecord.uniqueId} roomId=${creatorRecord.roomId} title=${creatorRecord.title?.slice(0,40) || ''} connectCount=${creatorRecord.connectCount}`);
+
       this.send({
         type: 'connection',
         status: 'connected',
         uniqueId: state.uniqueId,
         title: roomTitle(state),
+        roomId: state.roomId,
+        avatarUrl: owner?.avatarUrl,
       });
+      this.send({ type: 'creator-state', creator: creatorRecord });
+      this.send({ type: 'recent-creators', creators: this.pointsDb.getRecentCreators(10) });
+      this.send({ type: 'app-state', state: this.pointsDb.getAllAppState() });
       // Send initial points config and leaderboard upon connection
       this.send({
         type: 'points-config',
@@ -178,6 +247,19 @@ export class LiveController {
 
       const uiEvent = toUiEvent(event);
       if (!uiEvent) return;
+
+      // Debug: gift image missing — how can debug or not exist?
+      if (isGiftEvent(event) && !uiEvent.giftDetails?.imageUrl) {
+        const live: any = this.#live as any;
+        console.warn(`[gift-image-missing] giftId=${event.giftId} giftName=${event.giftName} iconUrl=${(event as any).giftIconUrl || 'NONE'} totalGifts=${live?.gifts?.size ?? 0} lookup=${live?.gifts?.get?.(String(event.giftId))?.iconUrl?.slice(0,60) || 'lookup-miss'}`);
+        this.send({
+          type: 'gift-debug',
+          giftId: event.giftId,
+          iconUrl: (event as any).giftIconUrl,
+          hasIcon: Boolean((event as any).giftIconUrl),
+          totalGifts: live?.gifts?.size ?? 0,
+        });
+      }
 
       // Process points in SQLite — all branches use type-guard narrowing, no `any` casts.
       let pointsResult = null;

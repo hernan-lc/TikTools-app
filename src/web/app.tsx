@@ -20,6 +20,7 @@ import {
 import type {
   AppTab,
   ConnectionStatus,
+  CreatorRecord,
   DisplayEvent,
   EventFilter,
   PointsConfig,
@@ -93,6 +94,8 @@ function App() {
   const [leaderboard, setLeaderboard] = useState<ViewerRecord[]>([]);
   const [topViewers, setTopViewers] = useState<TopViewerPayload[]>([]);
   const [liveViewers, setLiveViewers] = useState(0);
+  const [activeCreatorRecord, setActiveCreatorRecord] = useState<CreatorRecord | null>(null);
+  const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -127,10 +130,13 @@ function App() {
     saveTheme(theme);
   }, [theme]);
 
-  // Request initial points config & leaderboard from backend on startup
+  // Request initial points config & leaderboard & creator state from backend on startup
   useEffect(() => {
     send({ type: 'get-points-config' });
     send({ type: 'get-leaderboard', limit: 100 });
+    send({ type: 'get-creator' });
+    send({ type: 'get-recent-creators', limit: 10 });
+    send({ type: 'get-app-state' });
   }, []);
 
   // Handle messages from the native runtime
@@ -224,6 +230,44 @@ function App() {
             receivedAt: Date.now(),
           },
         ].slice(-300));
+      }
+
+      if (message.type === 'creator-state') {
+        setActiveCreatorRecord(message.creator);
+        if (message.creator?.uniqueId) {
+          const clean = normalizeUsername(message.creator.uniqueId);
+          setActiveCreator(clean);
+          activeCreatorRef.current = clean;
+          setRecents(addRecentUsername(clean));
+          saveUsername(clean);
+        }
+      }
+
+      if (message.type === 'recent-creators') {
+        setRecentCreators(message.creators);
+        // Merge into local recents for ConnectView fallback
+        const names = message.creators.map((c) => c.uniqueId);
+        if (names.length > 0) {
+          setRecents((prev) => {
+            const merged = [...names, ...prev];
+            return [...new Set(merged)].slice(0, 10);
+          });
+        }
+      }
+
+      if (message.type === 'app-state') {
+        // Keep creator recents in sync; also could store theme/locale if needed
+        console.log('[app-state]', message.state);
+      }
+
+      if (message.type === 'gift-debug') {
+        console.warn(
+          `[gift-debug] giftId=${message.giftId} hasIcon=${message.hasIcon} totalGifts=${message.totalGifts} icon=${message.iconUrl?.slice(0, 80) || 'MISSING'}`,
+        );
+        // If gift has no icon, we keep fallback SVG already — this log helps debug why "not rendering fit image" in [Image 1]
+        if (!message.hasIcon) {
+          console.warn('[gift-debug] how can debug or not exist? totalGifts=', message.totalGifts, '— giftList may not contain this giftId for this room');
+        }
       }
     };
 
