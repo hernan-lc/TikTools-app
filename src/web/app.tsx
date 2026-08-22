@@ -4,15 +4,27 @@ import { render, type JSX } from 'preact';
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
 import {
   BrandHeader,
+  ConfigModal,
+  ConfigurationView,
   MessagesView,
-  SetupView,
+  PreferencesModal,
+  PreferencesView,
   StepBar,
   type ConnectionStatus,
   type DisplayEvent,
   type WizardStep,
 } from './components.tsx';
 import { t, type Locale } from './i18n.ts';
-import { applyTheme, getInitialLocale, getInitialTheme, saveLocale, saveTheme, type Theme } from './preferences.ts';
+import {
+  applyTheme,
+  getInitialLocale,
+  getInitialTheme,
+  getSavedUsername,
+  saveLocale,
+  saveTheme,
+  saveUsername,
+  type Theme,
+} from './preferences.ts';
 import './styles.css';
 
 declare global {
@@ -22,7 +34,7 @@ declare global {
   }
 }
 
-type SetupState = {
+type ConfigurationState = {
   uniqueId: string;
   cookie: string;
 };
@@ -31,25 +43,45 @@ function send(message: PageMessage): void {
   window.ipc?.postMessage(JSON.stringify(message));
 }
 
+function normalizeUsername(value: string): string {
+  return value.trim().replace(/^@/, '');
+}
+
 const initialLocale = getInitialLocale();
 const initialTheme = getInitialTheme();
+const initialUsername = getSavedUsername();
 applyTheme(initialTheme);
 document.documentElement.lang = initialLocale;
 
 function App() {
-  const [step, setStep] = useState<WizardStep>('setup');
-  const [setup, setSetup] = useState<SetupState>({ uniqueId: '', cookie: '' });
+  const [step, setStep] = useState<WizardStep>(initialUsername ? 'dashboard' : 'preferences');
+  const [setup, setSetup] = useState<ConfigurationState>({ uniqueId: initialUsername, cookie: '' });
+  const [savedUsername, setSavedUsername] = useState(initialUsername);
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [title, setTitle] = useState(t(initialLocale, 'waitingForConnection'));
   const [status, setStatus] = useState<ConnectionStatus>('idle');
   const [error, setError] = useState('');
   const [events, setEvents] = useState<DisplayEvent[]>([]);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [configDraft, setConfigDraft] = useState<ConfigurationState>({ uniqueId: initialUsername, cookie: '' });
+  const [configError, setConfigError] = useState('');
   const nextEventId = useRef(0);
+  const usernameRef = useRef(initialUsername);
 
   const resetEvents = (): void => {
     nextEventId.current = 0;
     setEvents([]);
+  };
+
+  const establishUsername = (username: string): string => {
+    const normalized = normalizeUsername(username);
+    usernameRef.current = normalized;
+    setSavedUsername(normalized);
+    setSetup((current) => ({ ...current, uniqueId: normalized }));
+    saveUsername(normalized);
+    return normalized;
   };
 
   useEffect(() => {
@@ -87,8 +119,21 @@ function App() {
       if (message.type === 'error') {
         setStatus('error');
         if (message.phase === 'connect') {
-          setStep('setup');
-          setError(message.message);
+          if (usernameRef.current) {
+            setEvents((current) => [
+              ...current,
+              {
+                kind: 'member' as const,
+                author: t(locale, 'system'),
+                text: message.message,
+                id: nextEventId.current++,
+                receivedAt: Date.now(),
+              },
+            ].slice(-150));
+          } else {
+            setStep('configuration');
+            setError(message.message);
+          }
         } else {
           setEvents((current) => [
             ...current,
@@ -115,21 +160,26 @@ function App() {
     resetEvents();
     setTitle(nextTitle);
     setStatus('connecting');
-    setStep('messages');
+    setStep('dashboard');
     send(message);
+  };
+
+  const startSavedConnection = (username: string, cookie: string): void => {
+    const normalized = establishUsername(username);
+    startConnection(
+      { type: 'connect', uniqueId: normalized, sessionCookie: cookie.trim() },
+      '@' + normalized,
+    );
   };
 
   const handleSubmit = (event: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>): void => {
     event.preventDefault();
-    const uniqueId = setup.uniqueId.trim();
+    const uniqueId = normalizeUsername(setup.uniqueId);
     if (!uniqueId) {
       setError(t(locale, 'handleRequired'));
       return;
     }
-    startConnection(
-      { type: 'connect', uniqueId, sessionCookie: setup.cookie.trim() },
-      '@' + uniqueId.replace(/^@/, ''),
-    );
+    startSavedConnection(uniqueId, setup.cookie);
   };
 
   const handlePickLive = (): void => {
@@ -141,24 +191,86 @@ function App() {
 
   const handleDisconnect = (): void => {
     send({ type: 'disconnect' });
-    setStep('setup');
+    resetEvents();
+    setStep(usernameRef.current ? 'dashboard' : 'configuration');
     setStatus('idle');
     setTitle(t(locale, 'waitingForConnection'));
     setError('');
   };
 
+  const handleOpenConfig = (): void => {
+    setConfigDraft({
+      uniqueId: savedUsername || usernameRef.current || setup.uniqueId,
+      cookie: setup.cookie,
+    });
+    setConfigError('');
+    setConfigOpen(true);
+  };
+
+  const handleConfigCancel = (): void => {
+    setConfigOpen(false);
+    setConfigError('');
+  };
+
+  const handleOpenPreferences = (): void => {
+    setPreferencesOpen(true);
+  };
+
+  const handleClosePreferences = (): void => {
+    setPreferencesOpen(false);
+  };
+
+  const handleConfigSubmit = (event: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>): void => {
+    event.preventDefault();
+    const username = normalizeUsername(configDraft.uniqueId);
+    if (!username) {
+      setConfigError(t(locale, 'handleRequired'));
+      return;
+    }
+    setConfigOpen(false);
+    setConfigError('');
+    setSetup({ uniqueId: username, cookie: configDraft.cookie });
+    startSavedConnection(username, configDraft.cookie);
+  };
+
+  const handleReconnect = (): void => {
+    const username = usernameRef.current;
+    if (!username) {
+      handleOpenConfig();
+      return;
+    }
+    startConnection(
+      { type: 'connect', uniqueId: username, sessionCookie: setup.cookie.trim() },
+      '@' + username,
+    );
+  };
+
+  useEffect(() => {
+    if (!initialUsername) return;
+    startConnection(
+      { type: 'connect', uniqueId: initialUsername, sessionCookie: '' },
+      '@' + initialUsername,
+    );
+  }, []);
+
   return (
     <main className="shell">
       <BrandHeader
         locale={locale}
-        theme={theme}
-        onLocaleChange={setLocale}
-        onThemeChange={setTheme}
+        onOpenPreferences={handleOpenPreferences}
       />
       <StepBar current={step} locale={locale} />
       <section className="card">
-        {step === 'setup' ? (
-          <SetupView
+        {step === 'preferences' ? (
+          <PreferencesView
+            locale={locale}
+            theme={theme}
+            onLocaleChange={setLocale}
+            onThemeChange={setTheme}
+            onContinue={() => setStep('configuration')}
+          />
+        ) : step === 'configuration' ? (
+          <ConfigurationView
             locale={locale}
             uniqueId={setup.uniqueId}
             cookie={setup.cookie}
@@ -170,9 +282,38 @@ function App() {
             onPickLive={handlePickLive}
           />
         ) : (
-          <MessagesView locale={locale} title={title} status={status} events={events} onDisconnect={handleDisconnect} />
+          <MessagesView
+            locale={locale}
+            title={title}
+            status={status}
+            events={events}
+            onOpenConfig={handleOpenConfig}
+            onReconnect={handleReconnect}
+            onDisconnect={handleDisconnect}
+          />
         )}
       </section>
+      {configOpen ? (
+        <ConfigModal
+          locale={locale}
+          username={configDraft.uniqueId}
+          cookie={configDraft.cookie}
+          error={configError}
+          onUsernameChange={(uniqueId) => setConfigDraft((current) => ({ ...current, uniqueId }))}
+          onCookieChange={(cookie) => setConfigDraft((current) => ({ ...current, cookie }))}
+          onSubmit={handleConfigSubmit}
+          onCancel={handleConfigCancel}
+        />
+      ) : null}
+      {preferencesOpen ? (
+        <PreferencesModal
+          locale={locale}
+          theme={theme}
+          onLocaleChange={setLocale}
+          onThemeChange={setTheme}
+          onClose={handleClosePreferences}
+        />
+      ) : null}
     </main>
   );
 }

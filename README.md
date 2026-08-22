@@ -8,14 +8,17 @@ This is a small Bun desktop example built with:
 - a small in-app i18n layer with English and Spanish translations, plus dark and light themes;
 - [tiktok-signer](https://github.com/nglmercer/tiktok-signer), included as vendor/tiktok-signer, for its ttl-live Node client.
 
-The app has a two-step wizard:
+The app has a three-step wizard:
 
-1. enter a creator handle and optionally provide an authenticated TikTok cookie header;
-2. receive chat, gift, like, join, follow, and share events in the WebView.
+1. choose the interface language and dark/light theme;
+2. enter a creator handle and optionally provide an authenticated TikTok cookie header;
+3. use the dashboard to receive chat, gift, like, join, follow, and share events in the WebView.
 
-The setup step also has “Pick a live automatically”. It follows the upstream example: it bootstraps an anonymous guest identity when needed, searches TikTok live rooms, chooses one result, and connects directly with its room ID.
+The configuration step also has “Pick a live automatically”. It follows the upstream example: it bootstraps an anonymous guest identity when needed, searches TikTok live rooms, chooses one result, and connects directly with its room ID.
 
 The window hides to the system tray when it is closed. Use the tray menu to show it again or quit.
+
+On the first run, the wizard asks for a creator username. That username is saved in WebView local storage and used to reconnect automatically on later launches, so setup is not shown every time. Use the Configuration button in the messages view to change the username or provide an optional authenticated Cookie header. Cookies remain memory-only.
 
 ## Minimal architecture
 

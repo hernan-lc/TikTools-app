@@ -4,18 +4,16 @@ import type { UiEvent } from '../shared/messages.ts';
 import { t, type Locale } from './i18n.ts';
 import type { Theme } from './preferences.ts';
 
-export type WizardStep = 'setup' | 'messages';
+export type WizardStep = 'preferences' | 'configuration' | 'dashboard';
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'retrying' | 'disconnected' | 'error';
 export type DisplayEvent = UiEvent & { id: number; receivedAt: number };
 
 type BrandHeaderProps = {
   locale: Locale;
-  theme: Theme;
-  onLocaleChange: (locale: Locale) => void;
-  onThemeChange: (theme: Theme) => void;
+  onOpenPreferences: () => void;
 };
 
-export function BrandHeader({ locale, theme, onLocaleChange, onThemeChange }: BrandHeaderProps) {
+export function BrandHeader({ locale, onOpenPreferences }: BrandHeaderProps) {
   return (
     <header className="brand">
       <div className="brand-mark">♪</div>
@@ -25,28 +23,9 @@ export function BrandHeader({ locale, theme, onLocaleChange, onThemeChange }: Br
         <p className="brand-note">{t(locale, 'brandNote')}</p>
       </div>
       <div className="brand-tools">
-        <label className="preference">
-          <span>{t(locale, 'language')}</span>
-          <select
-            aria-label={t(locale, 'language')}
-            value={locale}
-            onChange={(event) => onLocaleChange(event.currentTarget.value as Locale)}
-          >
-            <option value="en">{t(locale, 'english')}</option>
-            <option value="es">{t(locale, 'spanish')}</option>
-          </select>
-        </label>
-        <label className="preference">
-          <span>{t(locale, 'theme')}</span>
-          <select
-            aria-label={t(locale, 'theme')}
-            value={theme}
-            onChange={(event) => onThemeChange(event.currentTarget.value as Theme)}
-          >
-            <option value="dark">{t(locale, 'dark')}</option>
-            <option value="light">{t(locale, 'light')}</option>
-          </select>
-        </label>
+        <button className="secondary compact preference-button" type="button" aria-label={t(locale, 'openPreferences')} onClick={onOpenPreferences}>
+          ◐ {t(locale, 'preferences')}
+        </button>
         <div className="tray-note"><span className="tray-dot" />{t(locale, 'runsFromTray')}</div>
       </div>
     </header>
@@ -59,22 +38,125 @@ type StepBarProps = {
 };
 
 export function StepBar({ current, locale }: StepBarProps) {
-  const setupDone = current === 'messages';
+  const steps: Array<{ key: WizardStep; number: number; label: string }> = [
+    { key: 'preferences', number: 1, label: t(locale, 'preferences') },
+    { key: 'configuration', number: 2, label: t(locale, 'configuration') },
+    { key: 'dashboard', number: 3, label: t(locale, 'dashboard') },
+  ];
+  const currentIndex = steps.findIndex((item) => item.key === current);
   return (
     <nav className="steps" aria-label={t(locale, 'setupProgress')}>
-      <div className={'step ' + (current === 'setup' ? 'active' : '') + (setupDone ? ' done' : '')}>
-        <span className="step-number">1</span>
-        <span>{t(locale, 'setup')}</span>
-      </div>
-      <div className={'step ' + (current === 'messages' ? 'active' : '')}>
-        <span className="step-number">2</span>
-        <span>{t(locale, 'messages')}</span>
-      </div>
+      {steps.map((item, index) => (
+        <div className={'step ' + (current === item.key ? 'active' : '') + (index < currentIndex ? ' done' : '')} key={item.key}>
+          <span className="step-number">{item.number}</span>
+          <span>{item.label}</span>
+        </div>
+      ))}
     </nav>
   );
 }
 
-type SetupViewProps = {
+type PreferenceFieldsProps = {
+  locale: Locale;
+  theme: Theme;
+  idPrefix?: string;
+  onLocaleChange: (locale: Locale) => void;
+  onThemeChange: (theme: Theme) => void;
+};
+
+function PreferenceFields({ locale, theme, idPrefix = 'preferences', onLocaleChange, onThemeChange }: PreferenceFieldsProps) {
+  const languageId = idPrefix + '-language';
+  const themeId = idPrefix + '-theme';
+  return (
+    <div className="preference-fields">
+      <div className="field">
+        <label htmlFor={languageId}>{t(locale, 'language')}</label>
+        <select
+          id={languageId}
+          value={locale}
+          onChange={(event) => onLocaleChange(event.currentTarget.value as Locale)}
+        >
+          <option value="en">{t(locale, 'english')}</option>
+          <option value="es">{t(locale, 'spanish')}</option>
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor={themeId}>{t(locale, 'theme')}</label>
+        <select
+          id={themeId}
+          value={theme}
+          onChange={(event) => onThemeChange(event.currentTarget.value as Theme)}
+        >
+          <option value="dark">{t(locale, 'dark')}</option>
+          <option value="light">{t(locale, 'light')}</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+type PreferencesViewProps = PreferenceFieldsProps & {
+  onContinue: () => void;
+};
+
+export function PreferencesView({ locale, theme, onLocaleChange, onThemeChange, onContinue }: PreferencesViewProps) {
+  return (
+    <section className="view">
+      <div>
+        <h2>{t(locale, 'preferences')}</h2>
+        <p className="lead">{t(locale, 'preferencesLead')}</p>
+        <div className="form">
+          <PreferenceFields
+            locale={locale}
+            theme={theme}
+            idPrefix="onboarding"
+            onLocaleChange={onLocaleChange}
+            onThemeChange={onThemeChange}
+          />
+        </div>
+      </div>
+      <div className="actions">
+        <span className="count">{t(locale, 'preferences')}</span>
+        <span className="spacer" />
+        <button className="primary" type="button" onClick={onContinue}>{t(locale, 'continue')}</button>
+      </div>
+    </section>
+  );
+}
+
+type PreferencesModalProps = PreferenceFieldsProps & {
+  onClose: () => void;
+};
+
+export function PreferencesModal({ locale, theme, onLocaleChange, onThemeChange, onClose }: PreferencesModalProps) {
+  return (
+    <div className="modal-backdrop">
+      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="preferences-title">
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">{t(locale, 'preferences')}</p>
+            <h2 id="preferences-title">{t(locale, 'preferences')}</h2>
+          </div>
+          <button className="modal-close" type="button" aria-label={t(locale, 'cancel')} onClick={onClose}>×</button>
+        </div>
+        <p className="lead">{t(locale, 'preferencesLead')}</p>
+        <PreferenceFields
+          locale={locale}
+          theme={theme}
+          idPrefix="modal"
+          onLocaleChange={onLocaleChange}
+          onThemeChange={onThemeChange}
+        />
+        <div className="actions modal-actions">
+          <span className="spacer" />
+          <button className="primary" type="button" onClick={onClose}>{t(locale, 'done')}</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type ConfigurationViewProps = {
   locale: Locale;
   uniqueId: string;
   cookie: string;
@@ -86,7 +168,7 @@ type SetupViewProps = {
   onPickLive: () => void;
 };
 
-export function SetupView({
+export function ConfigurationView({
   locale,
   uniqueId,
   cookie,
@@ -96,7 +178,7 @@ export function SetupView({
   onCookieChange,
   onSubmit,
   onPickLive,
-}: SetupViewProps) {
+}: ConfigurationViewProps) {
   return (
     <section className="view">
       <div>
@@ -152,6 +234,8 @@ type MessagesViewProps = {
   title: string;
   status: ConnectionStatus;
   events: DisplayEvent[];
+  onOpenConfig: () => void;
+  onReconnect: () => void;
   onDisconnect: () => void;
 };
 
@@ -164,7 +248,7 @@ function statusLabel(locale: Locale, status: ConnectionStatus): string {
   return t(locale, 'connecting');
 }
 
-export function MessagesView({ locale, title, status, events, onDisconnect }: MessagesViewProps) {
+export function MessagesView({ locale, title, status, events, onOpenConfig, onReconnect, onDisconnect }: MessagesViewProps) {
   return (
     <section className="view">
       <div className="live-header">
@@ -172,8 +256,13 @@ export function MessagesView({ locale, title, status, events, onDisconnect }: Me
           <h2>{t(locale, 'liveMessages')}</h2>
           <p className="live-title">{title}</p>
         </div>
-        <div className={'status ' + (status === 'connected' ? 'online' : status === 'error' || status === 'disconnected' ? 'offline' : 'busy')}>
-          {statusLabel(locale, status)}
+        <div className="live-header-actions">
+          <div className={'status ' + (status === 'connected' ? 'online' : status === 'error' || status === 'disconnected' ? 'offline' : 'busy')}>
+            {statusLabel(locale, status)}
+          </div>
+          <button className="secondary compact" type="button" aria-label={t(locale, 'openConfiguration')} onClick={onOpenConfig}>
+            ⚙ {t(locale, 'configuration')}
+          </button>
         </div>
       </div>
       <div className="message-list">
@@ -199,8 +288,80 @@ export function MessagesView({ locale, title, status, events, onDisconnect }: Me
           {t(locale, events.length === 1 ? 'messageCountOne' : 'messageCountMany', { count: events.length })}
         </span>
         <span className="spacer" />
+        <button className="secondary" type="button" onClick={onReconnect}>{t(locale, 'reconnect')}</button>
         <button className="danger" type="button" onClick={onDisconnect}>{t(locale, 'disconnect')}</button>
       </div>
     </section>
+  );
+}
+
+type ConfigModalProps = {
+  locale: Locale;
+  username: string;
+  cookie: string;
+  error: string;
+  onUsernameChange: (value: string) => void;
+  onCookieChange: (value: string) => void;
+  onSubmit: (event: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => void;
+  onCancel: () => void;
+};
+
+export function ConfigModal({
+  locale,
+  username,
+  cookie,
+  error,
+  onUsernameChange,
+  onCookieChange,
+  onSubmit,
+  onCancel,
+}: ConfigModalProps) {
+  return (
+    <div className="modal-backdrop">
+      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="config-title">
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">{t(locale, 'configuration')}</p>
+            <h2 id="config-title">{t(locale, 'configuration')}</h2>
+          </div>
+          <button className="modal-close" type="button" aria-label={t(locale, 'cancel')} onClick={onCancel}>×</button>
+        </div>
+        <p className="lead">{t(locale, 'configLead')}</p>
+        <form className="form modal-form" onSubmit={onSubmit}>
+          <div className="field">
+            <label htmlFor="config-username">{t(locale, 'username')}</label>
+            <input
+              id="config-username"
+              type="text"
+              value={username}
+              autoComplete="off"
+              spellcheck={false}
+              placeholder={t(locale, 'usernamePlaceholder')}
+              onInput={(event) => onUsernameChange(event.currentTarget.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="config-cookie">
+              {t(locale, 'authenticatedCookie')} <span className="optional">{t(locale, 'optional')}</span>
+            </label>
+            <input
+              id="config-cookie"
+              type="password"
+              value={cookie}
+              autoComplete="off"
+              spellcheck={false}
+              placeholder={t(locale, 'cookiePlaceholder')}
+              onInput={(event) => onCookieChange(event.currentTarget.value)}
+            />
+            <p className="hint">{t(locale, 'guestCookieHint')}</p>
+          </div>
+          {error ? <div className="error">{error}</div> : null}
+          <div className="actions">
+            <button className="secondary" type="button" onClick={onCancel}>{t(locale, 'cancel')}</button>
+            <button className="primary" type="submit">{t(locale, 'saveAndConnect')}</button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }

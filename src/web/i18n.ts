@@ -7,7 +7,10 @@ const english = {
   runsFromTray: 'Runs from the tray',
   setup: 'Setup',
   messages: 'Messages',
+  preferences: 'Preferences',
+  dashboard: 'Dashboard',
   setupProgress: 'Setup progress',
+  preferencesLead: 'Choose the interface language and appearance before configuring your live connection.',
   connectToLive: 'Connect to a LIVE',
   setupLead: 'Enter a creator handle, or let TikTok choose a live room. Leave the cookie blank for anonymous guest mode.',
   creatorHandle: 'Creator handle',
@@ -48,6 +51,9 @@ const english = {
   saveAndConnect: 'Save and connect',
   cancel: 'Cancel',
   reconnect: 'Reconnect',
+  openPreferences: 'Open preferences',
+  continue: 'Continue',
+  done: 'Done',
 } as const;
 
 export type TranslationKey = keyof typeof english;
@@ -58,7 +64,10 @@ const spanish: Record<TranslationKey, string> = {
   runsFromTray: 'Se ejecuta desde la bandeja',
   setup: 'Configuración',
   messages: 'Mensajes',
+  preferences: 'Preferencias',
+  dashboard: 'Panel',
   setupProgress: 'Progreso de configuración',
+  preferencesLead: 'Elige el idioma y la apariencia antes de configurar la conexión al LIVE.',
   connectToLive: 'Conectar a un LIVE',
   setupLead: 'Introduce el usuario de un creador o deja que TikTok elija una sala en directo. Deja la cookie vacía para usar el modo invitado anónimo.',
   creatorHandle: 'Usuario del creador',
@@ -99,6 +108,9 @@ const spanish: Record<TranslationKey, string> = {
   saveAndConnect: 'Guardar y conectar',
   cancel: 'Cancelar',
   reconnect: 'Reconectar',
+  openPreferences: 'Abrir preferencias',
+  continue: 'Continuar',
+  done: 'Listo',
 };
 
 const dictionary: Record<Locale, Record<TranslationKey, string>> = {
