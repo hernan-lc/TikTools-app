@@ -125,7 +125,7 @@ export class LiveController {
     const client = new TikTokLive(uniqueId, {
       sessionCookie,
       roomId: request.roomId,
-      fetchGifts: false,
+      fetchGifts: true,
       fetchRoomInfo: true,
       reconnect: { attempts: 5, initialMs: 2_000, maxMs: 30_000 },
     });
@@ -166,13 +166,17 @@ export class LiveController {
       if (isChatEvent(event)) {
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'chat', baseOpts);
       } else if (isGiftEvent(event)) {
-        // event.diamondCount / repeatCount / comboCount are all `number` after narrowing
-        const diamonds = event.diamondCount || 1;
-        const repeat = Math.max(1, event.repeatCount || event.comboCount || 1);
-        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'gift', {
-          ...baseOpts,
-          diamondCount: diamonds * repeat,
-        });
+        // For streakable gifts, only award points on the final message to avoid double counting.
+        if (event.streakable && !event.repeatEnd) {
+          pointsResult = null;
+        } else {
+          const diamonds = event.diamondCount || 1;
+          const repeat = Math.max(1, event.repeatCount || event.comboCount || 1);
+          pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'gift', {
+            ...baseOpts,
+            diamondCount: diamonds * repeat,
+          });
+        }
       } else if (isLikeEvent(event)) {
         // event.count is `number` after narrowing
         const count = Math.max(1, event.count || 1);

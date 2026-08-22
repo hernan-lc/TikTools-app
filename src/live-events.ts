@@ -102,10 +102,7 @@ function chatToUiEvent(event: ChatEvent): UiEvent {
   };
 }
 
-function giftToUiEvent(event: GiftEvent): UiEvent | null {
-  // For streakable gifts, only count the final message to avoid double-counting.
-  if (event.streakable && !event.repeatEnd) return null;
-
+function giftToUiEvent(event: GiftEvent): UiEvent {
   const author = cleanUsername(event.user);
   const count = Math.max(1, event.repeatCount || event.comboCount || 1);
   const giftName = event.giftName || 'Gift';
