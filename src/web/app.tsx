@@ -2,19 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
-import {
-  AnalyticsView,
-  ConnectView,
-  LiveFeed,
-  NavigationRail,
-  SettingsView,
-  TopNav,
-  type AppTab,
-  type ConnectionStatus,
-  type DisplayEvent,
-  type EventFilter,
-  type StreamTelemetry,
-} from './components.tsx';
+import { NavigationRail } from './components/nav-rail.tsx';
+import { TopNav } from './components/top-nav.tsx';
 import { t, type Locale } from './i18n.ts';
 import {
   addRecentUsername,
@@ -28,6 +17,17 @@ import {
   saveUsername,
   type Theme,
 } from './preferences.ts';
+import type {
+  AppTab,
+  ConnectionStatus,
+  DisplayEvent,
+  EventFilter,
+  StreamTelemetry,
+} from './types.ts';
+import { AnalyticsView } from './views/analytics-view.tsx';
+import { ConnectView } from './views/connect-view.tsx';
+import { FeedView } from './views/feed-view.tsx';
+import { SettingsView } from './views/settings-view.tsx';
 import './styles.css';
 
 declare global {
@@ -270,7 +270,7 @@ function App() {
         />
 
         {activeTab === 'feed' && (
-          <LiveFeed
+          <FeedView
             locale={locale}
             events={events}
             filter={filter}
