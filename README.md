@@ -5,6 +5,7 @@ This is a small Bun desktop example built with:
 - [webview-napi](https://www.npmjs.com/package/webview-napi) for the native window and local WebView UI;
 - [tray-icon-node](https://www.npmjs.com/package/tray-icon-node) for the system-tray menu;
 - [Preact](https://preactjs.com/) for the small, component-based wizard UI;
+- a small in-app i18n layer with English and Spanish translations, plus dark and light themes;
 - [tiktok-signer](https://github.com/nglmercer/tiktok-signer), included as vendor/tiktok-signer, for its ttl-live Node client.
 
 The app has a two-step wizard:
@@ -21,6 +22,7 @@ The window hides to the system tray when it is closed. Use the tray menu to show
 - `Bun.serve({ port: 0 })` serves `src/web/index.html` and its bundled Preact/CSS assets on an ephemeral localhost port.
 - The embedded `webview-napi` window loads that URL, so the frontend stays modular and can use normal TypeScript modules and framework tooling.
 - `src/live-controller.ts` owns discovery, guest bootstrap, WebSocket reconnects, and event conversion; `src/bridge.ts` validates WebView IPC messages.
+- `src/web/i18n.ts` and `src/web/preferences.ts` keep language/theme state in the frontend; preferences persist in WebView local storage and default to the browser language/system theme.
 - One native window plus one tray icon is enough: closing the window hides it, while the tray restores or quits it.
 
 Preact is a good fit here because it provides reusable components and predictable state with very little runtime overhead. Vue would also work, but would add a larger dependency and a second framework style without a benefit for this small wizard. A second native window is not needed unless settings or another independent workflow grows later.

@@ -2,7 +2,17 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { render, type JSX } from 'preact';
 
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
-import { MessagesView, SetupView, StepBar, type ConnectionStatus, type DisplayEvent, type WizardStep } from './components.tsx';
+import {
+  BrandHeader,
+  MessagesView,
+  SetupView,
+  StepBar,
+  type ConnectionStatus,
+  type DisplayEvent,
+  type WizardStep,
+} from './components.tsx';
+import { t, type Locale } from './i18n.ts';
+import { applyTheme, getInitialLocale, getInitialTheme, saveLocale, saveTheme, type Theme } from './preferences.ts';
 import './styles.css';
 
 declare global {
@@ -21,10 +31,17 @@ function send(message: PageMessage): void {
   window.ipc?.postMessage(JSON.stringify(message));
 }
 
+const initialLocale = getInitialLocale();
+const initialTheme = getInitialTheme();
+applyTheme(initialTheme);
+document.documentElement.lang = initialLocale;
+
 function App() {
   const [step, setStep] = useState<WizardStep>('setup');
   const [setup, setSetup] = useState<SetupState>({ uniqueId: '', cookie: '' });
-  const [title, setTitle] = useState('Waiting for connection…');
+  const [locale, setLocale] = useState<Locale>(initialLocale);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [title, setTitle] = useState(t(initialLocale, 'waitingForConnection'));
   const [status, setStatus] = useState<ConnectionStatus>('idle');
   const [error, setError] = useState('');
   const [events, setEvents] = useState<DisplayEvent[]>([]);
@@ -34,6 +51,16 @@ function App() {
     nextEventId.current = 0;
     setEvents([]);
   };
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    saveLocale(locale);
+  }, [locale]);
+
+  useEffect(() => {
+    applyTheme(theme);
+    saveTheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     const receive = (raw: string): void => {
@@ -67,7 +94,7 @@ function App() {
             ...current,
             {
               kind: 'member' as const,
-              author: 'System',
+              author: t(locale, 'system'),
               text: message.message,
               id: nextEventId.current++,
               receivedAt: Date.now(),
@@ -81,7 +108,7 @@ function App() {
     return () => {
       if (window.__webview_on_message__ === receive) window.__webview_on_message__ = undefined;
     };
-  }, []);
+  }, [locale]);
 
   const startConnection = (message: PageMessage, nextTitle: string): void => {
     setError('');
@@ -96,7 +123,7 @@ function App() {
     event.preventDefault();
     const uniqueId = setup.uniqueId.trim();
     if (!uniqueId) {
-      setError('Enter a creator handle, or use Pick a live automatically.');
+      setError(t(locale, 'handleRequired'));
       return;
     }
     startConnection(
@@ -108,7 +135,7 @@ function App() {
   const handlePickLive = (): void => {
     startConnection(
       { type: 'pick-live', sessionCookie: setup.cookie.trim() },
-      'Searching TikTok live rooms…',
+      t(locale, 'searchingRooms'),
     );
   };
 
@@ -116,25 +143,23 @@ function App() {
     send({ type: 'disconnect' });
     setStep('setup');
     setStatus('idle');
-    setTitle('Waiting for connection…');
+    setTitle(t(locale, 'waitingForConnection'));
     setError('');
   };
 
   return (
     <main className="shell">
-      <header className="brand">
-        <div className="brand-mark">♪</div>
-        <div className="brand-copy">
-          <p className="eyebrow">Desktop example</p>
-          <h1>TikTok LIVE Inbox</h1>
-          <p className="brand-note">A small native WebView for real-time live chat.</p>
-        </div>
-        <div className="tray-note"><span className="tray-dot" />Runs from the tray</div>
-      </header>
-      <StepBar current={step} />
+      <BrandHeader
+        locale={locale}
+        theme={theme}
+        onLocaleChange={setLocale}
+        onThemeChange={setTheme}
+      />
+      <StepBar current={step} locale={locale} />
       <section className="card">
         {step === 'setup' ? (
           <SetupView
+            locale={locale}
             uniqueId={setup.uniqueId}
             cookie={setup.cookie}
             error={error}
@@ -145,7 +170,7 @@ function App() {
             onPickLive={handlePickLive}
           />
         ) : (
-          <MessagesView title={title} status={status} events={events} onDisconnect={handleDisconnect} />
+          <MessagesView locale={locale} title={title} status={status} events={events} onDisconnect={handleDisconnect} />
         )}
       </section>
     </main>

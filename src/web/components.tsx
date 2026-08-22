@@ -1,32 +1,81 @@
 import type { JSX } from 'preact';
 
 import type { UiEvent } from '../shared/messages.ts';
+import { t, type Locale } from './i18n.ts';
+import type { Theme } from './preferences.ts';
 
 export type WizardStep = 'setup' | 'messages';
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'retrying' | 'disconnected' | 'error';
 export type DisplayEvent = UiEvent & { id: number; receivedAt: number };
 
-type StepBarProps = {
-  current: WizardStep;
+type BrandHeaderProps = {
+  locale: Locale;
+  theme: Theme;
+  onLocaleChange: (locale: Locale) => void;
+  onThemeChange: (theme: Theme) => void;
 };
 
-export function StepBar({ current }: StepBarProps) {
+export function BrandHeader({ locale, theme, onLocaleChange, onThemeChange }: BrandHeaderProps) {
+  return (
+    <header className="brand">
+      <div className="brand-mark">♪</div>
+      <div className="brand-copy">
+        <p className="eyebrow">{t(locale, 'desktopExample')}</p>
+        <h1>TikTok LIVE Inbox</h1>
+        <p className="brand-note">{t(locale, 'brandNote')}</p>
+      </div>
+      <div className="brand-tools">
+        <label className="preference">
+          <span>{t(locale, 'language')}</span>
+          <select
+            aria-label={t(locale, 'language')}
+            value={locale}
+            onChange={(event) => onLocaleChange(event.currentTarget.value as Locale)}
+          >
+            <option value="en">{t(locale, 'english')}</option>
+            <option value="es">{t(locale, 'spanish')}</option>
+          </select>
+        </label>
+        <label className="preference">
+          <span>{t(locale, 'theme')}</span>
+          <select
+            aria-label={t(locale, 'theme')}
+            value={theme}
+            onChange={(event) => onThemeChange(event.currentTarget.value as Theme)}
+          >
+            <option value="dark">{t(locale, 'dark')}</option>
+            <option value="light">{t(locale, 'light')}</option>
+          </select>
+        </label>
+        <div className="tray-note"><span className="tray-dot" />{t(locale, 'runsFromTray')}</div>
+      </div>
+    </header>
+  );
+}
+
+type StepBarProps = {
+  current: WizardStep;
+  locale: Locale;
+};
+
+export function StepBar({ current, locale }: StepBarProps) {
   const setupDone = current === 'messages';
   return (
-    <nav className="steps" aria-label="Setup progress">
+    <nav className="steps" aria-label={t(locale, 'setupProgress')}>
       <div className={'step ' + (current === 'setup' ? 'active' : '') + (setupDone ? ' done' : '')}>
         <span className="step-number">1</span>
-        <span>Setup</span>
+        <span>{t(locale, 'setup')}</span>
       </div>
       <div className={'step ' + (current === 'messages' ? 'active' : '')}>
         <span className="step-number">2</span>
-        <span>Messages</span>
+        <span>{t(locale, 'messages')}</span>
       </div>
     </nav>
   );
 }
 
 type SetupViewProps = {
+  locale: Locale;
   uniqueId: string;
   cookie: string;
   error: string;
@@ -38,6 +87,7 @@ type SetupViewProps = {
 };
 
 export function SetupView({
+  locale,
   uniqueId,
   cookie,
   error,
@@ -50,13 +100,11 @@ export function SetupView({
   return (
     <section className="view">
       <div>
-        <h2>Connect to a LIVE</h2>
-        <p className="lead">
-          Enter a creator handle, or let TikTok choose a live room. Leave the cookie blank for anonymous guest mode.
-        </p>
+        <h2>{t(locale, 'connectToLive')}</h2>
+        <p className="lead">{t(locale, 'setupLead')}</p>
         <form className="form" onSubmit={onSubmit}>
           <div className="field">
-            <label htmlFor="unique-id">Creator handle</label>
+            <label htmlFor="unique-id">{t(locale, 'creatorHandle')}</label>
             <input
               id="unique-id"
               type="text"
@@ -66,11 +114,11 @@ export function SetupView({
               placeholder="@creator"
               onInput={(event) => onUniqueIdChange(event.currentTarget.value)}
             />
-            <p className="hint">The leading <code>@</code> is optional.</p>
+            <p className="hint">{t(locale, 'leadingAtOptional')}</p>
           </div>
           <div className="field">
             <label htmlFor="session-cookie">
-              Authenticated cookie <span className="optional">(optional)</span>
+              {t(locale, 'authenticatedCookie')} <span className="optional">{t(locale, 'optional')}</span>
             </label>
             <input
               id="session-cookie"
@@ -78,60 +126,59 @@ export function SetupView({
               value={cookie}
               autoComplete="off"
               spellcheck={false}
-              placeholder="sessionid=...; or leave blank"
+              placeholder={t(locale, 'cookiePlaceholder')}
               onInput={(event) => onCookieChange(event.currentTarget.value)}
             />
-            <p className="hint">
-              Guest mode bootstraps a short-lived cookie in memory. Paste a browser Cookie header only when needed.
-            </p>
+            <p className="hint">{t(locale, 'guestCookieHint')}</p>
           </div>
           {error ? <div className="error">{error}</div> : null}
           <div className="actions">
             <button className="secondary" type="button" disabled={busy} onClick={onPickLive}>
-              Pick a live automatically
+              {t(locale, 'pickLive')}
             </button>
             <button className="primary" type="submit" disabled={busy}>
-              Connect to LIVE
+              {t(locale, 'connect')}
             </button>
           </div>
         </form>
       </div>
-      <p className="footer">Authenticated cookies stay in memory only. Never log or share them.</p>
+      <p className="footer">{t(locale, 'cookiesMemory')}</p>
     </section>
   );
 }
 
 type MessagesViewProps = {
+  locale: Locale;
   title: string;
   status: ConnectionStatus;
   events: DisplayEvent[];
   onDisconnect: () => void;
 };
 
-function statusLabel(status: ConnectionStatus): string {
-  if (status === 'connected') return 'Live';
-  if (status === 'retrying') return 'Retrying';
-  if (status === 'disconnected') return 'Disconnected';
-  if (status === 'error') return 'Needs attention';
-  if (status === 'idle') return 'Waiting';
-  return 'Connecting';
+function statusLabel(locale: Locale, status: ConnectionStatus): string {
+  if (status === 'connected') return t(locale, 'live');
+  if (status === 'retrying') return t(locale, 'retrying');
+  if (status === 'disconnected') return t(locale, 'disconnected');
+  if (status === 'error') return t(locale, 'needsAttention');
+  if (status === 'idle') return t(locale, 'waiting');
+  return t(locale, 'connecting');
 }
 
-export function MessagesView({ title, status, events, onDisconnect }: MessagesViewProps) {
+export function MessagesView({ locale, title, status, events, onDisconnect }: MessagesViewProps) {
   return (
     <section className="view">
       <div className="live-header">
         <div>
-          <h2>Live messages</h2>
+          <h2>{t(locale, 'liveMessages')}</h2>
           <p className="live-title">{title}</p>
         </div>
         <div className={'status ' + (status === 'connected' ? 'online' : status === 'error' || status === 'disconnected' ? 'offline' : 'busy')}>
-          {statusLabel(status)}
+          {statusLabel(locale, status)}
         </div>
       </div>
       <div className="message-list">
         {events.length === 0 ? (
-          <div className="empty">Messages will appear here when the room starts sending events.</div>
+          <div className="empty">{t(locale, 'messagesEmpty')}</div>
         ) : (
           events.map((event) => (
             <article className={'message ' + event.kind} key={event.id}>
@@ -148,9 +195,11 @@ export function MessagesView({ title, status, events, onDisconnect }: MessagesVi
         )}
       </div>
       <div className="actions">
-        <span className="count">{events.length} {events.length === 1 ? 'message' : 'messages'}</span>
+        <span className="count">
+          {t(locale, events.length === 1 ? 'messageCountOne' : 'messageCountMany', { count: events.length })}
+        </span>
         <span className="spacer" />
-        <button className="danger" type="button" onClick={onDisconnect}>Disconnect</button>
+        <button className="danger" type="button" onClick={onDisconnect}>{t(locale, 'disconnect')}</button>
       </div>
     </section>
   );
