@@ -3,10 +3,18 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "start": "bun run index.ts",
+    "typecheck": "bunx tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^6"
+  },
+  "dependencies": {
+    "tray-icon-node": "^0.1.2",
+    "webview-napi": "^2.2.0"
   }
 }

@@ -26,5 +26,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  "include": ["index.ts", "src/**/*.ts"],
+  "exclude": ["vendor/tiktok-signer/examples", "vendor/tiktok-signer/test"]
 }
