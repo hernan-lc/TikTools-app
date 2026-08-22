@@ -417,6 +417,7 @@ function App() {
             locale={locale}
             config={pointsConfig}
             leaderboard={leaderboard}
+            status={status}
             onUpdateConfig={handleUpdatePointsConfig}
             onResetPoints={handleResetPoints}
             onAdjustPoints={handleAdjustPoints}

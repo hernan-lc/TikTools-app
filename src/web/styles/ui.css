@@ -41,7 +41,10 @@
 .ui-search input { padding:0 26px 0 26px; font-size:11px; }
 :root[data-theme="light"] .ui-search input { background:transparent; }
 
-.ui-number input { text-align:right; padding-right:6px; font-weight:600; }
+/* hide native number spinners — we use custom steppers; fixes duplicated arrows seen in screenshot 1 */
+.ui-number input::-webkit-inner-spin-button,
+.ui-number input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ui-number input { -moz-appearance: textfield; text-align:right; padding-right:6px; font-weight:600; }
 .ui-number { width:84px; flex-shrink:0; }
 .ui-number--wide { width:160px; }
 .ui-number--wide input { text-align:left; }
@@ -55,6 +58,7 @@
 .ui-select__arrow { position:absolute; right:10px; color:var(--text-muted); pointer-events:none; font-size:10px; }
 
 /* ---- Checkbox / Switch ---- */
+.ui-check.is-disabled, .ui-switch.is-disabled { opacity:0.45; pointer-events:none; }
 .ui-check, .ui-switch { display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:12.5px; color:var(--text); user-select:none; }
 .ui-check input, .ui-switch input { position:absolute; opacity:0; pointer-events:none; }
 .ui-check__box { width:16px; height:16px; border-radius:4px; border:1px solid var(--line); background:var(--input-bg); display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -119,6 +123,25 @@
 :root[data-theme="light"] .ui-table td { border-bottom-color:rgba(15,23,42,0.06); }
 :root[data-theme="light"] .ui-table tr:hover td { background:rgba(15,23,42,0.04); }
 .ui-table-skeleton { padding:24px; text-align:center; color:var(--text-muted); font-size:12px; }
+.ui-table-with-pagination { display:flex; flex-direction:column; }
+.ui-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 10px; border-top:1px solid var(--line); background:var(--panel-elevated); font-size:11px; }
+.ui-pagination__info { color:var(--text-muted); display:flex; align-items:center; gap:8px; }
+.ui-pagination__select { height:26px; padding:0 6px; border-radius:6px; border:1px solid var(--line); background:var(--input-bg); color:var(--text); font-size:11px; }
+.ui-pagination__controls { display:flex; align-items:center; gap:4px; }
+.ui-pagination__btn { min-width:26px; height:26px; padding:0 6px; border-radius:6px; border:1px solid var(--line); background:var(--input-bg); color:var(--text-secondary); font-size:11px; font-weight:700; cursor:pointer; }
+.ui-pagination__btn:hover:not(:disabled) { border-color:var(--line-focus); color:var(--text); }
+.ui-pagination__btn.is-active { background:linear-gradient(135deg,var(--tt-pink),#c72477); color:#fff; border-color:transparent; }
+.ui-pagination__btn:disabled { opacity:0.4; cursor:not-allowed; }
+.ui-pagination__ellipsis { color:var(--text-muted); padding:0 2px; }
+/* Row actions dropdown */
+.ui-row-actions { position:relative; display:inline-flex; }
+.ui-row-actions__trigger { width:24px; height:24px; border-radius:6px; border:1px solid var(--line); background:var(--panel-elevated); color:var(--text-secondary); font-size:14px; line-height:1; cursor:pointer; }
+.ui-row-actions__trigger:hover { color:var(--text); border-color:var(--line-focus); }
+.ui-row-actions__menu { position:absolute; right:0; top:28px; min-width:150px; padding:4px; border-radius:8px; background:var(--panel-solid); border:1px solid var(--line); box-shadow:0 8px 24px rgba(0,0,0,0.35); z-index:30; display:flex; flex-direction:column; gap:2px; }
+.ui-row-actions__menu button { text-align:left; padding:6px 8px; border-radius:6px; border:none; background:transparent; color:var(--text); font-size:11px; font-weight:600; cursor:pointer; }
+.ui-row-actions__menu button:hover { background:var(--panel-elevated); }
+.ui-row-actions__menu button.is-danger { color:var(--tt-danger); }
+.ui-row-actions__divider { height:1px; background:var(--line); margin:2px 0; }
 
 /* ---- Page ---- */
 .ui-page { display:flex; flex-direction:column; gap:16px; padding:18px; width:100%; max-width:1120px; margin:0 auto; overflow:auto; flex:1; min-height:0; }

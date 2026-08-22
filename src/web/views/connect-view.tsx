@@ -38,6 +38,7 @@ export function ConnectView({
   onSelectRecent,
 }: ConnectViewProps) {
   const isBusy = status === 'connecting' || status === 'retrying';
+  const isLive = status === 'connected';
   const [showCookie, setShowCookie] = useState(Boolean(cookie));
 
   const handleSubmit = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
@@ -49,6 +50,7 @@ export function ConnectView({
     <Page narrow>
       <Card title={t(locale, 'connectToLive')} subtitle={t(locale, 'setupLead')} icon={<IconRadio />}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {isLive ? <Alert variant="info">{t(locale, 'live')} — {locale === 'es' ? 'Desconecta para cambiar de creador.' : 'Disconnect to change creator.'}</Alert> : null}
           <FormField label={t(locale, 'creatorHandle')} hint={t(locale, 'leadingAtOptional')} required htmlFor="connect-creator">
             <TextInput
               id="connect-creator"
@@ -57,6 +59,7 @@ export function ConnectView({
               prefix="@"
               placeholder="creator_handle"
               required
+              disabled={isLive || isBusy}
               onEnter={onConnect}
             />
           </FormField>
@@ -69,11 +72,12 @@ export function ConnectView({
                 value={cookie}
                 onValueChange={onCookieChange}
                 placeholder="sessionid=..."
+                disabled={isLive || isBusy}
               />
             </FormField>
           ) : (
             <div style={{ marginBottom: 4 }}>
-              <Button variant="soft" size="sm" onClick={() => setShowCookie(true)}>
+              <Button variant="soft" size="sm" onClick={() => setShowCookie(true)} disabled={isLive || isBusy}>
                 + {t(locale, 'authenticatedCookie')}
               </Button>
             </div>
@@ -82,10 +86,10 @@ export function ConnectView({
           {error ? <Alert variant="danger">{error}</Alert> : null}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Button type="submit" variant="primary" block loading={isBusy} disabled={!uniqueId.trim()}>
-              {isBusy ? t(locale, 'connecting') : t(locale, 'connect')}
+            <Button type="submit" variant="primary" block loading={isBusy} disabled={isLive || !uniqueId.trim()}>
+              {isBusy ? t(locale, 'connecting') : isLive ? t(locale, 'live') : t(locale, 'connect')}
             </Button>
-            <Button variant="cyan" tooltip={t(locale, 'pickLive')} disabled={isBusy} onClick={onPickLive} icon={<IconDice />} iconOnly />
+            <Button variant="cyan" tooltip={t(locale, 'pickLive')} disabled={isLive || isBusy} onClick={onPickLive} icon={<IconDice />} iconOnly />
           </div>
         </form>
       </Card>
