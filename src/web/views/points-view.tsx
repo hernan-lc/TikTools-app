@@ -1,5 +1,5 @@
 import type { JSX } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { IconBolt, IconCheck, IconCoins, IconFlame, IconStar, IconTrash, IconTrophy } from '../components/icons.tsx';
 import { Alert, Badge, Card, EmptyState } from '../components/ui/Card.tsx';
@@ -35,8 +35,37 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<string>('points');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const leaderboardWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setLocalConfig(config), [config]);
+
+  // Auto-calc pageSize to fill available height and avoid empty gap (Image 1)
+  useEffect(() => {
+    const el = leaderboardWrapRef.current;
+    if (!el) return;
+    const ROW_H = 37; // td + border
+    const compute = () => {
+      // only auto on desktop where split is 2-col
+      if (window.innerWidth <= 960) return;
+      const rect = el.getBoundingClientRect();
+      // available height = wrapper height; subtract search (~46) + pagination (~38)
+      const avail = rect.height - 46 - 38 - 16;
+      const rows = Math.floor(avail / ROW_H);
+      const auto = Math.max(10, Math.min(50, rows > 0 ? rows : 10));
+      // snap to 5 step to avoid jitter, keep minimal that fills
+      const snapped = Math.ceil(auto / 5) * 5;
+      setPageSize((prev) => (Math.abs(prev - snapped) > 2 ? snapped : prev));
+    };
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    window.addEventListener('resize', compute);
+    // initial tick after layout
+    requestAnimationFrame(compute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', compute);
+    };
+  }, []);
   // reset page when search changes
   useEffect(() => setPage(1), [searchQuery, pageSize]);
 
@@ -302,22 +331,24 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
           </form>
         }
         right={
-          <Card title={t(locale, 'leaderboard')} icon={<IconTrophy />} action={<Badge>{filteredViewers.length} {t(locale, 'viewersCount')}</Badge>} padding="md" className="ui-card--fill">
-            <div style={{ marginBottom: 10 }}>
-              <SearchInput value={searchQuery} onValueChange={setSearchQuery} placeholder={t(locale, 'searchViewers')} />
-            </div>
-            <DataTable
-              columns={columns}
-              data={filteredViewers}
-              rowKey="uniqueId"
-              emptyState={<EmptyState title={t(locale, 'noData')} />}
-              rowClassName={(_r, i) => (i < 3 ? `top-rank-${i + 1}` : undefined)}
-              pagination={{ page, pageSize, total: filteredViewers.length, onPageChange: setPage, onPageSizeChange: (s) => { setPageSize(s); setPage(1); } }}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              onSortChange={(k, d) => { setSortBy(k); setSortDir(d); }}
-            />
-          </Card>
+          <div ref={leaderboardWrapRef} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
+            <Card title={t(locale, 'leaderboard')} icon={<IconTrophy />} action={<Badge>{filteredViewers.length} {t(locale, 'viewersCount')}</Badge>} padding="md" className="ui-card--fill">
+              <div style={{ marginBottom: 10 }}>
+                <SearchInput value={searchQuery} onValueChange={setSearchQuery} placeholder={t(locale, 'searchViewers')} />
+              </div>
+              <DataTable
+                columns={columns}
+                data={filteredViewers}
+                rowKey="uniqueId"
+                emptyState={<EmptyState title={t(locale, 'noData')} />}
+                rowClassName={(_r, i) => (i < 3 ? `top-rank-${i + 1}` : undefined)}
+                pagination={{ page, pageSize, total: filteredViewers.length, onPageChange: setPage, onPageSizeChange: (s) => { setPageSize(s); setPage(1); }, pageSizeOptions: [10, 15, 20, 30, 50] }}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={(k, d) => { setSortBy(k); setSortDir(d); }}
+              />
+            </Card>
+          </div>
         }
       />
 
