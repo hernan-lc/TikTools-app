@@ -11,6 +11,7 @@ import type {
 
 import { PointsDatabase } from './db/points-db.ts';
 import {
+  hasUser,
   isChatEvent,
   isGiftEvent,
   isLikeEvent,
@@ -157,35 +158,34 @@ export class LiveController {
 
       // Process points in SQLite — all branches use type-guard narrowing, no `any` casts.
       let pointsResult = null;
+      const baseOpts = {
+        nickname: uiEvent.nickname,
+        avatarUrl: uiEvent.avatarUrl,
+        userId: hasUser(event) ? event.user.userId : undefined,
+      };
       if (isChatEvent(event)) {
-        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'chat', {
-          nickname: uiEvent.nickname,
-        });
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'chat', baseOpts);
       } else if (isGiftEvent(event)) {
         // event.diamondCount / repeatCount / comboCount are all `number` after narrowing
         const diamonds = event.diamondCount || 1;
         const repeat = Math.max(1, event.repeatCount || event.comboCount || 1);
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'gift', {
+          ...baseOpts,
           diamondCount: diamonds * repeat,
-          nickname: uiEvent.nickname,
         });
       } else if (isLikeEvent(event)) {
         // event.count is `number` after narrowing
         const count = Math.max(1, event.count || 1);
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'like', {
+          ...baseOpts,
           count,
-          nickname: uiEvent.nickname,
         });
       } else if (isSocialEvent(event)) {
         // event.action is `number` after narrowing
         const isFollow = event.action === SOCIAL_ACTION.follow;
-        pointsResult = this.pointsDb.awardPoints(uiEvent.author, isFollow ? 'follow' : 'share', {
-          nickname: uiEvent.nickname,
-        });
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, isFollow ? 'follow' : 'share', baseOpts);
       } else if (isMemberEvent(event)) {
-        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'join', {
-          nickname: uiEvent.nickname,
-        });
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'join', baseOpts);
       }
 
       if (pointsResult) {

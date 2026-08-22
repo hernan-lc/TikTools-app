@@ -96,6 +96,9 @@ function chatToUiEvent(event: ChatEvent): UiEvent {
     author,
     nickname: event.user.nickname || author,
     text: event.comment,
+    avatarUrl: event.user.avatarUrl || undefined,
+    i18nKey: 'chatMessage',
+    i18nParams: { comment: event.comment },
   };
 }
 
@@ -107,17 +110,22 @@ function giftToUiEvent(event: GiftEvent): UiEvent | null {
   const count = Math.max(1, event.repeatCount || event.comboCount || 1);
   const giftName = event.giftName || 'Gift';
   const diamonds = event.diamondCount || 1;
+  const totalDiamonds = diamonds * count;
 
   return {
     kind: 'gift',
     author,
     nickname: event.user.nickname || author,
-    text: `sent ${count}× ${giftName} (${diamonds * count} 🪙)`,
+    text: `sent ${count}× ${giftName} (${totalDiamonds} 🪙)`,
+    avatarUrl: event.user.avatarUrl || undefined,
     giftDetails: {
       name: giftName,
       count,
-      diamonds: diamonds * count,
+      diamonds: totalDiamonds,
+      imageUrl: event.giftIconUrl || undefined,
     },
+    i18nKey: 'giftSent',
+    i18nParams: { count, giftName, diamonds: totalDiamonds },
   };
 }
 
@@ -129,7 +137,10 @@ function likeToUiEvent(event: LikeEvent): UiEvent {
     author,
     nickname: event.user.nickname || author,
     text: `sent ${likeCount} ${likeCount === 1 ? 'like' : 'likes'} ❤️`,
+    avatarUrl: event.user.avatarUrl || undefined,
     likeCount,
+    i18nKey: 'likeSent',
+    i18nParams: { count: likeCount },
   };
 }
 
@@ -140,6 +151,9 @@ function memberToUiEvent(event: MemberEvent): UiEvent {
     author,
     nickname: event.user.nickname || author,
     text: 'joined the LIVE',
+    avatarUrl: event.user.avatarUrl || undefined,
+    i18nKey: 'joinedLive',
+    i18nParams: {},
   };
 }
 
@@ -151,6 +165,9 @@ function socialToUiEvent(event: SocialEvent): UiEvent {
     author,
     nickname: event.user.nickname || author,
     text: isFollow ? 'followed the creator' : 'shared the LIVE',
+    avatarUrl: event.user.avatarUrl || undefined,
+    i18nKey: isFollow ? 'followedCreator' : 'sharedLive',
+    i18nParams: {},
   };
 }
 

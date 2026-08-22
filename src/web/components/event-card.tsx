@@ -1,4 +1,5 @@
 import type { DisplayEvent } from '../types.ts';
+import { t, type Locale } from '../i18n.ts';
 
 function getAvatarColor(username: string): string {
   const gradients = [
@@ -9,6 +10,8 @@ function getAvatarColor(username: string): string {
     'linear-gradient(135deg, #ff007a, #7928ca)',
     'linear-gradient(135deg, #00c9ff, #92fe9d)',
     'linear-gradient(135deg, #f857a6, #ff5858)',
+    'linear-gradient(135deg, #ff8a00, #e52e71)',
+    'linear-gradient(135deg, #06d6a0, #118ab2)',
   ] as const;
   let hash = 0;
   for (let i = 0; i < username.length; i++) {
@@ -20,53 +23,118 @@ function getAvatarColor(username: string): string {
 
 type EventCardProps = {
   event: DisplayEvent;
+  locale?: Locale;
 };
 
-export function EventCard({ event }: EventCardProps) {
+function localizedText(event: DisplayEvent, locale: Locale): string {
+  const key = event.i18nKey;
+  const p = event.i18nParams ?? {};
+  if (!key) return event.text;
+
+  switch (key) {
+    case 'giftSent':
+      return t(locale, 'giftSent', {
+        count: p.count ?? event.giftDetails?.count ?? 1,
+        giftName: p.giftName ?? event.giftDetails?.name ?? 'Gift',
+        diamonds: p.diamonds ?? event.giftDetails?.diamonds ?? 1,
+      });
+    case 'likeSent': {
+      const c = Number(p.count ?? event.likeCount ?? 1);
+      return c === 1
+        ? t(locale, 'likeSentOne', { count: c })
+        : t(locale, 'likeSentMany', { count: c });
+    }
+    case 'joinedLive':
+      return t(locale, 'joinedLive');
+    case 'followedCreator':
+      return t(locale, 'followedCreator');
+    case 'sharedLive':
+      return t(locale, 'sharedLive');
+    case 'chatMessage':
+      return String(p.comment ?? event.text);
+    default:
+      return event.text;
+  }
+}
+
+export function EventCard({ event, locale = 'en' }: EventCardProps) {
   const cleanHandle = event.author.replace(/^@+/, '');
   const level = event.level ?? 1;
-  const isSpecial = event.kind === 'gift' || event.kind === 'like';
+
+  const displayName =
+    event.nickname && event.nickname !== cleanHandle ? event.nickname : `@${cleanHandle}`;
+
+  const text = localizedText(event, locale);
+
+  const hasAvatar = Boolean(event.avatarUrl);
+  const timeLabel = new Date(event.receivedAt).toLocaleTimeString(locale === 'es' ? 'es-ES' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <div className={`tiktok-chat-row ${event.kind}`}>
-      {/* Avatar */}
+      {/* Avatar: real image if available, initials fallback */}
+      {hasAvatar ? (
+        <img
+          className="tt-avatar-img"
+          src={event.avatarUrl!}
+          alt={displayName}
+          loading="lazy"
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = 'none';
+            const fallback = img.nextElementSibling as HTMLElement | null;
+            if (fallback) fallback.style.display = 'flex';
+          }}
+        />
+      ) : null}
       <div
         className="tt-avatar"
-        style={{ background: getAvatarColor(cleanHandle) }}
+        style={{
+          background: getAvatarColor(cleanHandle),
+          display: hasAvatar ? 'none' : 'flex',
+        }}
       >
         {cleanHandle.slice(0, 2).toUpperCase()}
       </div>
 
       {/* Message Content Container */}
       <div className="tt-content-wrap">
-        {/* Author + Level Badge + Message Content */}
         <div className="tt-message-line">
-          {/* Level Badge (TikFinity / TikTok rank style) */}
+          {/* Level Badge N.º */}
           <span className="tt-badge-level" title={`Level ${level}`}>
             <span className="tt-badge-icon">⚡</span>
-            <span className="tt-badge-text">N.º {level}</span>
+            <span className="tt-badge-text">{t(locale, 'levelBadge', { level })}</span>
           </span>
 
           {/* Author handle/nickname */}
           <span className="tt-author" title={`@${cleanHandle}`}>
-            {event.nickname && event.nickname !== cleanHandle
-              ? event.nickname
-              : `@${cleanHandle}`}
+            {displayName}
           </span>
 
           {/* Content text depending on event kind */}
           {event.kind === 'chat' ? (
-            <span className="tt-chat-text">{event.text}</span>
+            <span className="tt-chat-text">{text}</span>
           ) : event.kind === 'gift' ? (
             <span className="tt-gift-text">
-              <span className="tt-gift-icon">🎁</span> {event.text}
+              {event.giftDetails?.imageUrl ? (
+                <img
+                  className="tt-gift-img"
+                  src={event.giftDetails.imageUrl}
+                  alt={event.giftDetails.name}
+                  loading="lazy"
+                  onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                />
+              ) : (
+                <span className="tt-gift-icon">🎁</span>
+              )}{' '}
+              {text}
             </span>
           ) : event.kind === 'like' ? (
-            <span className="tt-like-text">
-              {event.text}
-            </span>
+            <span className="tt-like-text">{text}</span>
           ) : (
-            <span className="tt-social-text">{event.text}</span>
+            <span className="tt-social-text">{text}</span>
           )}
         </div>
       </div>
@@ -74,16 +142,9 @@ export function EventCard({ event }: EventCardProps) {
       {/* Point Earned Pill or Time */}
       <div className="tt-row-tail">
         {typeof event.pointsDelta === 'number' && event.pointsDelta > 0 ? (
-          <span className="tt-points-badge">
-            +{event.pointsDelta} pts
-          </span>
+          <span className="tt-points-badge">{t(locale, 'ptsEarned', { amount: event.pointsDelta })}</span>
         ) : (
-          <time className="tt-timestamp">
-            {new Date(event.receivedAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </time>
+          <time className="tt-timestamp">{timeLabel}</time>
         )}
       </div>
     </div>

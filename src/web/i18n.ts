@@ -124,6 +124,17 @@ const english = {
   ptsEarned: '+{amount} pts',
   copySuccess: 'Copied to clipboard!',
   actions: 'Actions',
+  // TikTok LIVE chat event render strings
+  joinedLive: 'joined the LIVE',
+  giftSent: 'sent {count}× {giftName} ({diamonds} 🪙)',
+  giftSentShort: 'sent {giftName} ×{count}',
+  likeSentOne: 'sent {count} like ❤️',
+  likeSentMany: 'sent {count} likes ❤️',
+  followedCreator: 'followed the creator',
+  sharedLive: 'shared the LIVE',
+  chatMessage: '{comment}',
+  sentRose: 'sent {count}× Rose ({diamonds} 🪙)',
+  levelBadge: 'N.º {level}',
 } as const;
 
 export type TranslationKey = keyof typeof english;
@@ -252,6 +263,17 @@ const spanish: Record<TranslationKey, string> = {
   subtractPoints: '- Restar',
   ptsEarned: '+{amount} pts',
   actions: 'Acciones',
+  // TikTok LIVE chat event render strings
+  joinedLive: 'se unió al LIVE',
+  giftSent: 'envió {count}× {giftName} ({diamonds} 🪙)',
+  giftSentShort: 'envió {giftName} ×{count}',
+  likeSentOne: 'envió {count} like ❤️',
+  likeSentMany: 'envió {count} likes ❤️',
+  followedCreator: 'siguió al creador',
+  sharedLive: 'compartió el LIVE',
+  chatMessage: '{comment}',
+  sentRose: 'envió {count}× Rosa ({diamonds} 🪙)',
+  levelBadge: 'N.º {level}',
 };
 
 const dictionary: Record<Locale, Record<TranslationKey, string>> = {

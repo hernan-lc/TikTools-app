@@ -37,38 +37,38 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f6fa;
-  --bg-subtle: #eaedf5;
-  --panel: rgba(255, 255, 255, 0.92);
+  --bg: #f1f5f9;
+  --bg-subtle: #e2e8f0;
+  --panel: rgba(255, 255, 255, 0.98);
   --panel-solid: #ffffff;
-  --panel-elevated: rgba(246, 248, 253, 0.95);
-  --line: rgba(0, 0, 0, 0.08);
-  --line-focus: rgba(37, 244, 238, 0.8);
+  --panel-elevated: #ffffff;
+  --line: rgba(15, 23, 42, 0.11);
+  --line-focus: rgba(14, 165, 233, 0.5);
   
-  --text: #131722;
-  --text-secondary: #586174;
-  --text-muted: #8c96a8;
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   
-  --tt-pink: #e61d46;
-  --tt-cyan: #0fb8b3;
-  --tt-purple: #8338ec;
-  --tt-yellow: #f77f00;
-  --tt-green: #05a078;
-  --tt-danger: #d90429;
+  --tt-pink: #be123c;
+  --tt-cyan: #0e7490;
+  --tt-purple: #7c3aed;
+  --tt-yellow: #92400e;
+  --tt-green: #047857;
+  --tt-danger: #991b1b;
   
-  --gift-gradient: linear-gradient(135deg, rgba(254, 44, 85, 0.08), rgba(157, 78, 221, 0.1));
-  --gift-border: rgba(254, 44, 85, 0.3);
+  --gift-gradient: linear-gradient(135deg, rgba(190, 18, 60, 0.09), rgba(124, 58, 237, 0.08));
+  --gift-border: rgba(190, 18, 60, 0.22);
   
-  --card-shadow: 0 10px 30px -6px rgba(20, 30, 60, 0.08), 0 4px 12px -2px rgba(20, 30, 60, 0.04);
-  --glow-pink: 0 0 16px rgba(254, 44, 85, 0.15);
-  --glow-cyan: 0 0 16px rgba(37, 244, 238, 0.15);
+  --card-shadow: 0 10px 30px -6px rgba(15, 23, 42, 0.10), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  --glow-pink: 0 0 16px rgba(190, 18, 60, 0.12);
+  --glow-cyan: 0 0 16px rgba(14, 116, 144, 0.12);
   
   --input-bg: #ffffff;
-  --scrollbar: #d0d7e4;
-  --scrollbar-hover: #b5c0d2;
-  --tooltip-bg: rgba(26, 32, 48, 0.95);
+  --scrollbar: #cbd5e1;
+  --scrollbar-hover: #94a3b8;
+  --tooltip-bg: rgba(15, 23, 42, 0.96);
   --tooltip-color: #ffffff;
-  --tooltip-border: rgba(255, 255, 255, 0.2);
+  --tooltip-border: rgba(255, 255, 255, 0.18);
 }
 
 *, *::before, *::after {
@@ -934,134 +934,280 @@ input:focus, select:focus {
   font-weight: 700;
 }
 
-/* Chat Rows */
+.tt-chip-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.18);
+  flex-shrink: 0;
+}
+:root[data-theme="light"] .tt-chip-avatar { border-color: rgba(15,23,42,0.12); }
+
+:root[data-theme="light"] .tt-viewers-ribbon {
+  background: #ffffff;
+  border-bottom-color: #e2e8f0;
+}
+:root[data-theme="light"] .tt-contributor-chip {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .tt-contributor-chip.rank-1 {
+  background: #fefce8;
+  border-color: #facc15;
+}
+:root[data-theme="light"] .tt-contributor-chip.rank-1 .tt-rank-num { color: #a16207; }
+:root[data-theme="light"] .tt-contributor-chip.rank-2 {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .tt-contributor-chip.rank-2 .tt-rank-num { color: #475569; }
+:root[data-theme="light"] .tt-contributor-chip.rank-3 {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+:root[data-theme="light"] .tt-contributor-chip.rank-3 .tt-rank-num { color: #9a3412; }
+
+:root[data-theme="light"] .tt-avatar-img { border-color: rgba(15,23,42,0.08); }
+:root[data-theme="light"] .tiktok-chat-row:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .feed-stream { background: #f8fafc; }
+:root[data-theme="light"] .feed-toolbar { background: #ffffff; border-bottom-color: #e2e8f0; }
+:root[data-theme="light"] .feed-footer-info { background: #ffffff; border-top-color: #e2e8f0; }
+
+/* Chat Rows — dense TikTok LIVE inbox replica */
 .tiktok-chat-row {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  transition: background-color 0.15s ease;
-  margin-bottom: 3px;
-  font-size: 13px;
-  line-height: 1.45;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-radius: 6px;
+  transition: background-color 0.14s ease;
+  margin-bottom: 2px;
+  font-size: 12.5px;
+  line-height: 1.38;
+  border: 1px solid transparent;
+  position: relative;
 }
 
 .tiktok-chat-row:hover {
   background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255,255,255,0.04);
 }
 
 .tiktok-chat-row.gift {
-  background: var(--gift-gradient);
-  border-left: 3px solid var(--tt-pink);
+  background: linear-gradient(90deg, rgba(61,16,34,0.96) 0%, rgba(45,14,44,0.92) 55%, rgba(32,12,42,0.85) 100%);
+  border-left: 2px solid #ff3b5c;
+  border-color: rgba(255,59,92,0.22);
+  border-left-color: #ff3b5c;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+:root[data-theme="light"] .tiktok-chat-row.gift {
+  background: linear-gradient(90deg, #fff1f2 0%, #ffe4e6 100%);
+  border-color: #fecdd3;
+  border-left-color: #e11d48;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 1px 3px rgba(15,23,42,0.06);
+}
+
+.tiktok-chat-row.chat {
+  background: transparent;
+  border-color: transparent;
+}
+:root[data-theme="light"] .tiktok-chat-row.chat {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .tiktok-chat-row.chat:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .tiktok-chat-row.like {
-  background: rgba(254, 44, 85, 0.04);
+  background: rgba(255, 59, 92, 0.06);
+  border-color: rgba(255,59,92,0.08);
+}
+:root[data-theme="light"] .tiktok-chat-row.like {
+  background: #fff1f2;
+  border-color: #fecdd3;
 }
 
 .tiktok-chat-row.member,
 .tiktok-chat-row.social {
-  opacity: 0.85;
+  background: rgba(255,255,255,0.035);
+  border-color: rgba(255,255,255,0.03);
+  opacity: 1;
+}
+:root[data-theme="light"] .tiktok-chat-row.member,
+:root[data-theme="light"] .tiktok-chat-row.social {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .tt-avatar {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 10px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  letter-spacing: -0.2px;
+  overflow: hidden;
+}
+
+.tt-avatar-img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--panel-elevated);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
 .tt-content-wrap {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
 }
 
 .tt-message-line {
   display: inline;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .tt-badge-level {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 1px 5px;
+  padding: 1px 4px;
   border-radius: 4px;
-  background: linear-gradient(135deg, rgba(254, 44, 85, 0.25), rgba(37, 244, 238, 0.25));
-  border: 1px solid rgba(254, 44, 85, 0.4);
-  font-size: 10px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,183,3,0.42);
+  font-size: 9.5px;
   font-weight: 800;
-  color: #ffffff;
-  margin-right: 6px;
+  color: #ffb703;
+  margin-right: 5px;
   vertical-align: middle;
+  line-height: 1;
+  backdrop-filter: blur(4px);
+}
+:root[data-theme="light"] .tt-badge-level {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
 }
 
 .tt-badge-icon {
-  font-size: 9px;
+  font-size: 8px;
+  line-height: 1;
 }
 
 .tt-badge-text {
-  letter-spacing: -0.2px;
+  letter-spacing: -0.15px;
+  white-space: nowrap;
 }
 
 .tt-author {
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.75);
-  margin-right: 6px;
+  color: #e6e8ef;
+  margin-right: 5px;
+  font-size: 12.5px;
+  white-space: nowrap;
 }
 
 :root[data-theme="light"] .tt-author {
-  color: rgba(0, 0, 0, 0.75);
+  color: #0f172a;
 }
 
 .tt-chat-text {
-  color: var(--text);
+  color: #d0d4dd;
+  font-weight: 400;
 }
+:root[data-theme="light"] .tt-chat-text { color: #1e293b; }
 
 .tt-gift-text {
-  color: #ff7e40;
+  color: #ff9a57;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+:root[data-theme="light"] .tt-gift-text { color: #9a3412; }
+
+.tt-gift-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+  flex-shrink: 0;
+}
+
+.tt-gift-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
 .tt-like-text {
-  color: #fe2c55;
+  color: #ff3b5c;
   font-weight: 600;
 }
+:root[data-theme="light"] .tt-like-text { color: #be123c; }
 
 .tt-social-text {
-  color: var(--text-secondary);
+  color: #9aa3b8;
   font-style: italic;
+  font-weight: 400;
 }
+:root[data-theme="light"] .tt-social-text { color: #475569; }
 
 .tt-row-tail {
   flex-shrink: 0;
   margin-left: auto;
-  padding-left: 6px;
+  padding-left: 8px;
+  display: flex;
+  align-items: center;
 }
 
 .tt-points-badge {
-  display: inline-block;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
   border-radius: 10px;
-  background: rgba(37, 244, 238, 0.15);
-  border: 1px solid rgba(37, 244, 238, 0.35);
-  color: var(--tt-cyan);
+  background: rgba(4, 211, 205, 0.14);
+  border: 1px solid rgba(37, 244, 238, 0.38);
+  color: #0ff0e6;
   font-size: 10px;
   font-weight: 800;
+  line-height: 14px;
+  white-space: nowrap;
+  box-shadow: 0 1px 6px rgba(37,244,238,0.15);
+}
+:root[data-theme="light"] .tt-points-badge {
+  background: #ecfeff;
+  border-color: #06b6d4;
+  color: #0e7490;
+  box-shadow: 0 1px 3px rgba(6,182,212,0.18);
 }
 
 .tt-timestamp {
   font-size: 10px;
-  color: var(--text-muted);
+  color: #5e667a;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
+:root[data-theme="light"] .tt-timestamp { color: #475569; }
 
 
 /* ==========================================================================

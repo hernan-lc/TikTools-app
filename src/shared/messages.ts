@@ -12,8 +12,12 @@ export type UiEvent = {
     name: string;
     count: number;
     diamonds: number;
+    imageUrl?: string;
   };
   likeCount?: number;
+  // raw i18n keys + params for the renderer to localize
+  i18nKey?: string;
+  i18nParams?: Record<string, string | number>;
 };
 
 export type PointsConfig = {

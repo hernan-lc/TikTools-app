@@ -119,6 +119,15 @@ export function FeedView({
             {topViewers.map((viewer, idx) => (
               <div key={viewer.uniqueId} className={`tt-contributor-chip rank-${idx + 1}`}>
                 <span className="tt-rank-num">{idx + 1}</span>
+                {viewer.avatarUrl ? (
+                  <img
+                    src={viewer.avatarUrl}
+                    alt={viewer.uniqueId}
+                    className="tt-chip-avatar"
+                    loading="lazy"
+                    onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                  />
+                ) : null}
                 <span className="tt-rank-name">@{viewer.uniqueId}</span>
                 <span className="tt-rank-pts">{viewer.points}</span>
               </div>
@@ -137,7 +146,7 @@ export function FeedView({
             <p>{t(locale, 'messagesEmpty')}</p>
           </div>
         ) : (
-          filteredEvents.map((ev) => <EventCard key={ev.id} event={ev} />)
+          filteredEvents.map((ev) => <EventCard key={ev.id} event={ev} locale={locale} />)
         )}
       </div>
 
