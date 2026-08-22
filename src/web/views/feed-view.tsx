@@ -1,19 +1,9 @@
 import type { JSX } from 'preact';
 
 import { EventCard } from '../components/event-card.tsx';
-import {
-  IconArrowDown,
-  IconChat,
-  IconDot,
-  IconGift,
-  IconHeart,
-  IconPause,
-  IconSearch,
-  IconSparkles,
-  IconTrash,
-  IconUsers,
-  IconX,
-} from '../components/icons.tsx';
+import { IconArrowDown, IconChat, IconDot, IconGift, IconHeart, IconPause, IconSparkles, IconTrash, IconUsers } from '../components/icons.tsx';
+import { Button } from '../components/ui/Button.tsx';
+import { SearchInput } from '../components/ui/TextInput.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { DisplayEvent, EventFilter, TopViewerPayload, ViewerRecord } from '../types.ts';
 import { TopViewersRibbon } from '../components/top-viewers.tsx';
@@ -75,7 +65,6 @@ export function FeedView({
 
   return (
     <main className="feed-pane">
-      {/* Filter & Search Bar */}
       <div className="feed-toolbar">
         <div className="filter-icon-group">
           {filterButtons.map((btn) => (
@@ -92,39 +81,11 @@ export function FeedView({
           ))}
         </div>
 
-        <div className="feed-search-wrap">
-          <span className="search-icon">
-            <IconSearch />
-          </span>
-          <input
-            type="text"
-            placeholder={t(locale, 'searchEvents')}
-            value={searchQuery}
-            onInput={(e) => onSearchChange(e.currentTarget.value)}
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              className="search-clear"
-              data-tooltip="Clear search"
-              data-tooltip-pos="left"
-              onClick={() => onSearchChange('')}
-            >
-              <IconX />
-            </button>
-          ) : null}
-        </div>
+        <SearchInput value={searchQuery} onValueChange={onSearchChange} placeholder={t(locale, 'searchEvents')} />
       </div>
 
-      {/* Native TikTok ranking 0-5 (Contributor) + fallback to points leaderboard */}
-      <TopViewersRibbon
-        locale={locale}
-        topViewers={topViewers}
-        leaderboard={leaderboard}
-        liveViewers={liveViewers}
-      />
+      <TopViewersRibbon locale={locale} topViewers={topViewers} leaderboard={leaderboard} liveViewers={liveViewers} />
 
-      {/* Message Stream Area */}
       <div className="feed-stream" ref={streamContainerRef}>
         {filteredEvents.length === 0 ? (
           <div className="feed-empty">
@@ -138,54 +99,30 @@ export function FeedView({
         )}
       </div>
 
-      {/* Floating Jump to Latest Button */}
       {!autoScroll && unreadCount > 0 ? (
         <div className="feed-floating-bar">
-          <button
-            type="button"
-            className="btn-primary"
-            style={{ height: '30px', fontSize: '12px', padding: '0 12px', borderRadius: '15px' }}
-            onClick={onToggleAutoScroll}
-          >
-            <IconArrowDown /> {t(locale, 'scrollToBottom', { count: unreadCount })}
-          </button>
+          <Button variant="primary" size="sm" icon={<IconArrowDown />} onClick={onToggleAutoScroll}>
+            {t(locale, 'scrollToBottom', { count: unreadCount })}
+          </Button>
         </div>
       ) : null}
 
-      {/* Footer Info & Actions */}
       <footer className="feed-footer-info">
         <span>
           {t(locale, filteredEvents.length === 1 ? 'messageCountOne' : 'messageCountMany', {
             count: filteredEvents.length,
           })}
         </span>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <button
-            type="button"
-            className="btn-icon"
-            style={{ width: '28px', height: '28px' }}
-            data-tooltip={autoScroll ? t(locale, 'autoScrollOn') : t(locale, 'autoScrollPaused')}
-            data-tooltip-pos="top"
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Button
+            size="sm"
+            variant="soft"
+            tooltip={autoScroll ? t(locale, 'autoScrollOn') : t(locale, 'autoScrollPaused')}
+            icon={autoScroll ? <span style={{ color: 'var(--tt-green)', display: 'inline-flex' }}><IconDot /></span> : <IconPause />}
+            iconOnly
             onClick={onToggleAutoScroll}
-          >
-            {autoScroll ? (
-              <span style={{ color: 'var(--tt-green)', display: 'inline-flex' }}>
-                <IconDot />
-              </span>
-            ) : (
-              <IconPause />
-            )}
-          </button>
-          <button
-            type="button"
-            className="btn-icon"
-            style={{ width: '28px', height: '28px' }}
-            data-tooltip={t(locale, 'clearFeed')}
-            data-tooltip-pos="top"
-            onClick={onClearFeed}
-          >
-            <IconTrash />
-          </button>
+          />
+          <Button size="sm" variant="soft" tooltip={t(locale, 'clearFeed')} icon={<IconTrash />} iconOnly onClick={onClearFeed} />
         </div>
       </footer>
     </main>

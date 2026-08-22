@@ -1,19 +1,15 @@
 import type { JSX } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 
-import {
-  IconBolt,
-  IconCheck,
-  IconCoins,
-  IconCrown,
-  IconFlame,
-  IconSearch,
-  IconSettings,
-  IconStar,
-  IconTrash,
-  IconTrophy,
-  IconX,
-} from '../components/icons.tsx';
+import { IconBolt, IconCheck, IconCoins, IconFlame, IconStar, IconTrash, IconTrophy } from '../components/icons.tsx';
+import { Alert, Badge, Card, EmptyState } from '../components/ui/Card.tsx';
+import { Button } from '../components/ui/Button.tsx';
+import { Checkbox } from '../components/ui/Checkbox.tsx';
+import { FieldRow, FormField } from '../components/ui/FormField.tsx';
+import { NumberInput } from '../components/ui/NumberInput.tsx';
+import { TextInput, SearchInput } from '../components/ui/TextInput.tsx';
+import { SplitLayout } from '../components/ui/Page.tsx';
+import { DataTable, type Column } from '../components/ui/Table.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { PointsConfig, ViewerRecord } from '../types.ts';
 
@@ -26,19 +22,14 @@ type PointsViewProps = {
   onAdjustPoints: (uniqueId: string, delta: number) => void;
 };
 
-export function PointsView({
-  locale,
-  config,
-  leaderboard,
-  onUpdateConfig,
-  onResetPoints,
-  onAdjustPoints,
-}: PointsViewProps) {
+export function PointsView({ locale, config, leaderboard, onUpdateConfig, onResetPoints, onAdjustPoints }: PointsViewProps) {
   const [localConfig, setLocalConfig] = useState<PointsConfig>(config);
   const [searchQuery, setSearchQuery] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [adjustTarget, setAdjustTarget] = useState<string | null>(null);
   const [adjustDelta, setAdjustDelta] = useState<string>('50');
+
+  useEffect(() => setLocalConfig(config), [config]);
 
   const handleSave = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
     e.preventDefault();
@@ -48,16 +39,14 @@ export function PointsView({
   };
 
   const handleResetAll = () => {
-    if (window.confirm(t(locale, 'resetPointsConfirm'))) {
-      onResetPoints();
-    }
+    if (window.confirm(t(locale, 'resetPointsConfirm'))) onResetPoints();
   };
 
   const handleAdjustSubmit = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
     e.preventDefault();
     if (!adjustTarget) return;
     const delta = parseFloat(adjustDelta);
-    if (!isNaN(delta)) {
+    if (!Number.isNaN(delta)) {
       onAdjustPoints(adjustTarget, delta);
       setAdjustTarget(null);
     }
@@ -69,414 +58,248 @@ export function PointsView({
     return v.uniqueId.toLowerCase().includes(q) || (v.nickname && v.nickname.toLowerCase().includes(q));
   });
 
-  return (
-    <div className="view-container">
-      <div className="points-dashboard-layout">
-        {/* Left Column: TikFinity-Style Config Cards */}
-        <div className="points-config-column">
-          <form onSubmit={handleSave}>
-            {/* 1. Sistema de Puntos Card */}
-            <div className="tikfinity-card">
-              <h2 className="tikfinity-title">
-                <IconCoins /> {t(locale, 'pointsSystem')}
-              </h2>
+  const columns: Column<ViewerRecord>[] = [
+    {
+      key: 'rank',
+      header: t(locale, 'rank'),
+      width: '56px',
+      render: (_row, idx) =>
+        idx === 0 ? (
+          <span style={{ color: '#b45309', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <IconTrophy /> 1
+          </span>
+        ) : idx === 1 ? (
+          <span style={{ color: '#64748b', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <IconTrophy /> 2
+          </span>
+        ) : idx === 2 ? (
+          <span style={{ color: '#92400e', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <IconTrophy /> 3
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>#{idx + 1}</span>
+        ),
+    },
+    {
+      key: 'viewer',
+      header: t(locale, 'viewer'),
+      render: (row) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontWeight: 600 }}>@{row.uniqueId}</span>
+          {row.isSubscriber ? (
+            <span title="Subscriber" style={{ display: 'inline-flex', color: '#f59e0b' }}>
+              <IconStar />
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      key: 'level',
+      header: t(locale, 'level'),
+      width: '84px',
+      render: (row) => (
+        <span className="tt-badge-level" style={{ transform: 'scale(0.88)', transformOrigin: 'left' }}>
+          <span className="tt-badge-icon">
+            <IconBolt />
+          </span>
+          <span className="tt-badge-text">N.º {row.level}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'points',
+      header: t(locale, 'points'),
+      width: '88px',
+      align: 'right',
+      render: (row) => <span style={{ fontWeight: 700, color: 'var(--tt-pink)' }}>{row.points.toLocaleString()}</span>,
+    },
+    {
+      key: 'actions',
+      header: t(locale, 'actions'),
+      width: '64px',
+      align: 'right',
+      render: (row) => (
+        <Button size="sm" variant="soft" tooltip={t(locale, 'addPoints')} onClick={() => setAdjustTarget(row.uniqueId)}>
+          +
+        </Button>
+      ),
+    },
+  ];
 
-              <div className="tikfinity-field-row">
-                <label className="tikfinity-label" htmlFor="tf-currency-name">
-                  {t(locale, 'currencyName')}
-                </label>
-                <input
+  return (
+    <div className="view-container" style={{ flexDirection: 'column' }}>
+      <SplitLayout
+        left={
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* 1. Sistema de Puntos */}
+            <Card title={t(locale, 'pointsSystem')} icon={<IconCoins />}>
+              <FormField label={t(locale, 'currencyName')} htmlFor="tf-currency-name">
+                <TextInput
                   id="tf-currency-name"
-                  type="text"
-                  className="tikfinity-input"
                   value={localConfig.currencyName}
-                  onInput={(e) =>
-                    setLocalConfig({ ...localConfig, currencyName: e.currentTarget.value })
-                  }
+                  onValueChange={(v) => setLocalConfig({ ...localConfig, currencyName: v })}
                   placeholder={t(locale, 'currencyNamePlaceholder')}
                 />
-              </div>
+              </FormField>
 
-              {/* Puntos por moneda */}
-              <div className="tikfinity-toggle-row">
-                <label className="tikfinity-checkbox-label">
-                  <input
-                    type="checkbox"
+              <FieldRow label={t(locale, 'pointsPerCoin')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Checkbox
                     checked={localConfig.pointsPerCoinEnabled}
-                    onChange={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        pointsPerCoinEnabled: e.currentTarget.checked,
-                      })
-                    }
+                    onCheckedChange={(v) => setLocalConfig({ ...localConfig, pointsPerCoinEnabled: v })}
                   />
-                  <span>{t(locale, 'pointsPerCoin')}</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerCoin}
-                  disabled={!localConfig.pointsPerCoinEnabled}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerCoin: parseFloat(e.currentTarget.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Puntos por compartir */}
-              <div className="tikfinity-toggle-row">
-                <label className="tikfinity-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={localConfig.pointsPerShareEnabled}
-                    onChange={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        pointsPerShareEnabled: e.currentTarget.checked,
-                      })
-                    }
+                  <NumberInput
+                    value={localConfig.pointsPerCoin}
+                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerCoin: v })}
+                    min={0}
+                    step={0.1}
+                    disabled={!localConfig.pointsPerCoinEnabled}
                   />
-                  <span>{t(locale, 'pointsPerShare')}</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerShare}
-                  disabled={!localConfig.pointsPerShareEnabled}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerShare: parseFloat(e.currentTarget.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Puntos por comentario */}
-              <div className="tikfinity-toggle-row">
-                <label className="tikfinity-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={localConfig.pointsPerChatEnabled}
-                    onChange={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        pointsPerChatEnabled: e.currentTarget.checked,
-                      })
-                    }
-                  />
-                  <span>{t(locale, 'pointsPerChat')}</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerChat}
-                  disabled={!localConfig.pointsPerChatEnabled}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerChat: parseFloat(e.currentTarget.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Puntos por Like */}
-              <div className="tikfinity-toggle-row">
-                <label className="tikfinity-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={localConfig.pointsPerLikeEnabled}
-                    onChange={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        pointsPerLikeEnabled: e.currentTarget.checked,
-                      })
-                    }
-                  />
-                  <span>{t(locale, 'pointsPerLike')}</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.05"
-                  min="0"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerLike}
-                  disabled={!localConfig.pointsPerLikeEnabled}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerLike: parseFloat(e.currentTarget.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              {/* Puntos por Seguir */}
-              <div className="tikfinity-toggle-row">
-                <label className="tikfinity-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={localConfig.pointsPerFollowEnabled}
-                    onChange={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        pointsPerFollowEnabled: e.currentTarget.checked,
-                      })
-                    }
-                  />
-                  <span>{t(locale, 'pointsPerFollow')}</span>
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerFollow}
-                  disabled={!localConfig.pointsPerFollowEnabled}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerFollow: parseFloat(e.currentTarget.value) || 0,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {/* 2. Bono para Suscriptores Card */}
-            <div className="tikfinity-card">
-              <h2 className="tikfinity-title">
-                <IconStar /> {t(locale, 'subBonus')}
-              </h2>
-              <p className="tikfinity-desc">{t(locale, 'subBonusLead')}</p>
-
-              <div className="tikfinity-field-row">
-                <label className="tikfinity-label" htmlFor="tf-sub-multiplier">
-                  {t(locale, 'subBonusRatio')}
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    id="tf-sub-multiplier"
-                    type="number"
-                    step="5"
-                    min="0"
-                    max="500"
-                    className="tikfinity-number-input"
-                    value={localConfig.subBonusMultiplier}
-                    onInput={(e) =>
-                      setLocalConfig({
-                        ...localConfig,
-                        subBonusMultiplier: parseFloat(e.currentTarget.value) || 0,
-                      })
-                    }
-                  />
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>%</span>
                 </div>
-              </div>
-            </div>
+              </FieldRow>
 
-            {/* 3. Configuraciones de Nivel Card */}
-            <div className="tikfinity-card">
-              <h2 className="tikfinity-title">
-                <IconFlame /> {t(locale, 'levelConfig')}
-              </h2>
-              <p className="tikfinity-desc">{t(locale, 'levelConfigLead')}</p>
+              <FieldRow label={t(locale, 'pointsPerShare')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Checkbox
+                    checked={localConfig.pointsPerShareEnabled}
+                    onCheckedChange={(v) => setLocalConfig({ ...localConfig, pointsPerShareEnabled: v })}
+                  />
+                  <NumberInput
+                    value={localConfig.pointsPerShare}
+                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerShare: v })}
+                    min={0}
+                    step={0.5}
+                    disabled={!localConfig.pointsPerShareEnabled}
+                  />
+                </div>
+              </FieldRow>
 
-              <div className="tikfinity-field-row">
-                <label className="tikfinity-label" htmlFor="tf-level-points">
-                  {t(locale, 'pointsPerLevel')}
-                </label>
-                <input
-                  id="tf-level-points"
-                  type="number"
-                  step="10"
-                  min="10"
-                  className="tikfinity-number-input"
-                  value={localConfig.pointsPerLevel}
-                  onInput={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
-                      pointsPerLevel: parseInt(e.currentTarget.value, 10) || 100,
-                    })
-                  }
+              <FieldRow label={t(locale, 'pointsPerChat')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Checkbox
+                    checked={localConfig.pointsPerChatEnabled}
+                    onCheckedChange={(v) => setLocalConfig({ ...localConfig, pointsPerChatEnabled: v })}
+                  />
+                  <NumberInput
+                    value={localConfig.pointsPerChat}
+                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerChat: v })}
+                    min={0}
+                    step={0.1}
+                    disabled={!localConfig.pointsPerChatEnabled}
+                  />
+                </div>
+              </FieldRow>
+
+              <FieldRow label={t(locale, 'pointsPerLike')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Checkbox
+                    checked={localConfig.pointsPerLikeEnabled}
+                    onCheckedChange={(v) => setLocalConfig({ ...localConfig, pointsPerLikeEnabled: v })}
+                  />
+                  <NumberInput
+                    value={localConfig.pointsPerLike}
+                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerLike: v })}
+                    min={0}
+                    step={0.05}
+                    disabled={!localConfig.pointsPerLikeEnabled}
+                  />
+                </div>
+              </FieldRow>
+
+              <FieldRow label={t(locale, 'pointsPerFollow')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Checkbox
+                    checked={localConfig.pointsPerFollowEnabled}
+                    onCheckedChange={(v) => setLocalConfig({ ...localConfig, pointsPerFollowEnabled: v })}
+                  />
+                  <NumberInput
+                    value={localConfig.pointsPerFollow}
+                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerFollow: v })}
+                    min={0}
+                    step={1}
+                    disabled={!localConfig.pointsPerFollowEnabled}
+                  />
+                </div>
+              </FieldRow>
+            </Card>
+
+            {/* 2. Bono Suscriptores */}
+            <Card title={t(locale, 'subBonus')} subtitle={t(locale, 'subBonusLead')} icon={<IconStar />}>
+              <FieldRow label={t(locale, 'subBonusRatio')}>
+                <NumberInput
+                  value={localConfig.subBonusMultiplier}
+                  onValueChange={(v) => setLocalConfig({ ...localConfig, subBonusMultiplier: v })}
+                  min={0}
+                  max={500}
+                  step={5}
+                  suffix="%"
                 />
-              </div>
-            </div>
+              </FieldRow>
+            </Card>
 
-            {/* Action Bar */}
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px' }}>
-              <button type="submit" className="btn-primary" style={{ flex: 1 }}>
-                <IconCheck /> {t(locale, 'savePointsConfig')}
-              </button>
-              <button
-                type="button"
-                className="btn-danger"
-                style={{ padding: '0 12px' }}
-                data-tooltip={t(locale, 'resetPoints')}
-                data-tooltip-pos="top"
-                onClick={handleResetAll}
-              >
-                <IconTrash />
-              </button>
+            {/* 3. Nivel */}
+            <Card title={t(locale, 'levelConfig')} subtitle={t(locale, 'levelConfigLead')} icon={<IconFlame />}>
+              <FieldRow label={t(locale, 'pointsPerLevel')}>
+                <NumberInput
+                  value={localConfig.pointsPerLevel}
+                  onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerLevel: Math.max(10, v | 0) })}
+                  min={10}
+                  step={10}
+                />
+              </FieldRow>
+            </Card>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Button type="submit" variant="primary" block icon={<IconCheck />}>
+                {t(locale, 'savePointsConfig')}
+              </Button>
+              <Button variant="danger" icon={<IconTrash />} tooltip={t(locale, 'resetPoints')} onClick={handleResetAll} iconOnly />
             </div>
 
             {saveSuccess ? (
-              <div className="success-banner" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                <IconCheck /> {t(locale, 'configSaved')}
-              </div>
+              <Alert variant="success">
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <IconCheck /> {t(locale, 'configSaved')}
+                </span>
+              </Alert>
             ) : null}
           </form>
-        </div>
-
-        {/* Right Column: SQLite Points Leaderboard Table */}
-        <div className="points-leaderboard-column">
-          <div className="tikfinity-card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h2 className="tikfinity-title" style={{ margin: 0 }}>
-                <IconTrophy /> {t(locale, 'leaderboard')}
-              </h2>
-              <span className="badge-pill" style={{ background: 'var(--input-bg)' }}>
-                {filteredViewers.length} {t(locale, 'viewersCount')}
-              </span>
-            </header>
-
-            {/* Search filter */}
-            <div className="feed-search-wrap" style={{ width: '100%', marginBottom: '12px' }}>
-              <span className="search-icon">
-                <IconSearch />
-              </span>
-              <input
-                type="text"
-                placeholder={t(locale, 'searchViewers')}
-                value={searchQuery}
-                onInput={(e) => setSearchQuery(e.currentTarget.value)}
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  className="search-clear"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <IconX />
-                </button>
-              ) : null}
+        }
+        right={
+          <Card title={t(locale, 'leaderboard')} icon={<IconTrophy />} action={<Badge>{filteredViewers.length} {t(locale, 'viewersCount')}</Badge>} padding="md" className="ui-card--fill">
+            <div style={{ marginBottom: 10 }}>
+              <SearchInput value={searchQuery} onValueChange={setSearchQuery} placeholder={t(locale, 'searchViewers')} />
             </div>
-
-            {/* Leaderboard Table Container */}
-            <div className="leaderboard-table-scroll">
-              {filteredViewers.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  {t(locale, 'noData')}
-                </div>
-              ) : (
-                <table className="tikfinity-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: '40px' }}>{t(locale, 'rank')}</th>
-                      <th>{t(locale, 'viewer')}</th>
-                      <th style={{ width: '70px' }}>{t(locale, 'level')}</th>
-                      <th style={{ width: '80px', textAlign: 'right' }}>{t(locale, 'points')}</th>
-                      <th style={{ width: '70px', textAlign: 'right' }}>{t(locale, 'actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredViewers.map((viewer, idx) => (
-                      <tr key={viewer.uniqueId} className={idx < 3 ? `top-rank-${idx + 1}` : ''}>
-                        <td>
-                          {idx === 0 ? (
-                            <span style={{ color: '#b45309', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <IconTrophy /> 1
-                            </span>
-                          ) : idx === 1 ? (
-                            <span style={{ color: '#64748b', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <IconTrophy /> 2
-                            </span>
-                          ) : idx === 2 ? (
-                            <span style={{ color: '#92400e', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <IconTrophy /> 3
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>#{idx + 1}</span>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="table-viewer-name">@{viewer.uniqueId}</span>
-                            {viewer.isSubscriber ? (
-                              <span title="Subscriber" style={{ display: 'inline-flex', color: '#f59e0b' }}>
-                                <IconStar />
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="tt-badge-level" style={{ transform: 'scale(0.85)', transformOrigin: 'left' }}>
-                            <span className="tt-badge-icon">
-                              <IconBolt />
-                            </span>
-                            <span className="tt-badge-text">N.º {viewer.level}</span>
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--tt-pink)' }}>
-                          {viewer.points.toLocaleString()}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            style={{ width: '24px', height: '24px', fontSize: '11px' }}
-                            data-tooltip={t(locale, 'addPoints')}
-                            data-tooltip-pos="left"
-                            onClick={() => setAdjustTarget(viewer.uniqueId)}
-                          >
-                            +
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+            <DataTable
+              columns={columns}
+              data={filteredViewers}
+              rowKey="uniqueId"
+              emptyState={<EmptyState title={t(locale, 'noData')} />}
+              rowClassName={(_r, i) => (i < 3 ? `top-rank-${i + 1}` : undefined)}
+            />
+          </Card>
+        }
+      />
 
       {/* Adjust Points Modal */}
       {adjustTarget ? (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h2>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <IconCoins /> Adjust Points: @{adjustTarget}
             </h2>
             <form onSubmit={handleAdjustSubmit}>
-              <div className="form-group">
-                <label>Points to Add or Deduct (use negative to deduct):</label>
-                <input
-                  type="number"
-                  step="1"
-                  value={adjustDelta}
-                  onInput={(e) => setAdjustDelta(e.currentTarget.value)}
-                  autoFocus
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setAdjustTarget(null)}>
+              <FormField label="Points to Add or Deduct (use negative to deduct):">
+                <NumberInput value={parseFloat(adjustDelta) || 0} onValueChange={(v) => setAdjustDelta(String(v))} step={1} />
+              </FormField>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                <Button variant="soft" onClick={() => setAdjustTarget(null)}>
                   {t(locale, 'cancel')}
-                </button>
-                <button type="submit" className="btn-primary">
+                </Button>
+                <Button type="submit" variant="primary">
                   {t(locale, 'continue')}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

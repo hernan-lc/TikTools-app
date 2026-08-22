@@ -1,11 +1,12 @@
 import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
 
-import {
-  IconDice,
-  IconRadio,
-  IconUsers,
-} from '../components/icons.tsx';
+import { IconDice, IconRadio, IconUsers } from '../components/icons.tsx';
+import { Alert, Badge, Card, Chip, ChipGroup, EmptyState } from '../components/ui/Card.tsx';
+import { Button } from '../components/ui/Button.tsx';
+import { FormField } from '../components/ui/FormField.tsx';
+import { TextInput } from '../components/ui/TextInput.tsx';
+import { Page } from '../components/ui/Page.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { ConnectionStatus } from '../types.ts';
 
@@ -45,109 +46,63 @@ export function ConnectView({
   };
 
   return (
-    <div className="view-container">
-      <div className="connect-pane">
-        <div className="connect-card">
-          <h2>
-            <IconRadio /> {t(locale, 'connectToLive')}
-          </h2>
-          <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-            {t(locale, 'setupLead')}
-          </p>
+    <Page narrow>
+      <Card title={t(locale, 'connectToLive')} subtitle={t(locale, 'setupLead')} icon={<IconRadio />}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <FormField label={t(locale, 'creatorHandle')} hint={t(locale, 'leadingAtOptional')} required htmlFor="connect-creator">
+            <TextInput
+              id="connect-creator"
+              value={uniqueId}
+              onValueChange={onUniqueIdChange}
+              prefix="@"
+              placeholder="creator_handle"
+              required
+              onEnter={onConnect}
+            />
+          </FormField>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="connect-creator">{t(locale, 'creatorHandle')}</label>
-              <div className="input-wrapper has-prefix">
-                <span className="input-prefix">@</span>
-                <input
-                  id="connect-creator"
-                  type="text"
-                  placeholder="creator_handle"
-                  value={uniqueId}
-                  spellcheck={false}
-                  autoComplete="off"
-                  onInput={(e) => onUniqueIdChange(e.currentTarget.value)}
-                />
-              </div>
-            </div>
-
-            {showCookie ? (
-              <div className="form-group">
-                <label htmlFor="connect-cookie">
-                  {t(locale, 'authenticatedCookie')} <span style={{ opacity: 0.6 }}>({t(locale, 'optional')})</span>
-                </label>
-                <input
-                  id="connect-cookie"
-                  type="password"
-                  placeholder="sessionid=..."
-                  value={cookie}
-                  spellcheck={false}
-                  onInput={(e) => onCookieChange(e.currentTarget.value)}
-                />
-              </div>
-            ) : (
-              <div style={{ marginBottom: '10px' }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '11px', padding: '4px 10px' }}
-                  onClick={() => setShowCookie(true)}
-                >
-                  + {t(locale, 'authenticatedCookie')}
-                </button>
-              </div>
-            )}
-
-            {error ? <div className="error-banner">{error}</div> : null}
-
-            <div className="form-actions">
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={isBusy || !uniqueId.trim()}
-              >
-                {isBusy ? t(locale, 'connecting') : t(locale, 'connect')}
-              </button>
-              <button
-                type="button"
-                className="btn-cyan"
-                data-tooltip={t(locale, 'pickLive')}
-                data-tooltip-pos="top"
-                disabled={isBusy}
-                onClick={onPickLive}
-              >
-                <IconDice />
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Recent Streamers Card */}
-        <div className="connect-card">
-          <h2>
-            <IconUsers /> {t(locale, 'recentStreamers')}
-          </h2>
-          {recents.length > 0 ? (
-            <div className="recent-list">
-              {recents.map((creator) => (
-                <button
-                  key={creator}
-                  type="button"
-                  className="recent-chip"
-                  data-tooltip={`Connect to @${creator}`}
-                  data-tooltip-pos="top"
-                  onClick={() => onSelectRecent(creator)}
-                >
-                  @{creator}
-                </button>
-              ))}
-            </div>
+          {showCookie ? (
+            <FormField label={`${t(locale, 'authenticatedCookie')} (${t(locale, 'optional')})`} htmlFor="connect-cookie">
+              <TextInput
+                id="connect-cookie"
+                type="password"
+                value={cookie}
+                onValueChange={onCookieChange}
+                placeholder="sessionid=..."
+              />
+            </FormField>
           ) : (
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t(locale, 'noRecents')}</span>
+            <div style={{ marginBottom: 4 }}>
+              <Button variant="soft" size="sm" onClick={() => setShowCookie(true)}>
+                + {t(locale, 'authenticatedCookie')}
+              </Button>
+            </div>
           )}
-        </div>
-      </div>
-    </div>
+
+          {error ? <Alert variant="danger">{error}</Alert> : null}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <Button type="submit" variant="primary" block loading={isBusy} disabled={!uniqueId.trim()}>
+              {isBusy ? t(locale, 'connecting') : t(locale, 'connect')}
+            </Button>
+            <Button variant="cyan" tooltip={t(locale, 'pickLive')} disabled={isBusy} onClick={onPickLive} icon={<IconDice />} iconOnly />
+          </div>
+        </form>
+      </Card>
+
+      <Card title={t(locale, 'recentStreamers')} icon={<IconUsers />} action={recents.length ? <Badge>{recents.length}</Badge> : null}>
+        {recents.length > 0 ? (
+          <ChipGroup>
+            {recents.map((creator) => (
+              <Chip key={creator} onClick={() => onSelectRecent(creator)}>
+                @{creator}
+              </Chip>
+            ))}
+          </ChipGroup>
+        ) : (
+          <EmptyState title={t(locale, 'noRecents')} description="" />
+        )}
+      </Card>
+    </Page>
   );
 }

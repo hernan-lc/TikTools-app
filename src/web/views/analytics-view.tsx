@@ -1,10 +1,7 @@
-import {
-  IconBarChart,
-  IconChat,
-  IconGift,
-  IconHeart,
-  IconUsers,
-} from '../components/icons.tsx';
+import { IconBarChart, IconChat, IconGift, IconHeart, IconTrophy, IconUsers } from '../components/icons.tsx';
+import { Badge, Card, EmptyState } from '../components/ui/Card.tsx';
+import { Page, PageHeader, StatCard, StatGrid } from '../components/ui/Page.tsx';
+import { DataTable, type Column } from '../components/ui/Table.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { DisplayEvent, StreamTelemetry } from '../types.ts';
 
@@ -14,110 +11,68 @@ type AnalyticsViewProps = {
   events: DisplayEvent[];
 };
 
+type TopRow = { user: string; count: number };
+
 export function AnalyticsView({ locale, telemetry, events }: AnalyticsViewProps) {
-  // Compute top active chatters
   const authorCounts = new Map<string, number>();
   events.forEach((ev) => {
     authorCounts.set(ev.author, (authorCounts.get(ev.author) ?? 0) + 1);
   });
-  const topChatters = Array.from(authorCounts.entries())
+  const topChatters: TopRow[] = Array.from(authorCounts.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+    .slice(0, 20)
+    .map(([user, count]) => ({ user, count }));
 
   const totalEvents = telemetry.chats + telemetry.gifts + telemetry.likes + telemetry.members;
 
-  return (
-    <div className="view-container">
-      <div className="analytics-pane">
-        <header className="analytics-header">
-          <h2>
-            <IconBarChart /> {t(locale, 'tabAnalytics')}
-          </h2>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            {t(locale, 'messageCountMany', { count: totalEvents })}
+  const columns: Column<TopRow>[] = [
+    {
+      key: 'rank',
+      header: t(locale, 'rank'),
+      width: '56px',
+      render: (_row, idx) =>
+        idx < 3 ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 800, color: idx === 0 ? '#b45309' : idx === 1 ? '#64748b' : '#92400e' }}>
+            <IconTrophy /> {idx + 1}
           </span>
-        </header>
+        ) : (
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>#{idx + 1}</span>
+        ),
+    },
+    {
+      key: 'user',
+      header: t(locale, 'viewer'),
+      render: (row) => <span style={{ fontWeight: 600 }}>@{row.user}</span>,
+    },
+    {
+      key: 'count',
+      header: t(locale, 'points'),
+      width: '110px',
+      align: 'right' as const,
+      render: (row) => <span style={{ fontWeight: 700 }}>{row.count} events</span>,
+    },
+  ];
 
-        {/* 4 Metric Cards */}
-        <div className="stats-grid-large">
-          <div className="stats-card-large">
-            <div className="stats-icon-large chats">
-              <IconChat />
-            </div>
-            <div>
-              <div className="stats-val-large">{telemetry.chats.toLocaleString()}</div>
-              <div className="stats-lbl-large">{t(locale, 'statsChats')}</div>
-            </div>
-          </div>
+  return (
+    <Page>
+      <PageHeader title={t(locale, 'tabAnalytics')} icon={<IconBarChart />} meta={<Badge>{t(locale, 'messageCountMany', { count: totalEvents })}</Badge>} />
 
-          <div className="stats-card-large">
-            <div className="stats-icon-large gifts">
-              <IconGift />
-            </div>
-            <div>
-              <div className="stats-val-large">{telemetry.gifts.toLocaleString()}</div>
-              <div className="stats-lbl-large">{t(locale, 'statsGifts')}</div>
-            </div>
-          </div>
+      <StatGrid>
+        <StatCard icon={<IconChat />} value={telemetry.chats.toLocaleString()} label={t(locale, 'statsChats')} tone="cyan" />
+        <StatCard icon={<IconGift />} value={telemetry.gifts.toLocaleString()} label={t(locale, 'statsGifts')} tone="pink" />
+        <StatCard icon={<IconHeart />} value={telemetry.likes.toLocaleString()} label={t(locale, 'statsLikes')} tone="yellow" />
+        <StatCard icon={<IconUsers />} value={telemetry.members.toLocaleString()} label={t(locale, 'statsMembers')} tone="green" />
+      </StatGrid>
 
-          <div className="stats-card-large">
-            <div className="stats-icon-large likes">
-              <IconHeart />
-            </div>
-            <div>
-              <div className="stats-val-large">{telemetry.likes.toLocaleString()}</div>
-              <div className="stats-lbl-large">{t(locale, 'statsLikes')}</div>
-            </div>
-          </div>
-
-          <div className="stats-card-large">
-            <div className="stats-icon-large members">
-              <IconUsers />
-            </div>
-            <div>
-              <div className="stats-val-large">{telemetry.members.toLocaleString()}</div>
-              <div className="stats-lbl-large">{t(locale, 'statsMembers')}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Active Chatters Card */}
-        <div className="connect-card" style={{ width: '100%' }}>
-          <h2>
-            <IconUsers /> {t(locale, 'topChatters')}
-          </h2>
-          {topChatters.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {topChatters.map(([author, count], idx) => (
-                <div
-                  key={author}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--line)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--tt-pink)' }}>#{idx + 1}</span>
-                    <span style={{ fontWeight: 600 }}>@{author}</span>
-                  </div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    {count} {count === 1 ? 'event' : 'events'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-              {t(locale, 'noData')}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
+      <Card title={t(locale, 'topChatters')} icon={<IconUsers />} action={<Badge tone="neutral">{topChatters.length} / 20</Badge>}>
+        <DataTable
+          columns={columns}
+          data={topChatters}
+          rowKey={(r) => r.user}
+          emptyState={<EmptyState title={t(locale, 'noData')} description={t(locale, 'noData')} />}
+          rowClassName={(_r, i) => (i < 3 ? `top-rank-${i + 1}` : undefined)}
+        />
+      </Card>
+    </Page>
   );
 }
