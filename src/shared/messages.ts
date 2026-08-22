@@ -64,6 +64,16 @@ export type PageMessage =
   | { type: 'reset-points'; uniqueId?: string }
   | { type: 'adjust-points'; uniqueId: string; delta: number };
 
+export type TopViewerPayload = {
+  rank: number;
+  score: number;
+  delta: number;
+  uniqueId: string;
+  nickname: string;
+  avatarUrl?: string;
+  userId: string;
+};
+
 export type HostMessage =
   | {
       type: 'connection';
@@ -72,6 +82,7 @@ export type HostMessage =
       title?: string;
     }
   | { type: 'live-event'; event: UiEvent }
+  | { type: 'room-stats'; viewers: number; totalUsers: number; topViewers: TopViewerPayload[] }
   | { type: 'reconnecting'; attempt: number; delayMs: number }
   | { type: 'error'; phase: 'connect' | 'live'; message: string }
   | { type: 'points-config'; config: PointsConfig }

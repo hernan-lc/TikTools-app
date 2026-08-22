@@ -1,5 +1,6 @@
 import type {
   PointsConfig,
+  TopViewerPayload,
   UiEvent,
   ViewerRecord,
 } from '../shared/messages.ts';
@@ -28,4 +29,4 @@ export type StreamTelemetry = {
   members: number;
 };
 
-export type { PointsConfig, ViewerRecord };
+export type { PointsConfig, TopViewerPayload, ViewerRecord };

@@ -24,6 +24,7 @@ import type {
   EventFilter,
   PointsConfig,
   StreamTelemetry,
+  TopViewerPayload,
   ViewerRecord,
 } from './types.ts';
 import { AnalyticsView } from './views/analytics-view.tsx';
@@ -90,6 +91,8 @@ function App() {
   
   const [pointsConfig, setPointsConfig] = useState<PointsConfig>(defaultPointsConfig);
   const [leaderboard, setLeaderboard] = useState<ViewerRecord[]>([]);
+  const [topViewers, setTopViewers] = useState<TopViewerPayload[]>([]);
+  const [liveViewers, setLiveViewers] = useState(0);
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -110,6 +113,8 @@ function App() {
     setEvents([]);
     setUnreadCount(0);
     setTelemetry({ chats: 0, gifts: 0, likes: 0, members: 0 });
+    setTopViewers([]);
+    setLiveViewers(0);
   };
 
   useEffect(() => {
@@ -153,6 +158,11 @@ function App() {
       }
 
       if (message.type === 'reconnecting') setStatus('retrying');
+
+      if (message.type === 'room-stats') {
+        setTopViewers(message.topViewers);
+        setLiveViewers(message.viewers);
+      }
 
       if (message.type === 'points-config') {
         setPointsConfig(message.config);
@@ -344,6 +354,8 @@ function App() {
             locale={locale}
             events={events}
             leaderboard={leaderboard}
+            topViewers={topViewers}
+            liveViewers={liveViewers}
             filter={filter}
             searchQuery={searchQuery}
             autoScroll={autoScroll}

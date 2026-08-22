@@ -11,11 +11,13 @@ import type {
 
 import { PointsDatabase } from './db/points-db.ts';
 import {
+  cleanUsername,
   hasUser,
   isChatEvent,
   isGiftEvent,
   isLikeEvent,
   isMemberEvent,
+  isRoomUserEvent,
   isSocialEvent,
   roomTitle,
   toUiEvent,
@@ -153,6 +155,27 @@ export class LiveController {
 
     client.on('event', (event: LiveEvent) => {
       if (generation !== this.#generation) return;
+
+      // Handle native TikTok ranking (Contributor 0-5 view) — Espectadores top
+      if (isRoomUserEvent(event)) {
+        const topViewers = (event.topViewers ?? []).slice(0, 6).map((v) => ({
+          rank: v.rank,
+          score: v.score,
+          delta: v.delta,
+          uniqueId: cleanUsername(v.user),
+          nickname: v.user.nickname || cleanUsername(v.user),
+          avatarUrl: v.user.avatarUrl || undefined,
+          userId: v.user.userId,
+        }));
+        this.send({
+          type: 'room-stats',
+          viewers: event.viewers,
+          totalUsers: event.totalUser,
+          topViewers,
+        });
+        return;
+      }
+
       const uiEvent = toUiEvent(event);
       if (!uiEvent) return;
 
