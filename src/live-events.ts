@@ -113,7 +113,7 @@ function giftToUiEvent(event: GiftEvent): UiEvent {
     kind: 'gift',
     author,
     nickname: event.user.nickname || author,
-    text: `sent ${count}× ${giftName} (${totalDiamonds} 🪙)`,
+    text: `sent ${count}× ${giftName} (${totalDiamonds})`,
     avatarUrl: event.user.avatarUrl || undefined,
     giftDetails: {
       name: giftName,
@@ -133,7 +133,7 @@ function likeToUiEvent(event: LikeEvent): UiEvent {
     kind: 'like',
     author,
     nickname: event.user.nickname || author,
-    text: `sent ${likeCount} ${likeCount === 1 ? 'like' : 'likes'} ❤️`,
+    text: `sent ${likeCount} ${likeCount === 1 ? 'like' : 'likes'}`,
     avatarUrl: event.user.avatarUrl || undefined,
     likeCount,
     i18nKey: 'likeSent',

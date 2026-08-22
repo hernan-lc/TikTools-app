@@ -267,7 +267,7 @@ function App() {
     setError('');
     resetEvents();
     setStatus('connecting');
-    setActiveCreator('🎲 ' + t(locale, 'searchingRooms'));
+    setActiveCreator(t(locale, 'searchingRooms'));
     setActiveTab('feed');
     send({
       type: 'pick-live',

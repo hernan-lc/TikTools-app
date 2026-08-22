@@ -2,6 +2,7 @@ import type { JSX } from 'preact';
 import { useState } from 'preact/hooks';
 
 import {
+  IconBolt,
   IconCheck,
   IconCoins,
   IconCrown,
@@ -11,6 +12,7 @@ import {
   IconStar,
   IconTrash,
   IconTrophy,
+  IconX,
 } from '../components/icons.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { PointsConfig, ViewerRecord } from '../types.ts';
@@ -329,8 +331,8 @@ export function PointsView({
             </div>
 
             {saveSuccess ? (
-              <div className="success-banner" style={{ marginTop: '10px' }}>
-                ✓ {t(locale, 'configSaved')}
+              <div className="success-banner" style={{ marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <IconCheck /> {t(locale, 'configSaved')}
               </div>
             ) : null}
           </form>
@@ -365,7 +367,7 @@ export function PointsView({
                   className="search-clear"
                   onClick={() => setSearchQuery('')}
                 >
-                  ✕
+                  <IconX />
                 </button>
               ) : null}
             </div>
@@ -392,11 +394,17 @@ export function PointsView({
                       <tr key={viewer.uniqueId} className={idx < 3 ? `top-rank-${idx + 1}` : ''}>
                         <td>
                           {idx === 0 ? (
-                            <span style={{ color: '#ffd700', fontWeight: 800 }}>🥇 1</span>
+                            <span style={{ color: '#b45309', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconTrophy /> 1
+                            </span>
                           ) : idx === 1 ? (
-                            <span style={{ color: '#c0c0c0', fontWeight: 800 }}>🥈 2</span>
+                            <span style={{ color: '#64748b', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconTrophy /> 2
+                            </span>
                           ) : idx === 2 ? (
-                            <span style={{ color: '#cd7f32', fontWeight: 800 }}>🥉 3</span>
+                            <span style={{ color: '#92400e', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconTrophy /> 3
+                            </span>
                           ) : (
                             <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>#{idx + 1}</span>
                           )}
@@ -404,12 +412,18 @@ export function PointsView({
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <span className="table-viewer-name">@{viewer.uniqueId}</span>
-                            {viewer.isSubscriber ? <span title="Subscriber">⭐</span> : null}
+                            {viewer.isSubscriber ? (
+                              <span title="Subscriber" style={{ display: 'inline-flex', color: '#f59e0b' }}>
+                                <IconStar />
+                              </span>
+                            ) : null}
                           </div>
                         </td>
                         <td>
                           <span className="tt-badge-level" style={{ transform: 'scale(0.85)', transformOrigin: 'left' }}>
-                            <span className="tt-badge-icon">⚡</span>
+                            <span className="tt-badge-icon">
+                              <IconBolt />
+                            </span>
                             <span className="tt-badge-text">N.º {viewer.level}</span>
                           </span>
                         </td>

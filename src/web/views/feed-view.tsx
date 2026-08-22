@@ -4,12 +4,15 @@ import { EventCard } from '../components/event-card.tsx';
 import {
   IconArrowDown,
   IconChat,
+  IconDot,
   IconGift,
   IconHeart,
+  IconPause,
   IconSearch,
   IconSparkles,
   IconTrash,
   IconUsers,
+  IconX,
 } from '../components/icons.tsx';
 import { t, type Locale } from '../i18n.ts';
 import type { DisplayEvent, EventFilter, TopViewerPayload, ViewerRecord } from '../types.ts';
@@ -107,7 +110,7 @@ export function FeedView({
               data-tooltip-pos="left"
               onClick={() => onSearchChange('')}
             >
-              ✕
+              <IconX />
             </button>
           ) : null}
         </div>
@@ -165,7 +168,13 @@ export function FeedView({
             data-tooltip-pos="top"
             onClick={onToggleAutoScroll}
           >
-            {autoScroll ? '🟢' : '⏸️'}
+            {autoScroll ? (
+              <span style={{ color: 'var(--tt-green)', display: 'inline-flex' }}>
+                <IconDot />
+              </span>
+            ) : (
+              <IconPause />
+            )}
           </button>
           <button
             type="button"

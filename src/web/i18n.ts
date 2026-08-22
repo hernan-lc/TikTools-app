@@ -126,14 +126,14 @@ const english = {
   actions: 'Actions',
   // TikTok LIVE chat event render strings
   joinedLive: 'joined the LIVE',
-  giftSent: 'sent {count}× {giftName} ({diamonds} 🪙)',
+  giftSent: 'sent {count}× {giftName} ({diamonds})',
   giftSentShort: 'sent {giftName} ×{count}',
-  likeSentOne: 'sent {count} like ❤️',
-  likeSentMany: 'sent {count} likes ❤️',
+  likeSentOne: 'sent {count} like',
+  likeSentMany: 'sent {count} likes',
   followedCreator: 'followed the creator',
   sharedLive: 'shared the LIVE',
   chatMessage: '{comment}',
-  sentRose: 'sent {count}× Rose ({diamonds} 🪙)',
+  sentRose: 'sent {count}× Rose ({diamonds})',
   levelBadge: 'N.º {level}',
 } as const;
 
@@ -265,14 +265,14 @@ const spanish: Record<TranslationKey, string> = {
   actions: 'Acciones',
   // TikTok LIVE chat event render strings
   joinedLive: 'se unió al LIVE',
-  giftSent: 'envió {count}× {giftName} ({diamonds} 🪙)',
+  giftSent: 'envió {count}× {giftName} ({diamonds})',
   giftSentShort: 'envió {giftName} ×{count}',
-  likeSentOne: 'envió {count} like ❤️',
-  likeSentMany: 'envió {count} likes ❤️',
+  likeSentOne: 'envió {count} like',
+  likeSentMany: 'envió {count} likes',
   followedCreator: 'siguió al creador',
   sharedLive: 'compartió el LIVE',
   chatMessage: '{comment}',
-  sentRose: 'envió {count}× Rosa ({diamonds} 🪙)',
+  sentRose: 'envió {count}× Rosa ({diamonds})',
   levelBadge: 'N.º {level}',
 };
 

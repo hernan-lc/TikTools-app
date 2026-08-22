@@ -1,5 +1,6 @@
 import type { DisplayEvent } from '../types.ts';
 import { t, type Locale } from '../i18n.ts';
+import { IconBolt, IconGift, IconHeart } from './icons.tsx';
 
 function getAvatarColor(username: string): string {
   const gradients = [
@@ -104,7 +105,9 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
         <div className="tt-message-line">
           {/* Level Badge N.º */}
           <span className="tt-badge-level" title={`Level ${level}`}>
-            <span className="tt-badge-icon">⚡</span>
+            <span className="tt-badge-icon">
+              <IconBolt />
+            </span>
             <span className="tt-badge-text">{t(locale, 'levelBadge', { level })}</span>
           </span>
 
@@ -124,15 +127,29 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
                   src={event.giftDetails.imageUrl}
                   alt={event.giftDetails.name}
                   loading="lazy"
-                  onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    img.style.display = 'none';
+                    const fallback = img.nextElementSibling as HTMLElement | null;
+                    if (fallback) fallback.style.display = 'inline-flex';
+                  }}
                 />
-              ) : (
-                <span className="tt-gift-icon">🎁</span>
-              )}{' '}
+              ) : null}
+              <span
+                className="tt-gift-icon"
+                style={{ display: event.giftDetails?.imageUrl ? 'none' : 'inline-flex' }}
+              >
+                <IconGift />
+              </span>{' '}
               {text}
             </span>
           ) : event.kind === 'like' ? (
-            <span className="tt-like-text">{text}</span>
+            <span className="tt-like-text">
+              <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: '4px' }}>
+                <IconHeart />
+              </span>
+              {text}
+            </span>
           ) : (
             <span className="tt-social-text">{text}</span>
           )}
