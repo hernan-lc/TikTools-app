@@ -1,0 +1,80 @@
+/* Icon Buttons & Controls */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--tt-pink), #c72477);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(254, 44, 85, 0.35);
+}
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(254, 44, 85, 0.5);
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  background: var(--panel-elevated);
+  border-color: var(--line);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn-cyan {
+  background: linear-gradient(135deg, var(--tt-cyan), #149c97);
+  color: #07171d;
+  box-shadow: 0 4px 14px rgba(37, 244, 238, 0.28);
+}
+.btn-cyan:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(37, 244, 238, 0.45);
+}
+
+.btn-danger {
+  background: rgba(239, 71, 111, 0.12);
+  border-color: rgba(239, 71, 111, 0.25);
+  color: var(--tt-danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 71, 111, 0.22);
+}
+
+.btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--panel-elevated);
+  border-color: var(--line);
+  color: var(--text-secondary);
+}
+.btn-icon:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+

@@ -1,0 +1,52 @@
+/* Leaderboard Table */
+.leaderboard-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+}
+
+.tikfinity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.tikfinity-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-elevated);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--line);
+  z-index: 2;
+}
+
+.tikfinity-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.tikfinity-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.table-viewer-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.top-rank-1 td {
+  background: rgba(255, 215, 0, 0.05);
+}
+.top-rank-2 td {
+  background: rgba(192, 192, 192, 0.03);
+}
+.top-rank-3 td {
+  background: rgba(205, 127, 50, 0.03);
+}
+

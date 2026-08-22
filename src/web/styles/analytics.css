@@ -1,0 +1,67 @@
+/* Analytics View Layout */
+.analytics-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.analytics-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.analytics-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-grid-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.stats-card-large {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--panel-elevated);
+  border: 1px solid var(--line);
+}
+
+.stats-icon-large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+.stats-icon-large.chats { background: rgba(37, 244, 238, 0.15); color: var(--tt-cyan); }
+.stats-icon-large.gifts { background: rgba(254, 44, 85, 0.15); color: var(--tt-pink); }
+.stats-icon-large.likes { background: rgba(255, 183, 3, 0.15); color: var(--tt-yellow); }
+.stats-icon-large.members { background: rgba(6, 214, 160, 0.15); color: var(--tt-green); }
+
+.stats-val-large {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.stats-lbl-large {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+

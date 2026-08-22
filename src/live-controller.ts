@@ -6,6 +6,8 @@ import {
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
 import type {
   ClientState,
+  Gift,
+  GiftEvent,
   LiveEvent,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
 
@@ -146,17 +148,17 @@ export class LiveController {
       }
       case 'debug-gift': {
         const giftId = message.giftId ?? '5655';
-        // find gift in current live's map if connected
-        const live: any = this.#live as any;
-        const gift: any = live?.gifts?.get?.(String(giftId));
+        // find gift in current live's map if connected — type-safe via public gifts Map
+        const giftsMap: Map<string, Gift> | undefined = this.#live?.gifts;
+        const gift: Gift | undefined = giftsMap?.get(String(giftId));
         this.send({
           type: 'gift-debug',
           giftId,
           iconUrl: gift?.iconUrl,
           hasIcon: Boolean(gift?.iconUrl),
-          totalGifts: live?.gifts?.size ?? 0,
+          totalGifts: giftsMap?.size ?? 0,
         });
-        console.log(`[debug-gift] giftId=${giftId} hasIcon=${Boolean(gift?.iconUrl)} iconUrl=${gift?.iconUrl?.slice(0,120) || 'MISSING'} totalGifts=${live?.gifts?.size ?? 0}`);
+        console.log(`[debug-gift] giftId=${giftId} hasIcon=${Boolean(gift?.iconUrl)} iconUrl=${gift?.iconUrl?.slice(0,120) || 'MISSING'} totalGifts=${giftsMap?.size ?? 0}`);
         break;
       }
     }
@@ -248,16 +250,18 @@ export class LiveController {
       const uiEvent = toUiEvent(event);
       if (!uiEvent) return;
 
-      // Debug: gift image missing — how can debug or not exist?
+      // Debug: gift image missing — type-safe check for missing iconUrl
       if (isGiftEvent(event) && !uiEvent.giftDetails?.imageUrl) {
-        const live: any = this.#live as any;
-        console.warn(`[gift-image-missing] giftId=${event.giftId} giftName=${event.giftName} iconUrl=${(event as any).giftIconUrl || 'NONE'} totalGifts=${live?.gifts?.size ?? 0} lookup=${live?.gifts?.get?.(String(event.giftId))?.iconUrl?.slice(0,60) || 'lookup-miss'}`);
+        const giftsMap: Map<string, Gift> | undefined = this.#live?.gifts;
+        const lookupIcon: string | undefined = giftsMap?.get(String(event.giftId))?.iconUrl;
+        const eventIcon: string | undefined = (event as GiftEvent).giftIconUrl;
+        console.warn(`[gift-image-missing] giftId=${event.giftId} giftName=${event.giftName} iconUrl=${eventIcon || 'NONE'} totalGifts=${giftsMap?.size ?? 0} lookup=${lookupIcon?.slice(0,60) || 'lookup-miss'}`);
         this.send({
           type: 'gift-debug',
           giftId: event.giftId,
-          iconUrl: (event as any).giftIconUrl,
-          hasIcon: Boolean((event as any).giftIconUrl),
-          totalGifts: live?.gifts?.size ?? 0,
+          iconUrl: eventIcon,
+          hasIcon: Boolean(eventIcon),
+          totalGifts: giftsMap?.size ?? 0,
         });
       }
 
