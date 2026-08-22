@@ -1,24 +1,24 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { render, type JSX } from 'preact';
+import { render } from 'preact';
 
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
 import {
-  BrandHeader,
-  ConfigModal,
-  ConfigurationView,
-  MessagesView,
-  PreferencesModal,
-  PreferencesView,
-  StepBar,
+  LiveFeed,
+  SettingsModal,
+  SidebarControl,
+  TopNav,
   type ConnectionStatus,
   type DisplayEvent,
-  type WizardStep,
+  type EventFilter,
+  type StreamTelemetry,
 } from './components.tsx';
 import { t, type Locale } from './i18n.ts';
 import {
+  addRecentUsername,
   applyTheme,
   getInitialLocale,
   getInitialTheme,
+  getRecentUsernames,
   getSavedUsername,
   saveLocale,
   saveTheme,
@@ -33,11 +33,6 @@ declare global {
     __webview_on_message__?: (message: string) => void;
   }
 }
-
-type ConfigurationState = {
-  uniqueId: string;
-  cookie: string;
-};
 
 function send(message: PageMessage): void {
   window.ipc?.postMessage(JSON.stringify(message));
@@ -54,34 +49,40 @@ applyTheme(initialTheme);
 document.documentElement.lang = initialLocale;
 
 function App() {
-  const [step, setStep] = useState<WizardStep>(initialUsername ? 'dashboard' : 'preferences');
-  const [setup, setSetup] = useState<ConfigurationState>({ uniqueId: initialUsername, cookie: '' });
-  const [savedUsername, setSavedUsername] = useState(initialUsername);
+  const [uniqueId, setUniqueId] = useState(initialUsername);
+  const [cookie, setCookie] = useState('');
+  const [activeCreator, setActiveCreator] = useState(initialUsername);
+  const [recents, setRecents] = useState<string[]>(getRecentUsernames());
+  
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [title, setTitle] = useState(t(initialLocale, 'waitingForConnection'));
   const [status, setStatus] = useState<ConnectionStatus>('idle');
   const [error, setError] = useState('');
+  
   const [events, setEvents] = useState<DisplayEvent[]>([]);
-  const [configOpen, setConfigOpen] = useState(false);
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [configDraft, setConfigDraft] = useState<ConfigurationState>({ uniqueId: initialUsername, cookie: '' });
-  const [configError, setConfigError] = useState('');
+  const [filter, setFilter] = useState<EventFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [telemetry, setTelemetry] = useState<StreamTelemetry>({
+    chats: 0,
+    gifts: 0,
+    likes: 0,
+    members: 0,
+  });
+  
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
   const nextEventId = useRef(0);
-  const usernameRef = useRef(initialUsername);
+  const activeCreatorRef = useRef(initialUsername);
+  const streamContainerRef = useRef<HTMLDivElement | null>(null);
 
   const resetEvents = (): void => {
     nextEventId.current = 0;
     setEvents([]);
-  };
-
-  const establishUsername = (username: string): string => {
-    const normalized = normalizeUsername(username);
-    usernameRef.current = normalized;
-    setSavedUsername(normalized);
-    setSetup((current) => ({ ...current, uniqueId: normalized }));
-    saveUsername(normalized);
-    return normalized;
+    setUnreadCount(0);
+    setTelemetry({ chats: 0, gifts: 0, likes: 0, members: 0 });
   };
 
   useEffect(() => {
@@ -94,6 +95,7 @@ function App() {
     saveTheme(theme);
   }, [theme]);
 
+  // Handle messages from the host runtime
   useEffect(() => {
     const receive = (raw: string): void => {
       let message: HostMessage;
@@ -105,47 +107,52 @@ function App() {
 
       if (message.type === 'connection') {
         if (message.status === 'connecting') setStatus('connecting');
-        if (message.title) setTitle(message.title);
-        if (message.status === 'connected') setStatus('connected');
+        if (message.status === 'connected') {
+          setStatus('connected');
+          if (message.uniqueId) {
+            const clean = normalizeUsername(message.uniqueId);
+            setActiveCreator(clean);
+            activeCreatorRef.current = clean;
+            setRecents(addRecentUsername(clean));
+          }
+        }
         if (message.status === 'disconnected') setStatus('disconnected');
       }
+
       if (message.type === 'reconnecting') setStatus('retrying');
+
       if (message.type === 'live-event') {
+        const ev = message.event;
+        setTelemetry((prev) => ({
+          chats: prev.chats + (ev.kind === 'chat' ? 1 : 0),
+          gifts: prev.gifts + (ev.kind === 'gift' ? 1 : 0),
+          likes: prev.likes + (ev.kind === 'like' ? 1 : 0),
+          members: prev.members + (ev.kind === 'member' || ev.kind === 'social' ? 1 : 0),
+        }));
+
         setEvents((current) => [
           ...current,
-          { ...message.event, id: nextEventId.current++, receivedAt: Date.now() },
-        ].slice(-150));
+          { ...ev, id: nextEventId.current++, receivedAt: Date.now() },
+        ].slice(-250));
+
+        if (!autoScroll) {
+          setUnreadCount((c) => c + 1);
+        }
       }
+
       if (message.type === 'error') {
         setStatus('error');
-        if (message.phase === 'connect') {
-          if (usernameRef.current) {
-            setEvents((current) => [
-              ...current,
-              {
-                kind: 'member' as const,
-                author: t(locale, 'system'),
-                text: message.message,
-                id: nextEventId.current++,
-                receivedAt: Date.now(),
-              },
-            ].slice(-150));
-          } else {
-            setStep('configuration');
-            setError(message.message);
-          }
-        } else {
-          setEvents((current) => [
-            ...current,
-            {
-              kind: 'member' as const,
-              author: t(locale, 'system'),
-              text: message.message,
-              id: nextEventId.current++,
-              receivedAt: Date.now(),
-            },
-          ].slice(-150));
-        }
+        setError(message.message);
+        setEvents((current) => [
+          ...current,
+          {
+            kind: 'member' as const,
+            author: t(locale, 'system'),
+            text: message.message,
+            id: nextEventId.current++,
+            receivedAt: Date.now(),
+          },
+        ].slice(-250));
       }
     };
 
@@ -153,168 +160,145 @@ function App() {
     return () => {
       if (window.__webview_on_message__ === receive) window.__webview_on_message__ = undefined;
     };
-  }, [locale]);
+  }, [locale, autoScroll]);
 
-  const startConnection = (message: PageMessage, nextTitle: string): void => {
-    setError('');
-    resetEvents();
-    setTitle(nextTitle);
-    setStatus('connecting');
-    setStep('dashboard');
-    send(message);
-  };
+  // Handle smooth scroll when new events arrive and autoScroll is active
+  useEffect(() => {
+    if (autoScroll && streamContainerRef.current) {
+      streamContainerRef.current.scrollTop = streamContainerRef.current.scrollHeight;
+    }
+  }, [events, autoScroll]);
 
-  const startSavedConnection = (username: string, cookie: string): void => {
-    const normalized = establishUsername(username);
-    startConnection(
-      { type: 'connect', uniqueId: normalized, sessionCookie: cookie.trim() },
-      '@' + normalized,
-    );
-  };
-
-  const handleSubmit = (event: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>): void => {
-    event.preventDefault();
-    const uniqueId = normalizeUsername(setup.uniqueId);
-    if (!uniqueId) {
+  const handleConnect = (userToConnect?: string): void => {
+    const target = normalizeUsername(userToConnect || uniqueId);
+    if (!target) {
       setError(t(locale, 'handleRequired'));
       return;
     }
-    startSavedConnection(uniqueId, setup.cookie);
+
+    setError('');
+    resetEvents();
+    setStatus('connecting');
+    setActiveCreator(target);
+    activeCreatorRef.current = target;
+    saveUsername(target);
+    setRecents(addRecentUsername(target));
+
+    send({
+      type: 'connect',
+      uniqueId: target,
+      sessionCookie: cookie.trim(),
+    });
   };
 
   const handlePickLive = (): void => {
-    startConnection(
-      { type: 'pick-live', sessionCookie: setup.cookie.trim() },
-      t(locale, 'searchingRooms'),
-    );
+    setError('');
+    resetEvents();
+    setStatus('connecting');
+    setActiveCreator('🎲 ' + t(locale, 'searchingRooms'));
+    send({
+      type: 'pick-live',
+      sessionCookie: cookie.trim(),
+    });
   };
 
   const handleDisconnect = (): void => {
     send({ type: 'disconnect' });
-    resetEvents();
-    setStep(usernameRef.current ? 'dashboard' : 'configuration');
-    setStatus('idle');
-    setTitle(t(locale, 'waitingForConnection'));
-    setError('');
-  };
-
-  const handleOpenConfig = (): void => {
-    setConfigDraft({
-      uniqueId: savedUsername || usernameRef.current || setup.uniqueId,
-      cookie: setup.cookie,
-    });
-    setConfigError('');
-    setConfigOpen(true);
-  };
-
-  const handleConfigCancel = (): void => {
-    setConfigOpen(false);
-    setConfigError('');
-  };
-
-  const handleOpenPreferences = (): void => {
-    setPreferencesOpen(true);
-  };
-
-  const handleClosePreferences = (): void => {
-    setPreferencesOpen(false);
-  };
-
-  const handleConfigSubmit = (event: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>): void => {
-    event.preventDefault();
-    const username = normalizeUsername(configDraft.uniqueId);
-    if (!username) {
-      setConfigError(t(locale, 'handleRequired'));
-      return;
-    }
-    setConfigOpen(false);
-    setConfigError('');
-    setSetup({ uniqueId: username, cookie: configDraft.cookie });
-    startSavedConnection(username, configDraft.cookie);
+    setStatus('disconnected');
   };
 
   const handleReconnect = (): void => {
-    const username = usernameRef.current;
-    if (!username) {
-      handleOpenConfig();
-      return;
+    if (activeCreatorRef.current) {
+      handleConnect(activeCreatorRef.current);
     }
-    startConnection(
-      { type: 'connect', uniqueId: username, sessionCookie: setup.cookie.trim() },
-      '@' + username,
-    );
   };
 
+  const handleSelectRecent = (username: string): void => {
+    setUniqueId(username);
+    handleConnect(username);
+  };
+
+  const handleToggleAutoScroll = (): void => {
+    const nextState = !autoScroll;
+    setAutoScroll(nextState);
+    if (nextState) {
+      setUnreadCount(0);
+      if (streamContainerRef.current) {
+        streamContainerRef.current.scrollTop = streamContainerRef.current.scrollHeight;
+      }
+    }
+  };
+
+  const handleThemeToggle = (): void => {
+    setTheme((cur) => (cur === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleLocaleToggle = (): void => {
+    setLocale((cur) => (cur === 'en' ? 'es' : 'en'));
+  };
+
+  // Connect automatically on initial startup if a handle is saved
   useEffect(() => {
-    if (!initialUsername) return;
-    startConnection(
-      { type: 'connect', uniqueId: initialUsername, sessionCookie: '' },
-      '@' + initialUsername,
-    );
+    if (initialUsername) {
+      handleConnect(initialUsername);
+    }
   }, []);
 
   return (
-    <main className="shell">
-      <BrandHeader
+    <div className="app-shell">
+      <TopNav
         locale={locale}
-        onOpenPreferences={handleOpenPreferences}
+        theme={theme}
+        status={status}
+        activeCreator={activeCreator}
+        onThemeToggle={handleThemeToggle}
+        onLocaleToggle={handleLocaleToggle}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
-      <StepBar current={step} locale={locale} />
-      <section className="card">
-        {step === 'preferences' ? (
-          <PreferencesView
-            locale={locale}
-            theme={theme}
-            onLocaleChange={setLocale}
-            onThemeChange={setTheme}
-            onContinue={() => setStep('configuration')}
-          />
-        ) : step === 'configuration' ? (
-          <ConfigurationView
-            locale={locale}
-            uniqueId={setup.uniqueId}
-            cookie={setup.cookie}
-            error={error}
-            busy={status === 'connecting' || status === 'retrying'}
-            onUniqueIdChange={(uniqueId) => setSetup((current) => ({ ...current, uniqueId }))}
-            onCookieChange={(cookie) => setSetup((current) => ({ ...current, cookie }))}
-            onSubmit={handleSubmit}
-            onPickLive={handlePickLive}
-          />
-        ) : (
-          <MessagesView
-            locale={locale}
-            title={title}
-            status={status}
-            events={events}
-            onOpenConfig={handleOpenConfig}
-            onReconnect={handleReconnect}
-            onDisconnect={handleDisconnect}
-          />
-        )}
-      </section>
-      {configOpen ? (
-        <ConfigModal
+
+      <div className="workspace-grid">
+        <SidebarControl
           locale={locale}
-          username={configDraft.uniqueId}
-          cookie={configDraft.cookie}
-          error={configError}
-          onUsernameChange={(uniqueId) => setConfigDraft((current) => ({ ...current, uniqueId }))}
-          onCookieChange={(cookie) => setConfigDraft((current) => ({ ...current, cookie }))}
-          onSubmit={handleConfigSubmit}
-          onCancel={handleConfigCancel}
+          uniqueId={uniqueId}
+          cookie={cookie}
+          status={status}
+          telemetry={telemetry}
+          recents={recents}
+          error={error}
+          onUniqueIdChange={setUniqueId}
+          onCookieChange={setCookie}
+          onConnect={() => handleConnect()}
+          onPickLive={handlePickLive}
+          onReconnect={handleReconnect}
+          onDisconnect={handleDisconnect}
+          onSelectRecent={handleSelectRecent}
         />
-      ) : null}
-      {preferencesOpen ? (
-        <PreferencesModal
+
+        <LiveFeed
+          locale={locale}
+          events={events}
+          filter={filter}
+          searchQuery={searchQuery}
+          autoScroll={autoScroll}
+          unreadCount={unreadCount}
+          onFilterChange={setFilter}
+          onSearchChange={setSearchQuery}
+          onToggleAutoScroll={handleToggleAutoScroll}
+          onClearFeed={resetEvents}
+          streamContainerRef={(el) => (streamContainerRef.current = el)}
+        />
+      </div>
+
+      {settingsOpen ? (
+        <SettingsModal
           locale={locale}
           theme={theme}
           onLocaleChange={setLocale}
           onThemeChange={setTheme}
-          onClose={handleClosePreferences}
+          onClose={() => setSettingsOpen(false)}
         />
       ) : null}
-    </main>
+    </div>
   );
 }
 

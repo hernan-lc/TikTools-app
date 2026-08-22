@@ -5,6 +5,7 @@ export type Theme = 'dark' | 'light';
 const LOCALE_KEY = 'tiktok-live-locale';
 const THEME_KEY = 'tiktok-live-theme';
 const USERNAME_KEY = 'tiktok-live-username';
+const RECENT_KEY = 'tiktok-live-recents';
 
 function readPreference(key: string): string | null {
   try {
@@ -51,7 +52,31 @@ export function getSavedUsername(): string {
 }
 
 export function saveUsername(username: string): void {
-  writePreference(USERNAME_KEY, username.trim().replace(/^@/, ''));
+  const clean = username.trim().replace(/^@/, '');
+  writePreference(USERNAME_KEY, clean);
+  if (clean) {
+    addRecentUsername(clean);
+  }
+}
+
+export function getRecentUsernames(): string[] {
+  const stored = readPreference(RECENT_KEY);
+  if (!stored) return [];
+  try {
+    const list = JSON.parse(stored);
+    return Array.isArray(list) ? list.filter((u) => typeof u === 'string' && u.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addRecentUsername(username: string): string[] {
+  const clean = username.trim().replace(/^@/, '');
+  if (!clean) return getRecentUsernames();
+  const current = getRecentUsernames().filter((u) => u.toLowerCase() !== clean.toLowerCase());
+  const updated = [clean, ...current].slice(0, 5);
+  writePreference(RECENT_KEY, JSON.stringify(updated));
+  return updated;
 }
 
 export function applyTheme(theme: Theme): void {
