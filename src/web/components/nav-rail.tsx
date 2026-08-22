@@ -8,6 +8,7 @@ import {
   IconCoins,
   IconRadio,
   IconSettings,
+  IconSparkles,
 } from './icons.tsx';
 
 type NavigationRailProps = {
@@ -22,6 +23,7 @@ export function NavigationRail({ locale, activeTab, onTabChange }: NavigationRai
     { id: 'points', tooltip: t(locale, 'tabPoints'), icon: <IconCoins /> },
     { id: 'analytics', tooltip: t(locale, 'tabAnalytics'), icon: <IconBarChart /> },
     { id: 'connect', tooltip: t(locale, 'tabConnect'), icon: <IconRadio /> },
+    { id: 'automations', tooltip: t(locale, 'tabAutomations'), icon: <IconSparkles /> },
     { id: 'settings', tooltip: t(locale, 'tabSettings'), icon: <IconSettings /> },
   ];
 

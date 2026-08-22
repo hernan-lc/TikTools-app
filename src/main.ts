@@ -62,7 +62,7 @@ async function startNativeApp(webServer: AppServer): Promise<void> {
     shuttingDown = true;
     tray?.stop();
     tray = undefined;
-    live.stop();
+    await live.shutdown();
     try {
       await window.close();
     } catch {

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
-import type { HostMessage, PageMessage } from '../shared/messages.ts';
+import type { AutomationWorkflowRecord, HostMessage, PageMessage } from '../shared/messages.ts';
+import type { AutomationEventType, AutomationScriptAnalysis, NodeDefinition, WorkflowGraph } from '../automation/types.ts';
 import { NavigationRail } from './components/nav-rail.tsx';
 import { TopNav } from './components/top-nav.tsx';
 import { t, type Locale } from './i18n.ts';
@@ -29,6 +30,7 @@ import type {
   ViewerRecord,
 } from './types.ts';
 import { AnalyticsView } from './views/analytics-view.tsx';
+import { AutomationsView } from './views/automations-view.tsx';
 import { ConnectView } from './views/connect-view.tsx';
 import { FeedView } from './views/feed-view.tsx';
 import { PointsView } from './views/points-view.tsx';
@@ -97,6 +99,11 @@ function App() {
   const [activeCreatorRecord, setActiveCreatorRecord] = useState<CreatorRecord | null>(null);
   const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
+  const [automationWorkflows, setAutomationWorkflows] = useState<AutomationWorkflowRecord[]>([]);
+  const [automationNodes, setAutomationNodes] = useState<NodeDefinition[]>([]);
+  const [automationError, setAutomationError] = useState('');
+  const [automationScriptAnalysis, setAutomationScriptAnalysis] = useState<AutomationScriptAnalysis | undefined>();
+
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
     gifts: 0,
@@ -137,6 +144,8 @@ function App() {
     send({ type: 'get-creator' });
     send({ type: 'get-recent-creators', limit: 10 });
     send({ type: 'get-app-state' });
+    send({ type: 'get-automation-workflows' });
+    send({ type: 'get-automation-nodes' });
   }, []);
 
   // Handle messages from the native runtime
@@ -260,6 +269,22 @@ function App() {
         console.log('[app-state]', message.state);
       }
 
+      if (message.type === 'automation-workflows') {
+        setAutomationWorkflows(message.workflows);
+      }
+
+      if (message.type === 'automation-node-catalog') {
+        setAutomationNodes(message.nodes);
+      }
+
+      if (message.type === 'automation-script-analysis') {
+        setAutomationScriptAnalysis(message.analysis);
+      }
+
+      if (message.type === 'automation-error') {
+        setAutomationError(message.message);
+      }
+
       if (message.type === 'gift-debug') {
         console.warn(
           `[gift-debug] giftId=${message.giftId} hasIcon=${message.hasIcon} totalGifts=${message.totalGifts} icon=${message.iconUrl?.slice(0, 80) || 'MISSING'}`,
@@ -366,6 +391,37 @@ function App() {
     send({ type: 'adjust-points', uniqueId, delta });
   };
 
+  const handleRefreshAutomations = (): void => {
+    setAutomationError('');
+    send({ type: 'get-automation-workflows' });
+    send({ type: 'get-automation-nodes' });
+  };
+
+  const handleSaveAutomation = (graph: WorkflowGraph): void => {
+    setAutomationError('');
+    send({ type: 'save-automation-workflow', graph });
+  };
+
+  const handleDeleteAutomation = (id: string): void => {
+    setAutomationError('');
+    send({ type: 'delete-automation-workflow', id });
+  };
+
+  const handleSetAutomationEnabled = (id: string, enabled: boolean): void => {
+    setAutomationError('');
+    send({ type: 'set-automation-workflow-enabled', id, enabled });
+  };
+
+  const handleAnalyzeAutomationScript = (nodeId: string, source: string, offset: number, eventType?: AutomationEventType): void => {
+    send({
+      type: 'analyze-automation-script',
+      nodeId,
+      source,
+      offset,
+      eventType,
+    });
+  };
+
   // Connect automatically on initial startup if a handle is saved
   useEffect(() => {
     if (initialUsername) {
@@ -429,6 +485,21 @@ function App() {
             locale={locale}
             telemetry={telemetry}
             events={events}
+          />
+        )}
+
+        {activeTab === 'automations' && (
+          <AutomationsView
+            locale={locale}
+            workflows={automationWorkflows}
+            nodes={automationNodes}
+            error={automationError}
+            scriptAnalysis={automationScriptAnalysis}
+            onRefresh={handleRefreshAutomations}
+            onSave={handleSaveAutomation}
+            onDelete={handleDeleteAutomation}
+            onSetEnabled={handleSetAutomationEnabled}
+            onAnalyzeScript={handleAnalyzeAutomationScript}
           />
         )}
 

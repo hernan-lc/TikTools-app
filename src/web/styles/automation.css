@@ -1,0 +1,410 @@
+.automation-view {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.automation-header-actions,
+.automation-toolbar-actions,
+.automation-workflow-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.automation-workspace {
+  display: grid;
+  grid-template-columns: 220px minmax(420px, 1fr) 250px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-elevated);
+}
+
+.automation-sidebar,
+.automation-inspector {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.automation-sidebar {
+  border-right: 1px solid var(--line);
+}
+
+.automation-inspector {
+  border-left: 1px solid var(--line);
+}
+
+.automation-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.automation-panel-hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.automation-workflow-list,
+.automation-catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.automation-workflow-item,
+.automation-catalog-item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.automation-workflow-item:hover,
+.automation-catalog-item:hover:not(:disabled) {
+  border-color: var(--line);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.automation-workflow-item.is-active {
+  border-color: rgba(37, 244, 238, 0.35);
+  background: linear-gradient(135deg, rgba(254, 44, 85, 0.14), rgba(37, 244, 238, 0.1));
+  color: var(--text);
+}
+
+.automation-workflow-item__name,
+.automation-catalog-item__title {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-workflow-item__meta,
+.automation-catalog-item__meta,
+.automation-node-type {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.automation-status-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.automation-status-dot.is-enabled {
+  background: var(--tt-green);
+  box-shadow: 0 0 7px rgba(34, 197, 94, 0.65);
+}
+
+.automation-catalog {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.automation-catalog-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.automation-catalog-item {
+  padding: 7px 8px;
+}
+
+.automation-catalog-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.automation-editor-panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--panel);
+}
+
+.automation-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.automation-workflow-name {
+  min-width: 0;
+  flex: 1;
+}
+
+.automation-workflow-name .ui-input {
+  max-width: 260px;
+}
+
+.automation-toolbar-actions {
+  flex-shrink: 0;
+}
+
+.automation-canvas-wrap {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  background-color: var(--panel);
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.automation-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.automation-canvas-placeholder {
+  display: grid;
+  height: 100%;
+  min-height: 420px;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.automation-inspector-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.automation-node-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.automation-node-type {
+  margin-bottom: 5px;
+  word-break: break-all;
+}
+
+.automation-code-value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-json-editor {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.automation-json-editor:focus {
+  border-color: var(--line-focus);
+  box-shadow: 0 0 0 3px rgba(37, 244, 238, 0.13);
+}
+
+.automation-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.automation-script-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px;
+  border: 1px solid rgba(37, 244, 238, 0.2);
+  border-radius: 10px;
+  background: rgba(37, 244, 238, 0.035);
+}
+
+.automation-script-textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  tab-size: 2;
+}
+
+.automation-script-textarea:focus {
+  border-color: var(--line-focus);
+  box-shadow: 0 0 0 3px rgba(37, 244, 238, 0.13);
+}
+
+.automation-script-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.automation-script-diagnostic {
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: rgba(254, 44, 85, 0.1);
+  color: #ff9caf;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+}
+
+.automation-script-diagnostic span {
+  color: var(--text-muted);
+}
+
+.automation-script-completions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.automation-script-completions__label,
+.automation-script-hover {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.automation-script-completions__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.automation-script-completions__list button {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.automation-script-completions__list button:hover {
+  border-color: var(--line-focus);
+  color: var(--text);
+}
+
+.automation-script-hover {
+  padding-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 1040px) {
+  .automation-workspace {
+    grid-template-columns: 190px minmax(360px, 1fr);
+  }
+
+  .automation-inspector {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .automation-view {
+    padding: 12px;
+  }
+
+  .automation-workspace {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .automation-sidebar {
+    max-height: 250px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .automation-catalog {
+    margin-top: 0;
+  }
+
+  .automation-editor-panel {
+    min-height: 540px;
+  }
+
+  .automation-editor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .automation-toolbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

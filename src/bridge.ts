@@ -1,3 +1,5 @@
+import { isWorkflowGraph } from './automation/graph.ts';
+import type { AutomationEventType } from './automation/types.ts';
 import type { PageMessage, PointsConfig } from './shared/messages.ts';
 
 /**
@@ -89,5 +91,57 @@ export function parsePageMessage(raw: string): PageMessage | null {
     };
   }
 
+  if (message.type === 'get-automation-workflows') return { type: 'get-automation-workflows' };
+  if (message.type === 'get-automation-nodes') return { type: 'get-automation-nodes' };
+  if (message.type === 'save-automation-workflow' && isWorkflowGraph(message.graph)) {
+    return { type: 'save-automation-workflow', graph: message.graph };
+  }
+  if (message.type === 'delete-automation-workflow' && typeof message.id === 'string') {
+    return { type: 'delete-automation-workflow', id: message.id };
+  }
+  if (
+    message.type === 'set-automation-workflow-enabled' &&
+    typeof message.id === 'string' &&
+    typeof message.enabled === 'boolean'
+  ) {
+    return {
+      type: 'set-automation-workflow-enabled',
+      id: message.id,
+      enabled: message.enabled,
+    };
+  }
+
+  if (
+    message.type === 'analyze-automation-script' &&
+    typeof message.nodeId === 'string' &&
+    typeof message.source === 'string' &&
+    message.source.length <= 128 * 1024 &&
+    typeof message.offset === 'number' &&
+    Number.isInteger(message.offset) &&
+    message.offset >= 0
+  ) {
+    return {
+      type: 'analyze-automation-script',
+      nodeId: message.nodeId,
+      source: message.source,
+      offset: message.offset,
+      eventType: isAutomationEventType(message.eventType) ? message.eventType : undefined,
+    };
+  }
+
   return null;
+}
+
+function isAutomationEventType(value: unknown): value is AutomationEventType {
+  return value === 'tiktok.chat'
+    || value === 'tiktok.gift'
+    || value === 'tiktok.like'
+    || value === 'tiktok.follow'
+    || value === 'tiktok.share'
+    || value === 'tiktok.join'
+    || value === 'tiktok.social'
+    || value === 'tiktok.room_stats'
+    || value === 'tiktok.connected'
+    || value === 'tiktok.disconnected'
+    || value === 'points.awarded';
 }

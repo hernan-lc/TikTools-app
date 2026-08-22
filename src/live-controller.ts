@@ -4,6 +4,7 @@ import {
   SOCIAL_ACTION,
   TikTokLive,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
+import { join } from 'node:path';
 import type {
   ClientState,
   Gift,
@@ -11,6 +12,26 @@ import type {
   LiveEvent,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
 
+import { AutomationEventBus } from './automation/event-bus.ts';
+import {
+  createConnectedEvent,
+  createDisconnectedEvent,
+  createPointsAwardedEvent,
+  normalizeTikTokEvent,
+} from './automation/events.ts';
+import { assertValidWorkflowGraph } from './automation/graph.ts';
+import { createBuiltInNodeRegistry } from './automation/nodes/builtins.ts';
+import { AutomationRuntime } from './automation/runtime.ts';
+import { NativeAudioService } from './automation/services/audio-service.ts';
+import { HttpService } from './automation/services/http-service.ts';
+import { NapiVmService } from './automation/services/napi-vm-service.ts';
+import { NapiVmLanguageService } from './automation/services/napi-vm-language-service.ts';
+import { AutomationPluginLoader } from './automation/plugins/plugin-loader.ts';
+import { PluginManager } from './automation/plugins/plugin-manager.ts';
+import { SonicBoomProvider } from './automation/providers/sonicboom.ts';
+import type { AutomationCapabilities } from './automation/capabilities.ts';
+import type { AutomationConnectionContext } from './automation/types.ts';
+import { AutomationDatabase } from './db/automation-db.ts';
 import { PointsDatabase } from './db/points-db.ts';
 import {
   cleanUsername,
@@ -35,17 +56,105 @@ function errorMessage(error: unknown): string {
 export class LiveController {
   #live: TikTokLive | null = null;
   #generation = 0;
+  #automationContext: AutomationConnectionContext | undefined;
   readonly pointsDb: PointsDatabase;
+  readonly automationDb: AutomationDatabase;
+  readonly automationBus: AutomationEventBus;
+  readonly automationRuntime: AutomationRuntime;
+  readonly pluginManager: PluginManager;
+  readonly audioService: NativeAudioService;
+  readonly sonicBoom: SonicBoomProvider;
+  readonly napiVm: NapiVmService;
+  readonly napiVmLanguage: NapiVmLanguageService;
+  readonly automationCapabilities: AutomationCapabilities;
+  readonly pluginLoader: AutomationPluginLoader;
 
   constructor(private readonly send: SendHostMessage) {
     this.pointsDb = new PointsDatabase();
+    this.automationDb = new AutomationDatabase();
+    this.automationBus = new AutomationEventBus();
+    const nodeRegistry = createBuiltInNodeRegistry();
+    this.pluginManager = new PluginManager(nodeRegistry);
+    this.audioService = new NativeAudioService();
+    this.sonicBoom = new SonicBoomProvider();
+    this.napiVm = new NapiVmService();
+    this.napiVmLanguage = new NapiVmLanguageService();
+    this.automationCapabilities = {
+      http: new HttpService(),
+      audio: this.audioService,
+      tts: this.sonicBoom,
+      points: {
+        adjust: (uniqueId, delta) => {
+          const result = this.pointsDb.awardPoints(uniqueId, 'manual', { customAmount: delta });
+          if (!result) throw new Error('Cannot adjust points for an empty viewer id.');
+          this.send({
+            type: 'points-awarded',
+            uniqueId: result.uniqueId,
+            delta: result.delta,
+            totalPoints: result.totalPoints,
+            level: result.level,
+          });
+          return {
+            uniqueId: result.uniqueId,
+            delta: result.delta,
+            totalPoints: result.totalPoints,
+            level: result.level,
+            currencyName: result.currencyName,
+          };
+        },
+      },
+      vm: this.napiVm,
+    };
+    this.automationRuntime = new AutomationRuntime(nodeRegistry, {
+      capabilities: this.automationCapabilities,
+      capabilitiesForPlugin: (pluginId, available) => pluginId === 'core'
+        ? available
+        : this.pluginManager.capabilitiesFor(pluginId, available),
+    });
+    this.pluginLoader = new AutomationPluginLoader({
+      rootDirectory: join(process.cwd(), 'plugins'),
+      manager: this.pluginManager,
+      capabilities: this.automationCapabilities,
+      log: (message) => console.warn(`[automation-plugins] ${message}`),
+      onLoaded: (manifest) => {
+        console.log(`[automation-plugins] loaded ${manifest.id}@${manifest.version}`);
+        this.reloadAutomationWorkflows();
+        this.send({ type: 'automation-node-catalog', nodes: this.automationRuntime.getNodeDefinitions() });
+      },
+    });
+    void this.pluginLoader.loadAll().catch((error: unknown) => {
+      console.error('[automation-plugins] discovery failed:', errorMessage(error));
+    });
+    this.automationBus.subscribe('*', (event) => this.automationRuntime.handleEvent(event));
+    this.automationBus.onError((error, event) => {
+      console.error(`[automation-bus] ${event.type}:`, error);
+    });
+
+    for (const workflow of this.automationDb.listWorkflows()) {
+      try {
+        this.automationRuntime.registerWorkflow(workflow.graph);
+      } catch (error) {
+        console.warn(`[automation] workflow ${workflow.id} was not loaded:`, error);
+      }
+    }
   }
 
   stop(): void {
+    this.publishDisconnectedIfActive();
     this.#generation += 1;
     this.#live?.disconnect();
     this.#live = null;
+    this.automationRuntime.cancelAll();
+    this.audioService.stopAll();
+    void this.sonicBoom.stop();
     this.send({ type: 'connection', status: 'disconnected' });
+  }
+
+  async shutdown(): Promise<void> {
+    this.stop();
+    await this.pluginLoader.stopAll();
+    this.napiVm.clearAll();
+    this.napiVmLanguage.clearAll();
   }
 
   public handlePageMessage(message: PageMessage): void {
@@ -161,12 +270,74 @@ export class LiveController {
         console.log(`[debug-gift] giftId=${giftId} hasIcon=${Boolean(gift?.iconUrl)} iconUrl=${gift?.iconUrl?.slice(0,120) || 'MISSING'} totalGifts=${giftsMap?.size ?? 0}`);
         break;
       }
+      case 'get-automation-workflows':
+        this.send({
+          type: 'automation-workflows',
+          workflows: this.automationDb.listWorkflows(),
+        });
+        break;
+      case 'get-automation-nodes':
+        this.send({
+          type: 'automation-node-catalog',
+          nodes: this.automationRuntime.getNodeDefinitions(),
+        });
+        break;
+      case 'save-automation-workflow':
+        try {
+          assertValidWorkflowGraph(message.graph, this.automationRuntime.nodeRegistry);
+          this.automationRuntime.registerWorkflow(message.graph);
+          this.automationDb.saveWorkflow(message.graph);
+          this.send({
+            type: 'automation-workflows',
+            workflows: this.automationDb.listWorkflows(),
+          });
+        } catch (error) {
+          this.send({ type: 'automation-error', message: errorMessage(error) });
+        }
+        break;
+      case 'delete-automation-workflow':
+        if (!this.automationDb.deleteWorkflow(message.id)) {
+          this.send({ type: 'automation-error', message: `Unknown workflow: ${message.id}` });
+          break;
+        }
+        this.automationRuntime.removeWorkflow(message.id);
+        this.send({
+          type: 'automation-workflows',
+          workflows: this.automationDb.listWorkflows(),
+        });
+        break;
+      case 'set-automation-workflow-enabled':
+        try {
+          const workflow = this.automationDb.setWorkflowEnabled(message.id, message.enabled);
+          this.automationRuntime.registerWorkflow(workflow.graph);
+          this.send({
+            type: 'automation-workflows',
+            workflows: this.automationDb.listWorkflows(),
+          });
+        } catch (error) {
+          this.send({ type: 'automation-error', message: errorMessage(error) });
+        }
+        break;
+      case 'analyze-automation-script':
+        try {
+          const analysis = this.napiVmLanguage.analyze(
+            message.nodeId,
+            message.source,
+            message.offset,
+            message.eventType,
+          );
+          this.send({ type: 'automation-script-analysis', analysis });
+        } catch (error) {
+          this.send({ type: 'automation-error', message: errorMessage(error) });
+        }
+        break;
     }
   }
 
   async connect(request: Extract<PageMessage, { type: 'connect' }>): Promise<void> {
     const uniqueId = request.uniqueId.trim();
     const sessionCookie = request.sessionCookie.trim();
+    this.publishDisconnectedIfActive();
     const generation = ++this.#generation;
 
     this.#live?.disconnect();
@@ -176,6 +347,11 @@ export class LiveController {
       this.send({ type: 'error', phase: 'connect', message: 'Enter a creator handle.' });
       return;
     }
+
+    this.#automationContext = {
+      uniqueId,
+      connectionId: `connection-${generation}`,
+    };
 
     const client = new TikTokLive(uniqueId, {
       sessionCookie,
@@ -192,6 +368,11 @@ export class LiveController {
 
       // Persist creator to SQLite (backend save)
       const owner = state.roomInfo?.owner;
+      this.#automationContext = {
+        uniqueId: state.uniqueId,
+        roomId: state.roomId,
+        connectionId: `connection-${generation}`,
+      };
       const creatorRecord = this.pointsDb.saveCreator({
         uniqueId: state.uniqueId,
         roomId: state.roomId,
@@ -222,13 +403,17 @@ export class LiveController {
         type: 'leaderboard',
         viewers: this.pointsDb.getLeaderboard(50),
       });
+      this.automationBus.publish(createConnectedEvent(state, this.#automationContext.connectionId));
     });
 
     client.on('event', (event: LiveEvent) => {
       if (generation !== this.#generation) return;
 
+      const automationEvent = normalizeTikTokEvent(event, this.#automationContext);
+
       // Handle native TikTok ranking (Contributor 0-5 view) — Espectadores top
       if (isRoomUserEvent(event)) {
+        if (automationEvent) this.automationBus.publish(automationEvent);
         const topViewers = (event.topViewers ?? []).slice(0, 6).map((v) => ({
           rank: v.rank,
           score: v.score,
@@ -267,14 +452,17 @@ export class LiveController {
 
       // Process points in SQLite — all branches use type-guard narrowing, no `any` casts.
       let pointsResult = null;
+      let pointsReason: string | undefined;
       const baseOpts = {
         nickname: uiEvent.nickname,
         avatarUrl: uiEvent.avatarUrl,
         userId: hasUser(event) ? event.user.userId : undefined,
       };
       if (isChatEvent(event)) {
+        pointsReason = 'chat';
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'chat', baseOpts);
       } else if (isGiftEvent(event)) {
+        pointsReason = 'gift';
         // For streakable gifts, only award points on the final message to avoid double counting.
         if (event.streakable && !event.repeatEnd) {
           pointsResult = null;
@@ -287,6 +475,7 @@ export class LiveController {
           });
         }
       } else if (isLikeEvent(event)) {
+        pointsReason = 'like';
         // event.count is `number` after narrowing
         const count = Math.max(1, event.count || 1);
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'like', {
@@ -296,8 +485,10 @@ export class LiveController {
       } else if (isSocialEvent(event)) {
         // event.action is `number` after narrowing
         const isFollow = event.action === SOCIAL_ACTION.follow;
+        pointsReason = isFollow ? 'follow' : 'share';
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, isFollow ? 'follow' : 'share', baseOpts);
       } else if (isMemberEvent(event)) {
+        pointsReason = 'join';
         pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'join', baseOpts);
       }
 
@@ -313,6 +504,28 @@ export class LiveController {
         }
       }
 
+      if (automationEvent) {
+        const enrichedEvent = pointsResult
+          ? {
+              ...automationEvent,
+              points: {
+                delta: pointsResult.delta,
+                total: pointsResult.totalPoints,
+                level: pointsResult.level,
+              },
+            }
+          : automationEvent;
+        this.automationBus.publish(enrichedEvent);
+        if (pointsResult && pointsResult.delta !== 0) {
+          this.automationBus.publish(createPointsAwardedEvent(
+            pointsResult,
+            pointsReason ?? event.type,
+            automationEvent.id,
+            this.#automationContext,
+          ));
+        }
+      }
+
       this.send({ type: 'live-event', event: uiEvent });
     });
 
@@ -322,6 +535,7 @@ export class LiveController {
 
     client.on('disconnected', () => {
       if (generation === this.#generation) {
+        this.publishDisconnectedIfActive();
         this.send({ type: 'connection', status: 'disconnected' });
       }
     });
@@ -366,6 +580,22 @@ export class LiveController {
       });
     } catch (error) {
       this.send({ type: 'error', phase: 'connect', message: errorMessage(error) });
+    }
+  }
+
+  private publishDisconnectedIfActive(): void {
+    const context = this.#automationContext;
+    this.#automationContext = undefined;
+    if (context) this.automationBus.publish(createDisconnectedEvent(context));
+  }
+
+  private reloadAutomationWorkflows(): void {
+    for (const workflow of this.automationDb.listWorkflows()) {
+      try {
+        this.automationRuntime.registerWorkflow(workflow.graph);
+      } catch (error) {
+        console.warn(`[automation] workflow ${workflow.id} was not loaded:`, error);
+      }
     }
   }
 }

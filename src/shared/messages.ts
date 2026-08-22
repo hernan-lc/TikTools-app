@@ -1,3 +1,10 @@
+import type {
+  AutomationEventType,
+  AutomationScriptAnalysis,
+  NodeDefinition,
+  WorkflowGraph,
+} from '../automation/types.ts';
+
 export type UiEvent = {
   kind: 'chat' | 'gift' | 'like' | 'member' | 'social';
   author: string;
@@ -65,6 +72,15 @@ export type CreatorRecord = {
   displayId?: string;
 };
 
+export type AutomationWorkflowRecord = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  graph: WorkflowGraph;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type PageMessage =
   | { type: 'connect'; uniqueId: string; sessionCookie: string; roomId?: string }
   | { type: 'pick-live'; sessionCookie: string }
@@ -79,7 +95,19 @@ export type PageMessage =
   | { type: 'get-app-state'; keys?: string[] }
   | { type: 'set-app-state'; key: string; value: string }
   | { type: 'clear-creator-history' }
-  | { type: 'debug-gift'; giftId?: string };
+  | { type: 'debug-gift'; giftId?: string }
+  | { type: 'get-automation-workflows' }
+  | { type: 'get-automation-nodes' }
+  | { type: 'save-automation-workflow'; graph: WorkflowGraph }
+  | { type: 'delete-automation-workflow'; id: string }
+  | { type: 'set-automation-workflow-enabled'; id: string; enabled: boolean }
+  | {
+      type: 'analyze-automation-script';
+      nodeId: string;
+      source: string;
+      offset: number;
+      eventType?: AutomationEventType;
+    };
 
 export type TopViewerPayload = {
   rank: number;
@@ -116,4 +144,8 @@ export type HostMessage =
   | { type: 'creator-state'; creator: CreatorRecord | null }
   | { type: 'recent-creators'; creators: CreatorRecord[] }
   | { type: 'app-state'; state: Record<string, string> }
-  | { type: 'gift-debug'; giftId?: string; iconUrl?: string; hasIcon: boolean; totalGifts: number };
+  | { type: 'gift-debug'; giftId?: string; iconUrl?: string; hasIcon: boolean; totalGifts: number }
+  | { type: 'automation-workflows'; workflows: AutomationWorkflowRecord[] }
+  | { type: 'automation-node-catalog'; nodes: NodeDefinition[] }
+  | { type: 'automation-script-analysis'; analysis: AutomationScriptAnalysis }
+  | { type: 'automation-error'; message: string };
