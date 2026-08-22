@@ -1,6 +1,7 @@
 import {
   bootstrapGuestSession,
   Discovery,
+  SOCIAL_ACTION,
   TikTokLive,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
 import type {
@@ -8,7 +9,16 @@ import type {
   LiveEvent,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
 
-import { roomTitle, toUiEvent } from './live-events.ts';
+import { PointsDatabase } from './db/points-db.ts';
+import {
+  isChatEvent,
+  isGiftEvent,
+  isLikeEvent,
+  isMemberEvent,
+  isSocialEvent,
+  roomTitle,
+  toUiEvent,
+} from './live-events.ts';
 import type { HostMessage, PageMessage } from './shared/messages.ts';
 
 type SendHostMessage = (message: HostMessage) => void;
@@ -20,14 +30,82 @@ function errorMessage(error: unknown): string {
 export class LiveController {
   #live: TikTokLive | null = null;
   #generation = 0;
+  readonly pointsDb: PointsDatabase;
 
-  constructor(private readonly send: SendHostMessage) {}
+  constructor(private readonly send: SendHostMessage) {
+    this.pointsDb = new PointsDatabase();
+  }
 
   stop(): void {
     this.#generation += 1;
     this.#live?.disconnect();
     this.#live = null;
     this.send({ type: 'connection', status: 'disconnected' });
+  }
+
+  public handlePageMessage(message: PageMessage): void {
+    switch (message.type) {
+      case 'disconnect':
+        this.stop();
+        break;
+      case 'connect':
+        void this.connect(message);
+        break;
+      case 'pick-live':
+        void this.pickAndConnect(message);
+        break;
+      case 'get-points-config':
+        this.send({
+          type: 'points-config',
+          config: this.pointsDb.getConfig(),
+        });
+        break;
+      case 'update-points-config': {
+        const updated = this.pointsDb.updateConfig(message.config);
+        this.send({
+          type: 'points-config',
+          config: updated,
+        });
+        break;
+      }
+      case 'get-leaderboard': {
+        const viewers = this.pointsDb.getLeaderboard(message.limit || 100);
+        this.send({
+          type: 'leaderboard',
+          viewers,
+        });
+        break;
+      }
+      case 'reset-points': {
+        this.pointsDb.resetPoints(message.uniqueId);
+        const viewers = this.pointsDb.getLeaderboard(100);
+        this.send({
+          type: 'leaderboard',
+          viewers,
+        });
+        break;
+      }
+      case 'adjust-points': {
+        const res = this.pointsDb.awardPoints(message.uniqueId, 'manual', {
+          customAmount: message.delta,
+        });
+        if (res) {
+          this.send({
+            type: 'points-awarded',
+            uniqueId: res.uniqueId,
+            delta: res.delta,
+            totalPoints: res.totalPoints,
+            level: res.level,
+          });
+        }
+        const viewers = this.pointsDb.getLeaderboard(100);
+        this.send({
+          type: 'leaderboard',
+          viewers,
+        });
+        break;
+      }
+    }
   }
 
   async connect(request: Extract<PageMessage, { type: 'connect' }>): Promise<void> {
@@ -61,12 +139,68 @@ export class LiveController {
         uniqueId: state.uniqueId,
         title: roomTitle(state),
       });
+      // Send initial points config and leaderboard upon connection
+      this.send({
+        type: 'points-config',
+        config: this.pointsDb.getConfig(),
+      });
+      this.send({
+        type: 'leaderboard',
+        viewers: this.pointsDb.getLeaderboard(50),
+      });
     });
 
     client.on('event', (event: LiveEvent) => {
       if (generation !== this.#generation) return;
       const uiEvent = toUiEvent(event);
-      if (uiEvent) this.send({ type: 'live-event', event: uiEvent });
+      if (!uiEvent) return;
+
+      // Process points in SQLite — all branches use type-guard narrowing, no `any` casts.
+      let pointsResult = null;
+      if (isChatEvent(event)) {
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'chat', {
+          nickname: uiEvent.nickname,
+        });
+      } else if (isGiftEvent(event)) {
+        // event.diamondCount / repeatCount / comboCount are all `number` after narrowing
+        const diamonds = event.diamondCount || 1;
+        const repeat = Math.max(1, event.repeatCount || event.comboCount || 1);
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'gift', {
+          diamondCount: diamonds * repeat,
+          nickname: uiEvent.nickname,
+        });
+      } else if (isLikeEvent(event)) {
+        // event.count is `number` after narrowing
+        const count = Math.max(1, event.count || 1);
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'like', {
+          count,
+          nickname: uiEvent.nickname,
+        });
+      } else if (isSocialEvent(event)) {
+        // event.action is `number` after narrowing
+        const isFollow = event.action === SOCIAL_ACTION.follow;
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, isFollow ? 'follow' : 'share', {
+          nickname: uiEvent.nickname,
+        });
+      } else if (isMemberEvent(event)) {
+        pointsResult = this.pointsDb.awardPoints(uiEvent.author, 'join', {
+          nickname: uiEvent.nickname,
+        });
+      }
+
+      if (pointsResult) {
+        uiEvent.points = pointsResult.totalPoints;
+        uiEvent.level = pointsResult.level;
+        uiEvent.pointsDelta = pointsResult.delta;
+      } else {
+        const viewer = this.pointsDb.getViewer(uiEvent.author);
+        if (viewer) {
+          uiEvent.points = viewer.points;
+          uiEvent.level = viewer.level;
+        }
+      }
+
+      this.send({ type: 'live-event', event: uiEvent });
     });
 
     client.on('reconnecting', ({ attempt, delayMs }) => {

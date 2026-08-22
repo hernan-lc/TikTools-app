@@ -80,13 +80,7 @@ async function startNativeApp(webServer: AppServer): Promise<void> {
   webview.on('ipc', (raw) => {
     const message = parsePageMessage(raw);
     if (!message) return;
-    if (message.type === 'disconnect') {
-      live.stop();
-    } else if (message.type === 'pick-live') {
-      void live.pickAndConnect(message);
-    } else {
-      void live.connect(message);
-    }
+    live.handlePageMessage(message);
   });
 
   try {

@@ -851,3 +851,437 @@ input:focus, select:focus {
 }
 
 
+
+/* ==========================================================================
+   🎯 TikTok Authentic LIVE Chat Stream Styles (Images 1 & 2)
+   ========================================================================== */
+
+.tt-viewers-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(18, 21, 32, 0.7);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.tt-ribbon-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tt-top-contributors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tt-contributor-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tt-contributor-chip.rank-1 {
+  border-color: rgba(255, 215, 0, 0.5);
+  background: rgba(255, 215, 0, 0.1);
+}
+.tt-contributor-chip.rank-1 .tt-rank-num {
+  color: #ffd700;
+  font-weight: 800;
+}
+
+.tt-contributor-chip.rank-2 {
+  border-color: rgba(192, 192, 192, 0.5);
+  background: rgba(192, 192, 192, 0.1);
+}
+.tt-contributor-chip.rank-2 .tt-rank-num {
+  color: #c0c0c0;
+  font-weight: 800;
+}
+
+.tt-contributor-chip.rank-3 {
+  border-color: rgba(205, 127, 50, 0.5);
+  background: rgba(205, 127, 50, 0.1);
+}
+.tt-contributor-chip.rank-3 .tt-rank-num {
+  color: #cd7f32;
+  font-weight: 800;
+}
+
+.tt-rank-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tt-rank-pts {
+  color: var(--tt-pink);
+  font-weight: 700;
+}
+
+/* Chat Rows */
+.tiktok-chat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+  margin-bottom: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tiktok-chat-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tiktok-chat-row.gift {
+  background: var(--gift-gradient);
+  border-left: 3px solid var(--tt-pink);
+}
+
+.tiktok-chat-row.like {
+  background: rgba(254, 44, 85, 0.04);
+}
+
+.tiktok-chat-row.member,
+.tiktok-chat-row.social {
+  opacity: 0.85;
+}
+
+.tt-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.tt-content-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.tt-message-line {
+  display: inline;
+  word-break: break-word;
+}
+
+.tt-badge-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(254, 44, 85, 0.25), rgba(37, 244, 238, 0.25));
+  border: 1px solid rgba(254, 44, 85, 0.4);
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.tt-badge-icon {
+  font-size: 9px;
+}
+
+.tt-badge-text {
+  letter-spacing: -0.2px;
+}
+
+.tt-author {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  margin-right: 6px;
+}
+
+:root[data-theme="light"] .tt-author {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.tt-chat-text {
+  color: var(--text);
+}
+
+.tt-gift-text {
+  color: #ff7e40;
+  font-weight: 700;
+}
+
+.tt-like-text {
+  color: #fe2c55;
+  font-weight: 600;
+}
+
+.tt-social-text {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.tt-row-tail {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 6px;
+}
+
+.tt-points-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(37, 244, 238, 0.15);
+  border: 1px solid rgba(37, 244, 238, 0.35);
+  color: var(--tt-cyan);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tt-timestamp {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+
+/* ==========================================================================
+   💰 TikFinity-Style Points System Dashboard (Image 0)
+   ========================================================================== */
+
+.points-dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .points-dashboard-layout {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.points-config-column {
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.points-leaderboard-column {
+  height: 100%;
+  overflow: hidden;
+}
+
+.tikfinity-card {
+  background: var(--panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(254, 44, 85, 0.18);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.tikfinity-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tt-cyan);
+}
+
+.tikfinity-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.tikfinity-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.tikfinity-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tikfinity-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.tikfinity-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.tikfinity-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--tt-pink);
+  cursor: pointer;
+}
+
+.tikfinity-input {
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+  width: 180px;
+}
+
+.tikfinity-number-input {
+  background: var(--input-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  width: 80px;
+  text-align: right;
+}
+
+.tikfinity-number-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tikfinity-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Leaderboard Table */
+.leaderboard-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+}
+
+.tikfinity-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.tikfinity-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-elevated);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--line);
+  z-index: 2;
+}
+
+.tikfinity-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.tikfinity-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.table-viewer-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.top-rank-1 td {
+  background: rgba(255, 215, 0, 0.05);
+}
+.top-rank-2 td {
+  background: rgba(192, 192, 192, 0.03);
+}
+.top-rank-3 td {
+  background: rgba(205, 127, 50, 0.03);
+}
+
+.success-banner {
+  background: rgba(6, 214, 160, 0.15);
+  border: 1px solid rgba(6, 214, 160, 0.4);
+  color: var(--tt-green);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--panel-solid);
+  border: 1px solid var(--line-focus);
+  border-radius: 14px;
+  padding: 20px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+.modal-card h2 {
+  font-size: 15px;
+  margin: 0 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -12,11 +12,12 @@ import {
   IconUsers,
 } from '../components/icons.tsx';
 import { t, type Locale } from '../i18n.ts';
-import type { DisplayEvent, EventFilter } from '../types.ts';
+import type { DisplayEvent, EventFilter, ViewerRecord } from '../types.ts';
 
 type FeedViewProps = {
   locale: Locale;
   events: DisplayEvent[];
+  leaderboard?: ViewerRecord[];
   filter: EventFilter;
   searchQuery: string;
   autoScroll: boolean;
@@ -31,6 +32,7 @@ type FeedViewProps = {
 export function FeedView({
   locale,
   events,
+  leaderboard = [],
   filter,
   searchQuery,
   autoScroll,
@@ -41,6 +43,7 @@ export function FeedView({
   onClearFeed,
   streamContainerRef,
 }: FeedViewProps) {
+  const topViewers = leaderboard.slice(0, 3);
   const filterButtons: Array<{ key: EventFilter; tooltip: string; icon: JSX.Element }> = [
     { key: 'all', tooltip: t(locale, 'filterAll'), icon: <IconSparkles /> },
     { key: 'chat', tooltip: t(locale, 'filterChats'), icon: <IconChat /> },
@@ -105,6 +108,24 @@ export function FeedView({
           ) : null}
         </div>
       </div>
+
+      {/* TikTok LIVE Top Viewers Ribbon (as in Image 1 & 2) */}
+      {topViewers.length > 0 ? (
+        <div className="tt-viewers-ribbon">
+          <div className="tt-ribbon-title">
+            <span>{t(locale, 'viewersCount')} · {leaderboard.length}</span>
+          </div>
+          <div className="tt-top-contributors">
+            {topViewers.map((viewer, idx) => (
+              <div key={viewer.uniqueId} className={`tt-contributor-chip rank-${idx + 1}`}>
+                <span className="tt-rank-num">{idx + 1}</span>
+                <span className="tt-rank-name">@{viewer.uniqueId}</span>
+                <span className="tt-rank-pts">{viewer.points}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Message Stream Area */}
       <div className="feed-stream" ref={streamContainerRef}>

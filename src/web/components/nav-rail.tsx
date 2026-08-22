@@ -5,6 +5,7 @@ import type { AppTab } from '../types.ts';
 import {
   IconBarChart,
   IconChat,
+  IconCoins,
   IconRadio,
   IconSettings,
 } from './icons.tsx';
@@ -18,6 +19,7 @@ type NavigationRailProps = {
 export function NavigationRail({ locale, activeTab, onTabChange }: NavigationRailProps) {
   const navTabs: Array<{ id: AppTab; tooltip: string; icon: JSX.Element }> = [
     { id: 'feed', tooltip: t(locale, 'tabFeed'), icon: <IconChat /> },
+    { id: 'points', tooltip: t(locale, 'tabPoints'), icon: <IconCoins /> },
     { id: 'analytics', tooltip: t(locale, 'tabAnalytics'), icon: <IconBarChart /> },
     { id: 'connect', tooltip: t(locale, 'tabConnect'), icon: <IconRadio /> },
     { id: 'settings', tooltip: t(locale, 'tabSettings'), icon: <IconSettings /> },

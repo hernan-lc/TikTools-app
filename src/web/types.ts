@@ -1,6 +1,10 @@
-import type { UiEvent } from '../shared/messages.ts';
+import type {
+  PointsConfig,
+  UiEvent,
+  ViewerRecord,
+} from '../shared/messages.ts';
 
-export type AppTab = 'feed' | 'analytics' | 'connect' | 'settings';
+export type AppTab = 'feed' | 'points' | 'analytics' | 'connect' | 'settings';
 
 export type ConnectionStatus =
   | 'idle'
@@ -23,3 +27,5 @@ export type StreamTelemetry = {
   likes: number;
   members: number;
 };
+
+export type { PointsConfig, ViewerRecord };

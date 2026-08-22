@@ -22,11 +22,14 @@ import type {
   ConnectionStatus,
   DisplayEvent,
   EventFilter,
+  PointsConfig,
   StreamTelemetry,
+  ViewerRecord,
 } from './types.ts';
 import { AnalyticsView } from './views/analytics-view.tsx';
 import { ConnectView } from './views/connect-view.tsx';
 import { FeedView } from './views/feed-view.tsx';
+import { PointsView } from './views/points-view.tsx';
 import { SettingsView } from './views/settings-view.tsx';
 import './styles.css';
 
@@ -51,6 +54,24 @@ const initialUsername = getSavedUsername();
 applyTheme(initialTheme);
 document.documentElement.lang = initialLocale;
 
+const defaultPointsConfig: PointsConfig = {
+  currencyName: 'Points',
+  pointsPerCoin: 1.0,
+  pointsPerCoinEnabled: true,
+  pointsPerShare: 3.0,
+  pointsPerShareEnabled: true,
+  pointsPerChat: 1.0,
+  pointsPerChatEnabled: true,
+  pointsPerLike: 0.1,
+  pointsPerLikeEnabled: true,
+  pointsPerFollow: 5.0,
+  pointsPerFollowEnabled: true,
+  pointsPerJoin: 0.5,
+  pointsPerJoinEnabled: false,
+  subBonusMultiplier: 0.0,
+  pointsPerLevel: 100,
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('feed');
   const [uniqueId, setUniqueId] = useState(initialUsername);
@@ -67,6 +88,9 @@ function App() {
   const [filter, setFilter] = useState<EventFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [pointsConfig, setPointsConfig] = useState<PointsConfig>(defaultPointsConfig);
+  const [leaderboard, setLeaderboard] = useState<ViewerRecord[]>([]);
+
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
     gifts: 0,
@@ -98,6 +122,12 @@ function App() {
     saveTheme(theme);
   }, [theme]);
 
+  // Request initial points config & leaderboard from backend on startup
+  useEffect(() => {
+    send({ type: 'get-points-config' });
+    send({ type: 'get-leaderboard', limit: 100 });
+  }, []);
+
   // Handle messages from the native runtime
   useEffect(() => {
     const receive = (raw: string): void => {
@@ -123,6 +153,34 @@ function App() {
       }
 
       if (message.type === 'reconnecting') setStatus('retrying');
+
+      if (message.type === 'points-config') {
+        setPointsConfig(message.config);
+      }
+
+      if (message.type === 'leaderboard') {
+        setLeaderboard(message.viewers);
+      }
+
+      if (message.type === 'points-awarded') {
+        setLeaderboard((prev) => {
+          const index = prev.findIndex((v) => v.uniqueId === message.uniqueId);
+          if (index >= 0) {
+            const updated = [...prev];
+            const curr = updated[index];
+            if (curr) {
+              updated[index] = {
+                ...curr,
+                points: message.totalPoints,
+                level: message.level,
+                lastSeen: Date.now(),
+              };
+            }
+            return updated.sort((a, b) => b.points - a.points);
+          }
+          return prev;
+        });
+      }
 
       if (message.type === 'live-event') {
         const ev = message.event;
@@ -242,6 +300,18 @@ function App() {
     setLocale((cur) => (cur === 'en' ? 'es' : 'en'));
   };
 
+  const handleUpdatePointsConfig = (updated: Partial<PointsConfig>): void => {
+    send({ type: 'update-points-config', config: updated });
+  };
+
+  const handleResetPoints = (uniqueId?: string): void => {
+    send({ type: 'reset-points', uniqueId });
+  };
+
+  const handleAdjustPoints = (uniqueId: string, delta: number): void => {
+    send({ type: 'adjust-points', uniqueId, delta });
+  };
+
   // Connect automatically on initial startup if a handle is saved
   useEffect(() => {
     if (initialUsername) {
@@ -273,6 +343,7 @@ function App() {
           <FeedView
             locale={locale}
             events={events}
+            leaderboard={leaderboard}
             filter={filter}
             searchQuery={searchQuery}
             autoScroll={autoScroll}
@@ -282,6 +353,17 @@ function App() {
             onToggleAutoScroll={handleToggleAutoScroll}
             onClearFeed={resetEvents}
             streamContainerRef={(el) => (streamContainerRef.current = el)}
+          />
+        )}
+
+        {activeTab === 'points' && (
+          <PointsView
+            locale={locale}
+            config={pointsConfig}
+            leaderboard={leaderboard}
+            onUpdateConfig={handleUpdatePointsConfig}
+            onResetPoints={handleResetPoints}
+            onAdjustPoints={handleAdjustPoints}
           />
         )}
 

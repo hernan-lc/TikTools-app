@@ -3,3 +3,6 @@ dist
 out
 .DS_Store
 *.log*
+data/*.db
+data/*.db-shm
+data/*.db-wal

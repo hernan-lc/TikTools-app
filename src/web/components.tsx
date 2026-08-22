@@ -4,6 +4,7 @@ export * from './components/top-nav.tsx';
 export * from './components/nav-rail.tsx';
 export * from './components/event-card.tsx';
 export * from './views/feed-view.tsx';
+export * from './views/points-view.tsx';
 export * from './views/analytics-view.tsx';
 export * from './views/connect-view.tsx';
 export * from './views/settings-view.tsx';

@@ -172,3 +172,57 @@ export function IconGlobe() {
     </svg>
   );
 }
+
+export function IconCoins() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h2v4H7z" fill="currentColor" opacity="0.3" />
+    </svg>
+  );
+}
+
+export function IconTrophy() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34" />
+      <path d="M6 4h12v7a6 6 0 0 1-12 0V4z" />
+    </svg>
+  );
+}
+
+export function IconCrown() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M2 4l3 12h14l3-12-5 7-5-7-5 7-5-7zm1 14h18v2H3v-2z" />
+    </svg>
+  );
+}
+
+export function IconCheck() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+export function IconFlame() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 23c-4.97 0-9-4.03-9-9 0-4.12 3.28-8.73 6.35-12.08a1 1 0 0 1 1.54.14c.94 1.54 2.23 3.65 2.86 5.09.91-1.3 1.25-2.82 1.25-2.82a1 1 0 0 1 1.63-.44c2.94 2.94 4.37 6.13 4.37 10.11 0 4.97-4.03 9-9 9z" />
+    </svg>
+  );
+}
+
+export function IconStar() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
