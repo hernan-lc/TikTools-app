@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 
 import type {
+  AutomationEvent,
   AutomationEventType,
   AutomationScriptAnalysis,
   JsonObject,
@@ -10,6 +11,7 @@ import type {
 import { Button } from '../ui/Button.tsx';
 import { Modal } from '../ui/Modal.tsx';
 import { NodeConfigForm } from './NodeConfigForm.tsx';
+import { EventContextPreview } from './EventContextPreview.tsx';
 import { t, type Locale } from '../../i18n.ts';
 
 type NodeConfigModalProps = {
@@ -17,6 +19,8 @@ type NodeConfigModalProps = {
   node: WorkflowNode;
   definition?: NodeDefinition;
   eventType?: AutomationEventType;
+  lastEvent?: AutomationEvent;
+  lastEventCapturedAt?: number;
   analysis?: AutomationScriptAnalysis;
   onApply: (config: JsonObject) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
@@ -32,6 +36,8 @@ export function NodeConfigModal({
   node,
   definition,
   eventType,
+  lastEvent,
+  lastEventCapturedAt,
   analysis,
   onApply,
   onAnalyzeScript,
@@ -55,11 +61,13 @@ export function NodeConfigModal({
       }
     >
       <div className="node-editor-config-modal__body">
+        <EventContextPreview locale={locale} event={lastEvent} capturedAt={lastEventCapturedAt} />
         <NodeConfigForm
           locale={locale}
           node={draftNode}
           definition={definition}
           eventType={eventType}
+          lastEvent={lastEvent}
           analysis={analysis}
           onChange={setConfig}
           onAnalyzeScript={onAnalyzeScript}

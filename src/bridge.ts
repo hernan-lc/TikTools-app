@@ -93,6 +93,7 @@ export function parsePageMessage(raw: string): PageMessage | null {
 
   if (message.type === 'get-automation-workflows') return { type: 'get-automation-workflows' };
   if (message.type === 'get-automation-nodes') return { type: 'get-automation-nodes' };
+  if (message.type === 'get-automation-context') return { type: 'get-automation-context' };
   if (message.type === 'save-automation-workflow' && isWorkflowGraph(message.graph)) {
     return { type: 'save-automation-workflow', graph: message.graph };
   }

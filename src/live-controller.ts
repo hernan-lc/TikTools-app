@@ -30,7 +30,7 @@ import { AutomationPluginLoader } from './automation/plugins/plugin-loader.ts';
 import { PluginManager } from './automation/plugins/plugin-manager.ts';
 import { SonicBoomProvider } from './automation/providers/sonicboom.ts';
 import type { AutomationCapabilities } from './automation/capabilities.ts';
-import type { AutomationConnectionContext } from './automation/types.ts';
+import type { AutomationConnectionContext, AutomationEvent } from './automation/types.ts';
 import { AutomationDatabase } from './db/automation-db.ts';
 import { PointsDatabase } from './db/points-db.ts';
 import {
@@ -57,6 +57,10 @@ export class LiveController {
   #live: TikTokLive | null = null;
   #generation = 0;
   #automationContext: AutomationConnectionContext | undefined;
+  #lastAutomationEvent: AutomationEvent | undefined;
+  #lastAutomationEventCapturedAt: number | undefined;
+  #lastAutomationContextSentAt = 0;
+  #automationContextTimer: ReturnType<typeof setTimeout> | undefined;
   readonly pointsDb: PointsDatabase;
   readonly automationDb: AutomationDatabase;
   readonly automationBus: AutomationEventBus;
@@ -152,6 +156,7 @@ export class LiveController {
 
   async shutdown(): Promise<void> {
     this.stop();
+    this.clearAutomationContextTimer();
     await this.pluginLoader.stopAll();
     this.napiVm.clearAll();
     this.napiVmLanguage.clearAll();
@@ -282,6 +287,13 @@ export class LiveController {
           nodes: this.automationRuntime.getNodeDefinitions(),
         });
         break;
+      case 'get-automation-context':
+        this.send({
+          type: 'automation-context',
+          event: this.#lastAutomationEvent ?? null,
+          capturedAt: this.#lastAutomationEventCapturedAt,
+        });
+        break;
       case 'save-automation-workflow':
         try {
           assertValidWorkflowGraph(message.graph, this.automationRuntime.nodeRegistry);
@@ -325,6 +337,7 @@ export class LiveController {
             message.source,
             message.offset,
             message.eventType,
+            this.#lastAutomationEvent,
           );
           this.send({ type: 'automation-script-analysis', analysis });
         } catch (error) {
@@ -338,6 +351,7 @@ export class LiveController {
     const uniqueId = request.uniqueId.trim();
     const sessionCookie = request.sessionCookie.trim();
     this.publishDisconnectedIfActive();
+    this.clearLastAutomationEvent();
     const generation = ++this.#generation;
 
     this.#live?.disconnect();
@@ -403,7 +417,7 @@ export class LiveController {
         type: 'leaderboard',
         viewers: this.pointsDb.getLeaderboard(50),
       });
-      this.automationBus.publish(createConnectedEvent(state, this.#automationContext.connectionId));
+      this.publishAutomationEvent(createConnectedEvent(state, this.#automationContext.connectionId));
     });
 
     client.on('event', (event: LiveEvent) => {
@@ -413,7 +427,7 @@ export class LiveController {
 
       // Handle native TikTok ranking (Contributor 0-5 view) — Espectadores top
       if (isRoomUserEvent(event)) {
-        if (automationEvent) this.automationBus.publish(automationEvent);
+        if (automationEvent) this.publishAutomationEvent(automationEvent);
         const topViewers = (event.topViewers ?? []).slice(0, 6).map((v) => ({
           rank: v.rank,
           score: v.score,
@@ -515,14 +529,14 @@ export class LiveController {
               },
             }
           : automationEvent;
-        this.automationBus.publish(enrichedEvent);
+        this.publishAutomationEvent(enrichedEvent);
         if (pointsResult && pointsResult.delta !== 0) {
-          this.automationBus.publish(createPointsAwardedEvent(
+          this.publishAutomationEvent(createPointsAwardedEvent(
             pointsResult,
             pointsReason ?? event.type,
             automationEvent.id,
             this.#automationContext,
-          ));
+          ), false);
         }
       }
 
@@ -586,7 +600,54 @@ export class LiveController {
   private publishDisconnectedIfActive(): void {
     const context = this.#automationContext;
     this.#automationContext = undefined;
-    if (context) this.automationBus.publish(createDisconnectedEvent(context));
+    if (context) this.publishAutomationEvent(createDisconnectedEvent(context));
+  }
+
+  private publishAutomationEvent(event: AutomationEvent, rememberForEditor = true): void {
+    if (rememberForEditor) this.rememberAutomationEvent(event);
+    this.automationBus.publish(event);
+  }
+
+  private rememberAutomationEvent(event: AutomationEvent): void {
+    this.#lastAutomationEvent = event;
+    this.#lastAutomationEventCapturedAt = Date.now();
+    const now = Date.now();
+    const elapsed = now - this.#lastAutomationContextSentAt;
+    if (elapsed >= 250 || this.#lastAutomationContextSentAt === 0) {
+      this.#lastAutomationContextSentAt = now;
+      this.send({
+        type: 'automation-context',
+        event,
+        capturedAt: this.#lastAutomationEventCapturedAt,
+      });
+      return;
+    }
+    if (this.#automationContextTimer) return;
+    this.#automationContextTimer = setTimeout(() => {
+      this.#automationContextTimer = undefined;
+      this.#lastAutomationContextSentAt = Date.now();
+      if (this.#lastAutomationEvent) {
+        this.send({
+          type: 'automation-context',
+          event: this.#lastAutomationEvent,
+          capturedAt: this.#lastAutomationEventCapturedAt,
+        });
+      }
+    }, Math.max(1, 250 - elapsed));
+  }
+
+  private clearLastAutomationEvent(): void {
+    this.#lastAutomationEvent = undefined;
+    this.#lastAutomationEventCapturedAt = undefined;
+    this.#lastAutomationContextSentAt = Date.now();
+    this.clearAutomationContextTimer();
+    this.send({ type: 'automation-context', event: null });
+  }
+
+  private clearAutomationContextTimer(): void {
+    if (!this.#automationContextTimer) return;
+    clearTimeout(this.#automationContextTimer);
+    this.#automationContextTimer = undefined;
   }
 
   private reloadAutomationWorkflows(): void {

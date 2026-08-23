@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 
 import type {
   AutomationEventType,
+  AutomationEvent,
   AutomationScriptAnalysis,
   JsonObject,
   NodeDefinition,
@@ -33,6 +34,8 @@ type AutomationsViewProps = {
   nodes: NodeDefinition[];
   error?: string;
   scriptAnalysis?: AutomationScriptAnalysis;
+  lastEvent?: AutomationEvent;
+  lastEventCapturedAt?: number;
   onRefresh: () => void;
   onSave: (graph: WorkflowGraph) => void;
   onDelete: (id: string) => void;
@@ -54,6 +57,8 @@ export function AutomationsView({
   nodes,
   error,
   scriptAnalysis,
+  lastEvent,
+  lastEventCapturedAt,
   onRefresh,
   onSave,
   onDelete,
@@ -349,6 +354,8 @@ export function AutomationsView({
           node={configuringNode}
           definition={configuringDefinition}
           eventType={eventTypeForGraph(draft)}
+          lastEvent={lastEvent}
+          lastEventCapturedAt={lastEventCapturedAt}
           analysis={scriptAnalysis?.nodeId === configuringNode.id ? scriptAnalysis : undefined}
           onApply={(config) => {
             handleConfigChange(config);

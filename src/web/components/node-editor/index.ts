@@ -3,5 +3,8 @@ export * from './NodeConfigForm.tsx';
 export * from './NodeConfigModal.tsx';
 export * from './NodePickerModal.tsx';
 export * from './TemplateField.tsx';
+export * from './EventContextPreview.tsx';
+export * from './AutocompletePortal.tsx';
+export * from './template-suggestions.ts';
 export * from './WorkflowCanvas.tsx';
 export * from './WorkflowWizardModal.tsx';

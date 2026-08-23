@@ -13,31 +13,25 @@ export function defaultNodeConfig(definition: NodeDefinition): JsonObject {
     case 'trigger.event':
       return { eventType: 'tiktok.chat' };
     case 'condition.compare':
-      return { leftPath: 'event.data', operator: 'equals', right: '' };
+      return { leftPath: '', operator: 'equals', right: '' };
     case 'transform.template':
-      return { template: '{{ event.user.nickname }}' };
+      return { template: '' };
     case 'transform.script':
-      return { source: 'return inputs.value ?? event.data;', loopLimit: 1_000_000 };
+      return { source: '' };
     case 'control.delay':
-      return { delayMs: 1000 };
+      return {};
     case 'control.cooldown':
-      return { durationMs: 5000, key: '{{ event.user.uniqueId }}' };
+      return {};
     case 'action.log':
-      return { message: '{{ event.type }}' };
+      return { message: '' };
     case 'action.http':
-      return {
-        method: 'GET',
-        url: 'https://api.example.com/endpoint',
-        responseType: 'auto',
-        timeoutMs: 10000,
-        redirect: 'error',
-      };
+      return {};
     case 'action.play-sound':
-      return { filePath: 'assets/sounds/notification.wav', volume: 1, overlap: 'allow' };
+      return {};
     case 'action.tts':
-      return { text: '{{ event.data.comment }}', voice: 'M1', lang: 'en', format: 'wav' };
+      return { text: '' };
     case 'action.adjust-points':
-      return { uniqueId: '{{ event.user.uniqueId }}', delta: 10 };
+      return {};
     default:
       return {};
   }

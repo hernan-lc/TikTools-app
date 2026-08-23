@@ -34,6 +34,8 @@ The first UI is available from the Automations tab. Click **New workflow** to op
 
 Text fields that support runtime templates expose event-aware autocomplete. Type `{{` or focus a template field to insert paths such as `event.data.diamondCount` or `event.user.uniqueId`; the value is stored in the same template syntax understood by the runtime. For extensible maps such as HTTP headers, key/value rows are the right UX boundary: regular node settings should stay schema-driven, while headers may contain template values. A generic key/value editor for every node would lose validation and make plugins harder to understand.
 
+While a LIVE connection is active, the host keeps the most recent normalized `AutomationEvent` in memory and sends a throttled snapshot to the WebView. The editor uses that snapshot to show real previews beside template paths and to provide `napi-vm` Script completion/hover values. It is intentionally session-only rather than persisted to SQLite, because it can contain viewer names, chat text, and other live data.
+
 ## Example: gift threshold
 
 ```text

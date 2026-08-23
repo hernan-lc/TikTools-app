@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
 import type { AutomationWorkflowRecord, HostMessage, PageMessage } from '../shared/messages.ts';
-import type { AutomationEventType, AutomationScriptAnalysis, NodeDefinition, WorkflowGraph } from '../automation/types.ts';
+import type { AutomationEvent, AutomationEventType, AutomationScriptAnalysis, NodeDefinition, WorkflowGraph } from '../automation/types.ts';
 import { NavigationRail } from './components/nav-rail.tsx';
 import { TopNav } from './components/top-nav.tsx';
 import { t, type Locale } from './i18n.ts';
@@ -103,6 +103,8 @@ function App() {
   const [automationNodes, setAutomationNodes] = useState<NodeDefinition[]>([]);
   const [automationError, setAutomationError] = useState('');
   const [automationScriptAnalysis, setAutomationScriptAnalysis] = useState<AutomationScriptAnalysis | undefined>();
+  const [automationLastEvent, setAutomationLastEvent] = useState<AutomationEvent | undefined>();
+  const [automationLastEventCapturedAt, setAutomationLastEventCapturedAt] = useState<number | undefined>();
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -146,6 +148,7 @@ function App() {
     send({ type: 'get-app-state' });
     send({ type: 'get-automation-workflows' });
     send({ type: 'get-automation-nodes' });
+    send({ type: 'get-automation-context' });
   }, []);
 
   // Handle messages from the native runtime
@@ -275,6 +278,11 @@ function App() {
 
       if (message.type === 'automation-node-catalog') {
         setAutomationNodes(message.nodes);
+      }
+
+      if (message.type === 'automation-context') {
+        setAutomationLastEvent(message.event ?? undefined);
+        setAutomationLastEventCapturedAt(message.capturedAt);
       }
 
       if (message.type === 'automation-script-analysis') {
@@ -495,6 +503,8 @@ function App() {
             nodes={automationNodes}
             error={automationError}
             scriptAnalysis={automationScriptAnalysis}
+            lastEvent={automationLastEvent}
+            lastEventCapturedAt={automationLastEventCapturedAt}
             onRefresh={handleRefreshAutomations}
             onSave={handleSaveAutomation}
             onDelete={handleDeleteAutomation}

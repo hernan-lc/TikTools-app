@@ -238,11 +238,18 @@ export interface AutomationScriptCompletion {
   label: string;
   kind: string;
   detail?: string;
+  documentation?: string;
+  path?: string;
+  value?: JsonValue;
+  valueSource?: 'live-event' | 'sample-event';
 }
 
 export interface AutomationScriptHover {
   detail: string;
   documentation?: string;
+  path?: string;
+  value?: JsonValue;
+  valueSource?: 'live-event' | 'sample-event';
 }
 
 export interface AutomationScriptAnalysis {

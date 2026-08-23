@@ -1,5 +1,6 @@
 import type {
   AutomationEventType,
+  AutomationEvent,
   AutomationScriptAnalysis,
   NodeDefinition,
   WorkflowGraph,
@@ -98,6 +99,7 @@ export type PageMessage =
   | { type: 'debug-gift'; giftId?: string }
   | { type: 'get-automation-workflows' }
   | { type: 'get-automation-nodes' }
+  | { type: 'get-automation-context' }
   | { type: 'save-automation-workflow'; graph: WorkflowGraph }
   | { type: 'delete-automation-workflow'; id: string }
   | { type: 'set-automation-workflow-enabled'; id: string; enabled: boolean }
@@ -147,5 +149,6 @@ export type HostMessage =
   | { type: 'gift-debug'; giftId?: string; iconUrl?: string; hasIcon: boolean; totalGifts: number }
   | { type: 'automation-workflows'; workflows: AutomationWorkflowRecord[] }
   | { type: 'automation-node-catalog'; nodes: NodeDefinition[] }
+  | { type: 'automation-context'; event: AutomationEvent | null; capturedAt?: number }
   | { type: 'automation-script-analysis'; analysis: AutomationScriptAnalysis }
   | { type: 'automation-error'; message: string };

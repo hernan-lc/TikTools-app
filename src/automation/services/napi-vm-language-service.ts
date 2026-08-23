@@ -1,6 +1,7 @@
 import { LanguageService } from 'napi-vm';
 
 import type {
+  AutomationEvent,
   AutomationEventType,
   AutomationScriptAnalysis,
   AutomationScriptCompletion,
@@ -49,12 +50,15 @@ export class NapiVmLanguageService {
     nodeId: string,
     source: string,
     offset: number,
-    eventType: AutomationEventType = 'tiktok.chat',
+    eventType?: AutomationEventType,
+    observedEvent?: AutomationEvent,
   ): AutomationScriptAnalysis {
     const boundedSource = source.slice(0, MAX_SOURCE_LENGTH);
     const boundedOffset = Math.max(0, Math.min(offset, boundedSource.length));
     const uri = `file:///tiktools/automation/${encodeURIComponent(nodeId)}.js`;
-    const sampleEvent = sampleEventForType(eventType);
+    const liveEvent = observedEvent && (!eventType || observedEvent.type === eventType) ? observedEvent : undefined;
+    const effectiveEventType = eventType ?? liveEvent?.type ?? 'tiktok.chat';
+    const sampleEvent = liveEvent ?? sampleEventForType(effectiveEventType);
     const prelude = `import { log, capability } from '@tiktools/sdk';\nfunction __script(event = ${JSON.stringify(sampleEvent)}, inputs = { value: null }, data = ${JSON.stringify(sampleEvent.data)}) {\n`;
     const document = `${prelude}${boundedSource}\n}`;
     if (this.#documents.has(uri)) this.#service.update(uri, document);
@@ -73,8 +77,8 @@ export class NapiVmLanguageService {
       }))
       .filter((diagnostic) => diagnostic.line <= countLines(boundedSource) + 1);
 
-    const completions = this.#completions(uri, boundedSource, boundedOffset, sampleEvent, prelude.length);
-    const hover = this.#hover(uri, boundedSource, boundedOffset, sampleEvent, prelude.length);
+    const completions = this.#completions(uri, boundedSource, boundedOffset, sampleEvent, prelude.length, Boolean(liveEvent));
+    const hover = this.#hover(uri, boundedSource, boundedOffset, sampleEvent, prelude.length, Boolean(liveEvent));
     return {
       nodeId,
       source: boundedSource,
@@ -100,12 +104,18 @@ export class NapiVmLanguageService {
     offset: number,
     event: JsonObject,
     preludeLength: number,
+    liveEvent: boolean,
   ): AutomationScriptCompletion[] {
+    const values: Record<string, JsonValue> = {
+      event,
+      inputs: { value: null },
+      data: event.data ?? null,
+    };
     const own = shapeCompletions(source, offset, {
       event: inferShape(event),
       inputs: inferShape({ value: null }),
       data: inferShape(event.data ?? null),
-    });
+    }, values, liveEvent ? 'live-event' : 'sample-event');
     if (own.length > 0) return own;
     return this.#service.complete(uri, preludeLength + offset).map((completion) => ({
       label: completion.label,
@@ -120,19 +130,46 @@ export class NapiVmLanguageService {
     offset: number,
     event: JsonObject,
     preludeLength: number,
+    liveEvent: boolean,
   ): AutomationScriptHover | undefined {
+    const values: Record<string, JsonValue> = {
+      event,
+      inputs: { value: null },
+      data: event.data ?? null,
+    };
     const own = shapeHover(source, offset, {
       event: inferShape(event),
       inputs: inferShape({ value: null }),
       data: inferShape(event.data ?? null),
-    });
+    }, values, liveEvent ? 'live-event' : 'sample-event');
     if (own) return own;
     const hover = this.#service.hover(uri, preludeLength + offset);
     return hover ? { detail: hover.detail, documentation: hover.documentation ?? undefined } : undefined;
   }
 }
 
-function shapeCompletions(source: string, offset: number, roots: Record<string, Shape>): AutomationScriptCompletion[] {
+function shapeCompletions(
+  source: string,
+  offset: number,
+  roots: Record<string, Shape>,
+  values: Record<string, JsonValue>,
+  valueSource: 'live-event' | 'sample-event',
+): AutomationScriptCompletion[] {
+  const rootMatch = source.slice(0, offset).match(/(?:^|[^A-Za-z0-9_$])([A-Za-z0-9_$]*)$/);
+  const rootQuery = rootMatch?.[1] ?? '';
+  if (rootMatch && rootQuery) {
+    const rootCompletions = Object.entries(roots)
+      .filter(([name]) => name.startsWith(rootQuery))
+      .map(([label, shape]) => ({
+        label,
+        kind: 'variable',
+        detail: shape.kind,
+        path: label,
+        value: values[label],
+        valueSource,
+      }));
+    if (rootCompletions.length > 0) return rootCompletions;
+  }
   const match = source.slice(0, offset).match(/(?:^|[^A-Za-z0-9_$])((?:event|inputs|data)(?:\.[A-Za-z0-9_$]*)*)$/);
   if (!match || !match[1]?.includes('.')) return [];
   const tokens = match[1].split('.');
@@ -145,10 +182,27 @@ function shapeCompletions(source: string, offset: number, roots: Record<string, 
   return Object.entries(shape.properties)
     .filter(([name]) => name.startsWith(partial))
     .sort(([left], [right]) => left.localeCompare(right))
-    .map(([label, value]) => ({ label, kind: 'property', detail: value.kind }));
+    .map(([label, value]) => {
+      const path = [rootName, ...tokens, label].join('.');
+      const resolved = readJsonPath(values[rootName], [...tokens.filter(Boolean), label]);
+      return {
+        label,
+        kind: 'property',
+        detail: value.kind,
+        path,
+        value: resolved,
+        valueSource,
+      };
+    });
 }
 
-function shapeHover(source: string, offset: number, roots: Record<string, Shape>): AutomationScriptHover | undefined {
+function shapeHover(
+  source: string,
+  offset: number,
+  roots: Record<string, Shape>,
+  values: Record<string, JsonValue>,
+  valueSource: 'live-event' | 'sample-event',
+): AutomationScriptHover | undefined {
   const before = source.slice(0, offset);
   const match = before.match(/(?:^|[^A-Za-z0-9_$])((?:event|inputs|data)(?:\.[A-Za-z0-9_$]+)*)$/);
   if (!match) return undefined;
@@ -158,7 +212,20 @@ function shapeHover(source: string, offset: number, roots: Record<string, Shape>
   if (!root) return undefined;
   const shape = followShape(root, tokens);
   if (!shape) return undefined;
-  return { detail: `${tokens[tokens.length - 1] ?? 'value'}: ${shape.kind}` };
+  const path = match[1] ?? rootName;
+  const value = readJsonPath(values[rootName], tokens);
+  const liveValue = valueSource === 'live-event' ? value : undefined;
+  return {
+    detail: `${path}: ${shape.kind}`,
+    documentation: liveValue === undefined
+      ? `${path}: ${shape.kind}. Capture a matching LIVE event to preview its value.`
+      : path === 'event.data'
+        ? 'Last event data:'
+        : `Last event value: ${formatJsonValue(liveValue)}`,
+    path,
+    value: liveValue,
+    valueSource,
+  };
 }
 
 function followShape(root: Shape, path: string[]): Shape | undefined {
@@ -181,6 +248,32 @@ function inferShape(value: JsonValue): Shape {
     if (entry !== undefined) properties[key] = inferShape(entry);
   }
   return { kind: 'object', properties };
+}
+
+function readJsonPath(root: JsonValue | undefined, path: string[]): JsonValue | undefined {
+  let current = root;
+  for (const part of path) {
+    if (current === undefined || current === null || typeof current !== 'object') return undefined;
+    if (Array.isArray(current)) {
+      const index = Number(part);
+      if (!Number.isInteger(index)) return undefined;
+      current = current[index];
+    } else {
+      current = current[part];
+    }
+  }
+  return current;
+}
+
+function formatJsonValue(value: JsonValue): string {
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (value === null) return 'null';
+  try {
+    const serialized = JSON.stringify(value, null, 2) ?? String(value);
+    return serialized.length > 8_000 ? `${serialized.slice(0, 7_997)}...` : serialized;
+  } catch {
+    return String(value);
+  }
 }
 
 function sampleEventForType(type: AutomationEventType): JsonObject {

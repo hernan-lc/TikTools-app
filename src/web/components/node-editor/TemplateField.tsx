@@ -1,10 +1,7 @@
 import { useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
-
-export type TemplateSuggestion = {
-  value: string;
-  label: string;
-};
+import type { TemplateSuggestion } from './template-suggestions.ts';
+import { AutocompletePortal } from './AutocompletePortal.tsx';
 
 type TemplateFieldProps = {
   value: string;
@@ -31,6 +28,7 @@ export function TemplateField({
   ariaLabel,
 }: TemplateFieldProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const fieldRef = useRef<HTMLDivElement | null>(null);
   const [focused, setFocused] = useState(false);
   const [cursor, setCursor] = useState(value.length);
 
@@ -105,24 +103,26 @@ export function TemplateField({
   );
 
   return (
-    <div className="node-editor-template-field">
+    <div ref={fieldRef} className="node-editor-template-field">
       <div className="node-editor-template-control-wrap">{control}</div>
-      {showSuggestions ? (
+      <AutocompletePortal anchorRef={fieldRef} open={showSuggestions}>
         <div className="node-editor-template-suggestions" role="listbox">
           {visibleSuggestions.map((suggestion) => (
             <button
               key={suggestion.value}
               type="button"
               role="option"
+              title={suggestion.preview ? `${suggestion.value} = ${suggestion.preview}` : suggestion.value}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => insertSuggestion(suggestion)}
             >
               <span>{suggestion.label}</span>
               <code>{suggestion.value}</code>
+              {suggestion.preview ? <small>{suggestion.preview}</small> : null}
             </button>
           ))}
         </div>
-      ) : null}
+      </AutocompletePortal>
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import type {
+  AutomationEvent,
   AutomationEventType,
   AutomationScriptAnalysis,
+  AutomationScriptCompletion,
   JsonObject,
   JsonValue,
   NodeDefinition,
@@ -13,7 +15,9 @@ import { TextInput } from '../ui/TextInput.tsx';
 import { NumberInput } from '../ui/NumberInput.tsx';
 import { Select } from '../ui/Select.tsx';
 import { Checkbox } from '../ui/Checkbox.tsx';
-import { TemplateField, type TemplateSuggestion } from './TemplateField.tsx';
+import { TemplateField } from './TemplateField.tsx';
+import { getTemplateSuggestions } from './template-suggestions.ts';
+import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.tsx';
 import { asNumber, asString } from './graph.ts';
 import { t, type Locale } from '../../i18n.ts';
@@ -24,15 +28,16 @@ type NodeConfigFormProps = {
   definition?: NodeDefinition;
   analysis?: AutomationScriptAnalysis;
   eventType?: AutomationEventType;
+  lastEvent?: AutomationEvent;
   onChange: (config: JsonObject) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
 };
 
-export function NodeConfigForm({ locale, node, definition, analysis, eventType, onChange, onAnalyzeScript }: NodeConfigFormProps) {
+export function NodeConfigForm({ locale, node, definition, analysis, eventType, lastEvent, onChange, onAnalyzeScript }: NodeConfigFormProps) {
   const ui = formLabels(locale);
   const update = (key: string, value: JsonValue): void => onChange({ ...node.config, [key]: value });
   const config = node.config;
-  const templateValues = getTemplateSuggestions(eventType, locale);
+  const templateValues = getTemplateSuggestions(eventType, locale, lastEvent);
 
   if (!definition) {
     return <GenericConfigForm locale={locale} node={node} onChange={onChange} />;
@@ -55,7 +60,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.valuePath} hint={ui.valuePathHint}>
-            <TextInput value={asString(config.leftPath, 'event.data')} onValueChange={(value) => update('leftPath', value)} placeholder="event.data.diamondCount" />
+            <TextInput value={asString(config.leftPath)} onValueChange={(value) => update('leftPath', value)} placeholder="event.data.diamondCount" />
           </FormField>
           <FormField label={ui.operator}>
             <Select
@@ -89,12 +94,12 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
         </div>
       );
     case 'transform.script':
-      return <ScriptConfigForm locale={locale} node={node} analysis={analysis} eventType={eventType} onChange={onChange} onAnalyzeScript={onAnalyzeScript} />;
+      return <ScriptConfigForm locale={locale} node={node} analysis={analysis} eventType={eventType} lastEvent={lastEvent} onChange={onChange} onAnalyzeScript={onAnalyzeScript} />;
     case 'control.delay':
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.delay} hint={ui.delayHint}>
-            <NumberInput value={asNumber(config.delayMs, 1000)} min={0} max={3_600_000} step={100} suffix="ms" onValueChange={(value) => update('delayMs', value)} />
+            <NumberInput value={asNumber(config.delayMs)} min={0} max={3_600_000} step={100} suffix="ms" onValueChange={(value) => update('delayMs', value)} />
           </FormField>
         </div>
       );
@@ -102,10 +107,10 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.duration} hint={ui.cooldownHint}>
-            <NumberInput value={asNumber(config.durationMs, 5000)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
+            <NumberInput value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
           </FormField>
           <FormField label={ui.cooldownKey}>
-            <TemplateField value={asString(config.key, '{{ event.user.uniqueId }}')} onValueChange={(value) => update('key', value)} suggestions={templateValues} />
+            <TemplateField value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues} placeholder="{{ event.user.uniqueId }}" />
           </FormField>
         </div>
       );
@@ -118,7 +123,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
         </div>
       );
     case 'action.http':
-      return <HttpConfigForm locale={locale} eventType={eventType} config={config} onChange={update} />;
+      return <HttpConfigForm locale={locale} eventType={eventType} lastEvent={lastEvent} config={config} onChange={update} />;
     case 'action.play-sound':
       return (
         <div className="node-editor-form-stack">
@@ -154,7 +159,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.viewer} hint={ui.viewerHint}>
-            <TemplateField value={asString(config.uniqueId, '{{ event.user.uniqueId }}')} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues} />
+            <TemplateField value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues} placeholder="{{ event.user.uniqueId }}" />
           </FormField>
           <FormField label={ui.delta}>
             <NumberInput value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
@@ -166,12 +171,21 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
   }
 }
 
-function ScriptConfigForm({ locale, node, analysis, eventType, onChange, onAnalyzeScript }: NodeConfigFormProps) {
+function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChange, onAnalyzeScript }: NodeConfigFormProps) {
   const source = asString(node.config.source);
   const [cursor, setCursor] = useState(source.length);
+  const [completionIndex, setCompletionIndex] = useState(0);
+  const [completionOpen, setCompletionOpen] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const completionAnchorRef = useRef<HTMLDivElement | null>(null);
+  const completionKey = analysis?.completions.map((completion) => `${completion.label}:${completion.detail ?? ''}`).join('|') ?? '';
+  const visibleCompletions = analysis?.completions.slice(0, 12) ?? [];
 
   useEffect(() => setCursor(source.length), [node.id, source]);
+  useEffect(() => {
+    setCompletionIndex(0);
+    setCompletionOpen(visibleCompletions.length > 0);
+  }, [completionKey]);
 
   const change = (nextSource: string, nextCursor: number): void => {
     setCursor(nextCursor);
@@ -179,62 +193,118 @@ function ScriptConfigForm({ locale, node, analysis, eventType, onChange, onAnaly
     onAnalyzeScript(node.id, nextSource, nextCursor, eventType);
   };
 
-  const applyCompletion = (label: string): void => {
+  const applyCompletion = (completion: AutomationScriptCompletion): void => {
     const textarea = textareaRef.current;
     const offset = textarea?.selectionStart ?? cursor;
     const before = source.slice(0, offset);
     const match = before.match(/[A-Za-z0-9_$]*$/);
     const start = offset - (match?.[0]?.length ?? 0);
-    const nextSource = `${source.slice(0, start)}${label}${source.slice(offset)}`;
-    const nextOffset = start + label.length;
+    const nextSource = `${source.slice(0, start)}${completion.label}${source.slice(offset)}`;
+    const nextOffset = start + completion.label.length;
     change(nextSource, nextOffset);
+    setCompletionOpen(false);
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
       textareaRef.current?.setSelectionRange(nextOffset, nextOffset);
     });
   };
 
+  const handleCompletionKeyDown = (event: KeyboardEvent): void => {
+    const completions = visibleCompletions;
+    if (!completionOpen || completions.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setCompletionIndex((current) => (current + 1) % completions.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setCompletionIndex((current) => (current - 1 + completions.length) % completions.length);
+    } else if (event.key === 'Tab' || event.key === 'Enter') {
+      event.preventDefault();
+      const selected = completions[completionIndex];
+      if (selected) applyCompletion(selected);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setCompletionOpen(false);
+    }
+  };
+
   return (
     <div className="node-editor-form-stack">
+      <div className="node-editor-script-context">
+        <span>{t(locale, 'scriptEditor')}</span>
+        <small>{lastEvent ? `${t(locale, 'lastEventContext')}: ${lastEvent.type}` : t(locale, 'noLastEventContext')}</small>
+      </div>
       <FormField label={t(locale, 'scriptEditor')} hint={t(locale, 'scriptEditorHint')}>
-        <textarea
-          ref={textareaRef}
-          className="node-editor-form-textarea node-editor-form-textarea--code"
-          value={source}
-          rows={12}
-          spellcheck={false}
-          onInput={(event) => {
-            const target = event.currentTarget;
-            change(target.value, target.selectionStart ?? target.value.length);
-          }}
-          onKeyUp={(event) => {
-            setCursor(event.currentTarget.selectionStart ?? source.length);
-            onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
-          }}
-          onClick={(event) => {
-            setCursor(event.currentTarget.selectionStart ?? source.length);
-          }}
-        />
+        <div ref={completionAnchorRef} className="node-editor-script-editor">
+          <textarea
+            ref={textareaRef}
+            className="node-editor-form-textarea node-editor-form-textarea--code"
+            value={source}
+            rows={12}
+            spellcheck={false}
+            onFocus={() => setCompletionOpen(true)}
+            onKeyDown={handleCompletionKeyDown}
+            onInput={(event) => {
+              const target = event.currentTarget;
+              change(target.value, target.selectionStart ?? target.value.length);
+            }}
+            onKeyUp={(event) => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Tab' || event.key === 'Enter' || event.key === 'Escape') return;
+              setCursor(event.currentTarget.selectionStart ?? source.length);
+              onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+            }}
+            onClick={(event) => {
+              setCursor(event.currentTarget.selectionStart ?? source.length);
+              onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+            }}
+          />
+          <AutocompletePortal anchorRef={completionAnchorRef} open={completionOpen && visibleCompletions.length > 0}>
+            <div className="node-editor-code-completions" role="listbox">
+              {visibleCompletions.map((completion, index) => (
+                <button
+                  key={`${completion.kind}:${completion.label}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === completionIndex}
+                  className={index === completionIndex ? 'is-selected' : ''}
+                  title={completion.documentation ?? completion.detail ?? completion.label}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setCompletionIndex(index)}
+                  onClick={() => applyCompletion(completion)}
+                >
+                  <strong>{completion.label}</strong>
+                  <span>{completion.detail ?? completion.kind}</span>
+                  {completion.valueSource === 'live-event' && completion.value !== undefined ? <code>{formatEditorValue(completion.value)}</code> : null}
+                </button>
+              ))}
+              <small>↑ ↓ {locale === 'es' ? 'navegar' : 'navigate'} · Tab {locale === 'es' ? 'insertar' : 'insert'}</small>
+            </div>
+          </AutocompletePortal>
+        </div>
       </FormField>
       {analysis?.diagnostics.length ? (
         <div className="node-editor-diagnostics" role="status">
           {analysis.diagnostics.map((diagnostic, index) => <div key={`${diagnostic.line}:${diagnostic.column}:${index}`} className="node-editor-diagnostic"><span>{diagnostic.line}:{diagnostic.column}</span> {diagnostic.message}</div>)}
         </div>
       ) : null}
-      {analysis?.completions.length ? (
-        <div className="node-editor-completions">
-          <small>{t(locale, 'suggestions')}</small>
-          <div>{analysis.completions.slice(0, 12).map((completion) => <button key={`${completion.kind}:${completion.label}`} type="button" onClick={() => applyCompletion(completion.label)}>{completion.label}</button>)}</div>
+      {analysis?.hover ? (
+        <div className="node-editor-hover-card" role="status">
+          <strong>{analysis.hover.detail}</strong>
+          <span>{analysis.hover.documentation}</span>
+          {analysis.hover.valueSource === 'live-event' && analysis.hover.value !== undefined
+            ? analysis.hover.path === 'event.data'
+              ? <pre>{formatEditorValue(analysis.hover.value, true)}</pre>
+              : <code>{formatEditorValue(analysis.hover.value)}</code>
+            : null}
         </div>
       ) : null}
-      {analysis?.hover ? <small className="node-editor-hover">{analysis.hover.detail}</small> : null}
     </div>
   );
 }
 
-function HttpConfigForm({ locale, eventType, config, onChange }: { locale: Locale; eventType?: AutomationEventType; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
+function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { locale: Locale; eventType?: AutomationEventType; lastEvent?: AutomationEvent; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
   const ui = formLabels(locale);
-  const templateValues = getTemplateSuggestions(eventType, locale);
+  const templateValues = getTemplateSuggestions(eventType, locale, lastEvent);
   return (
     <div className="node-editor-form-stack">
       <FormField label={ui.method}>
@@ -296,6 +366,19 @@ function formatValue(value: JsonValue | undefined): string {
   return String(value);
 }
 
+function formatEditorValue(value: JsonValue, pretty = false): string {
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (value === null) return 'null';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    const serialized = JSON.stringify(value, pretty ? null : undefined, pretty ? 2 : undefined) ?? String(value);
+    if (pretty) return serialized.length > 8_000 ? `${serialized.slice(0, 7_997)}...` : serialized;
+    return serialized.length > 140 ? `${serialized.slice(0, 137)}...` : serialized;
+  } catch {
+    return String(value);
+  }
+}
+
 function parseValue(value: string): JsonValue {
   const trimmed = value.trim();
   if (!trimmed) return '';
@@ -323,63 +406,6 @@ function parseHeaders(value: string): JsonObject {
 
 function isJsonObject(value: JsonValue | undefined): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-export function getTemplateSuggestions(eventType: AutomationEventType | undefined, locale: Locale): TemplateSuggestion[] {
-  const common = [
-    'event.type',
-    'event.user.uniqueId',
-    'event.user.nickname',
-    'event.creator.uniqueId',
-    'event.data',
-    'event.timestamp',
-  ];
-  const specific: Partial<Record<AutomationEventType, string[]>> = {
-    'tiktok.chat': ['event.data.comment', 'event.data.method'],
-    'tiktok.gift': ['event.data.giftName', 'event.data.diamondCount', 'event.data.repeatCount', 'event.data.comboCount', 'event.data.giftId'],
-    'tiktok.like': ['event.data.count', 'event.data.total'],
-    'tiktok.follow': ['event.data.followCount'],
-    'tiktok.share': ['event.data.shareCount'],
-    'tiktok.social': ['event.data.action', 'event.data.followCount', 'event.data.shareCount'],
-    'tiktok.join': ['event.data.memberCount', 'event.data.action'],
-    'tiktok.room_stats': ['event.data.viewers', 'event.data.totalUsers', 'event.data.popularity'],
-    'tiktok.connected': ['event.data.uniqueId', 'event.data.roomId'],
-    'tiktok.disconnected': ['event.data.uniqueId', 'event.data.roomId'],
-    'points.awarded': ['event.data.delta', 'event.data.totalPoints', 'event.data.level', 'event.data.currencyName', 'event.data.reason'],
-  };
-  const paths = [...new Set([...common, ...(eventType ? specific[eventType] ?? [] : [])])];
-  const labels: Record<string, [string, string]> = {
-    'event.type': ['Event type', 'Tipo de evento'],
-    'event.user.uniqueId': ['Viewer username', 'Usuario del espectador'],
-    'event.user.nickname': ['Viewer nickname', 'Apodo del espectador'],
-    'event.creator.uniqueId': ['Creator username', 'Usuario del creador'],
-    'event.data': ['Event data', 'Datos del evento'],
-    'event.timestamp': ['Event time', 'Hora del evento'],
-    'event.data.comment': ['Chat comment', 'Comentario del chat'],
-    'event.data.method': ['Event method', 'Método del evento'],
-    'event.data.giftName': ['Gift name', 'Nombre del regalo'],
-    'event.data.diamondCount': ['Gift diamonds', 'Diamantes del regalo'],
-    'event.data.repeatCount': ['Gift repeats', 'Repeticiones del regalo'],
-    'event.data.comboCount': ['Gift combo', 'Combo del regalo'],
-    'event.data.giftId': ['Gift ID', 'ID del regalo'],
-    'event.data.count': ['Like count', 'Cantidad de Likes'],
-    'event.data.total': ['Total Likes', 'Likes totales'],
-    'event.data.followCount': ['Follow count', 'Seguidores'],
-    'event.data.shareCount': ['Share count', 'Compartidos'],
-    'event.data.action': ['Action code', 'Código de acción'],
-    'event.data.memberCount': ['Viewer count', 'Cantidad de espectadores'],
-    'event.data.viewers': ['Current viewers', 'Espectadores actuales'],
-    'event.data.totalUsers': ['Total viewers', 'Espectadores totales'],
-    'event.data.popularity': ['Popularity', 'Popularidad'],
-    'event.data.uniqueId': ['Connection username', 'Usuario de conexión'],
-    'event.data.roomId': ['Room ID', 'ID de sala'],
-    'event.data.delta': ['Points delta', 'Puntos ganados'],
-    'event.data.totalPoints': ['Total points', 'Puntos totales'],
-    'event.data.level': ['Points level', 'Nivel de puntos'],
-    'event.data.currencyName': ['Currency name', 'Nombre de moneda'],
-    'event.data.reason': ['Points reason', 'Motivo de puntos'],
-  };
-  return paths.map((value) => ({ value, label: labels[value]?.[locale === 'es' ? 1 : 0] ?? value }));
 }
 
 function formLabels(locale: Locale) {

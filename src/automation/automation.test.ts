@@ -206,6 +206,41 @@ describe('automation capabilities and plugins', () => {
     expect(analysis.diagnostics).toEqual([]);
   });
 
+  test('napi-vm language service uses the last event for completion values and hover', () => {
+    const service = new NapiVmLanguageService();
+    const event: AutomationEvent = {
+      id: 'gift-live-1',
+      type: 'tiktok.gift',
+      timestamp: 100,
+      user: { uniqueId: 'viewer' },
+      data: { giftName: 'Rose', diamondCount: 25 },
+    };
+    const completionSource = 'return event.data.dia';
+    const completionAnalysis = service.analyze('script-editor-live', completionSource, completionSource.length, 'tiktok.gift', event);
+    const completion = completionAnalysis.completions.find((item) => item.label === 'diamondCount');
+    expect(completion?.value).toBe(25);
+    expect(completion?.valueSource).toBe('live-event');
+
+    const hoverSource = 'return event.data.diamondCount';
+    const hoverAnalysis = service.analyze('script-editor-live', hoverSource, hoverSource.length, 'tiktok.gift', event);
+    expect(hoverAnalysis.hover?.value).toBe(25);
+    expect(hoverAnalysis.hover?.documentation).toContain('25');
+    expect(hoverAnalysis.hover?.valueSource).toBe('live-event');
+
+    const rootSource = 'return e';
+    const rootAnalysis = service.analyze('script-editor-root', rootSource, rootSource.length, 'tiktok.gift', event);
+    expect(rootAnalysis.completions.find((item) => item.label === 'event')?.valueSource).toBe('live-event');
+
+    const dataSource = 'return event.data';
+    const dataAnalysis = service.analyze('script-editor-data', dataSource, dataSource.length, 'tiktok.gift', event);
+    expect(dataAnalysis.hover?.path).toBe('event.data');
+    expect(JSON.stringify(dataAnalysis.hover?.value)).toContain('"giftName":"Rose"');
+
+    const sampleAnalysis = service.analyze('script-editor-sample', hoverSource, hoverSource.length, 'tiktok.gift');
+    expect(sampleAnalysis.hover?.value).toBeUndefined();
+    expect(sampleAnalysis.hover?.documentation).not.toContain('Example value');
+  });
+
   test('sandbox capability broker enforces manifest network permissions', async () => {
     const manifest = {
       manifestVersion: 1 as const,

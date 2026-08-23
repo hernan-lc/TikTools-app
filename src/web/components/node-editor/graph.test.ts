@@ -7,6 +7,7 @@ import {
   createWorkflowNode,
   normalizeWorkflowGraph,
 } from './graph.ts';
+import { getTemplateSuggestions } from './template-suggestions.ts';
 
 describe('workflow editor graph helpers', () => {
   const definitions = createBuiltInNodeRegistry().definitions();
@@ -43,5 +44,33 @@ describe('workflow editor graph helpers', () => {
     const normalized = normalizeWorkflowGraph(invalid, definitions);
     expect(normalized.edges).toHaveLength(1);
     expect(normalized.edges[0]?.kind).toBe('flow');
+  });
+
+  test('builds template suggestions from the last event and includes live previews', () => {
+    const suggestions = getTemplateSuggestions('tiktok.gift', 'en', {
+      id: 'event-1',
+      type: 'tiktok.gift',
+      timestamp: 1,
+      user: { uniqueId: 'viewer' },
+      data: { giftName: 'Rose', diamondCount: 25 },
+    });
+
+    expect(suggestions.find((suggestion) => suggestion.value === 'event.data.diamondCount')).toMatchObject({
+      preview: '25',
+    });
+    expect(suggestions.some((suggestion) => suggestion.value === 'event.user.uniqueId')).toBe(true);
+  });
+
+  test('does not use an unrelated last event as a live preview', () => {
+    const suggestions = getTemplateSuggestions('tiktok.gift', 'en', {
+      id: 'event-2',
+      type: 'tiktok.chat',
+      timestamp: 2,
+      user: { uniqueId: 'viewer' },
+      data: { comment: 'hello', customValue: 42 },
+    });
+
+    expect(suggestions.find((suggestion) => suggestion.value === 'event.data.diamondCount')?.preview).toBeUndefined();
+    expect(suggestions.find((suggestion) => suggestion.value === 'event.data.customValue')).toBeUndefined();
   });
 });
