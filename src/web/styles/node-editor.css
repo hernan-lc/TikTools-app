@@ -551,7 +551,8 @@
   cursor: pointer;
 }
 
-.node-editor-template-suggestions button:hover {
+.node-editor-template-suggestions button:hover,
+.node-editor-template-suggestions button.is-selected {
   background: rgba(37, 244, 238, 0.1);
   color: var(--text);
 }

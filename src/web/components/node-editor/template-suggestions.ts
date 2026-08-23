@@ -7,6 +7,22 @@ export type TemplateSuggestion = {
   preview?: string;
 };
 
+export type TemplateSuggestionScope =
+  | 'message'
+  | 'identity'
+  | 'text'
+  | 'sound-file'
+  | 'http-url'
+  | 'http-data'
+  | 'compare';
+
+type ObservedPathMode = 'all' | 'identity' | 'text' | 'path';
+
+type TemplateInputDefinition = {
+  basePaths: readonly string[];
+  observed: ObservedPathMode;
+};
+
 const COMMON_PATHS = [
   'event.type',
   'event.user.uniqueId',
@@ -15,6 +31,59 @@ const COMMON_PATHS = [
   'event.data',
   'event.timestamp',
 ];
+
+const IDENTITY_PATHS = [
+  'event.user.uniqueId',
+  'event.user.userId',
+  'event.user.nickname',
+  'event.creator.uniqueId',
+  'event.creator.roomId',
+];
+
+const TEXT_PATHS = [
+  'event.user.nickname',
+  'event.creator.uniqueId',
+  'event.data.comment',
+  'event.data.message',
+  'event.data.text',
+  'event.data.giftName',
+  'event.data.action',
+  'event.data.reason',
+  'event.data.currencyName',
+];
+
+const SOUND_FILE_PATHS = [
+  'event.data.filePath',
+  'event.data.soundPath',
+  'event.data.audioPath',
+  'event.data.soundFile',
+  'event.data.audioFile',
+  'event.data.audioUrl',
+];
+
+const HTTP_URL_PATHS = [
+  'event.data.url',
+  'event.data.uri',
+  'event.data.link',
+  'event.data.endpoint',
+  'event.data.apiUrl',
+  'event.data.webhookUrl',
+];
+
+/**
+ * Declarative input contracts. A form chooses one scope instead of receiving
+ * the entire event catalog. Observed fields are still added, but only when
+ * their shape is useful for that input.
+ */
+export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, TemplateInputDefinition> = {
+  message: { basePaths: COMMON_PATHS, observed: 'all' },
+  identity: { basePaths: IDENTITY_PATHS, observed: 'identity' },
+  text: { basePaths: TEXT_PATHS, observed: 'text' },
+  'sound-file': { basePaths: SOUND_FILE_PATHS, observed: 'path' },
+  'http-url': { basePaths: HTTP_URL_PATHS, observed: 'path' },
+  'http-data': { basePaths: COMMON_PATHS, observed: 'all' },
+  compare: { basePaths: COMMON_PATHS, observed: 'all' },
+};
 
 const EVENT_PATHS: Partial<Record<AutomationEventType, string[]>> = {
   'tiktok.chat': ['event.data.comment', 'event.data.method'],
@@ -66,12 +135,16 @@ export function getTemplateSuggestions(
   eventType: AutomationEventType | undefined,
   locale: Locale,
   lastEvent?: AutomationEvent,
+  scope: TemplateSuggestionScope = 'message',
 ): TemplateSuggestion[] {
+  const definition = TEMPLATE_INPUT_DEFINITIONS[scope];
   const matchingLastEvent = lastEvent && (!eventType || lastEvent.type === eventType) ? lastEvent : undefined;
-  const observedPaths = matchingLastEvent ? flattenJsonPaths(matchingLastEvent, 'event') : [];
+  const observedPaths = matchingLastEvent
+    ? flattenJsonPaths(matchingLastEvent, 'event').filter((path) => matchesPathScope(path, readTemplatePath(matchingLastEvent, path), definition.observed))
+    : [];
   const paths = [...new Set([
-    ...COMMON_PATHS,
-    ...(eventType ? EVENT_PATHS[eventType] ?? [] : []),
+    ...definition.basePaths,
+    ...(eventType ? (EVENT_PATHS[eventType] ?? []).filter((path) => matchesPathScope(path, undefined, definition.observed)) : []),
     ...observedPaths,
   ])];
   return paths.map((value) => ({
@@ -79,6 +152,20 @@ export function getTemplateSuggestions(
     label: PATH_LABELS[value]?.[locale === 'es' ? 1 : 0] ?? humanizePath(value),
     preview: matchingLastEvent ? formatTemplateValue(readTemplatePath(matchingLastEvent, value)) : undefined,
   }));
+}
+
+function matchesPathScope(path: string, value: JsonValue | undefined, mode: ObservedPathMode): boolean {
+  if (mode === 'all') return true;
+  const key = path.split('.').pop()?.toLowerCase() ?? '';
+  if (mode === 'identity') {
+    return /^(uniqueid|userid|nickname|username|roomid|creator|user)$/.test(key);
+  }
+  if (mode === 'text') {
+    return /^(comment|message|text|nickname|giftname|action|reason|currencyname|name)$/.test(key)
+      || (typeof value === 'string' && !/^(method|timestamp|type)$/.test(key));
+  }
+  return /(?:path|file|sound|audio|url|uri|asset|link|endpoint|webhook)/.test(key)
+    || (typeof value === 'string' && /\.(wav|mp3|ogg|m4a|flac|aac)(?:[?#].*)?$/i.test(value));
 }
 
 export function flattenJsonPaths(value: JsonValue, prefix: string, depth = 0): string[] {

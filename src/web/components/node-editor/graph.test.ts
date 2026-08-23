@@ -73,4 +73,25 @@ describe('workflow editor graph helpers', () => {
     expect(suggestions.find((suggestion) => suggestion.value === 'event.data.diamondCount')?.preview).toBeUndefined();
     expect(suggestions.find((suggestion) => suggestion.value === 'event.data.customValue')).toBeUndefined();
   });
+
+  test('uses declarative suggestions for each input type', () => {
+    const soundSuggestions = getTemplateSuggestions('tiktok.chat', 'en', undefined, 'sound-file');
+    expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.data.filePath')).toBe(true);
+    expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.data.comment')).toBe(false);
+
+    const event = {
+      id: 'event-3',
+      type: 'tiktok.chat' as const,
+      timestamp: 3,
+      user: { uniqueId: 'viewer' },
+      data: { comment: 'hello', soundPath: 'assets/hello.wav' },
+    };
+    const identitySuggestions = getTemplateSuggestions('tiktok.chat', 'en', event, 'identity');
+    expect(identitySuggestions.some((suggestion) => suggestion.value === 'event.user.uniqueId')).toBe(true);
+    expect(identitySuggestions.some((suggestion) => suggestion.value === 'event.data.comment')).toBe(false);
+
+    const observedSoundSuggestions = getTemplateSuggestions('tiktok.chat', 'en', event, 'sound-file');
+    expect(observedSoundSuggestions.find((suggestion) => suggestion.value === 'event.data.soundPath')?.preview).toBe('"assets/hello.wav"');
+    expect(observedSoundSuggestions.some((suggestion) => suggestion.value === 'event.data.comment')).toBe(false);
+  });
 });

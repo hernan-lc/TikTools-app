@@ -16,7 +16,7 @@ import { NumberInput } from '../ui/NumberInput.tsx';
 import { Select } from '../ui/Select.tsx';
 import { Checkbox } from '../ui/Checkbox.tsx';
 import { TemplateField } from './TemplateField.tsx';
-import { getTemplateSuggestions } from './template-suggestions.ts';
+import { getTemplateSuggestions, type TemplateSuggestionScope } from './template-suggestions.ts';
 import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.tsx';
 import { asNumber, asString } from './graph.ts';
@@ -37,7 +37,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
   const ui = formLabels(locale);
   const update = (key: string, value: JsonValue): void => onChange({ ...node.config, [key]: value });
   const config = node.config;
-  const templateValues = getTemplateSuggestions(eventType, locale, lastEvent);
+  const templateValues = (scope: TemplateSuggestionScope = 'message') => getTemplateSuggestions(eventType, locale, lastEvent, scope);
 
   if (!definition) {
     return <GenericConfigForm locale={locale} node={node} onChange={onChange} />;
@@ -60,7 +60,13 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.valuePath} hint={ui.valuePathHint}>
-            <TextInput value={asString(config.leftPath)} onValueChange={(value) => update('leftPath', value)} placeholder="event.data.diamondCount" />
+            <TemplateField
+              value={asString(config.leftPath)}
+              onValueChange={(value) => update('leftPath', value)}
+              suggestions={templateValues('compare')}
+              suggestionMode="path"
+              placeholder="event.data.diamondCount"
+            />
           </FormField>
           <FormField label={ui.operator}>
             <Select
@@ -89,7 +95,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.template} hint={ui.templateHint}>
-            <TemplateField value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues} multiline rows={5} />
+            <TemplateField value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
           </FormField>
         </div>
       );
@@ -110,7 +116,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
             <NumberInput value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
           </FormField>
           <FormField label={ui.cooldownKey}>
-            <TemplateField value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues} placeholder="{{ event.user.uniqueId }}" />
+            <TemplateField value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} placeholder="{{ event.user.uniqueId }}" />
           </FormField>
         </div>
       );
@@ -118,7 +124,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
         <FormField label={ui.message} hint={ui.templateHint}>
-            <TemplateField value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues} multiline rows={5} />
+            <TemplateField value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
           </FormField>
         </div>
       );
@@ -128,7 +134,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.filePath} hint={ui.filePathHint}>
-            <TemplateField value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues} placeholder="assets/sounds/alert.wav" />
+            <TemplateField value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} placeholder="assets/sounds/alert.wav" />
           </FormField>
           <FormField label={ui.volume}>
             <NumberInput value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
@@ -142,7 +148,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.text} hint={ui.templateHint}>
-            <TemplateField value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues} multiline rows={5} />
+            <TemplateField value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
           </FormField>
           <FormField label={ui.voice}>
             <TextInput value={asString(config.voice, 'M1')} onValueChange={(value) => update('voice', value)} placeholder="M1" />
@@ -159,7 +165,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <FormField label={ui.viewer} hint={ui.viewerHint}>
-            <TemplateField value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues} placeholder="{{ event.user.uniqueId }}" />
+            <TemplateField value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} placeholder="{{ event.user.uniqueId }}" />
           </FormField>
           <FormField label={ui.delta}>
             <NumberInput value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
@@ -258,7 +264,7 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
               onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
             }}
           />
-          <AutocompletePortal anchorRef={completionAnchorRef} open={completionOpen && visibleCompletions.length > 0}>
+          <AutocompletePortal anchorRef={completionAnchorRef} cursorRef={textareaRef} cursorOffset={cursor} open={completionOpen && visibleCompletions.length > 0}>
             <div className="node-editor-code-completions" role="listbox">
               {visibleCompletions.map((completion, index) => (
                 <button
@@ -304,20 +310,20 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
 
 function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { locale: Locale; eventType?: AutomationEventType; lastEvent?: AutomationEvent; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
   const ui = formLabels(locale);
-  const templateValues = getTemplateSuggestions(eventType, locale, lastEvent);
+  const templateValues = (scope: TemplateSuggestionScope) => getTemplateSuggestions(eventType, locale, lastEvent, scope);
   return (
     <div className="node-editor-form-stack">
       <FormField label={ui.method}>
         <Select value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
       </FormField>
       <FormField label={ui.url} hint={ui.templateHint}>
-        <TemplateField value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues} placeholder="https://api.example.com/..." />
+        <TemplateField value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} placeholder="https://api.example.com/..." />
       </FormField>
       <FormField label={ui.requestBody}>
-        <TemplateField value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues} multiline rows={4} placeholder="Optional request body" />
+        <TemplateField value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} placeholder="Optional request body" />
       </FormField>
       <FormField label={ui.headers} hint={ui.headersHint}>
-        <TemplateField value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues} multiline rows={4} placeholder="Authorization: Bearer {{ event.data.token }}" />
+        <TemplateField value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} placeholder="Authorization: Bearer {{ event.data.token }}" />
       </FormField>
       <FormField label={ui.timeout}>
         <NumberInput value={asNumber(config.timeoutMs, 10000)} min={100} max={120000} step={100} suffix="ms" onValueChange={(value) => onChange('timeoutMs', value)} />
