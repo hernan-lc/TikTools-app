@@ -17,12 +17,8 @@
     "typescript": "^6"
   },
   "dependencies": {
-    "@retejs/lit-plugin": "^2.0.8",
     "napi-vm": "0.1.4",
     "preact": "^10.29.8",
-    "rete": "^2.0.6",
-    "rete-area-plugin": "^2.3.2",
-    "rete-connection-plugin": "^2.0.5",
     "sqlite-napi": "^1.3.0",
     "tray-icon-node": "^0.1.2",
     "webview-napi": "^2.2.0"

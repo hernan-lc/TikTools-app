@@ -13,6 +13,7 @@ export type ModalProps = {
   onClose: () => void;
   closeLabel?: string;
   closeOnBackdrop?: boolean;
+  className?: string;
 };
 
 /**
@@ -28,6 +29,7 @@ export function Modal({
   onClose,
   closeLabel = 'Close',
   closeOnBackdrop = true,
+  className = '',
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const onCloseRef = useRef(onClose);
@@ -63,7 +65,7 @@ export function Modal({
     >
       <div
         ref={dialogRef}
-        className="ui-modal-card"
+        className={`ui-modal-card ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ui-modal-title"

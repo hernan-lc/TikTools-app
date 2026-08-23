@@ -25,7 +25,7 @@ On the first run, the wizard asks for a creator username. That username is saved
 - `Bun.serve({ port: 0 })` serves `src/web/index.html` and its bundled Preact/CSS assets on an ephemeral localhost port.
 - The embedded `webview-napi` window loads that URL, so the frontend stays modular and can use normal TypeScript modules and framework tooling.
 - `src/live-controller.ts` owns discovery, guest bootstrap, WebSocket reconnects, and event conversion; `src/bridge.ts` validates WebView IPC messages.
-- `src/automation/` contains the event bus, workflow runtime, built-in nodes, host capabilities, plugin boundary, and Rete editor adapter. See [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) for the graph model and integration examples.
+- `src/automation/` contains the event bus, workflow runtime, built-in nodes, host capabilities, and plugin boundary. The reusable visual workflow UI lives in `src/web/components/node-editor/`; it edits the app-owned workflow model through cards, a creation wizard, and typed forms. See [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) for the graph model and integration examples.
 - `src/web/i18n.ts` and `src/web/preferences.ts` keep language/theme state in the frontend; preferences persist in WebView local storage and default to the browser language/system theme.
 - One native window plus one tray icon is enough: closing the window hides it, while the tray restores or quits it.
 

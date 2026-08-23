@@ -23,14 +23,16 @@ WorkflowRuntime
 - `src/automation/events.ts` preserves raw TikTok fields such as gift IDs, combo counts, room stats, and user IDs.
 - `src/automation/runtime.ts` executes flow edges and data edges with cancellation, per-workflow state, concurrency limits, and a step limit.
 - `src/automation/nodes/builtins.ts` contains event triggers, compare, template, synchronous `napi-vm` Script, delay, cooldown, log, HTTP request, play sound, TTS, and points actions.
-- `src/web/automation/rete-editor.ts` adapts Rete to the app’s own `WorkflowGraph`; Rete objects are never persisted.
+- `src/web/components/node-editor/` contains the reusable workflow editor library: the creation wizard, node picker, ordered step canvas, and typed configuration forms. It edits the app-owned `WorkflowGraph` directly, so the UI does not depend on a graph engine and no editor-specific objects are persisted.
 - `src/db/automation-db.ts` persists graph JSON in SQLite.
 - `src/automation/plugins/plugin-manager.ts` can register trusted node implementations and filters their declared host capabilities.
 - `src/automation/plugins/plugin-worker-host.ts` and `plugin-worker.cjs` execute sandbox plugin handlers in a separate process over an authenticated loopback JSON protocol.
 - `src/automation/plugins/plugin-loader.ts` discovers `plugins/<directory>/plugin.json`, rejects filesystem-trusted entries, and registers only worker-backed sandbox nodes.
 - `src/automation/services/napi-vm-language-service.ts` exposes napi-vm diagnostics, hover, and event/input property completions to the Script editor.
 
-The first UI is available from the Automations tab. Create a workflow, add nodes from the catalog, drag connections, edit node configuration JSON, use the Script editor’s diagnostics/completion suggestions, then save and enable it.
+The first UI is available from the Automations tab. Click **New workflow** to open the wizard, enter a name, and choose the TikTok event that starts the workflow. Add actions from **Add step** or the node catalog; each step is appended in order and is connected through its flow port automatically. Select a step and click **Configure step** to open a wide modal with a local draft and explicit **Apply/Cancel** actions. The editor does not expose a manual JSON configuration field. Script nodes intentionally keep a code editor because JavaScript is the node’s input, but their surrounding workflow configuration remains form-driven.
+
+Text fields that support runtime templates expose event-aware autocomplete. Type `{{` or focus a template field to insert paths such as `event.data.diamondCount` or `event.user.uniqueId`; the value is stored in the same template syntax understood by the runtime. For extensible maps such as HTTP headers, key/value rows are the right UX boundary: regular node settings should stay schema-driven, while headers may contain template values. A generic key/value editor for every node would lose validation and make plugins harder to understand.
 
 ## Example: gift threshold
 
