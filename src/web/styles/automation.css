@@ -180,8 +180,40 @@
   flex: 1;
 }
 
-.automation-workflow-name .ui-input {
-  max-width: 260px;
+.automation-workflow-name-button {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 300px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.automation-workflow-name-button:hover,
+.automation-workflow-name-button:focus-visible {
+  border-color: var(--line);
+  background: var(--panel-elevated);
+  outline: none;
+}
+
+.automation-workflow-name-button__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-workflow-name-button__edit {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 14px;
 }
 
 .automation-toolbar-actions {
@@ -203,6 +235,19 @@
   inset: 0;
   overflow: hidden;
   touch-action: none;
+}
+
+.automation-editor-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.78);
+  color: var(--text-muted);
+  font-size: 10px;
+  pointer-events: none;
 }
 
 .automation-canvas-placeholder {

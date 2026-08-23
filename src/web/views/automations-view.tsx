@@ -14,10 +14,10 @@ import { Alert, Badge, EmptyState } from '../components/ui/Card.tsx';
 import { Button } from '../components/ui/Button.tsx';
 import { Checkbox } from '../components/ui/Checkbox.tsx';
 import { FormField } from '../components/ui/FormField.tsx';
+import { ConfirmModal, TextPromptModal } from '../components/ui/Modal.tsx';
 import { PageHeader } from '../components/ui/Page.tsx';
-import { TextInput } from '../components/ui/TextInput.tsx';
 import { t, type Locale } from '../i18n.ts';
-import { mountReteEditor, type ReteEditorHandle } from '../automation/rete-editor.ts';
+import { createWorkflowNode, mountReteEditor, type ReteEditorHandle } from '../automation/rete-editor.ts';
 
 type AutomationsViewProps = {
   locale: Locale;
@@ -30,6 +30,19 @@ type AutomationsViewProps = {
   onDelete: (id: string) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
+};
+
+type PendingWorkflowAction =
+  | { kind: 'select'; record: AutomationWorkflowRecord }
+  | { kind: 'create' };
+
+type WorkflowConfirmState =
+  | { kind: 'discard'; action: PendingWorkflowAction }
+  | { kind: 'delete'; id: string; name: string };
+
+type WorkflowNameModalState = {
+  kind: 'create' | 'rename';
+  initialValue: string;
 };
 
 export function AutomationsView({
@@ -52,6 +65,9 @@ export function AutomationsView({
   const [editorError, setEditorError] = useState('');
   const [scriptText, setScriptText] = useState('');
   const [scriptCursor, setScriptCursor] = useState(0);
+  const [editorReady, setEditorReady] = useState(false);
+  const [nameModal, setNameModal] = useState<WorkflowNameModalState | null>(null);
+  const [confirmModal, setConfirmModal] = useState<WorkflowConfirmState | null>(null);
   const editorRef = useRef<ReteEditorHandle | null>(null);
 
   const selectedRecord = selectedId ? workflows.find((workflow) => workflow.id === selectedId) : undefined;
@@ -93,23 +109,56 @@ export function AutomationsView({
     }
   }, [selectedNodeId, draft?.id, selectedNode?.type, selectedNode?.config.source]);
 
+  const applyWorkflowAction = (action: PendingWorkflowAction): void => {
+    if (action.kind === 'select') {
+      setSelectedId(action.record.id);
+      setDraft(cloneGraph(action.record.graph));
+      setSelectedNodeId(null);
+      setDirty(false);
+      setEditorError('');
+      return;
+    }
+    setNameModal({ kind: 'create', initialValue: '' });
+  };
+
+  const requestWorkflowAction = (action: PendingWorkflowAction): void => {
+    if (dirty) {
+      setConfirmModal({ kind: 'discard', action });
+      return;
+    }
+    applyWorkflowAction(action);
+  };
+
   const selectWorkflow = (record: AutomationWorkflowRecord): void => {
-    if (dirty && !window.confirm(t(locale, 'discardWorkflowChanges'))) return;
-    setSelectedId(record.id);
-    setDraft(cloneGraph(record.graph));
-    setSelectedNodeId(null);
-    setDirty(false);
-    setEditorError('');
+    if (record.id === selectedId) return;
+    requestWorkflowAction({ kind: 'select', record });
   };
 
   const createWorkflow = (): void => {
-    if (dirty && !window.confirm(t(locale, 'discardWorkflowChanges'))) return;
-    const graph = createStarterGraph();
-    setSelectedId(graph.id);
-    setDraft(graph);
-    setSelectedNodeId(null);
-    setDirty(true);
-    setEditorError('');
+    requestWorkflowAction({ kind: 'create' });
+  };
+
+  const renameWorkflow = (): void => {
+    if (!draft) return;
+    setNameModal({ kind: 'rename', initialValue: draft.name });
+  };
+
+  const handleWorkflowNameConfirm = (name: string): void => {
+    const modal = nameModal;
+    setNameModal(null);
+    if (!modal) return;
+
+    if (modal.kind === 'create') {
+      const graph = createStarterGraph(name);
+      setSelectedId(graph.id);
+      setDraft(graph);
+      setSelectedNodeId(null);
+      setDirty(true);
+      setEditorError('');
+      return;
+    }
+
+    updateDraft((current) => ({ ...current, name }));
   };
 
   const updateDraft = (update: (current: WorkflowGraph) => WorkflowGraph): void => {
@@ -124,8 +173,12 @@ export function AutomationsView({
 
   const handleDelete = (): void => {
     if (!selectedId || !selectedRecord) return;
-    if (!window.confirm(t(locale, 'deleteWorkflowConfirm', { name: selectedRecord.name }))) return;
-    onDelete(selectedId);
+    setConfirmModal({ kind: 'delete', id: selectedId, name: selectedRecord.name });
+  };
+
+  const confirmDelete = (id: string): void => {
+    setConfirmModal(null);
+    onDelete(id);
     setSelectedId(null);
     setDraft(null);
     setSelectedNodeId(null);
@@ -175,10 +228,14 @@ export function AutomationsView({
   };
 
   const handleAddNode = (definition: NodeDefinition): void => {
-    if (!draft || !editorRef.current) return;
-    void editorRef.current.addNode(definition).catch((caught: unknown) => {
-      setEditorError(caught instanceof Error ? caught.message : String(caught));
-    });
+    if (!draft) return;
+    const node = createWorkflowNode(definition, draft.nodes.length);
+    updateDraft((current) => ({
+      ...current,
+      nodes: [...current.nodes, node],
+    }));
+    setSelectedNodeId(node.id);
+    setEditorError('');
   };
 
   return (
@@ -259,11 +316,10 @@ export function AutomationsView({
             <>
               <div className="automation-editor-toolbar">
                 <div className="automation-workflow-name">
-                  <TextInput
-                    value={draft.name}
-                    onValueChange={(name) => updateDraft((current) => ({ ...current, name }))}
-                    placeholder={t(locale, 'newWorkflow')}
-                  />
+                  <button type="button" className="automation-workflow-name-button" onClick={renameWorkflow}>
+                    <span className="automation-workflow-name-button__value">{draft.name || t(locale, 'newWorkflow')}</span>
+                    <span className="automation-workflow-name-button__edit" aria-hidden="true">✎</span>
+                  </button>
                   {dirty ? <Badge tone="pink">{t(locale, 'unsavedChanges')}</Badge> : null}
                 </div>
                 <div className="automation-toolbar-actions">
@@ -288,6 +344,7 @@ export function AutomationsView({
                   graph={draft}
                   definitions={nodes}
                   editorRef={editorRef}
+                  onReady={setEditorReady}
                   onChange={(graph) => {
                     setDraft((current) => current ? {
                       ...graph,
@@ -297,8 +354,14 @@ export function AutomationsView({
                     setDirty(true);
                   }}
                   onSelectNode={setSelectedNodeId}
-                  onError={setEditorError}
+                  onError={(message) => {
+                    setEditorReady(false);
+                    setEditorError(message);
+                  }}
                 />
+                {!editorReady && nodes.length > 0 ? (
+                  <div className="automation-editor-status" role="status">{t(locale, 'loadingWorkflowEditor')}</div>
+                ) : null}
               </div>
             </>
           )}
@@ -345,6 +408,49 @@ export function AutomationsView({
           )}
         </aside>
       </div>
+
+      {nameModal ? (
+        <TextPromptModal
+          key={`${nameModal.kind}:${nameModal.initialValue}`}
+          title={nameModal.kind === 'create' ? t(locale, 'createWorkflowTitle') : t(locale, 'renameWorkflowTitle')}
+          description={t(locale, 'workflowNameHint')}
+          label={t(locale, 'workflowName')}
+          initialValue={nameModal.initialValue}
+          placeholder={t(locale, 'workflowNamePlaceholder')}
+          confirmLabel={t(locale, 'confirm')}
+          cancelLabel={t(locale, 'cancel')}
+          requiredMessage={t(locale, 'workflowNameRequired')}
+          onConfirm={handleWorkflowNameConfirm}
+          onClose={() => setNameModal(null)}
+        />
+      ) : null}
+
+      {confirmModal?.kind === 'discard' ? (
+        <ConfirmModal
+          title={t(locale, 'discardWorkflowTitle')}
+          description={t(locale, 'discardWorkflowChanges')}
+          confirmLabel={t(locale, 'discardChanges')}
+          cancelLabel={t(locale, 'cancel')}
+          onConfirm={() => {
+            const pending = confirmModal;
+            setConfirmModal(null);
+            applyWorkflowAction(pending.action);
+          }}
+          onClose={() => setConfirmModal(null)}
+        />
+      ) : null}
+
+      {confirmModal?.kind === 'delete' ? (
+        <ConfirmModal
+          title={t(locale, 'deleteWorkflow')}
+          description={t(locale, 'deleteWorkflowConfirm', { name: confirmModal.name })}
+          confirmLabel={t(locale, 'deleteWorkflow')}
+          cancelLabel={t(locale, 'cancel')}
+          danger
+          onConfirm={() => confirmDelete(confirmModal.id)}
+          onClose={() => setConfirmModal(null)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -424,27 +530,38 @@ type ReteCanvasProps = {
   graph: WorkflowGraph;
   definitions: NodeDefinition[];
   editorRef: { current: ReteEditorHandle | null };
+  onReady: (ready: boolean) => void;
   onChange: (graph: WorkflowGraph) => void;
   onSelectNode: (nodeId: string | null) => void;
   onError: (message: string) => void;
 };
 
-function ReteCanvas({ locale, graph, definitions, editorRef, onChange, onSelectNode, onError }: ReteCanvasProps) {
+function ReteCanvas({ locale, graph, definitions, editorRef, onReady, onChange, onSelectNode, onError }: ReteCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const onReadyRef = useRef(onReady);
   const onChangeRef = useRef(onChange);
   const onSelectNodeRef = useRef(onSelectNode);
   const onErrorRef = useRef(onError);
+  onReadyRef.current = onReady;
   onChangeRef.current = onChange;
   onSelectNodeRef.current = onSelectNode;
   onErrorRef.current = onError;
 
+  // A config or connection edit should stay inside the current Rete instance,
+  // but adding/removing a node must rebuild it from the canonical JSON graph.
+  const graphNodeKey = graph.nodes.map((node) => `${node.id}:${node.type}:${node.version}`).join('|');
+
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || definitions.length === 0) return;
+    if (!container || definitions.length === 0) {
+      onReadyRef.current(false);
+      return;
+    }
     let cancelled = false;
     let handle: ReteEditorHandle | null = null;
     container.replaceChildren();
     editorRef.current = null;
+    onReadyRef.current(false);
 
     void mountReteEditor({
       container,
@@ -459,17 +576,19 @@ function ReteCanvas({ locale, graph, definitions, editorRef, onChange, onSelectN
       }
       handle = nextHandle;
       editorRef.current = nextHandle;
+      onReadyRef.current(true);
     }).catch((caught: unknown) => {
       if (!cancelled) onErrorRef.current(caught instanceof Error ? caught.message : String(caught));
     });
 
     return () => {
       cancelled = true;
+      onReadyRef.current(false);
       if (editorRef.current === handle) editorRef.current = null;
       handle?.destroy();
       container.replaceChildren();
     };
-  }, [graph.id, definitions, editorRef]);
+  }, [graph.id, graphNodeKey, definitions, editorRef]);
 
   if (definitions.length === 0) {
     return <div className="automation-canvas-placeholder">{t(locale, 'loadingNodeCatalog')}</div>;
@@ -477,11 +596,11 @@ function ReteCanvas({ locale, graph, definitions, editorRef, onChange, onSelectN
   return <div ref={containerRef} className="automation-canvas" aria-label="Workflow node editor" />;
 }
 
-function createStarterGraph(): WorkflowGraph {
+function createStarterGraph(name = 'New workflow'): WorkflowGraph {
   return {
     schemaVersion: 1,
     id: createId('workflow'),
-    name: 'New workflow',
+    name,
     enabled: false,
     nodes: [
       {

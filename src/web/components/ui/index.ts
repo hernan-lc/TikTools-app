@@ -7,3 +7,4 @@ export * from './Card.tsx';
 export * from './Table.tsx';
 export * from './Page.tsx';
 export * from './Button.tsx';
+export * from './Modal.tsx';

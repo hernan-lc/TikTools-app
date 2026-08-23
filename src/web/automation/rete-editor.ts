@@ -113,13 +113,7 @@ export async function mountReteEditor(options: MountOptions): Promise<ReteEditor
 
   const handle: ReteEditorHandle = {
     addNode: async (definition) => {
-      const workflowNode: WorkflowNode = {
-        id: createId('node'),
-        type: definition.type,
-        version: definition.version,
-        position: nextNodePosition(editor.getNodes().length),
-        config: defaultConfig(definition),
-      };
+      const workflowNode = createWorkflowNode(definition, editor.getNodes().length);
       await addWorkflowNode(workflowNode);
       emitChange();
     },
@@ -134,7 +128,6 @@ export async function mountReteEditor(options: MountOptions): Promise<ReteEditor
     destroy: () => {
       destroyed = true;
       area.destroy();
-      options.onSelectNode(null);
     },
   };
 
@@ -213,6 +206,16 @@ function getPortKind(node: ReteNode, name: string, input: boolean): 'flow' | 'da
   const port = input ? node.inputs[name] : node.outputs[name];
   if (!port) return undefined;
   return port.socket === flowSocket ? 'flow' : 'data';
+}
+
+export function createWorkflowNode(definition: NodeDefinition, index: number): WorkflowNode {
+  return {
+    id: createId('node'),
+    type: definition.type,
+    version: definition.version,
+    position: nextNodePosition(index),
+    config: defaultConfig(definition),
+  };
 }
 
 function defaultConfig(definition: NodeDefinition): JsonObject {
