@@ -22,8 +22,9 @@ import {
 import { assertValidWorkflowGraph } from './automation/graph.ts';
 import { createBuiltInNodeRegistry } from './automation/nodes/builtins.ts';
 import { AutomationRuntime } from './automation/runtime.ts';
-import { LivePluginEngine, sampleEventFor } from './automation/live-plugins/engine.ts';
-import type { LivePluginRun } from './automation/live-plugins/types.ts';
+import { BehaviorEngine, sampleEventFor } from './automation/behavior/engine.ts';
+import { PLUGIN_DESCRIPTORS } from './automation/behavior/catalog.ts';
+import type { BehaviorRun, BehaviorSnapshot, PluginStatus } from './automation/behavior/types.ts';
 import { NativeAudioService } from './automation/services/audio-service.ts';
 import { HttpService } from './automation/services/http-service.ts';
 import { NapiVmService } from './automation/services/napi-vm-service.ts';
@@ -67,7 +68,7 @@ export class LiveController {
   readonly automationDb: AutomationDatabase;
   readonly automationBus: AutomationEventBus;
   readonly automationRuntime: AutomationRuntime;
-  readonly livePlugins: LivePluginEngine;
+  readonly behavior: BehaviorEngine;
   readonly pluginManager: PluginManager;
   readonly audioService: NativeAudioService;
   readonly sonicBoom: SonicBoomProvider;
@@ -132,19 +133,19 @@ export class LiveController {
     void this.pluginLoader.loadAll().catch((error: unknown) => {
       console.error('[automation-plugins] discovery failed:', errorMessage(error));
     });
-    this.livePlugins = new LivePluginEngine({
+    this.behavior = new BehaviorEngine({
       capabilities: this.automationCapabilities,
       publish: (event) => this.automationBus.publish(event),
-      onRun: (run) => this.#onLivePluginRun(run),
+      onRun: (run) => this.#onBehaviorRun(run),
     });
 
     this.automationBus.subscribe('*', (event) => this.automationRuntime.handleEvent(event));
-    this.automationBus.subscribe('*', (event) => this.livePlugins.handleEvent(event));
+    this.automationBus.subscribe('*', (event) => this.behavior.handleEvent(event));
     this.automationBus.onError((error, event) => {
       console.error(`[automation-bus] ${event.type}:`, error);
     });
 
-    this.livePlugins.setAll(this.automationDb.listLivePlugins().map((record) => record.plugin));
+    this.reloadBehavior();
 
     for (const workflow of this.automationDb.listWorkflows()) {
       try {
@@ -342,48 +343,105 @@ export class LiveController {
           this.send({ type: 'automation-error', message: errorMessage(error) });
         }
         break;
-      case 'get-live-plugins':
-        this.sendLivePlugins();
-        this.send({ type: 'live-plugin-runs', runs: this.livePlugins.recentRuns(30) });
+      case 'get-behavior':
+        this.sendBehavior();
+        this.send({ type: 'behavior-runs', runs: this.behavior.recentRuns(30) });
         break;
-      case 'save-live-plugin':
+      case 'save-action':
         try {
-          const record = this.automationDb.saveLivePlugin(message.plugin);
-          this.livePlugins.upsert(record.plugin);
-          this.sendLivePlugins();
+          this.automationDb.saveAction(message.action);
+          this.reloadBehavior();
+          this.sendBehavior();
         } catch (error) {
-          this.send({ type: 'live-plugin-error', message: errorMessage(error) });
+          this.send({ type: 'behavior-error', message: errorMessage(error) });
         }
         break;
-      case 'delete-live-plugin':
-        if (!this.automationDb.deleteLivePlugin(message.id)) {
-          this.send({ type: 'live-plugin-error', message: `Unknown plugin: ${message.id}` });
+      case 'delete-action':
+        if (!this.automationDb.deleteAction(message.id)) {
+          this.send({ type: 'behavior-error', message: `Unknown action: ${message.id}` });
           break;
         }
-        this.livePlugins.remove(message.id);
-        this.sendLivePlugins();
+        this.reloadBehavior();
+        this.sendBehavior();
         break;
-      case 'set-live-plugin-enabled':
+      case 'set-action-enabled':
         try {
-          const record = this.automationDb.setLivePluginEnabled(message.id, message.enabled);
-          this.livePlugins.upsert(record.plugin);
-          this.sendLivePlugins();
+          this.automationDb.setActionEnabled(message.id, message.enabled);
+          this.reloadBehavior();
+          this.sendBehavior();
         } catch (error) {
-          this.send({ type: 'live-plugin-error', message: errorMessage(error) });
+          this.send({ type: 'behavior-error', message: errorMessage(error) });
         }
         break;
-      case 'test-live-plugin': {
+      case 'save-event':
+        try {
+          this.automationDb.saveEvent(message.event);
+          this.reloadBehavior();
+          this.sendBehavior();
+        } catch (error) {
+          this.send({ type: 'behavior-error', message: errorMessage(error) });
+        }
+        break;
+      case 'delete-event':
+        if (!this.automationDb.deleteEvent(message.id)) {
+          this.send({ type: 'behavior-error', message: `Unknown event: ${message.id}` });
+          break;
+        }
+        this.reloadBehavior();
+        this.sendBehavior();
+        break;
+      case 'set-event-enabled':
+        try {
+          this.automationDb.setEventEnabled(message.id, message.enabled);
+          this.reloadBehavior();
+          this.sendBehavior();
+        } catch (error) {
+          this.send({ type: 'behavior-error', message: errorMessage(error) });
+        }
+        break;
+      case 'test-action': {
         // The editor tests against the last real event so the preview and the
         // run use the same values; a sample event covers the offline case.
-        const event = this.#lastAutomationEvent?.type === message.plugin.trigger
+        const trigger = message.trigger ?? this.#lastAutomationEvent?.type ?? 'tiktok.gift';
+        const event = this.#lastAutomationEvent?.type === trigger
           ? this.#lastAutomationEvent
-          : sampleEventFor(message.plugin.trigger);
-        void this.livePlugins
-          .test(message.plugin, event)
-          .then((run) => this.send({ type: 'live-plugin-test-result', run }))
-          .catch((error: unknown) => {
-            this.send({ type: 'live-plugin-error', message: errorMessage(error) });
-          });
+          : sampleEventFor(trigger);
+        void this.behavior
+          .testAction(message.action, event)
+          .then((run) => this.send({ type: 'behavior-test-result', runs: [run] }))
+          .catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        break;
+      }
+      case 'test-event': {
+        const event = this.#lastAutomationEvent?.type === message.event.trigger
+          ? this.#lastAutomationEvent
+          : sampleEventFor(message.event.trigger);
+        void this.behavior
+          .testEvent(message.event, event)
+          .then((runs) => this.send({ type: 'behavior-test-result', runs }))
+          .catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        break;
+      }
+      case 'set-plugin-install': {
+        const descriptor = PLUGIN_DESCRIPTORS.find((plugin) => plugin.id === message.id);
+        if (!descriptor) {
+          this.send({ type: 'behavior-error', message: `Unknown plugin: ${message.id}` });
+          break;
+        }
+        this.automationDb.setPluginState(message.id, message.installed, true);
+        this.reloadBehavior();
+        this.sendBehavior();
+        break;
+      }
+      case 'set-plugin-enabled': {
+        const state = this.automationDb.listPluginStates().find((entry) => entry.id === message.id);
+        if (!state?.installed) {
+          this.send({ type: 'behavior-error', message: `Plugin is not installed: ${message.id}` });
+          break;
+        }
+        this.automationDb.setPluginState(message.id, true, message.enabled);
+        this.reloadBehavior();
+        this.sendBehavior();
         break;
       }
       case 'analyze-automation-script':
@@ -403,13 +461,43 @@ export class LiveController {
     }
   }
 
-  private sendLivePlugins(): void {
-    this.send({ type: 'live-plugins', plugins: this.automationDb.listLivePlugins() });
+  private sendBehavior(): void {
+    this.send({ type: 'behavior', snapshot: this.behaviorSnapshot() });
   }
 
-  #onLivePluginRun(run: LivePluginRun): void {
+  private behaviorSnapshot(): BehaviorSnapshot {
+    const states = this.automationDb.listPluginStates();
+    const plugins: PluginStatus[] = PLUGIN_DESCRIPTORS.map((descriptor) => {
+      const state = states.find((entry) => entry.id === descriptor.id);
+      return {
+        descriptor,
+        installed: Boolean(state?.installed),
+        enabled: state ? state.enabled : true,
+        available: true,
+      };
+    });
+
+    return {
+      actions: this.automationDb.listActions(),
+      events: this.automationDb.listEvents(),
+      plugins,
+    };
+  }
+
+  /** Reloads what the engine runs from the database, including plugin gating. */
+  private reloadBehavior(): void {
+    const snapshot = this.behaviorSnapshot();
+    this.behavior.setActions(snapshot.actions);
+    this.behavior.setEvents(snapshot.events);
+    this.behavior.setPluginReadiness(snapshot.plugins.map((plugin) => ({
+      id: plugin.descriptor.id,
+      ready: plugin.installed && plugin.enabled && plugin.available,
+    })));
+  }
+
+  #onBehaviorRun(run: BehaviorRun): void {
     if (run.status === 'skipped' && !run.test) return;
-    this.send({ type: 'live-plugin-runs', runs: this.livePlugins.recentRuns(30) });
+    this.send({ type: 'behavior-runs', runs: this.behavior.recentRuns(30) });
   }
 
   async connect(request: Extract<PageMessage, { type: 'connect' }>): Promise<void> {
@@ -716,7 +804,7 @@ export class LiveController {
   }
 
   private reloadAutomationWorkflows(): void {
-    this.livePlugins.setAll(this.automationDb.listLivePlugins().map((record) => record.plugin));
+    this.reloadBehavior();
 
     for (const workflow of this.automationDb.listWorkflows()) {
       try {

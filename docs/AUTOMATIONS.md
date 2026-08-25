@@ -17,38 +17,46 @@ WorkflowRuntime
       +-- worker-isolated napi-vm plugins
 ```
 
-## Live plugins (current UI)
+## Behavior: actions and events (current UI)
 
-The Plugins tab replaces the node editor. A live plugin is one record: an event,
-an optional filter, a cooldown, and one action. There is no graph, no ports, and
-no edges.
+The Behavior tab replaced the node editor. Behavior is two records, not one:
+
+- an **action** is a configured action type with a name of its own — "Aplausos" —
+  and is reused by several events;
+- an **event** is a trigger plus optional filters plus the actions it runs.
 
 ```text
-AutomationEvent -> LivePluginEngine -> fetch | emit
-                                         |
-                                         +-- overlay.sound -> NativeAudioService
-                                         +-- tts.speak     -> SonicBoomProvider
-                                         +-- points.add    -> PointsDatabase
+AutomationEvent -> BehaviorEngine -> filters (all must pass) -> cooldown -> actions
 ```
 
-- `src/automation/live-plugins/types.ts` defines the record; `schema.ts`
-  normalizes whatever crosses the bridge or comes back from SQLite and derives
-  the permissions, which are never typed by hand.
-- `templates.ts` is the gallery: `fetch`, `emit`, sound, TTS, points, and the
-  code editor. Sound, TTS, and points are `emit` templates whose well-known
-  event type the engine binds to a host capability, so the model keeps exactly
-  two output primitives.
-- `engine.ts` checks the filter and the cooldown, renders `{{ event.* }}`
-  placeholders, and performs the action. HTTP goes through `HttpService` with an
-  allowlist built from the configured URL, so a templated host is refused: the
-  allowlist has to be knowable before the event arrives.
-- Plugins are stored in the `live_plugins` table of `src/db/automation-db.ts`.
-  Run history is session-only and lives in the engine, like the live event
-  snapshot.
+Action types come from two places, and the difference is the point:
 
-Code plugins run in the synchronous `napi-vm` session, which only exchanges
-JSON. A script therefore returns what should happen and the host performs it
-against the same capabilities the templates use:
+- **Built-in** types (`src/automation/behavior/catalog.ts`) have no dependencies,
+  are always available and cannot be uninstalled: `core.fetch`, `core.emit`,
+  `core.points`, `core.delay`, `core.log`, `core.code`.
+- **Plugin** types arrive with a plugin, and one plugin may expose several. The
+  two bundled ones own a real dependency: `audio-native` (the optional
+  `miniaudio_node` binary) exposes `audio.play` and `audio.stop`, and
+  `sonicboom-tts` (the SonicBoom child process) exposes `tts.speak`. Installing
+  or disabling a plugin is what makes its action types appear or stop running —
+  the engine refuses an action whose plugin is not ready.
+
+Filters are a flat list and every one must pass; there are no nested groups and
+no per-row AND/OR. An "or" is expressed inside a single filter with the `in`
+operator (`giftName is one of Universo, León`), which is what people actually
+ask for. `src/automation/behavior/engine.ts` evaluates them, renders
+`{{ event.* }}` placeholders, and performs the action; HTTP goes through
+`HttpService` with an allowlist built from the configured URL, so a templated
+host is refused: the allowlist has to be knowable before the event arrives.
+
+Actions, events and plugin state live in the `behavior_actions`,
+`behavior_events` and `behavior_plugins` tables of `src/db/automation-db.ts`.
+Run history is session-only and lives in the engine, like the live event
+snapshot.
+
+Code actions run in the synchronous `napi-vm` session, which only exchanges
+JSON, so a script returns what should happen and the host performs it against
+the same capabilities the other action types use:
 
 ```js
 log(`${event.user.uniqueId} · ${event.data.diamondCount}`)

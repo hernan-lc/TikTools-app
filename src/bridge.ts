@@ -1,5 +1,5 @@
 import { isWorkflowGraph } from './automation/graph.ts';
-import { normalizeLivePlugin } from './automation/live-plugins/schema.ts';
+import { normalizeAction, normalizeEvent } from './automation/behavior/schema.ts';
 import type { AutomationEventType } from './automation/types.ts';
 import type { PageMessage, PointsConfig } from './shared/messages.ts';
 
@@ -131,24 +131,50 @@ export function parsePageMessage(raw: string): PageMessage | null {
     };
   }
 
-  if (message.type === 'get-live-plugins') return { type: 'get-live-plugins' };
-  if (message.type === 'delete-live-plugin' && typeof message.id === 'string') {
-    return { type: 'delete-live-plugin', id: message.id };
+  if (message.type === 'get-behavior') return { type: 'get-behavior' };
+
+  if (message.type === 'delete-action' && typeof message.id === 'string') {
+    return { type: 'delete-action', id: message.id };
+  }
+  if (message.type === 'delete-event' && typeof message.id === 'string') {
+    return { type: 'delete-event', id: message.id };
   }
   if (
-    message.type === 'set-live-plugin-enabled' &&
-    typeof message.id === 'string' &&
-    typeof message.enabled === 'boolean'
+    (message.type === 'set-action-enabled' || message.type === 'set-event-enabled'
+      || message.type === 'set-plugin-enabled' || message.type === 'set-plugin-install')
+    && typeof message.id === 'string'
   ) {
-    return { type: 'set-live-plugin-enabled', id: message.id, enabled: message.enabled };
+    if (message.type === 'set-plugin-install' && typeof message.installed === 'boolean') {
+      return { type: 'set-plugin-install', id: message.id, installed: message.installed };
+    }
+    if (message.type !== 'set-plugin-install' && typeof message.enabled === 'boolean') {
+      return { type: message.type, id: message.id, enabled: message.enabled };
+    }
+    return null;
   }
-  if (message.type === 'save-live-plugin' || message.type === 'test-live-plugin') {
-    // The page is untrusted input: only a plugin the schema accepts crosses over.
+
+  // The page is untrusted input: only records the schema accepts cross over.
+  if (message.type === 'save-action' || message.type === 'test-action') {
     try {
-      const plugin = normalizeLivePlugin(message.plugin);
-      return message.type === 'save-live-plugin'
-        ? { type: 'save-live-plugin', plugin }
-        : { type: 'test-live-plugin', plugin };
+      const action = normalizeAction(message.action);
+      return message.type === 'save-action'
+        ? { type: 'save-action', action }
+        : {
+            type: 'test-action',
+            action,
+            trigger: isAutomationEventType(message.trigger) ? message.trigger : undefined,
+          };
+    } catch {
+      return null;
+    }
+  }
+
+  if (message.type === 'save-event' || message.type === 'test-event') {
+    try {
+      const event = normalizeEvent(message.event);
+      return message.type === 'save-event'
+        ? { type: 'save-event', event }
+        : { type: 'test-event', event };
     } catch {
       return null;
     }

@@ -260,3 +260,15 @@ export function IconDot() {
     </svg>
   );
 }
+
+export function IconPlugins() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="2" />
+      <rect x="14" y="3" width="7" height="7" rx="2" />
+      <rect x="3" y="14" width="7" height="7" rx="2" />
+      <path d="M17.5 14v7" />
+      <path d="M14 17.5h7" />
+    </svg>
+  );
+}

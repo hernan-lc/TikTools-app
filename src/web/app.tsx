@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
 import type { HostMessage, PageMessage } from '../shared/messages.ts';
-import type { LivePlugin, LivePluginRecord, LivePluginRun } from '../automation/live-plugins/types.ts';
+import type {
+  BehaviorRun,
+  BehaviorSnapshot,
+  LiveAction,
+  LiveEvent,
+} from '../automation/behavior/types.ts';
+import type { AutomationEventType } from '../automation/types.ts';
 import { NavigationRail } from './components/nav-rail.tsx';
 import { TopNav } from './components/top-nav.tsx';
 import { t, type Locale } from './i18n.ts';
@@ -30,6 +36,7 @@ import type {
   ViewerRecord,
 } from './types.ts';
 import { AnalyticsView } from './views/analytics-view.tsx';
+import { BehaviorView } from './views/behavior-view.tsx';
 import { PluginsView } from './views/plugins-view.tsx';
 import { ConnectView } from './views/connect-view.tsx';
 import { FeedView } from './views/feed-view.tsx';
@@ -100,10 +107,10 @@ function App() {
   const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
 
-  const [livePlugins, setLivePlugins] = useState<LivePluginRecord[]>([]);
-  const [livePluginRuns, setLivePluginRuns] = useState<LivePluginRun[]>([]);
-  const [livePluginTestRun, setLivePluginTestRun] = useState<LivePluginRun | undefined>();
-  const [livePluginError, setLivePluginError] = useState('');
+  const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [] });
+  const [behaviorRuns, setBehaviorRuns] = useState<BehaviorRun[]>([]);
+  const [behaviorTestRuns, setBehaviorTestRuns] = useState<BehaviorRun[]>([]);
+  const [behaviorError, setBehaviorError] = useState('');
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -145,7 +152,7 @@ function App() {
     send({ type: 'get-creator' });
     send({ type: 'get-recent-creators', limit: 10 });
     send({ type: 'get-app-state' });
-    send({ type: 'get-live-plugins' });
+    send({ type: 'get-behavior' });
   }, []);
 
   // Handle messages from the native runtime
@@ -269,21 +276,21 @@ function App() {
         console.log('[app-state]', message.state);
       }
 
-      if (message.type === 'live-plugins') {
-        setLivePlugins(message.plugins);
-        setLivePluginError('');
+      if (message.type === 'behavior') {
+        setBehavior(message.snapshot);
+        setBehaviorError('');
       }
 
-      if (message.type === 'live-plugin-runs') {
-        setLivePluginRuns(message.runs);
+      if (message.type === 'behavior-runs') {
+        setBehaviorRuns(message.runs);
       }
 
-      if (message.type === 'live-plugin-test-result') {
-        setLivePluginTestRun(message.run);
+      if (message.type === 'behavior-test-result') {
+        setBehaviorTestRuns(message.runs);
       }
 
-      if (message.type === 'live-plugin-error') {
-        setLivePluginError(message.message);
+      if (message.type === 'behavior-error') {
+        setBehaviorError(message.message);
       }
 
       if (message.type === 'gift-debug') {
@@ -392,25 +399,56 @@ function App() {
     send({ type: 'adjust-points', uniqueId, delta });
   };
 
-  const handleSaveLivePlugin = (plugin: LivePlugin): void => {
-    setLivePluginError('');
-    send({ type: 'save-live-plugin', plugin });
+  const handleSaveAction = (action: LiveAction): void => {
+    setBehaviorError('');
+    send({ type: 'save-action', action });
   };
 
-  const handleDeleteLivePlugin = (id: string): void => {
-    setLivePluginError('');
-    send({ type: 'delete-live-plugin', id });
+  const handleDeleteAction = (id: string): void => {
+    setBehaviorError('');
+    send({ type: 'delete-action', id });
   };
 
-  const handleSetLivePluginEnabled = (id: string, enabled: boolean): void => {
-    setLivePluginError('');
-    send({ type: 'set-live-plugin-enabled', id, enabled });
+  const handleSetActionEnabled = (id: string, enabled: boolean): void => {
+    setBehaviorError('');
+    send({ type: 'set-action-enabled', id, enabled });
   };
 
-  const handleTestLivePlugin = (plugin: LivePlugin): void => {
-    setLivePluginError('');
-    setLivePluginTestRun(undefined);
-    send({ type: 'test-live-plugin', plugin });
+  const handleTestAction = (action: LiveAction, trigger?: AutomationEventType): void => {
+    setBehaviorError('');
+    setBehaviorTestRuns([]);
+    send({ type: 'test-action', action, trigger });
+  };
+
+  const handleSaveEvent = (event: LiveEvent): void => {
+    setBehaviorError('');
+    send({ type: 'save-event', event });
+  };
+
+  const handleDeleteEvent = (id: string): void => {
+    setBehaviorError('');
+    send({ type: 'delete-event', id });
+  };
+
+  const handleSetEventEnabled = (id: string, enabled: boolean): void => {
+    setBehaviorError('');
+    send({ type: 'set-event-enabled', id, enabled });
+  };
+
+  const handleTestEvent = (event: LiveEvent): void => {
+    setBehaviorError('');
+    setBehaviorTestRuns([]);
+    send({ type: 'test-event', event });
+  };
+
+  const handleSetPluginInstalled = (id: string, installed: boolean): void => {
+    setBehaviorError('');
+    send({ type: 'set-plugin-install', id, installed });
+  };
+
+  const handleSetPluginEnabled = (id: string, enabled: boolean): void => {
+    setBehaviorError('');
+    send({ type: 'set-plugin-enabled', id, enabled });
   };
 
   // Connect automatically on initial startup if a handle is saved
@@ -479,17 +517,33 @@ function App() {
           />
         )}
 
-        {activeTab === 'automations' && (
+        {activeTab === 'behavior' && (
+          <BehaviorView
+            locale={locale}
+            snapshot={behavior}
+            runs={behaviorRuns}
+            testRuns={behaviorTestRuns}
+            error={behaviorError}
+            onSaveAction={handleSaveAction}
+            onDeleteAction={handleDeleteAction}
+            onSetActionEnabled={handleSetActionEnabled}
+            onTestAction={handleTestAction}
+            onSaveEvent={handleSaveEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onSetEventEnabled={handleSetEventEnabled}
+            onTestEvent={handleTestEvent}
+            onOpenPlugins={() => setActiveTab('plugins')}
+          />
+        )}
+
+        {activeTab === 'plugins' && (
           <PluginsView
             locale={locale}
-            plugins={livePlugins}
-            runs={livePluginRuns}
-            testRun={livePluginTestRun}
-            error={livePluginError}
-            onSave={handleSaveLivePlugin}
-            onDelete={handleDeleteLivePlugin}
-            onSetEnabled={handleSetLivePluginEnabled}
-            onTest={handleTestLivePlugin}
+            plugins={behavior.plugins}
+            actions={behavior.actions}
+            error={behaviorError}
+            onSetInstalled={handleSetPluginInstalled}
+            onSetEnabled={handleSetPluginEnabled}
           />
         )}
 

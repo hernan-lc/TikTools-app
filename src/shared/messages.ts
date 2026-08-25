@@ -1,4 +1,9 @@
-import type { LivePlugin, LivePluginRecord, LivePluginRun } from '../automation/live-plugins/types.ts';
+import type {
+  BehaviorRun,
+  BehaviorSnapshot,
+  LiveAction,
+  LiveEvent,
+} from '../automation/behavior/types.ts';
 import type {
   AutomationEventType,
   AutomationEvent,
@@ -111,11 +116,17 @@ export type PageMessage =
       offset: number;
       eventType?: AutomationEventType;
     }
-  | { type: 'get-live-plugins' }
-  | { type: 'save-live-plugin'; plugin: LivePlugin }
-  | { type: 'delete-live-plugin'; id: string }
-  | { type: 'set-live-plugin-enabled'; id: string; enabled: boolean }
-  | { type: 'test-live-plugin'; plugin: LivePlugin };
+  | { type: 'get-behavior' }
+  | { type: 'save-action'; action: LiveAction }
+  | { type: 'delete-action'; id: string }
+  | { type: 'set-action-enabled'; id: string; enabled: boolean }
+  | { type: 'test-action'; action: LiveAction; trigger?: AutomationEventType }
+  | { type: 'save-event'; event: LiveEvent }
+  | { type: 'delete-event'; id: string }
+  | { type: 'set-event-enabled'; id: string; enabled: boolean }
+  | { type: 'test-event'; event: LiveEvent }
+  | { type: 'set-plugin-install'; id: string; installed: boolean }
+  | { type: 'set-plugin-enabled'; id: string; enabled: boolean };
 
 export type TopViewerPayload = {
   rank: number;
@@ -158,7 +169,7 @@ export type HostMessage =
   | { type: 'automation-context'; event: AutomationEvent | null; capturedAt?: number }
   | { type: 'automation-script-analysis'; analysis: AutomationScriptAnalysis }
   | { type: 'automation-error'; message: string }
-  | { type: 'live-plugins'; plugins: LivePluginRecord[] }
-  | { type: 'live-plugin-runs'; runs: LivePluginRun[] }
-  | { type: 'live-plugin-test-result'; run: LivePluginRun }
-  | { type: 'live-plugin-error'; message: string };
+  | { type: 'behavior'; snapshot: BehaviorSnapshot }
+  | { type: 'behavior-runs'; runs: BehaviorRun[] }
+  | { type: 'behavior-test-result'; runs: BehaviorRun[] }
+  | { type: 'behavior-error'; message: string };

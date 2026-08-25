@@ -91,6 +91,7 @@ const english = {
   // Points System (matching TikFinity UI)
   tabPoints: 'Points System',
   tabPlugins: 'Plugins',
+  tabBehavior: 'Behavior',
   automations: 'Automations',
   automationsLead: 'Build event-driven workflows for chat, gifts, points, and live actions.',
   newWorkflow: 'New Workflow',
@@ -293,6 +294,7 @@ const spanish: Record<TranslationKey, string> = {
 
   // Points System (matching TikFinity UI)
   tabPlugins: 'Plugins',
+  tabBehavior: 'Comportamiento',
   automations: 'Automatizaciones',
   automationsLead: 'Construye flujos basados en eventos para chat, regalos, puntos y acciones en directo.',
   newWorkflow: 'Nuevo Flujo',

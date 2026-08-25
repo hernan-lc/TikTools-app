@@ -6,7 +6,7 @@ import type {
   ViewerRecord,
 } from '../shared/messages.ts';
 
-export type AppTab = 'feed' | 'points' | 'analytics' | 'connect' | 'automations' | 'settings';
+export type AppTab = 'feed' | 'points' | 'analytics' | 'connect' | 'behavior' | 'plugins' | 'settings';
 
 export type ConnectionStatus =
   | 'idle'
