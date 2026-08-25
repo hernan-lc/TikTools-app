@@ -26,6 +26,7 @@ import type {
   PluginStatus,
 } from '../../automation/behavior/types.ts';
 import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
+import { InfoTip } from '../components/ui/InfoTip.tsx';
 import type { Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
@@ -119,6 +120,14 @@ const COPY = {
     confirmDeleteAction: '¿Eliminar esta acción? Los eventos que la usen dejarán de ejecutarla.',
     confirmDeleteEvent: '¿Eliminar este evento?',
     pluginMissing: 'plugin no instalado',
+    advanced: 'Opciones avanzadas',
+    addEntry: 'Añadir',
+    next: 'Continuar',
+    previous: 'Atrás',
+    finish: 'Guardar evento',
+    stepOf: (step: number) => `Paso ${step} de 3`,
+    noneYet: 'sin definir',
+    alwaysShort: 'siempre',
   },
   en: {
     title: 'Behavior',
@@ -187,6 +196,14 @@ const COPY = {
     confirmDeleteAction: 'Delete this action? Events using it will stop running it.',
     confirmDeleteEvent: 'Delete this event?',
     pluginMissing: 'plugin not installed',
+    advanced: 'Advanced options',
+    addEntry: 'Add',
+    next: 'Continue',
+    previous: 'Back',
+    finish: 'Save event',
+    stepOf: (step: number) => `Step ${step} of 3`,
+    noneYet: 'not set',
+    alwaysShort: 'always',
   },
 } as const;
 
@@ -687,10 +704,25 @@ function ActionEditor({
   const permissions = deriveActionPermissions(draft);
   const testRun = testRuns.find((run) => run.actionId === draft.id) ?? testRuns[0];
 
+  const basicFields = (type?.fields ?? []).filter((field) => !field.advanced);
+  const advancedFields = (type?.fields ?? []).filter((field) => field.advanced);
+
   const setField = (key: string, value: string): void =>
     setDraft((current) => ({ ...current, config: { ...current.config, [key]: value } }));
   const setMap = (key: string, value: Record<string, string>): void =>
     setDraft((current) => ({ ...current, config: { ...current.config, [key]: value as JsonObject } }));
+
+  const renderField = (field: ActionField) => (
+    <ActionFieldInput
+      key={field.key}
+      locale={locale}
+      field={field}
+      value={readString(draft.config[field.key])}
+      entries={readStringMap(draft.config[field.key])}
+      onChange={(value) => setField(field.key, value)}
+      onChangeMap={(value) => setMap(field.key, value)}
+    />
+  );
 
   return (
     <div className="plg">
@@ -726,7 +758,10 @@ function ActionEditor({
             {error && <div className="plg-alert">{error}</div>}
 
             <div className="plg-field">
-              <label className="plg-label">{copy.name}</label>
+              <div className="plg-label-row">
+                <label className="plg-label">{copy.name}</label>
+                {type && <InfoTip text={type.description[locale]} position="right" />}
+              </div>
               <input
                 className="plg-input"
                 value={draft.name}
@@ -734,22 +769,22 @@ function ActionEditor({
               />
             </div>
 
-            {type?.fields.map((field) => (
-              <ActionFieldInput
-                key={field.key}
-                locale={locale}
-                field={field}
-                value={readString(draft.config[field.key])}
-                entries={readStringMap(draft.config[field.key])}
-                onChange={(value) => setField(field.key, value)}
-                onChangeMap={(value) => setMap(field.key, value)}
-              />
-            ))}
+            {basicFields.map(renderField)}
+
+            {advancedFields.length > 0 && (
+              <details className="plg-details">
+                <summary>{copy.advanced}</summary>
+                <div className="plg-details__body">{advancedFields.map(renderField)}</div>
+              </details>
+            )}
           </div>
 
           <div className="plg-side">
             <div className="plg-panel">
-              <span className="plg-section-title">{copy.permissions}</span>
+              <div className="plg-panel__head">
+                <span className="plg-section-title">{copy.permissions}</span>
+                <InfoTip text={copy.permissionsHint} position="left" />
+              </div>
               <div className="plg-kv">
                 <span className="plg-kv__key">network</span>
                 <span className="plg-kv__value">{permissions.network.join(', ') || copy.none}</span>
@@ -758,7 +793,6 @@ function ActionEditor({
                 <span className="plg-kv__key">capabilities</span>
                 <span className="plg-kv__value">{permissions.capabilities.join(', ') || copy.none}</span>
               </div>
-              <p className="plg-note">{copy.permissionsHint}</p>
             </div>
 
             <button type="button" className="plg-btn plg-btn--block" onClick={() => onTest(draft)}>
@@ -802,11 +836,19 @@ function ActionFieldInput({
   onChange: (value: string) => void;
   onChangeMap: (entries: Record<string, string>) => void;
 }) {
+  const copy = COPY[locale];
+  const label = (
+    <div className="plg-label-row">
+      <label className="plg-label">{field.label[locale]}</label>
+      {field.hint && <InfoTip text={field.hint[locale]} position="right" />}
+    </div>
+  );
+
   if (field.kind === 'keyvalue') {
     const rows = Object.entries(entries);
     return (
       <div className="plg-field">
-        <label className="plg-label">{field.label[locale]}</label>
+        {label}
         {rows.map(([key, entry]) => (
           <div className="plg-kv-row" key={key}>
             <input
@@ -826,6 +868,7 @@ function ActionFieldInput({
             <button
               type="button"
               className="plg-btn plg-btn--icon plg-btn--danger"
+              aria-label={copy.remove}
               onClick={() => {
                 const next = { ...entries };
                 delete next[key];
@@ -841,15 +884,34 @@ function ActionFieldInput({
           className="plg-btn plg-btn--sm"
           onClick={() => onChangeMap({ ...entries, [`campo-${rows.length + 1}`]: '' })}
         >
-          +
+          + {copy.addEntry}
         </button>
+      </div>
+    );
+  }
+
+  if (field.kind === 'boolean') {
+    return (
+      <div className="plg-switch-row">
+        <button
+          type="button"
+          className={`plg-switch${value === 'true' ? ' is-on' : ''}`}
+          aria-label={field.label[locale]}
+          onClick={() => onChange(value === 'true' ? 'false' : 'true')}
+        >
+          <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
+        </button>
+        <label className="plg-label" onClick={() => onChange(value === 'true' ? 'false' : 'true')}>
+          {field.label[locale]}
+        </label>
+        {field.hint && <InfoTip text={field.hint[locale]} position="right" />}
       </div>
     );
   }
 
   return (
     <div className="plg-field">
-      <label className="plg-label">{field.label[locale]}</label>
+      {label}
       {field.kind === 'select' && (
         <select className="plg-select" value={value} onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}>
           {(field.options ?? []).map((option) => (
@@ -857,19 +919,10 @@ function ActionFieldInput({
           ))}
         </select>
       )}
-      {field.kind === 'boolean' && (
-        <button
-          type="button"
-          className={`plg-switch${value === 'true' ? ' is-on' : ''}`}
-          onClick={() => onChange(value === 'true' ? 'false' : 'true')}
-        >
-          <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
-        </button>
-      )}
       {(field.kind === 'textarea' || field.kind === 'code') && (
         <textarea
           className={`plg-textarea${field.kind === 'code' ? ' plg-textarea--code' : ''}`}
-          rows={field.kind === 'code' ? 16 : 8}
+          rows={field.kind === 'code' ? 16 : 6}
           spellcheck={false}
           value={value}
           onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
@@ -884,7 +937,6 @@ function ActionFieldInput({
           onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
         />
       )}
-      {field.hint && <span className="plg-note">{field.hint[locale]}</span>}
     </div>
   );
 }
@@ -914,6 +966,7 @@ function EventEditor({
 }) {
   const copy = COPY[locale];
   const [draft, setDraft] = useState<LiveEvent>(event);
+  const [step, setStep] = useState(1);
 
   const update = (patch: Partial<LiveEvent>): void => setDraft((current) => ({ ...current, ...patch }));
   const updateFilter = (index: number, patch: Partial<EventFilter>): void =>
@@ -923,6 +976,21 @@ function EventEditor({
     }));
 
   const suggestions = [...(FIELDS_BY_TRIGGER[draft.trigger] ?? []), ...COMMON_FIELDS];
+  const chosenNames = draft.actionIds
+    .map((id) => actions.find((action) => action.id === id)?.name)
+    .filter((name): name is string => Boolean(name));
+
+  const steps = [
+    { number: 1, label: copy.stepWhen, sub: TRIGGER_LABELS[draft.trigger][locale] },
+    {
+      number: 2,
+      label: copy.stepFilters,
+      sub: draft.filters.length === 0
+        ? copy.alwaysShort
+        : draft.filters.map((filter) => describeFilter(filter, locale)).join(' · '),
+    },
+    { number: 3, label: copy.stepDo, sub: chosenNames.length === 0 ? copy.noneYet : chosenNames.join(' · ') },
+  ];
 
   return (
     <div className="plg">
@@ -930,7 +998,7 @@ function EventEditor({
         <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={copy.back}>‹</button>
         <div className="plg-topbar__text">
           <h2 className="plg-topbar__title">{draft.name || copy.newEvent}</h2>
-          <span className="plg-topbar__subtitle plg-mono">{draft.trigger}</span>
+          <span className="plg-topbar__subtitle plg-mono">{copy.stepOf(step)} · {draft.trigger}</span>
         </div>
         <div className="plg-topbar__actions">
           {!isNew && (
@@ -957,11 +1025,24 @@ function EventEditor({
 
             <p className="plg-sentence">{sentenceFor(draft, actions, locale)}</p>
 
-            <div className="plg-step">
-              <div className="plg-step__head">
-                <span className="plg-step__number">1</span>
-                <span className="plg-step__title">{copy.stepWhen}</span>
-              </div>
+            <div className="plg-steps">
+              {steps.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.number}
+                  className={`plg-steps__item${step === entry.number ? ' is-active' : ''}${step > entry.number ? ' is-done' : ''}`}
+                  onClick={() => setStep(entry.number)}
+                >
+                  <span className="plg-step__number">{entry.number}</span>
+                  <span className="plg-steps__text">
+                    <span className="plg-steps__label">{entry.label}</span>
+                    <span className="plg-steps__sub">{entry.sub}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {step === 1 && (
               <div className="plg-step__body">
                 <div className="plg-inline">
                   <div className="plg-field">
@@ -986,15 +1067,15 @@ function EventEditor({
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="plg-step">
-              <div className="plg-step__head">
-                <span className="plg-step__number">2</span>
-                <span className="plg-step__title">{copy.stepFilters}</span>
-                <span className="plg-step__hint">{copy.stepFiltersHint}</span>
-              </div>
+            {step === 2 && (
               <div className="plg-step__body">
+                <div className="plg-label-row">
+                  <span className="plg-label">{copy.stepFiltersHint}</span>
+                  <InfoTip text={copy.orHint} position="right" />
+                </div>
+
                 <datalist id="behavior-fields">
                   {suggestions.map((path) => <option value={path} key={path} />)}
                 </datalist>
@@ -1034,6 +1115,7 @@ function EventEditor({
                       <button
                         type="button"
                         className="plg-btn plg-btn--icon plg-btn--danger"
+                        aria-label={copy.remove}
                         onClick={() => update({ filters: draft.filters.filter((_, position) => position !== index) })}
                       >
                         ×
@@ -1050,26 +1132,19 @@ function EventEditor({
                   </div>
                 ))}
 
-                <div className="plg-filter__controls">
-                  <button
-                    type="button"
-                    className="plg-dashed"
-                    onClick={() => update({
-                      filters: [...draft.filters, { path: suggestions[0] ?? 'event.user.uniqueId', operator: 'gte', value: '' }],
-                    })}
-                  >
-                    {copy.addFilter}
-                  </button>
-                  <span className="plg-note">{copy.orHint}</span>
-                </div>
+                <button
+                  type="button"
+                  className="plg-dashed"
+                  onClick={() => update({
+                    filters: [...draft.filters, { path: suggestions[0] ?? 'event.user.uniqueId', operator: 'gte', value: '' }],
+                  })}
+                >
+                  {copy.addFilter}
+                </button>
               </div>
-            </div>
+            )}
 
-            <div className="plg-step">
-              <div className="plg-step__head">
-                <span className="plg-step__number">3</span>
-                <span className="plg-step__title">{copy.stepDo}</span>
-              </div>
+            {step === 3 && (
               <div className="plg-step__body">
                 <span className="plg-label">{copy.pickActions}</span>
                 <div className="plg-chips" style="flex-wrap: wrap;">
@@ -1093,14 +1168,22 @@ function EventEditor({
                   {actions.length === 0 && <span className="plg-note">{copy.noActionsYet}</span>}
                 </div>
 
-                <button
-                  type="button"
-                  className={`plg-switch${draft.runMode === 'random' ? ' is-on' : ''}`}
-                  onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
-                >
-                  <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
-                </button>
-                <span className="plg-note">{copy.runMode}</span>
+                <div className="plg-switch-row">
+                  <button
+                    type="button"
+                    className={`plg-switch${draft.runMode === 'random' ? ' is-on' : ''}`}
+                    aria-label={copy.runMode}
+                    onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
+                  >
+                    <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
+                  </button>
+                  <label
+                    className="plg-label"
+                    onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
+                  >
+                    {copy.runMode}
+                  </label>
+                </div>
 
                 <div className="plg-inline">
                   <div className="plg-field">
@@ -1116,7 +1199,15 @@ function EventEditor({
                     </select>
                   </div>
                   <div className="plg-field">
-                    <label className="plg-label">{copy.cooldownScope}</label>
+                    <div className="plg-label-row">
+                      <label className="plg-label">{copy.cooldownScope}</label>
+                      <InfoTip
+                        text={locale === 'es'
+                          ? 'Por usuario: la espera cuenta para cada espectador. Global: una sola espera para todos.'
+                          : 'Per viewer: the cooldown counts per person. Global: one cooldown for everyone.'}
+                        position="left"
+                      />
+                    </div>
                     <select
                       className="plg-select"
                       value={draft.cooldownScope}
@@ -1128,6 +1219,31 @@ function EventEditor({
                   </div>
                 </div>
               </div>
+            )}
+
+            <div className="plg-nav">
+              <button
+                type="button"
+                className="plg-btn plg-btn--sm"
+                disabled={step === 1}
+                onClick={() => setStep((current) => Math.max(1, current - 1))}
+              >
+                {copy.previous}
+              </button>
+              <span className="plg-nav__spacer" />
+              {step < 3 ? (
+                <button
+                  type="button"
+                  className="plg-btn plg-btn--primary plg-btn--sm"
+                  onClick={() => setStep((current) => Math.min(3, current + 1))}
+                >
+                  {copy.next}
+                </button>
+              ) : (
+                <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => onSave(draft)}>
+                  {copy.finish}
+                </button>
+              )}
             </div>
           </div>
 

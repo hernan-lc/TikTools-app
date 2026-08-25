@@ -31,6 +31,8 @@ export interface ActionField {
   options?: Array<{ value: string; label: Localized }>;
   /** True when `{{ event.* }}` placeholders are rendered before use. */
   template?: boolean;
+  /** Kept behind the "advanced options" disclosure so the form stays short. */
+  advanced?: boolean;
   hint?: Localized;
 }
 

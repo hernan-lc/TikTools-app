@@ -64,3 +64,18 @@
   transform: translateY(-50%) translateX(0);
 }
 
+
+/* Wide variant: hints are sentences, not labels, so they must wrap. */
+[data-tooltip][data-tooltip-wide]::before {
+  white-space: normal;
+  width: max-content;
+  max-width: 260px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: left;
+}
+
+[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}

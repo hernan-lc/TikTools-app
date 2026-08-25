@@ -196,3 +196,18 @@
   /* make leaderboard card not forced 420px min-height on mobile */
   .ui-split__right .ui-card--fill { height:auto; }
 }
+
+/* ---- InfoTip ---- */
+.ui-infotip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: help;
+  outline: none;
+}
+.ui-infotip:hover, .ui-infotip:focus-visible { color: var(--text-secondary); }

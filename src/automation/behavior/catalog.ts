@@ -41,7 +41,14 @@ export const BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
           en: 'The host cannot be templated: it becomes the allowlist.',
         },
       },
-      { key: 'headers', label: { es: 'Cabeceras', en: 'Headers' }, kind: 'keyvalue', value: '', template: true },
+      {
+        key: 'headers',
+        label: { es: 'Cabeceras', en: 'Headers' },
+        kind: 'keyvalue',
+        value: 'content-type=application/json',
+        template: true,
+        advanced: true,
+      },
       {
         key: 'body',
         label: { es: 'Cuerpo', en: 'Body' },
@@ -49,15 +56,30 @@ export const BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
         value: '{\n  "usuario": "{{ event.user.uniqueId }}",\n  "evento": "{{ event.type }}"\n}',
         template: true,
       },
-      { key: 'timeoutMs', label: { es: 'Tiempo máximo (ms)', en: 'Timeout (ms)' }, kind: 'number', value: '5000' },
+      { key: 'timeoutMs', label: { es: 'Tiempo máximo (ms)', en: 'Timeout (ms)' }, kind: 'number', value: '5000', advanced: true },
       {
         key: 'emitResponseAs',
         label: { es: 'Emitir la respuesta como', en: 'Emit the response as' },
         kind: 'text',
         value: '',
         placeholder: 'overlay.webhook.done',
+        advanced: true,
+        hint: {
+          es: 'Publica la respuesta como evento interno, para encadenar otro evento con ella.',
+          en: 'Publishes the response as an internal event so another event can chain off it.',
+        },
       },
-      { key: 'allowPrivateNetwork', label: { es: 'Permitir red local', en: 'Allow local network' }, kind: 'boolean', value: 'false' },
+      {
+        key: 'allowPrivateNetwork',
+        label: { es: 'Permitir red local', en: 'Allow local network' },
+        kind: 'boolean',
+        value: 'false',
+        advanced: true,
+        hint: {
+          es: 'Necesario sólo para servidores en tu propia red (localhost, 192.168.x.x).',
+          en: 'Only needed for servers on your own network (localhost, 192.168.x.x).',
+        },
+      },
     ],
   },
   {
@@ -176,12 +198,13 @@ export const PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
     requiredCapabilities: ['audio.play'],
     fields: [
       { key: 'file', label: { es: 'Archivo', en: 'File' }, kind: 'text', value: 'assets/sounds/alert.wav', template: true },
-      { key: 'volume', label: { es: 'Volumen', en: 'Volume' }, kind: 'number', value: '1' },
+      { key: 'volume', label: { es: 'Volumen', en: 'Volume' }, kind: 'number', value: '1', advanced: true },
       {
         key: 'overlap',
         label: { es: 'Si ya está sonando', en: 'If already playing' },
         kind: 'select',
         value: 'allow',
+        advanced: true,
         options: [
           { value: 'allow', label: { es: 'Permitir solape', en: 'Allow overlap' } },
           { value: 'restart', label: { es: 'Reiniciar', en: 'Restart' } },
@@ -217,8 +240,8 @@ export const PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
         value: '{{ event.user.nickname }} dice {{ event.data.comment }}',
         template: true,
       },
-      { key: 'voice', label: { es: 'Voz', en: 'Voice' }, kind: 'text', value: 'M1' },
-      { key: 'lang', label: { es: 'Idioma', en: 'Language' }, kind: 'text', value: 'es' },
+      { key: 'voice', label: { es: 'Voz', en: 'Voice' }, kind: 'text', value: 'M1', advanced: true },
+      { key: 'lang', label: { es: 'Idioma', en: 'Language' }, kind: 'text', value: 'es', advanced: true },
     ],
   },
 ];

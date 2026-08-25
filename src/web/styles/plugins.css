@@ -607,3 +607,57 @@
   .plg-table--events .plg-table__row { grid-template-columns: 44px minmax(0, 1fr) 130px minmax(0, 1.3fr) minmax(0, 1.2fr) 36px; }
   .plg-table__actions { justify-content: flex-end; }
 }
+
+/* ---- form density: a minimal form with the explanations behind an icon ---- */
+.plg-form__main { max-width: 720px; }
+.plg-label-row { display: flex; align-items: center; gap: 6px; }
+.plg-switch-row { display: flex; align-items: center; gap: 10px; }
+.plg-switch-row .plg-label { cursor: pointer; }
+.plg-panel__head { display: flex; align-items: center; gap: 6px; }
+.plg-kv__key { width: 96px; font-size: 11px; }
+
+.plg-details {
+  border: 1px solid var(--plg-line);
+  border-radius: 10px;
+  padding: 0 12px;
+}
+.plg-details > summary {
+  list-style: none;
+  padding: 12px 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--plg-muted);
+  cursor: pointer;
+}
+.plg-details > summary::-webkit-details-marker { display: none; }
+.plg-details > summary::before { content: '▸ '; color: var(--plg-dim); }
+.plg-details[open] > summary::before { content: '▾ '; }
+.plg-details__body { display: flex; flex-direction: column; gap: 14px; padding: 2px 0 14px; }
+
+/* ---- step navigation ---- */
+.plg-steps { display: flex; flex-direction: column; gap: 8px; }
+.plg-steps__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--plg-line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.plg-steps__item.is-active { border-color: var(--plg-accent); }
+.plg-steps__item:hover { transform: none; }
+.plg-steps__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plg-steps__label { font-size: 12.5px; font-weight: 600; }
+.plg-steps__sub { font-size: 11px; color: var(--plg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plg-steps__item.is-done .plg-step__number { background: rgba(6, 214, 160, 0.16); color: var(--plg-ok); }
+.plg-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.plg-nav__spacer { flex: 1; }
+
+@media (min-width: 900px) {
+  .plg-steps { flex-direction: row; }
+  .plg-steps__item { flex: 1; min-width: 0; }
+}
