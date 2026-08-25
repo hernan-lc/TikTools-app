@@ -54,6 +54,25 @@ The host starts a Bun server on port `0`, allowing the operating system to choos
 
 The default window is resizable and opens at 900 × 680 pixels. Closing the window hides it in the tray; choose **Show live chat** from the tray menu to restore it.
 
+## Windows standalone executable
+
+Build the release executable from Windows with:
+
+~~~powershell
+bun run build:exe
+~~~
+
+The result is `dist/TikTools.exe`. It contains the Bun runtime and bundled Preact frontend, uses the GUI subsystem so no console window is shown, and starts sandbox plugins by launching itself with `--plugin-worker`. Bun and Node.js are not required on the target machine. Windows WebView2 is required.
+
+Test it from a different working directory before distributing it:
+
+~~~powershell
+Set-Location $env:TEMP
+& 'C:\path\to\TikTools-app\dist\TikTools.exe'
+~~~
+
+The executable should open the desktop window without PowerShell, cmd, or Bun console flashes. The release directory does not need `plugin-worker.cjs` or a separate Node.js installation.
+
 ## First launch
 
 1. Select English or Spanish and choose a theme.
@@ -72,7 +91,7 @@ To produce a distributable host bundle:
 bun run build:host
 ~~~
 
-The output is written to `dist/` and includes the bundled host entry point plus `plugin-worker.cjs`. A packaged distribution still needs the runtime dependencies required by Bun, `webview-napi`, `tray-icon-node`, and any optional native provider it uses.
+The output is written to `dist/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:exe` for the Windows standalone executable.
 
 Set a different output directory when needed:
 
@@ -106,9 +125,18 @@ Do not enable DevTools in a build shared with users if the window can expose sen
 
 ## Runtime data
 
-The first run creates the `data/` directory and these SQLite databases:
+On Windows, the first run creates `%LOCALAPPDATA%/TikTools/` with these directories:
+
+- `data/` for SQLite databases.
+- `plugins/` for sandbox plugin packages.
+- `logs/` for `TikTools.log`.
+- `temp/` for generated automation audio.
+
+The databases are:
 
 - `data/tiktok-points.db`
 - `data/tiktok-automation.db`
+
+The location is independent of the current working directory. Set `TIKTOOLS_HOME` to relocate the complete tree, or set `TIKTOOLS_DATA_DIR`, `TIKTOOLS_PLUGINS_DIR`, `TIKTOOLS_LOG_DIR`, or `TIKTOOLS_TEMP_DIR` separately for development and tests.
 
 Back up the directory before manually changing or removing runtime data. See [Troubleshooting](TROUBLESHOOTING.md) before repairing a database.

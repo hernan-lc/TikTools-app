@@ -12,11 +12,13 @@ bun run typecheck
 
 Confirm that `vendor/tiktok-signer/` contains the upstream package files. If the error mentions a native module or missing shared library, install the platform dependency required by `webview-napi` or `tray-icon-node`. Linux package guidance is in [Getting Started](GETTING_STARTED.md).
 
-Run from a terminal so the host log remains visible:
+For development, run from a terminal so the host log remains visible:
 
 ~~~bash
 bun run start
 ~~~
+
+The compiled Windows executable intentionally has no console. Check `%LOCALAPPDATA%/TikTools/logs/TikTools.log` for startup failures, WebView or native-module errors, plugin worker failures, and provider errors. Cookie headers, credentials, and worker handshake tokens are redacted from this file.
 
 ## The window opens but the page is blank
 
@@ -33,7 +35,7 @@ If the page loads but the host bridge does not respond, confirm that the app is 
 
 ## The tray icon is missing
 
-The app catches tray initialization failures and continues with the WebView. Check the terminal for a tray dependency error. Install the native tray prerequisites for the operating system, then restart.
+The app catches tray initialization failures and continues with the WebView. In development, check the terminal; in a compiled Windows build, check `TikTools.log`. Install the native tray prerequisites for the operating system, then restart.
 
 Closing the window should hide it. If the process must be stopped during development, use the terminal interrupt or the tray **Quit** action.
 
@@ -63,23 +65,23 @@ Do not include browser export formatting or quote the entire value unless the br
 
 ## Points or automations appear to reset
 
-The app stores durable data relative to the current working directory. Starting it from a different directory can create or use a different `data/` directory.
+The app stores durable data under `%LOCALAPPDATA%/TikTools/` on Windows, independent of the current working directory. A custom `TIKTOOLS_HOME` or `TIKTOOLS_DATA_DIR` can intentionally change this location.
 
 Check:
 
 ~~~powershell
 Get-Location
-Get-ChildItem .\data
+Get-ChildItem "$env:LOCALAPPDATA\TikTools\data"
 ~~~
 
 POSIX:
 
 ~~~bash
 pwd
-ls -la data
+ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/TikTools/data"
 ~~~
 
-Stop the app before moving or replacing a database. Back up `data/` first. The points and automation databases are separate, so a problem in one does not necessarily affect the other.
+Stop the app before moving or replacing a database. Back up the app `data/` directory first. The points and automation databases are separate, so a problem in one does not necessarily affect the other.
 
 ## A plugin is unavailable
 
@@ -92,7 +94,11 @@ Check all of the following:
 - The plugin is installed and enabled in the Plugins tab.
 - The optional native dependency used by the plugin is available on the current platform.
 
-Read the terminal messages prefixed with `[automation-plugins]`. A sandbox plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path.
+Read the terminal messages prefixed with `[automation-plugins]` during development, or `TikTools.log` in the compiled app. A sandbox plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path. The worker is self-hosted by `TikTools.exe`; Node.js and `plugin-worker.cjs` are not required.
+
+## Text-to-speech is unavailable
+
+SonicBoom is an optional external integration, not part of `TikTools.exe`. If it is not installed or ready, the TTS action reports an unavailable-provider error and the rest of the app continues to work. Its process is launched with a hidden Windows window. Check `TikTools.log` for the provider error and confirm the configured SonicBoom command and health endpoint.
 
 ## UI changes are not visible
 
@@ -122,4 +128,3 @@ Include:
 - Whether the issue survives a clean checkout and a fresh `data/` backup.
 
 Redact Cookie headers, usernames if sensitive, room identifiers, and personal viewer data.
-

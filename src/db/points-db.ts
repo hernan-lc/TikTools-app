@@ -2,6 +2,8 @@ import { Database } from 'sqlite-napi';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { ensureAppPaths } from '../platform/app-paths.ts';
+
 // ---------------------------------------------------------------------------
 // Typed row shapes that mirror the SQLite column names returned by sqlite-napi.
 // These are internal to this module; callers always receive the public interfaces.
@@ -131,7 +133,7 @@ export class PointsDatabase {
   private db: Database;
 
   constructor(dbPath?: string) {
-    const defaultPath = join(process.cwd(), 'data', 'tiktok-points.db');
+    const defaultPath = join(ensureAppPaths().data, 'tiktok-points.db');
     const resolvedPath = dbPath || defaultPath;
     const dir = dirname(resolvedPath);
     if (!existsSync(dir)) {

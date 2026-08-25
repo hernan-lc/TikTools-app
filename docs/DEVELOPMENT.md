@@ -22,7 +22,9 @@ The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` imp
 | `bun run typecheck` | Run strict TypeScript checking without emitting files. |
 | `bun run test` | Run tests under `src`. |
 | `bun run test:plugin-worker` | Run the plugin worker smoke test. |
-| `bun run build:host` | Bundle the host and copy `plugin-worker.cjs` to `dist/`. |
+| `bun run smoke:compiled` | Launch the built EXE with a fixture plugin and verify app-data paths. |
+| `bun run build:host` | Build a development host bundle in `dist/`. |
+| `bun run build:exe` | Build the Windows GUI executable at `dist/TikTools.exe`. |
 
 Use `bun test path/to/file.test.ts` when you need to focus on one test file.
 
@@ -78,6 +80,8 @@ A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest decl
 
 Trusted plugins are host code and should only be used for reviewed, bundled integrations. A worker process is a crash/isolation boundary, not a full security sandbox.
 
+Sandbox workers are launched as `bun index.ts --plugin-worker --port ... --token ...` during development. In a compiled build, `PluginWorkerHost` uses `process.execPath`, so the child is `TikTools.exe --plugin-worker ...`. The worker does not import or initialize the WebView, tray, or GUI host; it only loads the VM and authenticated localhost protocol. Both launch paths use hidden child-process windows on Windows.
+
 ## Testing and build output
 
 Run the full local check before handoff:
@@ -86,10 +90,13 @@ Run the full local check before handoff:
 bun run typecheck
 bun run test
 bun run test:plugin-worker
+bun run smoke:compiled
 bun run build:host
+bun run build:exe
 ~~~
 
-The host build writes to `dist/`, which is generated output. Do not edit generated files by hand. The build copies `src/automation/plugins/plugin-worker.cjs` because the worker is intentionally not imported into the Bun host bundle.
+The build writes generated output to `dist/`; do not edit it by hand. `build:exe` cleans the output directory before producing `TikTools.exe`, so stale worker sidecars cannot be mistaken for release dependencies. The compiled executable statically bundles the frontend and verifies the native N-API modules at runtime when the GUI, databases, tray, and worker features are exercised.
+
+Writable runtime paths are resolved by `src/platform/app-paths.ts`. On Windows they default to `%LOCALAPPDATA%/TikTools/`, not `process.cwd()`. Fatal startup errors, plugin worker failures, native warnings, and provider errors are written to `%LOCALAPPDATA%/TikTools/logs/TikTools.log`; credentials and worker tokens are redacted.
 
 For UI changes, run the app and inspect both a normal desktop window and a narrow/resized window. Check scrolling, empty states, disabled controls, light/dark themes, and English/Spanish labels.
-

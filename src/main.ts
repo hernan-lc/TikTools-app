@@ -2,6 +2,7 @@ import { WebviewRuntime } from 'webview-napi/runtime';
 
 import { parsePageMessage } from './bridge.ts';
 import { LiveController } from './live-controller.ts';
+import { ensureAppPaths } from './platform/app-paths.ts';
 import { startWebServer } from './server.ts';
 import type { HostMessage } from './shared/messages.ts';
 import { startTray, type TrayController } from './tray.ts';
@@ -13,6 +14,7 @@ function errorMessage(error: unknown): string {
 type AppServer = ReturnType<typeof startWebServer>;
 
 export async function runApp(): Promise<void> {
+  ensureAppPaths();
   const webServer = startWebServer();
   try {
     await startNativeApp(webServer);

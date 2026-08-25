@@ -4,7 +4,6 @@ import {
   SOCIAL_ACTION,
   TikTokLive,
 } from '../vendor/tiktok-signer/packages/tiktok-live/src/index.ts';
-import { join } from 'node:path';
 import type {
   ClientState,
   Gift,
@@ -36,6 +35,7 @@ import type { AutomationCapabilities } from './automation/capabilities.ts';
 import type { AutomationConnectionContext, AutomationEvent } from './automation/types.ts';
 import { AutomationDatabase } from './db/automation-db.ts';
 import { PointsDatabase } from './db/points-db.ts';
+import { ensureAppPaths } from './platform/app-paths.ts';
 import {
   cleanUsername,
   hasUser,
@@ -120,7 +120,7 @@ export class LiveController {
         : this.pluginManager.capabilitiesFor(pluginId, available),
     });
     this.pluginLoader = new AutomationPluginLoader({
-      rootDirectory: join(process.cwd(), 'plugins'),
+      rootDirectory: ensureAppPaths().plugins,
       manager: this.pluginManager,
       capabilities: this.automationCapabilities,
       log: (message) => console.warn(`[automation-plugins] ${message}`),

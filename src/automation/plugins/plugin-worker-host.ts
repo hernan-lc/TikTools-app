@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer, type Server, type Socket } from 'node:net';
 import { randomBytes } from 'node:crypto';
-import { join } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 import type { AutomationPluginManifest } from './manifest.ts';
 import type { PluginCapabilityBroker } from './capability-broker.ts';
@@ -25,13 +25,12 @@ import type {
   NodeExecutionResult,
   PortDefinition,
 } from '../types.ts';
+import { ensureAppPaths } from '../../platform/app-paths.ts';
 
 export interface PluginWorkerHostOptions {
   manifest: AutomationPluginManifest;
   source: string;
   broker: PluginCapabilityBroker;
-  workerCommand?: string;
-  workerScriptPath?: string;
   startupTimeoutMs?: number;
   log?: (entry: Pick<ExecutionLogEntry, 'level' | 'message' | 'metadata'>) => void;
 }
@@ -68,14 +67,14 @@ export class PluginWorkerHost {
   async start(): Promise<NodeDefinition[]> {
     if (this.#process) throw new Error(`Plugin worker is already running: ${this.#options.manifest.id}`);
     this.#stopped = false;
-    const command = this.#options.workerCommand ?? 'node';
-    const scriptPath = this.#options.workerScriptPath ?? join(import.meta.dir, 'plugin-worker.cjs');
     this.#token = randomBytes(24).toString('hex');
     const { server, port, connection } = await createWorkerServer(this.#token);
     this.#server = server;
-    const child = spawn(command, [scriptPath, '--port', String(port), '--token', this.#token], {
-      cwd: process.cwd(),
+    const launch = getWorkerProcessArgs(port, this.#token);
+    const child = spawn(launch.command, launch.args, {
+      cwd: ensureAppPaths().root,
       stdio: ['ignore', 'ignore', 'pipe'],
+      windowsHide: true,
     });
     this.#process = child;
     child.stderr?.on('data', (chunk: Buffer | string) => {
@@ -267,6 +266,18 @@ export class PluginWorkerHost {
       this.#pending.delete(id);
     }
   }
+}
+
+function getWorkerProcessArgs(port: number, token: string): { command: string; args: string[] } {
+  const workerArgs = ['--plugin-worker', '--port', String(port), '--token', token];
+  if (Bun.isStandaloneExecutable || basename(process.execPath).toLowerCase() === 'tiktools.exe') {
+    return { command: process.execPath, args: workerArgs };
+  }
+
+  const entrypoint = process.argv[1]?.endsWith('index.ts')
+    ? process.argv[1]
+    : resolve(import.meta.dir, '../../../index.ts');
+  return { command: process.execPath, args: [entrypoint, ...workerArgs] };
 }
 
 function waitForDrain(socket: Socket): Promise<void> {

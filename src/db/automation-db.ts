@@ -6,6 +6,7 @@ import { isWorkflowGraph } from '../automation/graph.ts';
 import { normalizeAction, normalizeEvent } from '../automation/behavior/schema.ts';
 import type { LiveAction, LiveEvent } from '../automation/behavior/types.ts';
 import type { WorkflowGraph } from '../automation/types.ts';
+import { ensureAppPaths } from '../platform/app-paths.ts';
 
 interface WorkflowRow {
   id: string;
@@ -50,7 +51,7 @@ export class AutomationDatabase {
   private readonly db: Database;
 
   constructor(dbPath?: string) {
-    const defaultPath = join(process.cwd(), 'data', 'tiktok-automation.db');
+    const defaultPath = join(ensureAppPaths().data, 'tiktok-automation.db');
     const resolvedPath = dbPath || defaultPath;
     const directory = dirname(resolvedPath);
     if (!existsSync(directory)) mkdirSync(directory, { recursive: true });

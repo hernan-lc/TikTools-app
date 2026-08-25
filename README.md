@@ -49,6 +49,8 @@ bun run start
 
 The app starts a local Bun server on an ephemeral port and opens that URL in the embedded native WebView. No separate frontend server or fixed port is required.
 
+For a Windows release executable, run `bun run build:exe`. The generated `dist/TikTools.exe` includes the Bun runtime and bundled frontend, hides its console window, and self-hosts sandbox plugin workers. Bun and Node.js are not required on the target machine; Windows WebView2 is still required.
+
 ## First connection
 
 1. Choose a language and theme.
@@ -66,7 +68,9 @@ bun run start              # Start the desktop app
 bun run typecheck          # Type-check the application
 bun run test               # Run the app test suite
 bun run test:plugin-worker # Run the plugin worker smoke test
-bun run build:host         # Build the Bun host and copy plugin-worker.cjs
+bun run smoke:compiled     # Smoke-test the built EXE and self-hosted plugin
+bun run build:host          # Build a development host bundle
+bun run build:exe           # Build dist/TikTools.exe for Windows
 ```
 
 `bun run test` intentionally runs tests under `src`. A bare `bun test` also discovers tests inside the vendored signer submodule, which may require generated distribution files that are not checked into this repository.
@@ -82,19 +86,34 @@ src/bridge.ts               Runtime validation for WebView-to-host messages
 src/live-events.ts          TikTok event normalization and UI projections
 src/db/                     SQLite databases for points and automations
 src/automation/             Event bus, behavior engine, workflows, capabilities, and plugins
+src/platform/               Central app-data paths and hidden-console logging
 src/web/                    Preact application, views, components, and styles
 vendor/tiktok-signer/       Git submodule containing the upstream TikTok client
-data/                       Runtime SQLite files created by the app
+scripts/build-exe.ts        Windows standalone executable build
 docs/                       Project documentation indexed above
 scripts/build-host.ts       Host bundle and plugin worker build script
 ```
 
 ## Data and privacy
 
-The app writes local SQLite files under `data/`:
+On Windows, durable app data is stored under `%LOCALAPPDATA%/TikTools/`:
 
-- `tiktok-points.db` stores point rules, viewer totals, point transactions, creator history, app state, and the cached gift catalog.
-- `tiktok-automation.db` stores workflows, behavior actions and events, and plugin state.
+```text
+%LOCALAPPDATA%/TikTools/
+  data/       SQLite databases
+  plugins/    sandbox plugin packages
+  logs/       TikTools.log
+  temp/       generated automation audio
+```
+
+The app does not derive writable data from its current working directory. For development or tests, override paths with `TIKTOOLS_HOME`, `TIKTOOLS_DATA_DIR`, `TIKTOOLS_PLUGINS_DIR`, `TIKTOOLS_LOG_DIR`, or `TIKTOOLS_TEMP_DIR`.
+
+The databases are:
+
+- `data/tiktok-points.db` stores point rules, viewer totals, point transactions, creator history, app state, and the cached gift catalog.
+- `data/tiktok-automation.db` stores workflows, behavior actions and events, and plugin state.
+
+SonicBoom text-to-speech remains an optional external integration. TikTools itself works without SonicBoom; if it is unavailable, the TTS action reports an error and does not open a visible terminal. Generated audio is written under the app `temp` directory.
 
 Authenticated Cookie headers are sensitive credentials. Do not log, commit, paste, or share them. Use the app only with rooms and accounts you are authorized to monitor, and follow TikTok’s terms and applicable policies.
 
@@ -113,6 +132,8 @@ SQLite databases       WebView messages     host capabilities
 
 The native host owns the TikTok client, persistence, automation runtime, and privileged capabilities. The Preact frontend owns presentation and sends JSON messages through the validated bridge. See [Architecture](docs/ARCHITECTURE.md) for the full message and data flow.
 
+Sandbox plugins run in a separate `TikTools.exe --plugin-worker` process in a compiled release, or in `bun index.ts --plugin-worker ...` during development. The worker keeps the token-authenticated localhost IPC, VM loop limit, source and message size limits, manifest permissions, and capability broker.
+
 ## Contributing
 
 Keep changes focused and type-safe. Before opening a change, run the relevant checks:
@@ -122,6 +143,7 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run build:host
+bun run build:exe
 ```
 
 For UI work, keep reusable controls in `src/web/components/ui/`, shared tokens in `src/web/styles/variables.css`, and view-specific layout in the corresponding stylesheet. Update the relevant article in `docs/` when behavior, setup, or public extension points change.

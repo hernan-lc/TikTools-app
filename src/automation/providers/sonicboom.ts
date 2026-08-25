@@ -1,9 +1,9 @@
 import { mkdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { TtsCapability } from '../capabilities.ts';
 import type { JsonObject } from '../types.ts';
+import { ensureAppPaths } from '../../platform/app-paths.ts';
 
 export interface SonicBoomOptions {
   command?: string;
@@ -39,6 +39,7 @@ export class SonicBoomProvider implements TtsCapability {
       cwd: this.#options.cwd,
       stdout: 'ignore',
       stderr: 'pipe',
+      windowsHide: true,
     });
 
     const deadline = Date.now() + this.#options.startupTimeoutMs;
@@ -91,7 +92,7 @@ export class SonicBoomProvider implements TtsCapability {
     if (!response.ok) throw new Error(`SonicBoom TTS failed with HTTP ${response.status}: ${await response.text()}`);
 
     const bytes = new Uint8Array(await response.arrayBuffer());
-    const outputDirectory = this.#options.outputDirectory ?? join(tmpdir(), 'tiktools-automation-audio');
+    const outputDirectory = this.#options.outputDirectory ?? join(ensureAppPaths().temp, 'automation-audio');
     await mkdir(outputDirectory, { recursive: true });
     const path = join(outputDirectory, `tts-${Date.now()}-${Math.random().toString(36).slice(2)}.${format}`);
     await Bun.write(path, bytes);

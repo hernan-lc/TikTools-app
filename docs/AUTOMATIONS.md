@@ -112,7 +112,7 @@ no longer has a UI.
 - `src/web/components/node-editor/` contains the reusable workflow editor library: the creation wizard, node picker, ordered step canvas, and typed configuration forms. It edits the app-owned `WorkflowGraph` directly, so the UI does not depend on a graph engine and no editor-specific objects are persisted.
 - `src/db/automation-db.ts` persists graph JSON in SQLite.
 - `src/automation/plugins/plugin-manager.ts` can register trusted node implementations and filters their declared host capabilities.
-- `src/automation/plugins/plugin-worker-host.ts` and `plugin-worker.cjs` execute sandbox plugin handlers in a separate process over an authenticated loopback JSON protocol.
+- `src/automation/plugins/plugin-worker-host.ts` launches `index.ts --plugin-worker` in development or `TikTools.exe --plugin-worker` in a compiled release. `src/automation/plugins/plugin-worker.ts` executes sandbox handlers in that separate process over an authenticated loopback JSON protocol.
 - `src/automation/plugins/plugin-loader.ts` discovers `plugins/<directory>/plugin.json`, rejects filesystem-trusted entries, and registers only worker-backed sandbox nodes.
 - `src/automation/services/napi-vm-language-service.ts` exposes napi-vm diagnostics, hover, and event/input property completions to the Script editor.
 
@@ -259,7 +259,7 @@ plugin package -> plugin-worker -> napi-vm -> capability broker
 
 The worker protocol exchanges only JSON-safe events, node descriptors, execution results, logs, and named capability requests. It uses an authenticated loopback socket because Bun’s current piped stdin behavior is not incremental in all supported launch modes; this remains child-process IPC and can be replaced with stdio or named pipes without changing node definitions.
 
-The host bundle has one non-imported runtime asset: `plugin-worker.cjs`. Use `bun run build:host` so the build copies it next to the generated host entrypoint. The worker still needs the installed `napi-vm` package/native assets at runtime; a packaged desktop distribution must include those dependencies alongside the host bundle. `TIKTOOLS_HOST_OUTDIR=/path/to/output bun run build:host` changes the destination.
+The worker is an imported TypeScript module, so `build:host` and `build:exe` do not copy a `plugin-worker.cjs` sidecar. The Windows executable embeds the Bun runtime, frontend, and native modules it needs; its worker child is the same `TikTools.exe` launched with `--plugin-worker`. `TIKTOOLS_HOST_OUTDIR=/path/to/output bun run build:host` changes the development bundle destination.
 
 ## Verification
 
@@ -268,6 +268,8 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run build:host
+bun run build:exe
+bun run smoke:compiled
 ```
 
 `bun run test` is scoped to the app’s tests. Running bare `bun test` also discovers the vendored TikTok signer tests, which currently expect generated `vendor/tiktok-signer/.../dist` files that are not checked in.

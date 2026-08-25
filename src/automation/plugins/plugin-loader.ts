@@ -18,8 +18,6 @@ export interface PluginLoaderOptions {
   rootDirectory: string;
   manager: PluginManager;
   capabilities: AutomationCapabilities;
-  workerCommand?: string;
-  workerScriptPath?: string;
   log?: (message: string) => void;
   onLoaded?: (manifest: AutomationPluginManifest) => void;
 }
@@ -102,8 +100,6 @@ export class AutomationPluginLoader {
       manifest,
       source,
       broker,
-      workerCommand: this.#options.workerCommand,
-      workerScriptPath: this.#options.workerScriptPath,
       log: (entry) => this.#options.log?.(`[${manifest.id}] ${entry.message}`),
     });
 
