@@ -19,6 +19,10 @@ const manifest = {
     capabilities: ['http.request'],
     network: ['api.example.test'],
   },
+  i18n: {
+    en: 'i18n/en.json',
+    es: 'i18n/es.json',
+  },
 };
 
 const syncHandler = 'return { outputs: { value: event.data.value + 1 }, next: ["flow"] };';
@@ -59,8 +63,8 @@ registerAction({
   definition: {
     id: "worker.smoke.action",
     version: 1,
-    title: { en: "Worker smoke action", es: "Acción smoke del worker" },
-    description: { en: "Action smoke", es: "Acción smoke" },
+    title: { "default": "Worker smoke action", "i18key": "dev.tiktools.worker-smoke.action.title" },
+    description: { "default": "Action smoke", "i18key": "dev.tiktools.worker-smoke.action.description" },
     tag: "test",
     source: { kind: "plugin", pluginId: "dev.tiktools.worker-smoke" },
     configSchema: { type: "object", properties: {} },
@@ -108,6 +112,13 @@ async function loaderSmoke(): Promise<void> {
   await mkdir(directory, { recursive: true });
   const loaderManifest = { ...manifest, id: 'dev.tiktools.worker-loader-smoke', name: 'Loader smoke', entry: 'index.js' };
   await writeFile(join(directory, 'plugin.json'), JSON.stringify(loaderManifest));
+  await mkdir(join(directory, 'i18n'), { recursive: true });
+  await writeFile(join(directory, 'i18n', 'en.json'), JSON.stringify({
+    'dev.tiktools.worker-loader-smoke.action.title': 'Worker loader action',
+  }));
+  await writeFile(join(directory, 'i18n', 'es.json'), JSON.stringify({
+    'dev.tiktools.worker-loader-smoke.action.title': 'Acción del cargador',
+  }));
   await writeFile(join(directory, 'index.js'), source.replaceAll('dev.tiktools.worker-smoke', loaderManifest.id));
   const registry = createBuiltInNodeRegistry();
   const manager = new PluginManager(registry);
@@ -124,6 +135,9 @@ async function loaderSmoke(): Promise<void> {
     const results = await loader.loadAll();
     if (!results[0]?.loaded || !manager.get('dev.tiktools.worker-loader-smoke') || manager.actionDefinitions('dev.tiktools.worker-loader-smoke').length !== 1) {
       throw new Error('Plugin loader did not register the fixture plugin.');
+    }
+    if (manager.translations().es?.['dev.tiktools.worker-loader-smoke.action.title'] !== 'Acción del cargador') {
+      throw new Error('Plugin locale files were not registered.');
     }
     const implementation = registry.get('worker.smoke.sync');
     if (!implementation) throw new Error('Loaded plugin node was not added to the registry.');

@@ -2,6 +2,7 @@ import { NodeRegistry } from '../node-registry.ts';
 import { ActionRegistry, type ActionImplementation } from '../behavior/action-registry.ts';
 import type { AutomationCapabilities } from '../capabilities.ts';
 import type { NodeImplementation } from '../types.ts';
+import type { TranslationCatalog } from '../behavior/types.ts';
 import {
   assertValidPluginManifest,
   type AutomationPlugin,
@@ -14,6 +15,7 @@ export class PluginManager {
   readonly #plugins = new Map<string, AutomationPluginManifest>();
   readonly #pluginNodeTypes = new Map<string, string[]>();
   readonly #pluginActionTypes = new Map<string, string[]>();
+  readonly #pluginTranslations = new Map<string, TranslationCatalog>();
   readonly #pluginDisposers = new Map<string, () => void | Promise<void>>();
 
   constructor(registry: NodeRegistry, actions = new ActionRegistry()) {
@@ -76,6 +78,7 @@ export class PluginManager {
     this.#plugins.set(manifest.id, manifest);
     this.#pluginNodeTypes.set(manifest.id, registered);
     this.#pluginActionTypes.set(manifest.id, registeredActions);
+    this.#pluginTranslations.set(manifest.id, plugin.translations ?? {});
     if (onUnload) this.#pluginDisposers.set(manifest.id, onUnload);
   }
 
@@ -115,6 +118,20 @@ export class PluginManager {
     return definitions.filter((definition) => definition.source.kind === 'plugin' && definition.source.pluginId === pluginId);
   }
 
+  /** Return a deterministic, flat locale catalog for the WebView. */
+  translations(): TranslationCatalog {
+    const catalog: TranslationCatalog = {};
+    for (const translations of this.#pluginTranslations.values()) {
+      for (const [locale, entries] of Object.entries(translations)) {
+        const target = catalog[locale] ?? (catalog[locale] = {});
+        for (const [key, value] of Object.entries(entries)) {
+          if (target[key] === undefined) target[key] = value;
+        }
+      }
+    }
+    return catalog;
+  }
+
   hasPermission(pluginId: string, capability: string): boolean {
     return this.#plugins.get(pluginId)?.permissions.capabilities?.includes(capability) ?? false;
   }
@@ -140,6 +157,7 @@ export class PluginManager {
     this.#pluginDisposers.delete(pluginId);
     this.#pluginNodeTypes.delete(pluginId);
     this.#pluginActionTypes.delete(pluginId);
+    this.#pluginTranslations.delete(pluginId);
     this.#plugins.delete(pluginId);
     return disposer;
   }

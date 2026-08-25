@@ -11,7 +11,7 @@ import type {
 import type { AutomationEventType } from '../automation/types.ts';
 import { NavigationRail } from './components/nav-rail.tsx';
 import { TopNav } from './components/top-nav.tsx';
-import { t, type Locale } from './i18n.ts';
+import { setPluginTranslations, t, type Locale } from './i18n.ts';
 import {
   addRecentUsername,
   applyTheme,
@@ -107,7 +107,7 @@ function App() {
   const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
 
-  const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [], actionTypes: [] });
+  const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [], actionTypes: [], translations: {} });
   const [giftCatalog, setGiftCatalog] = useState<GiftCatalogEntry[]>([]);
   const [behaviorRuns, setBehaviorRuns] = useState<BehaviorRun[]>([]);
   const [behaviorTestRuns, setBehaviorTestRuns] = useState<BehaviorRun[]>([]);
@@ -283,6 +283,7 @@ function App() {
         return;
       }
       if (message.type === 'behavior') {
+        setPluginTranslations(message.snapshot.translations);
         setBehavior(message.snapshot);
         setBehaviorError('');
       }

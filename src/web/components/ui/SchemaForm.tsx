@@ -4,7 +4,7 @@ import type { JsonObject, JsonValue } from '../../../automation/types.ts';
 import type { ActionTypeDefinition, Localized } from '../../../automation/behavior/types.ts';
 import { TemplateField } from '../node-editor/TemplateField.tsx';
 import type { TemplateSuggestion } from '../node-editor/template-suggestions.ts';
-import type { Locale } from '../../i18n.ts';
+import { i18nText, t, type Locale } from '../../i18n.ts';
 
 export type SchemaFormProps = {
   locale: Locale;
@@ -34,7 +34,7 @@ export function SchemaForm({ locale, schema, uiHints, value, onChange, templateS
       ))}
       {advanced.length > 0 && (
         <details className="plg-details">
-          <summary>{locale === 'es' ? 'Opciones avanzadas' : 'Advanced options'}</summary>
+          <summary>{t(locale, 'advancedOptions')}</summary>
           <div className="plg-details__body">
             {advanced.map(([key, field]) => (
               <SchemaField key={key} locale={locale} name={key} schema={field} hint={hints[key]} value={value[key]} onChange={(next) => update(key, next)} templateSuggestions={templateSuggestions} />
@@ -108,7 +108,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
           </div>
         ))}
         <button type="button" className="plg-btn plg-btn--sm" onClick={() => onChange({ ...entries, [`field-${Object.keys(entries).length + 1}`]: '' })}>
-          + {locale === 'es' ? 'Añadir' : 'Add'}
+          + {t(locale, 'add')}
         </button>
       </div>
     );
@@ -177,12 +177,7 @@ function objectProperties(value: JsonValue | undefined): Record<string, JsonObje
 }
 
 function localized(value: JsonValue | undefined, locale: Locale): string {
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const candidate = (value as JsonObject)[locale];
-    return typeof candidate === 'string' ? candidate : '';
-  }
-  return '';
+  return i18nText(locale, value);
 }
 
 function applies(value: JsonValue | undefined, config: JsonObject): boolean {

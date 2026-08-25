@@ -54,7 +54,9 @@ Keep host-only concerns out of the WebView. If a new capability needs network, f
 - Prefer controlled components with `value` and `onValueChange`.
 - Reuse components from `src/web/components/ui/` before adding a one-off control.
 - Keep layout constraints explicit in flex and grid containers; use `min-width: 0` and `min-height: 0` where a child must be allowed to shrink.
-- Keep translations in `src/web/i18n.ts`.
+- Keep host translations in `src/web/i18n.ts`. Declarative metadata uses
+  `{ default, i18key }`; plugin locale files are flat key/value JSON maps
+  declared by `manifest.i18n` and loaded into the behavior snapshot.
 - Keep theme tokens in `src/web/styles/variables.css`.
 - Use the existing CSS import order in `src/web/styles.css`.
 
@@ -75,13 +77,13 @@ Do not pass arbitrary page objects into host services. Treat every WebView messa
 
 For the current Behavior UI, add the action type and schema in `src/automation/behavior/`, then update its catalog, localized labels, engine execution, and tests. If it needs a host capability, declare that dependency and enforce it through the capability layer.
 
-New behavior actions should register through `ActionRegistry`. Their configuration is a bounded JSON Schema object with optional UI hints (`kind`, `template`, `advanced`, `showIf`, and localized labels). The WebView renders this descriptor through `SchemaForm`; plugins do not ship Preact or DOM code. Built-in actions use the same registry and execution contract as sandbox actions. Existing behavior records with action schema version 1 are normalized to version 2 on read/save; records for missing plugins remain visible but unavailable.
+New behavior actions should register through `ActionRegistry`. Their configuration is a bounded JSON Schema object with optional UI hints (`kind`, `template`, `advanced`, `showIf`, and localized labels). Use `{ default, i18key }` for labels, titles, and descriptions; the default is the fallback and the key is resolved from the host or plugin key/value catalog. The WebView renders this descriptor through `SchemaForm`; plugins do not ship Preact or DOM code. Built-in actions use the same registry and execution contract as sandbox actions. Existing behavior records with action schema version 1 are normalized to version 2 on read/save; records for missing plugins remain visible but unavailable.
 
 For graph nodes, add the node definition and implementation in `src/automation/nodes/builtins.ts`, then add configuration and suggestions in `src/web/components/node-editor/` as appropriate. Saved workflow graphs must remain JSON-safe and pass graph validation.
 
 ## Adding a plugin
 
-A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, and permissions. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md). A sandbox entry may register both nodes and actions; actions are described with JSON Schema and execute in the worker through the capability broker.
+A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, permissions, and optional locale files such as `{ "i18n": { "en": "i18n/en.json", "es": "i18n/es.json" } }`. Locale files are flat key/value JSON maps and should namespace keys with the plugin id. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md). A sandbox entry may register both nodes and actions; actions are described with JSON Schema and execute in the worker through the capability broker.
 
 Trusted plugins are host code and should only be used for reviewed, bundled integrations. A worker process is a crash/isolation boundary, not a full security sandbox.
 

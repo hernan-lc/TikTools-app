@@ -206,16 +206,16 @@ registerAction({
   definition: {
     id: "dev.example.webhook",
     version: 1,
-    title: { en: "Webhook", es: "Webhook" },
-    description: { en: "Send an event", es: "Envía un evento" },
+    title: { "default": "Webhook", "i18key": "dev.example.webhook.action.title" },
+    description: { "default": "Send an event", "i18key": "dev.example.webhook.action.description" },
     tag: "http",
     source: { kind: "plugin", pluginId: "dev.example.webhook" },
     configSchema: {
       type: "object",
       required: ["url"],
       properties: {
-        url: { type: "string", title: { en: "URL", es: "URL" } },
-        body: { type: "string", format: "json", title: { en: "JSON body", es: "Cuerpo JSON" } }
+        url: { type: "string", title: { "default": "URL", "i18key": "dev.example.webhook.field.url" } },
+        body: { type: "string", format: "json", title: { "default": "JSON body", "i18key": "dev.example.webhook.field.body" } }
       }
     },
     requiredCapabilities: ["http.request"]
@@ -249,12 +249,42 @@ Downloaded plugins are loaded from `plugins/<id>/plugin.json` only when they dec
   "apiVersion": 1,
   "executionMode": "sandbox",
   "entry": "index.js",
+  "i18n": {
+    "en": "i18n/en.json",
+    "es": "i18n/es.json"
+  },
+  "metadata": {
+    "name": { "default": "Webhook action", "i18key": "dev.example.webhook.name" },
+    "description": { "default": "Sends an event to a webhook.", "i18key": "dev.example.webhook.description" },
+    "dependency": { "default": "Network access", "i18key": "dev.example.webhook.dependency" }
+  },
   "permissions": {
     "capabilities": ["http.request"],
     "network": ["hooks.example.com"]
   }
 }
 ```
+
+Locale files are flat JSON key/value maps. Their keys must match the
+`i18key` values used by the plugin descriptors and should be namespaced with
+the plugin id:
+
+```json
+{
+  "dev.example.webhook.name": "Acción webhook",
+  "dev.example.webhook.description": "Envía un evento a un webhook.",
+  "dev.example.webhook.dependency": "Acceso de red",
+  "dev.example.webhook.action.title": "Webhook",
+  "dev.example.webhook.action.description": "Envía un evento",
+  "dev.example.webhook.field.url": "URL",
+  "dev.example.webhook.field.body": "Cuerpo JSON"
+}
+```
+
+`default` is always displayed when a locale file or key is unavailable. The
+host loads locale files from inside the plugin directory, validates that they
+are flat string maps, and sends them to the WebView with the behavior
+snapshot. Plugins cannot override host translations.
 
 ```js
 import { registerNode } from "@tiktools/sdk";

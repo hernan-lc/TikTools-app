@@ -9,7 +9,7 @@ import {
 import type { EventFilter, FilterOperator } from '../../../automation/behavior/types.ts';
 import type { AutomationEventType } from '../../../automation/types.ts';
 import type { GiftCatalogEntry, ViewerRecord } from '../../../shared/messages.ts';
-import type { Locale } from '../../i18n.ts';
+import { i18nText, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph, OperatorGlyph, OPERATOR_CODE, OPERATOR_LABELS } from '../condition-icons.tsx';
 import { GiftPicker, UserPicker } from './GiftPicker.tsx';
 import { IconSelect } from './IconSelect.tsx';
@@ -159,9 +159,9 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
                 options={[
                   ...fields.map((entry) => ({
                     value: entry.path,
-                    label: entry.label[locale],
+                    label: i18nText(locale, entry.label),
                     meta: entry.path,
-                    hint: entry.hint[locale],
+                    hint: i18nText(locale, entry.hint),
                     icon: <FieldIconGlyph icon={entry.icon} />,
                   })),
                   { value: CUSTOM, label: copy.custom, icon: <FieldIconGlyph icon="text" /> },
@@ -184,7 +184,7 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
                 }}
                 options={operators.map((operator) => ({
                   value: operator,
-                  label: OPERATOR_LABELS[operator][locale],
+                  label: i18nText(locale, OPERATOR_LABELS[operator]),
                   meta: OPERATOR_CODE[operator],
                   icon: <OperatorGlyph operator={operator} />,
                 }))}

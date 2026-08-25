@@ -29,7 +29,7 @@ import type {
 import type { AutomationEventType } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
 import type { GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
-import type { Locale } from '../i18n.ts';
+import { i18nText, type Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
   locale: Locale;
@@ -526,7 +526,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                   >
                     {event.name}
                   </button>
-                  <span className="plg-table__origin">{TRIGGER_LABELS[event.trigger][locale]}</span>
+                  <span className="plg-table__origin">{i18nText(locale, TRIGGER_LABELS[event.trigger])}</span>
                   <span className="plg-table__chips">
                     {event.filters.length === 0 && <span className="plg-pill">{copy.always}</span>}
                     {event.filters.map((filter, index) => (
@@ -626,7 +626,7 @@ function ActionPicker({
   const copy = COPY[locale];
   const [query, setQuery] = useState('');
   const matches = (type: ActionTypeDefinition): boolean =>
-    !query.trim() || type.title[locale].toLowerCase().includes(query.trim().toLowerCase());
+    !query.trim() || i18nText(locale, type.title).toLowerCase().includes(query.trim().toLowerCase());
 
   const installed = plugins.filter((plugin) => plugin.installed && plugin.enabled);
 
@@ -672,10 +672,10 @@ function ActionPicker({
           return (
             <div className="plg-section" key={plugin.descriptor.id}>
               <div className="plg-group-head">
-                <span className="plg-section-title">{plugin.descriptor.name}</span>
+                <span className="plg-section-title">{i18nText(locale, plugin.descriptor.name)}</span>
                 <span className="plg-pill">{copy.pluginNote}</span>
                 <span className="plg-group-note">
-                  {plugin.descriptor.dependency[locale]} · {types.length}
+                  {i18nText(locale, plugin.descriptor.dependency)} · {types.length}
                 </span>
               </div>
               <div className="plg-cards">
@@ -715,10 +715,10 @@ function ActionTypeCard({
   return (
     <button type="button" className="plg-action-card" onClick={onPick}>
       <span className="plg-action-card__head">
-        <span className="plg-action-card__title">{type.title[locale]}</span>
+        <span className="plg-action-card__title">{i18nText(locale, type.title)}</span>
         <span className="plg-pill plg-pill--mono">{type.tag}</span>
       </span>
-      <span className="plg-action-card__desc">{type.description[locale]}</span>
+      <span className="plg-action-card__desc">{i18nText(locale, type.description)}</span>
     </button>
   );
 }
@@ -788,7 +788,7 @@ function ActionEditor({
             <div className="plg-field">
               <div className="plg-label-row">
                 <label className="plg-label">{copy.name}</label>
-                {type && <InfoTip text={type.description[locale]} position="right" />}
+                {type && <InfoTip text={i18nText(locale, type.description)} position="right" />}
               </div>
               <input
                 className="plg-input"
@@ -882,7 +882,7 @@ function EventEditor({
     .filter((name): name is string => Boolean(name));
 
   const steps = [
-    { number: 1, label: copy.stepWhen, sub: TRIGGER_LABELS[draft.trigger][locale] },
+    { number: 1, label: copy.stepWhen, sub: i18nText(locale, TRIGGER_LABELS[draft.trigger]) },
     {
       number: 2,
       label: copy.stepFilters,
@@ -954,7 +954,7 @@ function EventEditor({
                       onChange={(node) => update({ trigger: (node.currentTarget as HTMLSelectElement).value as AutomationEventType })}
                     >
                       {BEHAVIOR_TRIGGERS.map((trigger) => (
-                        <option key={trigger} value={trigger}>{TRIGGER_LABELS[trigger][locale]}</option>
+                        <option key={trigger} value={trigger}>{i18nText(locale, TRIGGER_LABELS[trigger])}</option>
                       ))}
                     </select>
                   </div>
@@ -1198,7 +1198,7 @@ function createActionFromType(type: ActionTypeDefinition, locale: Locale): LiveA
   return {
     schemaVersion: 2,
     id: createActionId(),
-    name: type.title[locale],
+    name: i18nText(locale, type.title),
     typeId: type.id,
     enabled: true,
     config,
@@ -1250,8 +1250,8 @@ function describeAction(action: LiveAction): string {
 }
 
 function describeFilter(filter: EventFilter, locale: Locale, trigger?: AutomationEventType): string {
-  const operator = OPERATOR_LABELS[filter.operator][locale];
-  const field = (trigger && findField(trigger, filter.path)?.label[locale])
+  const operator = i18nText(locale, OPERATOR_LABELS[filter.operator]);
+  const field = (trigger && findField(trigger, filter.path) && i18nText(locale, findField(trigger, filter.path)!.label))
     ?? filter.path.replace(/^event\.(data|user)\./, '');
   if (filter.operator === 'is-true' || filter.operator === 'is-false') return `${field} ${operator}`;
   // A filter with no value yet reads as an ellipsis instead of a dangling word.
@@ -1260,7 +1260,7 @@ function describeFilter(filter: EventFilter, locale: Locale, trigger?: Automatio
 }
 
 function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale): string {
-  const trigger = TRIGGER_LABELS[event.trigger][locale].toLowerCase();
+  const trigger = i18nText(locale, TRIGGER_LABELS[event.trigger]).toLowerCase();
   const filters = event.filters.map((filter) => describeFilter(filter, locale, event.trigger));
   const names = event.actionIds
     .map((id) => actions.find((action) => action.id === id)?.name)

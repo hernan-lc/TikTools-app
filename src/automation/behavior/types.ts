@@ -10,7 +10,24 @@ import type { AutomationEventType, JsonObject } from '../types.ts';
  * `in` operator.
  */
 export type Locale = 'es' | 'en';
-export type Localized = Record<Locale, string>;
+
+/**
+ * Localized metadata is intentionally a small, serializable value object.
+ *
+ * `default` keeps a plugin usable when its optional locale file is missing;
+ * `i18key` is the stable lookup key used by the host translation catalog.
+ * Plugins should namespace keys with their plugin id.
+ */
+export interface I18nText extends JsonObject {
+  default: string;
+  i18key: string;
+}
+
+/** Locale -> key -> translated value. Locale files use this exact shape. */
+export type TranslationCatalog = Record<string, Record<string, string>>;
+
+/** @deprecated Legacy per-locale descriptors are read during migration only. */
+export type Localized = I18nText | Record<Locale, string>;
 
 export type ActionFieldKind =
   | 'text'
@@ -124,7 +141,7 @@ export interface LiveEvent {
 
 export interface PluginDescriptor {
   id: string;
-  name: string;
+  name: Localized;
   version: string;
   description: Localized;
   /** What it needs from outside the app, in plain words. */
@@ -164,4 +181,6 @@ export interface BehaviorSnapshot {
   events: LiveEvent[];
   plugins: PluginStatus[];
   actionTypes: ActionTypeDefinition[];
+  /** Host and loaded plugin translations, keyed by locale and i18key. */
+  translations: TranslationCatalog;
 }

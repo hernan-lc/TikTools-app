@@ -1,5 +1,5 @@
 import type { AutomationEvent, JsonObject, JsonValue } from '../types.ts';
-import type { ActionField, ActionTypeDefinition } from './types.ts';
+import type { ActionField, ActionTypeDefinition, Localized } from './types.ts';
 import { renderJsonTemplate, renderTemplate } from './templates.ts';
 
 const MAX_TEXT = 4_096;
@@ -12,12 +12,16 @@ export function schemaForActionType(type: ActionTypeDefinition): JsonObject {
   for (const field of type.fields ?? []) {
     properties[field.key] = {
       type: field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string',
-      title: field.label,
+      title: jsonLocalized(field.label),
       default: defaultFieldValue(field),
       enum: field.options?.map((option) => option.value),
     };
   }
   return { type: 'object', properties };
+}
+
+function jsonLocalized(value: Localized): JsonObject {
+  return 'default' in value ? value : { default: value.en, i18key: '' };
 }
 
 /** Presentation metadata for fields that JSON Schema intentionally does not own. */

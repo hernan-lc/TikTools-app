@@ -1,11 +1,12 @@
-import type { ActionTypeDefinition, PluginDescriptor } from './types.ts';
+import type { JsonObject, JsonValue } from '../types.ts';
+import type { ActionField, ActionTypeDefinition, I18nText, Localized, PluginDescriptor, TranslationCatalog } from './types.ts';
 
 /**
  * Built-in action types have no dependencies, are always available, and cannot
  * be uninstalled. Everything that needs something from outside the app lives in
  * a plugin instead — and one plugin may expose several action types.
  */
-export const BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
+const RAW_BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
   {
     id: 'core.fetch',
     title: { es: 'Llamar a una URL', en: 'Call a URL' },
@@ -187,7 +188,7 @@ export const BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
  * (an optional native module, a child process) and can be uninstalled without
  * touching the built-in actions.
  */
-export const PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
+const RAW_PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
   {
     id: 'audio.play',
     title: { es: 'Reproducir sonido', en: 'Play a sound' },
@@ -248,7 +249,7 @@ export const PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
   },
 ];
 
-export const PLUGIN_DESCRIPTORS: PluginDescriptor[] = [
+const RAW_PLUGIN_DESCRIPTORS: Array<Omit<PluginDescriptor, 'name'> & { name: string }> = [
   {
     id: 'audio-native',
     name: 'Audio nativo',
@@ -274,6 +275,65 @@ export const PLUGIN_DESCRIPTORS: PluginDescriptor[] = [
     actionTypeIds: ['tts.speak'],
   },
 ];
+
+/** Bundled translations are sent with the behavior snapshot alongside plugin files. */
+export const BUILTIN_TRANSLATION_CATALOG: TranslationCatalog = { en: {}, es: {} };
+
+export const BUILTIN_ACTION_TYPES = RAW_BUILTIN_ACTION_TYPES.map(normalizeActionType);
+export const PLUGIN_ACTION_TYPES = RAW_PLUGIN_ACTION_TYPES.map(normalizeActionType);
+export const PLUGIN_DESCRIPTORS = RAW_PLUGIN_DESCRIPTORS.map((plugin) => ({
+  ...plugin,
+  name: normalizeText({ default: plugin.name, i18key: `plugin.${plugin.id}.name` }, `plugin.${plugin.id}.name`),
+  description: normalizeText(plugin.description, `plugin.${plugin.id}.description`),
+  dependency: normalizeText(plugin.dependency, `plugin.${plugin.id}.dependency`),
+}));
+
+function normalizeActionType(type: ActionTypeDefinition): ActionTypeDefinition {
+  return {
+    ...type,
+    title: normalizeText(type.title, `automation.action.${type.id}.title`),
+    description: normalizeText(type.description, `automation.action.${type.id}.description`),
+    fields: type.fields?.map((field) => normalizeField(field, `automation.action.${type.id}.field.${field.key}`)),
+    configSchema: type.configSchema ? normalizeJsonI18n(type.configSchema, `automation.action.${type.id}.schema`) as JsonObject : undefined,
+  };
+}
+
+function normalizeField(field: ActionField, key: string): ActionField {
+  return {
+    ...field,
+    label: normalizeText(field.label, `${key}.label`),
+    hint: field.hint ? normalizeText(field.hint, `${key}.hint`) : undefined,
+    options: field.options?.map((option) => ({
+      ...option,
+      label: normalizeText(option.label, `${key}.option.${option.value}`),
+    })),
+  };
+}
+
+function normalizeText(value: Localized, key: string): I18nText {
+  if ('default' in value) return value;
+  BUILTIN_TRANSLATION_CATALOG.en![key] = value.en;
+  BUILTIN_TRANSLATION_CATALOG.es![key] = value.es;
+  return { default: value.en, i18key: key };
+}
+
+function normalizeJsonI18n(value: JsonValue, key: string): JsonValue {
+  if (Array.isArray(value)) return value.map((entry, index) => normalizeJsonI18n(entry, `${key}.${index}`));
+  if (!isJsonObject(value)) return value;
+  if (typeof value.default === 'string' && typeof value.i18key === 'string') return value;
+  if (typeof value.en === 'string' && typeof value.es === 'string') {
+    return normalizeText({ en: value.en, es: value.es }, key);
+  }
+  const result: JsonObject = {};
+  for (const [entryKey, entryValue] of Object.entries(value)) {
+    if (entryValue !== undefined) result[entryKey] = normalizeJsonI18n(entryValue, `${key}.${entryKey}`);
+  }
+  return result;
+}
+
+function isJsonObject(value: JsonValue): value is JsonObject {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 export const ALL_ACTION_TYPES: ActionTypeDefinition[] = [...BUILTIN_ACTION_TYPES, ...PLUGIN_ACTION_TYPES];
 

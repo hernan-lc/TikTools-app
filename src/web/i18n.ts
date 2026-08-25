@@ -1,3 +1,5 @@
+import type { TranslationCatalog } from '../automation/behavior/types.ts';
+
 export const supportedLocales = ['en', 'es'] as const;
 export type Locale = (typeof supportedLocales)[number];
 
@@ -51,6 +53,8 @@ const english = {
   usernamePlaceholder: '@username',
   saveAndConnect: 'Save & Connect',
   cancel: 'Cancel',
+  add: 'Add',
+  advancedOptions: 'Advanced options',
   reconnect: 'Reconnect',
   openPreferences: 'Settings',
   continue: 'Continue',
@@ -92,6 +96,21 @@ const english = {
   tabPoints: 'Points System',
   tabPlugins: 'Plugins',
   tabBehavior: 'Behavior',
+  pluginsTitle: 'Plugins',
+  pluginsLead: 'A plugin brings a dependency and exposes one or more actions. Built-in actions always exist independently.',
+  builtInActions: 'Built-in actions',
+  builtInActionsNote: 'no dependencies · cannot be uninstalled',
+  pluginsInstalled: 'Installed',
+  pluginsBrowse: 'Browse',
+  pluginActionsLabel: 'Actions it adds:',
+  pluginInstall: 'Install',
+  pluginUninstall: 'Uninstall',
+  pluginActive: 'active',
+  pluginDisabled: 'disabled',
+  pluginUnavailable: 'dependency unavailable',
+  pluginsEmpty: 'No plugins installed. Built-in actions keep working; install one when you need an external integration.',
+  pluginUsedBy: '{count} action(s) use it and will stop working.',
+  pluginUninstallConfirm: 'Uninstall this plugin?',
   automations: 'Automations',
   automationsLead: 'Build event-driven workflows for chat, gifts, points, and live actions.',
   newWorkflow: 'New Workflow',
@@ -252,6 +271,8 @@ const spanish: Record<TranslationKey, string> = {
   usernamePlaceholder: '@creador',
   saveAndConnect: 'Guardar y Conectar',
   cancel: 'Cancelar',
+  add: 'Añadir',
+  advancedOptions: 'Opciones avanzadas',
   reconnect: 'Reconectar',
   openPreferences: 'Ajustes',
   continue: 'Continuar',
@@ -295,6 +316,21 @@ const spanish: Record<TranslationKey, string> = {
   // Points System (matching TikFinity UI)
   tabPlugins: 'Plugins',
   tabBehavior: 'Comportamiento',
+  pluginsTitle: 'Plugins',
+  pluginsLead: 'Un plugin trae una dependencia y expone una o varias acciones. Las acciones integradas existen de forma independiente.',
+  builtInActions: 'Acciones integradas',
+  builtInActionsNote: 'sin dependencias · no se desinstalan',
+  pluginsInstalled: 'Instalados',
+  pluginsBrowse: 'Explorar',
+  pluginActionsLabel: 'Acciones que aporta:',
+  pluginInstall: 'Instalar',
+  pluginUninstall: 'Desinstalar',
+  pluginActive: 'activo',
+  pluginDisabled: 'desactivado',
+  pluginUnavailable: 'dependencia no disponible',
+  pluginsEmpty: 'Sin plugins instalados. Las acciones integradas siguen funcionando; instala uno cuando necesites una integración externa.',
+  pluginUsedBy: '{count} acción(es) lo usan y dejarán de funcionar.',
+  pluginUninstallConfirm: '¿Desinstalar este plugin?',
   automations: 'Automatizaciones',
   automationsLead: 'Construye flujos basados en eventos para chat, regalos, puntos y acciones en directo.',
   newWorkflow: 'Nuevo Flujo',
@@ -407,8 +443,43 @@ const dictionary: Record<Locale, Record<TranslationKey, string>> = {
   es: spanish,
 };
 
-export function t(locale: Locale, key: TranslationKey, values: Record<string, string | number> = {}): string {
-  const item = dictionary[locale]?.[key] ?? dictionary.en[key] ?? key;
+let pluginDictionary: TranslationCatalog = {};
+
+/**
+ * Replace the optional plugin catalog delivered by the host. Keeping this in
+ * the WebView avoids coupling plugin packages to Preact or to the DOM.
+ */
+export function setPluginTranslations(catalog: TranslationCatalog | undefined): void {
+  pluginDictionary = catalog ?? {};
+}
+
+/** Resolve host or plugin metadata using `{ default, i18key }`. */
+export function i18nText(locale: Locale, value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+
+  const object = value as Record<string, unknown>;
+  const key = typeof object.i18key === 'string' ? object.i18key : '';
+  if (key) {
+    const localized = dictionary[locale]?.[key as TranslationKey]
+      ?? pluginDictionary[locale]?.[key]
+      ?? dictionary.en?.[key as TranslationKey]
+      ?? pluginDictionary.en?.[key];
+    if (localized) return localized;
+  }
+
+  if (typeof object.default === 'string') return object.default;
+  // Read old descriptors while stored plugins migrate to the new contract.
+  const legacy = object[locale] ?? object.en;
+  return typeof legacy === 'string' ? legacy : '';
+}
+
+export function t(locale: Locale, key: TranslationKey | string, values: Record<string, string | number> = {}): string {
+  const item = dictionary[locale]?.[key as TranslationKey]
+    ?? pluginDictionary[locale]?.[key]
+    ?? dictionary.en?.[key as TranslationKey]
+    ?? pluginDictionary.en?.[key]
+    ?? key;
   return item.replace(/\{(\w+)\}/g, (placeholder, name: string) => {
     const value = values[name];
     return value === undefined ? placeholder : String(value);

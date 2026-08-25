@@ -1,6 +1,6 @@
 import type { AutomationCapabilities } from '../capabilities.ts';
 import type { AutomationEvent, JsonObject } from '../types.ts';
-import type { ActionTypeDefinition, LiveAction } from './types.ts';
+import type { ActionTypeDefinition, LiveAction, Localized } from './types.ts';
 
 export interface ActionExecutionContext {
   action: LiveAction;
@@ -50,10 +50,14 @@ export class ActionRegistry {
   definitions(): ActionTypeDefinition[] {
     return [...this.#actions.values()]
       .map((implementation) => implementation.definition)
-      .sort((a, b) => a.source.kind.localeCompare(b.source.kind) || a.title.en.localeCompare(b.title.en));
+      .sort((a, b) => a.source.kind.localeCompare(b.source.kind) || localizedDefault(a.title).localeCompare(localizedDefault(b.title)));
   }
 
   has(id: string): boolean {
     return this.#actions.has(id);
   }
+}
+
+function localizedDefault(value: Localized): string {
+  return 'default' in value ? value.default : value.en;
 }

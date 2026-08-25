@@ -19,7 +19,7 @@ import {
   type SandboxNodeDescriptor,
 } from './protocol.ts';
 import type { ActionExecutionContext, ActionExecutionResult, ActionImplementation } from '../behavior/action-registry.ts';
-import type { ActionTypeDefinition, Localized } from '../behavior/types.ts';
+import type { ActionTypeDefinition, I18nText, Localized } from '../behavior/types.ts';
 import type {
   AutomationEventType,
   ExecutionLogEntry,
@@ -497,11 +497,17 @@ function normalizeActionDefinition(
 }
 
 function normalizeLocalized(value: unknown, label: string): Localized {
-  if (typeof value === 'string' && value.trim()) return { en: value, es: value };
+  if (typeof value === 'string' && value.trim()) return { default: value, i18key: '' };
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} is invalid.`);
   const object = value as Record<string, unknown>;
-  if (typeof object.en !== 'string' || typeof object.es !== 'string' || !object.en.trim() || !object.es.trim()) throw new Error(`${label} must contain en and es.`);
-  return { en: object.en, es: object.es };
+  if (typeof object.default === 'string' && object.default.trim() && typeof object.i18key === 'string' && /^[a-zA-Z0-9_.-]{1,160}$/.test(object.i18key)) {
+    return { default: object.default, i18key: object.i18key } satisfies I18nText;
+  }
+  // Compatibility for worker packages published before the key/default contract.
+  if (typeof object.en === 'string' && typeof object.es === 'string' && object.en.trim() && object.es.trim()) {
+    return { en: object.en, es: object.es };
+  }
+  throw new Error(`${label} must contain default and i18key.`);
 }
 
 function normalizeDefinition(descriptor: SandboxNodeDescriptor, pluginId: string): NodeDefinition {

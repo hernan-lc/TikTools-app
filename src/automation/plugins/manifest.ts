@@ -1,5 +1,6 @@
 import type { JsonObject, NodeImplementation } from '../types.ts';
 import type { ActionImplementation } from '../behavior/action-registry.ts';
+import type { TranslationCatalog } from '../behavior/types.ts';
 
 export type PluginExecutionMode = 'sandbox' | 'trusted';
 
@@ -20,6 +21,8 @@ export interface AutomationPluginManifest {
   entry?: string;
   executionMode: PluginExecutionMode;
   permissions: PluginPermissions;
+  /** Locale -> relative JSON file, for example { "en": "i18n/en.json" }. */
+  i18n?: Record<string, string>;
   metadata?: JsonObject;
 }
 
@@ -27,6 +30,7 @@ export interface AutomationPlugin {
   manifest: AutomationPluginManifest;
   nodes?: NodeImplementation[];
   actions?: ActionImplementation[];
+  translations?: TranslationCatalog;
 }
 
 export function assertValidPluginManifest(value: unknown): asserts value is AutomationPluginManifest {
@@ -42,7 +46,8 @@ export function isPluginManifest(value: unknown): value is AutomationPluginManif
   if (typeof manifest.version !== 'string' || !manifest.version.trim()) return false;
   if (manifest.executionMode !== 'sandbox' && manifest.executionMode !== 'trusted') return false;
   if (!isPermissions(manifest.permissions)) return false;
-  return manifest.entry === undefined || typeof manifest.entry === 'string';
+  return (manifest.entry === undefined || typeof manifest.entry === 'string')
+    && (manifest.i18n === undefined || isI18nFiles(manifest.i18n));
 }
 
 function isPermissions(value: unknown): value is PluginPermissions {
@@ -52,4 +57,14 @@ function isPermissions(value: unknown): value is PluginPermissions {
     const entry = permissions[key];
     return entry === undefined || (Array.isArray(entry) && entry.every((item) => typeof item === 'string'));
   });
+}
+
+function isI18nFiles(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 32) return false;
+  return entries.every(([locale, path]) => /^[a-z]{2}(?:-[A-Z]{2})?$/.test(locale)
+    && typeof path === 'string'
+    && path.length > 0
+    && path.length <= 256);
 }

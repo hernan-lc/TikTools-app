@@ -24,8 +24,8 @@ import { AutomationRuntime } from './automation/runtime.ts';
 import { BehaviorEngine, sampleEventFor } from './automation/behavior/engine.ts';
 import { createBuiltInActionRegistry } from './automation/behavior/builtins.ts';
 import { normalizeAction } from './automation/behavior/schema.ts';
-import { PLUGIN_DESCRIPTORS } from './automation/behavior/catalog.ts';
-import type { BehaviorRun, BehaviorSnapshot, PluginDescriptor, PluginStatus } from './automation/behavior/types.ts';
+import { BUILTIN_TRANSLATION_CATALOG, PLUGIN_DESCRIPTORS } from './automation/behavior/catalog.ts';
+import type { BehaviorRun, BehaviorSnapshot, Localized, PluginDescriptor, PluginStatus } from './automation/behavior/types.ts';
 import { NativeAudioService } from './automation/services/audio-service.ts';
 import { HttpService } from './automation/services/http-service.ts';
 import { NapiVmService } from './automation/services/napi-vm-service.ts';
@@ -554,6 +554,7 @@ export class LiveController {
       events: this.automationDb.listEvents(),
       plugins,
       actionTypes: this.actionRegistry.definitions(),
+      translations: mergeTranslationCatalog(BUILTIN_TRANSLATION_CATALOG, this.pluginManager.translations()),
     };
   }
 
@@ -916,22 +917,36 @@ function manifestToDescriptor(manifest: import('./automation/plugins/manifest.ts
   const metadata = manifest.metadata ?? {};
   return {
     id: manifest.id,
-    name: manifest.name,
+    name: localizedMetadata(metadata.name, manifest.name, `plugin.${manifest.id}.name`),
     version: manifest.version,
-    description: localizedMetadata(metadata.description, manifest.name),
-    dependency: localizedMetadata(metadata.dependency, 'Sandbox worker'),
+    description: localizedMetadata(metadata.description, manifest.name, `plugin.${manifest.id}.description`),
+    dependency: localizedMetadata(metadata.dependency, 'Sandbox worker', `plugin.${manifest.id}.dependency`),
     permissions: [...(manifest.permissions.capabilities ?? []), ...(manifest.permissions.network ?? []).map((entry) => `network:${entry}`)],
     actionTypeIds,
   };
 }
 
-function localizedMetadata(value: JsonValueLike, fallback: string): { es: string; en: string } {
-  if (typeof value === 'string' && value.trim()) return { es: value, en: value };
+function localizedMetadata(value: JsonValueLike, fallback: string, i18key: string): Localized {
+  if (typeof value === 'string' && value.trim()) return { default: value, i18key };
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const object = value as Record<string, unknown>;
+    if (typeof object.default === 'string' && typeof object.i18key === 'string' && object.default.trim()) {
+      return { default: object.default, i18key: object.i18key };
+    }
     if (typeof object.es === 'string' && typeof object.en === 'string') return { es: object.es, en: object.en };
   }
-  return { es: fallback, en: fallback };
+  return { default: fallback, i18key };
 }
 
 type JsonValueLike = JsonObject | string | number | boolean | null | JsonValueLike[] | undefined;
+
+function mergeTranslationCatalog(...catalogs: import('./automation/behavior/types.ts').TranslationCatalog[]): import('./automation/behavior/types.ts').TranslationCatalog {
+  const merged: import('./automation/behavior/types.ts').TranslationCatalog = {};
+  for (const catalog of catalogs) {
+    for (const [locale, entries] of Object.entries(catalog)) {
+      const target = merged[locale] ?? (merged[locale] = {});
+      for (const [key, value] of Object.entries(entries)) target[key] = value;
+    }
+  }
+  return merged;
+}

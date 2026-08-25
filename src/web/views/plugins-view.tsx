@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 
 import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
-import type { Locale } from '../i18n.ts';
+import { i18nText, t, type Locale } from '../i18n.ts';
 
 type PluginsViewProps = {
   locale: Locale;
@@ -13,46 +13,26 @@ type PluginsViewProps = {
   onSetEnabled: (id: string, enabled: boolean) => void;
 };
 
-const COPY = {
-  es: {
-    title: 'Plugins',
-    lead: 'Un plugin trae una dependencia y expone una o varias acciones. Las acciones integradas no viven aquí: existen siempre.',
-    builtInLabel: 'Acciones integradas',
-    builtInNote: 'sin dependencias · no se desinstalan',
-    installed: 'Instalados',
-    store: 'Explorar',
-    actionsLabel: 'Acciones que aporta:',
-    install: 'Instalar',
-    uninstall: 'Desinstalar',
-    installedTag: 'instalado',
-    active: 'activo',
-    disabled: 'desactivado',
-    unavailable: 'dependencia no disponible',
-    emptyInstalled: 'Sin plugins instalados. Las acciones integradas siguen funcionando; instala uno sólo cuando necesites algo de fuera.',
-    explore: 'Explorar',
-    usedBy: (count: number) => `${count} acción(es) lo usan y dejarán de funcionar.`,
-    confirm: '¿Desinstalar este plugin?',
-  },
-  en: {
-    title: 'Plugins',
-    lead: 'A plugin brings a dependency and exposes one or more actions. Built-in actions do not live here: they always exist.',
-    builtInLabel: 'Built-in actions',
-    builtInNote: 'no dependencies · cannot be uninstalled',
-    installed: 'Installed',
-    store: 'Browse',
-    actionsLabel: 'Actions it adds:',
-    install: 'Install',
-    uninstall: 'Uninstall',
-    installedTag: 'installed',
-    active: 'active',
-    disabled: 'disabled',
-    unavailable: 'dependency unavailable',
-    emptyInstalled: 'No plugins installed. Built-in actions keep working; install one only when you need something from outside.',
-    explore: 'Browse',
-    usedBy: (count: number) => `${count} action(s) use it and will stop working.`,
-    confirm: 'Uninstall this plugin?',
-  },
-} as const;
+function pluginCopy(locale: Locale) {
+  return {
+    title: t(locale, 'pluginsTitle'),
+    lead: t(locale, 'pluginsLead'),
+    builtInLabel: t(locale, 'builtInActions'),
+    builtInNote: t(locale, 'builtInActionsNote'),
+    installed: t(locale, 'pluginsInstalled'),
+    store: t(locale, 'pluginsBrowse'),
+    actionsLabel: t(locale, 'pluginActionsLabel'),
+    install: t(locale, 'pluginInstall'),
+    uninstall: t(locale, 'pluginUninstall'),
+    active: t(locale, 'pluginActive'),
+    disabled: t(locale, 'pluginDisabled'),
+    unavailable: t(locale, 'pluginUnavailable'),
+    emptyInstalled: t(locale, 'pluginsEmpty'),
+    explore: t(locale, 'pluginsBrowse'),
+    usedBy: (count: number) => t(locale, 'pluginUsedBy', { count }),
+    confirm: t(locale, 'pluginUninstallConfirm'),
+  };
+}
 
 export function PluginsView({
   locale,
@@ -63,7 +43,7 @@ export function PluginsView({
   onSetInstalled,
   onSetEnabled,
 }: PluginsViewProps) {
-  const copy = COPY[locale];
+  const copy = pluginCopy(locale);
   const [tab, setTab] = useState<'installed' | 'store'>('installed');
 
   const installed = plugins.filter((plugin) => plugin.installed);
@@ -104,7 +84,7 @@ export function PluginsView({
               <span className="plg-dot is-ok" />
               <span className="plg-banner__label">{copy.builtInLabel}</span>
               <span className="plg-banner__list">
-                {actionTypes.filter((type) => type.source.kind === 'builtin').map((type) => type.title[locale]).join(' · ')}
+                {actionTypes.filter((type) => type.source.kind === 'builtin').map((type) => i18nText(locale, type.title)).join(' · ')}
               </span>
               <span className="plg-banner__note">{copy.builtInNote}</span>
             </div>
@@ -124,7 +104,7 @@ export function PluginsView({
                 <div className="plg-plugin__head">
                   <div className="plg-field">
                     <div className="plg-plugin__title">
-                      <span className="plg-plugin__name">{plugin.descriptor.name}</span>
+                      <span className="plg-plugin__name">{i18nText(locale, plugin.descriptor.name)}</span>
                       <span className="plg-pill plg-pill--mono">{plugin.descriptor.version}</span>
                       {plugin.installed && (
                         <span className={`plg-pill${plugin.enabled ? ' plg-pill--accent' : ''}`}>
@@ -133,17 +113,20 @@ export function PluginsView({
                       )}
                       {!plugin.available && <span className="plg-pill">{copy.unavailable}</span>}
                     </div>
-                    <span className="plg-plugin__desc">{plugin.descriptor.description[locale]}</span>
+                    <span className="plg-plugin__desc">{i18nText(locale, plugin.descriptor.description)}</span>
                     <div className="plg-table__chips">
                       <span className="plg-group-note">{copy.actionsLabel}</span>
                       {plugin.descriptor.actionTypeIds.map((id) => (
                         <span className="plg-pill" key={id}>
-                          {actionTypes.find((entry) => entry.id === id)?.title[locale] ?? id}
+                          {(() => {
+                            const type = actionTypes.find((entry) => entry.id === id);
+                            return type ? i18nText(locale, type.title) : id;
+                          })()}
                         </span>
                       ))}
                     </div>
                     <div className="plg-plugin__meta">
-                      <span>{plugin.descriptor.dependency[locale]}</span>
+                      <span>{i18nText(locale, plugin.descriptor.dependency)}</span>
                       <span>·</span>
                       <span>{plugin.descriptor.permissions.join(' · ')}</span>
                     </div>
@@ -154,7 +137,7 @@ export function PluginsView({
                       <button
                         type="button"
                         className={`plg-switch${plugin.enabled ? ' is-on' : ''}`}
-                        aria-label={plugin.descriptor.name}
+                        aria-label={i18nText(locale, plugin.descriptor.name)}
                         onClick={() => onSetEnabled(plugin.descriptor.id, !plugin.enabled)}
                       >
                         <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>

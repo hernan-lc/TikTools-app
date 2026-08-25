@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import type { AutomationCapabilities } from '../capabilities.ts';
 import type { NodeImplementation, NodeExecutionContext } from '../types.ts';
+import type { TranslationCatalog } from '../behavior/types.ts';
 import { PluginCapabilityBroker } from './capability-broker.ts';
 import {
   assertValidPluginManifest,
@@ -13,6 +14,7 @@ import { PluginWorkerHost } from './plugin-worker-host.ts';
 
 const MAX_MANIFEST_BYTES = 256 * 1024;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
+const MAX_I18N_BYTES = 256 * 1024;
 
 export interface PluginLoaderOptions {
   rootDirectory: string;
@@ -91,6 +93,7 @@ export class AutomationPluginLoader {
     if (manifest.executionMode !== 'sandbox') {
       throw new Error(`Plugin ${manifest.id} is trusted; install it through a host integration instead.`);
     }
+    const translations = await readTranslations(resolvedDirectory, manifest);
     if (!manifest.entry) throw new Error(`Sandbox plugin ${manifest.id} must declare an entry file.`);
     const entryPath = await resolveContainedFile(resolvedDirectory, manifest.entry);
     const entryStats = await stat(entryPath);
@@ -116,7 +119,7 @@ export class AutomationPluginLoader {
         execute: (context: NodeExecutionContext) => worker.execute(context),
       }));
       const actions = loaded.actions;
-      this.#options.manager.registerSandbox({ manifest, nodes, actions }, () => worker.stop());
+      this.#options.manager.registerSandbox({ manifest, nodes, actions, translations }, () => worker.stop());
       this.#workers.set(manifest.id, worker);
       this.#options.onLoaded?.(manifest);
     } catch (error) {
@@ -179,6 +182,37 @@ async function resolveContainedFile(root: string, entry: string): Promise<string
     throw new Error('Plugin entry must remain inside the plugin directory.');
   }
   return candidate;
+}
+
+async function readTranslations(root: string, manifest: AutomationPluginManifest): Promise<TranslationCatalog> {
+  const catalog: TranslationCatalog = {};
+  for (const [locale, relativePath] of Object.entries(manifest.i18n ?? {})) {
+    const path = await resolveContainedFile(root, relativePath);
+    const info = await stat(path);
+    if (!info.isFile()) throw new Error(`Plugin i18n file is not a file: ${relativePath}`);
+    if (info.size > MAX_I18N_BYTES) throw new Error(`Plugin ${manifest.id} i18n file exceeds the 256 KB limit: ${relativePath}`);
+
+    let value: unknown;
+    try {
+      value = JSON.parse(await readFile(path, 'utf8')) as unknown;
+    } catch {
+      throw new Error(`Plugin ${manifest.id} i18n file is not valid JSON: ${relativePath}`);
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error(`Plugin ${manifest.id} i18n file must be a flat key/value JSON object: ${relativePath}`);
+    }
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length > 4_096) throw new Error(`Plugin ${manifest.id} i18n file has too many keys: ${relativePath}`);
+    const translations: Record<string, string> = {};
+    for (const [key, text] of entries) {
+      if (!/^[a-zA-Z0-9_.-]{1,160}$/.test(key) || typeof text !== 'string' || text.length > 8_000) {
+        throw new Error(`Plugin ${manifest.id} i18n key/value is invalid: ${key}`);
+      }
+      translations[key] = text;
+    }
+    catalog[locale] = translations;
+  }
+  return catalog;
 }
 
 function isMissingPath(error: unknown): boolean {
