@@ -1,13 +1,13 @@
 import { t, type Locale } from '../i18n.ts';
 import type { Theme } from '../preferences.ts';
 import type { ConnectionStatus } from '../types.ts';
+import { AppIcon } from './app-icon.tsx';
 import {
   IconGlobe,
   IconMoon,
   IconPower,
   IconRefresh,
   IconSun,
-  IconTikTok,
 } from './icons.tsx';
 
 type TopNavProps = {
@@ -38,7 +38,7 @@ export function TopNav({
     <header className="top-nav">
       <div className="brand-section">
         <div className="brand-logo" data-tooltip="TikTok LIVE" data-tooltip-pos="bottom">
-          <IconTikTok />
+          <AppIcon size={28} />
         </div>
         <div className="brand-info">
           <h1>

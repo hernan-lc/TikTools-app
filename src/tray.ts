@@ -10,26 +10,15 @@ import {
   update,
 } from 'tray-icon-node';
 
+import { createAppIconRgba } from './app-icon.ts';
+
 export type TrayController = {
   stop: () => void;
 };
 
 function createTrayIcon(): Icon {
-  const size = 16;
-  const pixels = Buffer.alloc(size * size * 4);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const distance = Math.hypot(x - 7.5, y - 7.5);
-      const inside = distance < 6.8;
-      const highlight = distance < 4.1;
-      const offset = (y * size + x) * 4;
-      pixels[offset] = highlight ? 255 : 33;
-      pixels[offset + 1] = highlight ? 79 : 212;
-      pixels[offset + 2] = highlight ? 145 : 232;
-      pixels[offset + 3] = inside ? 255 : 0;
-    }
-  }
-  return Icon.fromRgba(pixels, size, size);
+  const size = 32;
+  return Icon.fromRgba(createAppIconRgba(size), size, size);
 }
 
 export function startTray(options: { onShow: () => void; onQuit: () => void }): TrayController {
