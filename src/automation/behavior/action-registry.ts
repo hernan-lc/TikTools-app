@@ -59,5 +59,5 @@ export class ActionRegistry {
 }
 
 function localizedDefault(value: Localized): string {
-  return 'default' in value ? value.default : value.en;
+  return value.default;
 }

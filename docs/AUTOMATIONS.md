@@ -35,10 +35,11 @@ Action types come from two places, and the difference is the point:
   are always available and cannot be uninstalled: `core.fetch`, `core.emit`,
   `core.points`, `core.delay`, `core.log`, `core.code`.
 - **Plugin** types arrive with a plugin, and one plugin may expose several. The
-  two bundled ones own a real dependency: `audio-native` (the optional
-  `miniaudio_node` binary) exposes `audio.play` and `audio.stop`, and
-  `sonicboom-tts` (the SonicBoom child process) exposes `tts.speak`. Installing
-  or disabling a plugin is what makes its action types appear or stop running —
+  provider packages are `audio.miniaudio` (the optional `miniaudio_node` binary)
+  and `tts.sonicboom` (the SonicBoom child process); they register generic
+  audio/TTS providers used by `audio.play`, `audio.stop`, and `tts.speak`.
+  Installing or disabling a plugin is what makes its action types appear or
+  stop running —
   the engine refuses an action whose plugin is not ready.
 
 Filters are a flat list and every one must pass; there are no nested groups and
@@ -175,11 +176,10 @@ It does not expose `require`, filesystem, network, process, or native modules. S
 
 ## Audio and TTS
 
-`NativeAudioService` is a trusted host adapter for `miniaudio_node`. It supports local file playback and `allow`, `restart`, and `drop` overlap policies. The native package is loaded only when a Play Sound node executes, so the UI and graph runtime do not import native audio code.
-
-`miniaudio_node` is declared as an optional native dependency because its platform binary may be unavailable on a target OS. The service initializes it lazily on the first Play Sound action and reports a clear capability error instead of preventing the rest of TikTools from starting.
-
-`SonicBoomProvider` owns an optional SonicBoom child process and uses its current localhost HTTP API:
+The host exposes only the provider registries through the generic AppPlugin
+runtime. The MiniAudio package keeps the N-API wrapper and platform binary
+inside its own directory; the SonicBoom package owns its child process and
+localhost HTTP details:
 
 ```text
 Text to Speech node
@@ -188,10 +188,11 @@ Text to Speech node
 SonicBoom /api/tts -> temporary WAV file
        |
        v
-Play Sound node -> miniaudio_node
+Play Sound node -> audio provider registry -> MiniAudio plugin -> N-API
 ```
 
-This matches SonicBoom’s current server shape. A future stdio worker can implement the same `TtsCapability` without changing workflow nodes.
+This keeps the workflow node contract stable while allowing another audio or
+TTS provider to replace either package.
 
 ## Plugin boundary
 

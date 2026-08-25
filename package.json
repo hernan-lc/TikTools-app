@@ -8,6 +8,9 @@
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test src",
     "test:plugin-worker": "bun run src/automation/plugins/worker-smoke.ts",
+    "build:plugins": "bun run scripts/build-plugins.ts",
+    "package:plugin": "bun run scripts/package-plugin.ts",
+    "install:plugin": "bun run scripts/install-plugin.ts",
     "smoke:compiled": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-compiled.ps1",
     "smoke:compiled-worker": "bun run scripts/smoke-compiled-worker.ts",
     "smoke:compiled-integration": "bun run scripts/smoke-compiled-integration.ts",
@@ -27,8 +30,5 @@
     "sqlite-napi": "^1.3.0",
     "tray-icon-node": "^0.1.2",
     "webview-napi": "^2.2.0"
-  },
-  "optionalDependencies": {
-    "miniaudio_node": "^1.6.0"
   }
 }

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "audio.miniaudio",
+  "name": "MiniAudio",
+  "version": "1.6.3",
+  "description": "Native local audio playback.",
+  "main": "./dist/plugin.js",
+  "host": {
+    "api": "^1.0.0",
+    "uiApi": "^1.0.0"
+  },
+  "type": "audio",
+  "capabilities": [
+    "audio.playback",
+    "audio.devices"
+  ],
+  "permissions": [
+    "audio.output",
+    "filesystem.read"
+  ],
+  "isolation": "trusted",
+  "native": {
+    "package": "miniaudio_node",
+    "targets": [
+      "win32-x64-msvc",
+      "win32-arm64-msvc",
+      "linux-x64-gnu",
+      "linux-arm64-gnu",
+      "darwin-x64-darwin",
+      "darwin-arm64-darwin"
+    ]
+  },
+  "i18n": {
+    "default": "en",
+    "directory": "./locales"
+  },
+  "assets": {
+    "icon": "./assets/icon.svg"
+  }
+}

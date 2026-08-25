@@ -44,132 +44,126 @@ export function operatorsFor(kind: FieldValueKind): FilterOperator[] {
 const COMMON_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.user.uniqueId',
-    label: { es: 'Usuario', en: 'Viewer' },
+    label: { default: "Viewer", i18key: "automation.event.field.event.user.uniqueId.label" },
     icon: 'user',
     kind: 'user',
-    hint: { es: 'El @ de quien dispara el evento.', en: 'The @ of whoever triggers the event.' },
+    hint: { default: "The @ of whoever triggers the event.", i18key: "automation.event.field.event.user.uniqueId.hint" },
   },
   {
     path: 'event.user.nickname',
-    label: { es: 'Nombre visible', en: 'Display name' },
+    label: { default: "Display name", i18key: "automation.event.field.event.user.nickname.label" },
     icon: 'text',
     kind: 'text',
-    hint: { es: 'El nombre que muestra TikTok, que puede cambiar.', en: 'The name TikTok shows, which can change.' },
+    hint: { default: "The name TikTok shows, which can change.", i18key: "automation.event.field.event.user.nickname.hint" },
   },
 ];
 
 const GIFT_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.giftName',
-    label: { es: 'Regalo', en: 'Gift' },
+    label: { default: "Gift", i18key: "automation.event.field.event.data.giftName.label" },
     icon: 'gift',
     kind: 'gift',
-    hint: { es: 'El nombre del regalo tal y como lo manda TikTok.', en: 'The gift name exactly as TikTok sends it.' },
+    hint: { default: "The gift name exactly as TikTok sends it.", i18key: "automation.event.field.event.data.giftName.hint" },
   },
   {
     path: 'event.data.diamondCount',
-    label: { es: 'Diamantes', en: 'Diamonds' },
+    label: { default: "Diamonds", i18key: "automation.event.field.event.data.diamondCount.label" },
     icon: 'gem',
     kind: 'number',
-    hint: { es: 'Lo que vale el regalo en diamantes.', en: 'What the gift is worth in diamonds.' },
+    hint: { default: "What the gift is worth in diamonds.", i18key: "automation.event.field.event.data.diamondCount.hint" },
   },
   {
     path: 'event.data.repeatCount',
-    label: { es: 'Veces seguidas', en: 'Repeat count' },
+    label: { default: "Repeat count", i18key: "automation.event.field.event.data.repeatCount.label" },
     icon: 'hash',
     kind: 'number',
-    hint: {
-      es: 'Cuántas veces seguidas ha mandado el mismo regalo.',
-      en: 'How many times in a row the same gift was sent.',
-    },
+    hint: { default: "How many times in a row the same gift was sent.", i18key: "automation.event.field.event.data.repeatCount.hint" },
   },
   {
     path: 'event.data.repeatEnd',
-    label: { es: 'Racha terminada', en: 'Streak finished' },
+    label: { default: "Streak finished", i18key: "automation.event.field.event.data.repeatEnd.label" },
     icon: 'repeat',
     kind: 'boolean',
-    hint: {
-      es: 'Cierto sólo en el último golpe de una racha: úsalo para disparar una vez por racha.',
-      en: 'True only on the last hit of a streak: use it to fire once per streak.',
-    },
+    hint: { default: "True only on the last hit of a streak: use it to fire once per streak.", i18key: "automation.event.field.event.data.repeatEnd.hint" },
   },
 ];
 
 const CHAT_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.comment',
-    label: { es: 'Mensaje', en: 'Message' },
+    label: { default: "Message", i18key: "automation.event.field.event.data.comment.label" },
     icon: 'text',
     kind: 'text',
-    hint: { es: 'El texto escrito en el chat.', en: 'The text written in chat.' },
+    hint: { default: "The text written in chat.", i18key: "automation.event.field.event.data.comment.hint" },
   },
 ];
 
 const LIKE_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.count',
-    label: { es: 'Likes de golpe', en: 'Likes at once' },
+    label: { default: "Likes at once", i18key: "automation.event.field.event.data.count.label" },
     icon: 'hash',
     kind: 'number',
-    hint: { es: 'Cuántos likes trae este evento.', en: 'How many likes this event carries.' },
+    hint: { default: "How many likes this event carries.", i18key: "automation.event.field.event.data.count.hint" },
   },
   {
     path: 'event.data.total',
-    label: { es: 'Likes totales', en: 'Total likes' },
+    label: { default: "Total likes", i18key: "automation.event.field.event.data.total.label" },
     icon: 'hash',
     kind: 'number',
-    hint: { es: 'Likes acumulados del directo.', en: 'Likes accumulated in the live.' },
+    hint: { default: "Likes accumulated in the live.", i18key: "automation.event.field.event.data.total.hint" },
   },
 ];
 
 const POINTS_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.delta',
-    label: { es: 'Puntos sumados', en: 'Points added' },
+    label: { default: "Points added", i18key: "automation.event.field.event.data.delta.label" },
     icon: 'star',
     kind: 'number',
-    hint: { es: 'Lo que ha subido o bajado en esta operación.', en: 'What went up or down in this operation.' },
+    hint: { default: "What went up or down in this operation.", i18key: "automation.event.field.event.data.delta.hint" },
   },
   {
     path: 'event.data.totalPoints',
-    label: { es: 'Puntos totales', en: 'Total points' },
+    label: { default: "Total points", i18key: "automation.event.field.event.data.totalPoints.label" },
     icon: 'star',
     kind: 'number',
-    hint: { es: 'El saldo del usuario después de sumar.', en: "The viewer's balance after the change." },
+    hint: { default: "The viewer's balance after the change.", i18key: "automation.event.field.event.data.totalPoints.hint" },
   },
   {
     path: 'event.data.level',
-    label: { es: 'Nivel', en: 'Level' },
+    label: { default: "Level", i18key: "automation.event.field.event.data.level.label" },
     icon: 'hash',
     kind: 'number',
-    hint: { es: 'El nivel alcanzado con esos puntos.', en: 'The level reached with those points.' },
+    hint: { default: "The level reached with those points.", i18key: "automation.event.field.event.data.level.hint" },
   },
   {
     path: 'event.data.reason',
-    label: { es: 'Motivo', en: 'Reason' },
+    label: { default: "Reason", i18key: "automation.event.field.event.data.reason.label" },
     icon: 'text',
     kind: 'text',
-    hint: { es: 'Por qué se han dado los puntos: chat, gift…', en: 'Why the points were given: chat, gift…' },
+    hint: { default: "Why the points were given: chat, gift…", i18key: "automation.event.field.event.data.reason.hint" },
   },
 ];
 
 const ROOM_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.viewers',
-    label: { es: 'Espectadores', en: 'Viewers' },
+    label: { default: "Viewers", i18key: "automation.event.field.event.data.viewers.label" },
     icon: 'user',
     kind: 'number',
-    hint: { es: 'Cuánta gente está viendo ahora mismo.', en: 'How many people are watching right now.' },
+    hint: { default: "How many people are watching right now.", i18key: "automation.event.field.event.data.viewers.hint" },
   },
 ];
 
 const EMIT_FIELDS: EventFieldDefinition[] = [
   {
     path: 'event.data.emitType',
-    label: { es: 'Tipo emitido', en: 'Emitted type' },
+    label: { default: "Emitted type", i18key: "automation.event.field.event.data.emitType.label" },
     icon: 'text',
     kind: 'text',
-    hint: { es: 'El nombre que emitió la acción o el plugin.', en: 'The name the action or plugin emitted.' },
+    hint: { default: "The name the action or plugin emitted.", i18key: "automation.event.field.event.data.emitType.hint" },
   },
 ];
 

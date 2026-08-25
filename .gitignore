@@ -1,6 +1,9 @@
 node_modules
 dist
 out
+.plugin-staging
+!plugins/**/dist/
+!plugins/**/dist/**
 .DS_Store
 *.log*
 data/*.db

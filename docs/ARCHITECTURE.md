@@ -91,7 +91,7 @@ There are two separate SQLite databases, both created relative to the current wo
 
 The WebView uses local storage for non-sensitive preferences. Session cookies are intentionally not persisted.
 
-## Automation boundaries
+## Automation and app-plugin boundaries
 
 The automation layer is split into:
 
@@ -99,10 +99,11 @@ The automation layer is split into:
 - `src/automation/behavior/`: current action/event behavior engine and schema.
 - `src/automation/runtime.ts`: saved graph execution.
 - `src/automation/nodes/`: built-in workflow node implementations.
-- `src/automation/services/`: HTTP, audio, VM, and language services.
+- `src/automation/services/`: HTTP, VM, and language services; provider-backed audio/TTS adapters live in `src/plugins/`.
 - `src/automation/plugins/`: plugin discovery, manifests, worker host, protocol, and capability broker.
+- `src/plugins/`: generic AppPlugin API, dynamic-import runtime, provider registries, scoped storage/i18n/UI APIs, and `.plugin` installation.
 
-Built-in actions run in the host. Sandbox plugin handlers execute in a separate worker through JSON messages. The capability broker checks declared permissions before a plugin can request HTTP, files, audio, TTS, points, or other host operations.
+Built-in actions run in the host. Sandbox automation handlers execute in a separate worker through JSON messages. Provider plugins are loaded through Bun `import()` and register generic audio/TTS providers; the host never imports provider-native libraries directly. The capability broker and AppPlugin context check declared permissions before plugin code receives host capabilities.
 
 The worker boundary improves isolation and limits access, but it is not an operating-system security sandbox. Treat downloaded plugins as code that requires review.
 
@@ -112,11 +113,10 @@ A window close request hides the window. A tray quit or process signal performs 
 
 1. Stop the live connection.
 2. Cancel active workflows.
-3. Stop audio and TTS.
-4. Stop plugin workers.
+3. Stop audio and TTS providers.
+4. Stop plugin workers and app plugins.
 5. Clear VM sessions and language-service state.
 6. Close the native window and local server.
 7. Exit the runtime.
 
 See [Development Guide](DEVELOPMENT.md) for the safest places to make changes.
-

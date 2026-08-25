@@ -98,7 +98,10 @@ export class BehaviorEngine {
       const implementation = this.#actionRegistry.get(action.typeId);
       if (!implementation) throw new Error(`El tipo de acción ${action.typeId} ya no existe.`);
       if (implementation.definition.source.kind === 'plugin' && this.#pluginReady.get(implementation.definition.source.pluginId) !== true) {
-        throw new Error(`El plugin ${implementation.definition.source.pluginId} no está instalado o está desactivado.`);
+        const pluginId = implementation.definition.source.pluginId;
+        const legacyId = pluginId === 'audio.miniaudio' ? 'audio-native' : pluginId === 'tts.sonicboom' ? 'sonicboom-tts' : undefined;
+        const label = legacyId ? `${pluginId} (${legacyId})` : pluginId;
+        throw new Error(`El plugin ${label} no está instalado o está desactivado.`);
       }
       const result = await implementation.execute({
         action: { ...action, config: resolveActionConfig(implementation.definition, action.config, event) },

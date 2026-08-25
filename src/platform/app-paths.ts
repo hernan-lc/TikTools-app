@@ -6,6 +6,10 @@ export interface AppPaths {
   root: string;
   data: string;
   plugins: string;
+  /** Per-plugin persistent data; plugins never share the application config file. */
+  pluginData: string;
+  /** Reviewed packages shipped beside the application, if present. */
+  builtinPlugins: string;
   logs: string;
   temp: string;
 }
@@ -28,13 +32,15 @@ export function getAppPaths(): AppPaths {
     root,
     data: configuredPath(process.env.TIKTOOLS_DATA_DIR, join(root, 'data')),
     plugins: configuredPath(process.env.TIKTOOLS_PLUGINS_DIR, join(root, 'plugins')),
+    pluginData: configuredPath(process.env.TIKTOOLS_PLUGIN_DATA_DIR, join(root, 'plugin-data')),
+    builtinPlugins: configuredPath(process.env.TIKTOOLS_BUILTIN_PLUGINS_DIR, join(process.cwd(), 'plugins')),
     logs: configuredPath(process.env.TIKTOOLS_LOG_DIR, join(root, 'logs')),
     temp: configuredPath(process.env.TIKTOOLS_TEMP_DIR, join(root, 'temp')),
   };
 }
 
 export function ensureAppPaths(paths: AppPaths = getAppPaths()): AppPaths {
-  for (const directory of [paths.root, paths.data, paths.plugins, paths.logs, paths.temp]) {
+  for (const directory of [paths.root, paths.data, paths.plugins, paths.pluginData, paths.logs, paths.temp]) {
     if (!isAbsolute(directory)) throw new Error(`Application path must be absolute: ${directory}`);
     if (!existsSync(directory)) mkdirSync(directory, { recursive: true });
   }

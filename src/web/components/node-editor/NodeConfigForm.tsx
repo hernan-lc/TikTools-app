@@ -20,7 +20,7 @@ import { getTemplateSuggestions, type TemplateSuggestionScope } from './template
 import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.tsx';
 import { asNumber, asString } from './graph.ts';
-import { t, type Locale } from '../../i18n.ts';
+import { i18nText, t, type Locale } from '../../i18n.ts';
 import { SchemaForm } from '../ui/SchemaForm.tsx';
 
 type NodeConfigFormProps = {
@@ -51,7 +51,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
           <FormField label={ui.eventType} hint={ui.eventTypeHint}>
             <Select
               value={asString(config.eventType, 'tiktok.chat')}
-              options={WORKFLOW_EVENT_CHOICES.map((choice) => ({ value: choice.value, label: locale === 'es' ? choice.es : choice.en }))}
+              options={WORKFLOW_EVENT_CHOICES.map((choice) => ({ value: choice.value, label: i18nText(locale, choice.label) }))}
               onValueChange={(value) => update('eventType', value)}
             />
           </FormField>

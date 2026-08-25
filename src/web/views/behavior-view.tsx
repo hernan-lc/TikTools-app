@@ -24,12 +24,13 @@ import type {
   FilterOperator,
   LiveAction,
   LiveEvent,
+  I18nText,
   PluginStatus,
 } from '../../automation/behavior/types.ts';
 import type { AutomationEventType } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
 import type { GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
-import { i18nText, type Locale } from '../i18n.ts';
+import { i18nText, t, type Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
   locale: Locale;
@@ -61,190 +62,115 @@ type Screen =
   | { kind: 'event'; event: LiveEvent; isNew: boolean };
 
 const COPY = {
-  es: {
-    title: 'Comportamiento',
-    lead: 'Arriba qué puede pasar, abajo cuándo pasa. Una acción se reutiliza en varios eventos.',
-    actions: 'Acciones',
-    events: 'Eventos',
-    newAction: 'Nueva acción',
-    newEvent: 'Nuevo evento',
-    searchAction: 'Buscar acción',
-    searchEvent: 'Buscar evento',
-    sortBy: 'Ordenar',
-    sortName: 'Nombre A-Z',
-    sortNameDesc: 'Nombre Z-A',
-    sortActive: 'Activas primero',
-    sortInactive: 'Inactivas primero',
-    colActive: 'Activa',
-    colName: 'Nombre',
-    colOrigin: 'Origen',
-    colDoes: 'Qué hace',
-    colLast: 'Última vez',
-    colTrigger: 'Desencadenante',
-    colFilters: 'Condiciones',
-    colActions: 'Acciones',
-    builtIn: 'Integrada',
-    noActions: 'Todavía no hay acciones. Empieza por una integrada: llamar a una URL, emitir un evento, sumar puntos.',
-    noEvents: 'Todavía no hay eventos. Un evento decide cuándo se ejecutan tus acciones.',
-    noRuns: 'Sin ejecuciones',
-    paused: 'Pausada',
-    always: 'siempre',
-    runs: 'Últimas ejecuciones',
-    runsEmpty: 'Sin ejecuciones todavía.',
-    pickTitle: 'Elige un tipo de acción',
-    pickLead: 'Las integradas no dependen de nada. Las demás las aporta un plugin instalado.',
-    builtInGroup: 'Integradas',
-    builtInNote: 'siempre disponibles · sin dependencias',
-    pluginNote: 'plugin',
-    explore: 'Explorar plugins',
-    missingTitle: '¿Falta una acción?',
-    missingDesc: 'Las que necesitan una dependencia —audio, voz, OBS— llegan instalando un plugin. Cada plugin puede aportar varias.',
-    back: 'Volver',
-    save: 'Guardar',
-    remove: 'Eliminar',
-    edit: 'Editar',
-    test: 'Probar',
-    name: 'Nombre',
-    permissions: 'Permisos',
-    permissionsHint: 'Se derivan de lo que rellenas aquí; el motor rechaza cualquier destino fuera de la lista.',
-    none: 'ninguno',
-    console: 'Consola',
-    consoleEmpty: 'Esperando una ejecución…',
-    stepWhen: 'Cuándo',
-    stepFilters: 'Sólo si…',
-    stepFiltersHint: 'opcional · deben cumplirse todos',
-    stepDo: 'Qué hace',
-    trigger: 'Evento',
-    addFilter: '+ Añadir condición',
-    orHint: '¿Necesitas un «o»? Usa «es uno de» dentro de la condición.',
-    noFilters: 'Sin condiciones: el evento se dispara siempre.',
-    field: 'Campo',
-    operator: 'Comparación',
-    value: 'Valor',
-    addValue: 'Añadir valor',
-    runMode: 'Ejecutar sólo una, al azar',
-    cooldown: 'Espera entre disparos',
-    cooldownScope: 'Ámbito',
-    perUser: 'por usuario',
-    global: 'global',
-    noCooldown: 'sin espera',
-    pickActions: 'Marca las acciones que ejecuta',
-    noActionsYet: 'Crea una acción primero.',
-    confirmDeleteAction: '¿Eliminar esta acción? Los eventos que la usen dejarán de ejecutarla.',
-    confirmDeleteEvent: '¿Eliminar este evento?',
-    pluginMissing: 'plugin no instalado',
-    advanced: 'Opciones avanzadas',
-    addEntry: 'Añadir',
-    next: 'Continuar',
-    previous: 'Atrás',
-    finish: 'Guardar evento',
-    stepOf: (step: number) => `Paso ${step} de 3`,
-    noneYet: 'sin definir',
-    alwaysShort: 'siempre',
-  },
-  en: {
-    title: 'Behavior',
-    lead: 'What can happen on top, when it happens below. One action is reused by several events.',
-    actions: 'Actions',
-    events: 'Events',
-    newAction: 'New action',
-    newEvent: 'New event',
-    searchAction: 'Search action',
-    searchEvent: 'Search event',
-    sortBy: 'Sort',
-    sortName: 'Name A-Z',
-    sortNameDesc: 'Name Z-A',
-    sortActive: 'Active first',
-    sortInactive: 'Inactive first',
-    colActive: 'Active',
-    colName: 'Name',
-    colOrigin: 'Source',
-    colDoes: 'What it does',
-    colLast: 'Last run',
-    colTrigger: 'Trigger',
-    colFilters: 'Conditions',
-    colActions: 'Actions',
-    builtIn: 'Built-in',
-    noActions: 'No actions yet. Start with a built-in one: call a URL, emit an event, give points.',
-    noEvents: 'No events yet. An event decides when your actions run.',
-    noRuns: 'No runs',
-    paused: 'Paused',
-    always: 'always',
-    runs: 'Recent runs',
-    runsEmpty: 'No runs yet.',
-    pickTitle: 'Pick an action type',
-    pickLead: 'Built-in ones depend on nothing. The rest come from an installed plugin.',
-    builtInGroup: 'Built-in',
-    builtInNote: 'always available · no dependencies',
-    pluginNote: 'plugin',
-    explore: 'Browse plugins',
-    missingTitle: 'Missing an action?',
-    missingDesc: 'Anything needing a dependency — audio, voice, OBS — arrives by installing a plugin. Each one may add several.',
-    back: 'Back',
-    save: 'Save',
-    remove: 'Delete',
-    edit: 'Edit',
-    test: 'Run test',
-    name: 'Name',
-    permissions: 'Permissions',
-    permissionsHint: 'Derived from what you fill in; the engine refuses any destination outside the list.',
-    none: 'none',
-    console: 'Console',
-    consoleEmpty: 'Waiting for a run…',
-    stepWhen: 'When',
-    stepFilters: 'Only if…',
-    stepFiltersHint: 'optional · all must pass',
-    stepDo: 'What it does',
-    trigger: 'Event',
-    addFilter: '+ Add condition',
-    orHint: 'Need an "or"? Use "is one of" inside the condition.',
-    noFilters: 'No conditions: the event always fires.',
-    field: 'Field',
-    operator: 'Comparison',
-    value: 'Value',
-    addValue: 'Add value',
-    runMode: 'Run only one, at random',
-    cooldown: 'Cooldown',
-    cooldownScope: 'Scope',
-    perUser: 'per viewer',
-    global: 'global',
-    noCooldown: 'no cooldown',
-    pickActions: 'Tick the actions it runs',
-    noActionsYet: 'Create an action first.',
-    confirmDeleteAction: 'Delete this action? Events using it will stop running it.',
-    confirmDeleteEvent: 'Delete this event?',
-    pluginMissing: 'plugin not installed',
-    advanced: 'Advanced options',
-    addEntry: 'Add',
-    next: 'Continue',
-    previous: 'Back',
-    finish: 'Save event',
-    stepOf: (step: number) => `Step ${step} of 3`,
-    noneYet: 'not set',
-    alwaysShort: 'always',
-  },
+  title: { default: "Behavior", i18key: "behavior.copy.title" },
+  lead: { default: "What can happen on top, when it happens below. One action is reused by several events.", i18key: "behavior.copy.lead" },
+  actions: { default: "Actions", i18key: "behavior.copy.actions" },
+  events: { default: "Events", i18key: "behavior.copy.events" },
+  newAction: { default: "New action", i18key: "behavior.copy.newAction" },
+  newEvent: { default: "New event", i18key: "behavior.copy.newEvent" },
+  searchAction: { default: "Search action", i18key: "behavior.copy.searchAction" },
+  searchEvent: { default: "Search event", i18key: "behavior.copy.searchEvent" },
+  sortBy: { default: "Sort", i18key: "behavior.copy.sortBy" },
+  sortName: { default: "Name A-Z", i18key: "behavior.copy.sortName" },
+  sortNameDesc: { default: "Name Z-A", i18key: "behavior.copy.sortNameDesc" },
+  sortActive: { default: "Active first", i18key: "behavior.copy.sortActive" },
+  sortInactive: { default: "Inactive first", i18key: "behavior.copy.sortInactive" },
+  colActive: { default: "Active", i18key: "behavior.copy.colActive" },
+  colName: { default: "Name", i18key: "behavior.copy.colName" },
+  colOrigin: { default: "Source", i18key: "behavior.copy.colOrigin" },
+  colDoes: { default: "What it does", i18key: "behavior.copy.colDoes" },
+  colLast: { default: "Last run", i18key: "behavior.copy.colLast" },
+  colTrigger: { default: "Trigger", i18key: "behavior.copy.colTrigger" },
+  colFilters: { default: "Conditions", i18key: "behavior.copy.colFilters" },
+  colActions: { default: "Actions", i18key: "behavior.copy.colActions" },
+  builtIn: { default: "Built-in", i18key: "behavior.copy.builtIn" },
+  noActions: { default: "No actions yet. Start with a built-in one: call a URL, emit an event, give points.", i18key: "behavior.copy.noActions" },
+  noEvents: { default: "No events yet. An event decides when your actions run.", i18key: "behavior.copy.noEvents" },
+  noRuns: { default: "No runs", i18key: "behavior.copy.noRuns" },
+  paused: { default: "Paused", i18key: "behavior.copy.paused" },
+  always: { default: "always", i18key: "behavior.copy.always" },
+  runs: { default: "Recent runs", i18key: "behavior.copy.runs" },
+  runsEmpty: { default: "No runs yet.", i18key: "behavior.copy.runsEmpty" },
+  pickTitle: { default: "Pick an action type", i18key: "behavior.copy.pickTitle" },
+  pickLead: { default: "Built-in ones depend on nothing. The rest come from an installed plugin.", i18key: "behavior.copy.pickLead" },
+  builtInGroup: { default: "Built-in", i18key: "behavior.copy.builtInGroup" },
+  builtInNote: { default: "always available · no dependencies", i18key: "behavior.copy.builtInNote" },
+  pluginNote: { default: "plugin", i18key: "behavior.copy.pluginNote" },
+  explore: { default: "Browse plugins", i18key: "behavior.copy.explore" },
+  missingTitle: { default: "Missing an action?", i18key: "behavior.copy.missingTitle" },
+  missingDesc: { default: "Anything needing a dependency — audio, voice, OBS — arrives by installing a plugin. Each one may add several.", i18key: "behavior.copy.missingDesc" },
+  back: { default: "Back", i18key: "behavior.copy.back" },
+  save: { default: "Save", i18key: "behavior.copy.save" },
+  remove: { default: "Delete", i18key: "behavior.copy.remove" },
+  edit: { default: "Edit", i18key: "behavior.copy.edit" },
+  test: { default: "Run test", i18key: "behavior.copy.test" },
+  name: { default: "Name", i18key: "behavior.copy.name" },
+  permissions: { default: "Permissions", i18key: "behavior.copy.permissions" },
+  permissionsHint: { default: "Derived from what you fill in; the engine refuses any destination outside the list.", i18key: "behavior.copy.permissionsHint" },
+  none: { default: "none", i18key: "behavior.copy.none" },
+  console: { default: "Console", i18key: "behavior.copy.console" },
+  consoleEmpty: { default: "Waiting for a run…", i18key: "behavior.copy.consoleEmpty" },
+  stepWhen: { default: "When", i18key: "behavior.copy.stepWhen" },
+  stepFilters: { default: "Only if…", i18key: "behavior.copy.stepFilters" },
+  stepFiltersHint: { default: "optional · all must pass", i18key: "behavior.copy.stepFiltersHint" },
+  stepDo: { default: "What it does", i18key: "behavior.copy.stepDo" },
+  trigger: { default: "Event", i18key: "behavior.copy.trigger" },
+  addFilter: { default: "+ Add condition", i18key: "behavior.copy.addFilter" },
+  orHint: { default: "Need an \"or\"? Use \"is one of\" inside the condition.", i18key: "behavior.copy.orHint" },
+  noFilters: { default: "No conditions: the event always fires.", i18key: "behavior.copy.noFilters" },
+  field: { default: "Field", i18key: "behavior.copy.field" },
+  operator: { default: "Comparison", i18key: "behavior.copy.operator" },
+  value: { default: "Value", i18key: "behavior.copy.value" },
+  addValue: { default: "Add value", i18key: "behavior.copy.addValue" },
+  runMode: { default: "Run only one, at random", i18key: "behavior.copy.runMode" },
+  cooldown: { default: "Cooldown", i18key: "behavior.copy.cooldown" },
+  cooldownScope: { default: "Scope", i18key: "behavior.copy.cooldownScope" },
+  perUser: { default: "per viewer", i18key: "behavior.copy.perUser" },
+  global: { default: "global", i18key: "behavior.copy.global" },
+  noCooldown: { default: "no cooldown", i18key: "behavior.copy.noCooldown" },
+  pickActions: { default: "Tick the actions it runs", i18key: "behavior.copy.pickActions" },
+  noActionsYet: { default: "Create an action first.", i18key: "behavior.copy.noActionsYet" },
+  confirmDeleteAction: { default: "Delete this action? Events using it will stop running it.", i18key: "behavior.copy.confirmDeleteAction" },
+  confirmDeleteEvent: { default: "Delete this event?", i18key: "behavior.copy.confirmDeleteEvent" },
+  pluginMissing: { default: "plugin not installed", i18key: "behavior.copy.pluginMissing" },
+  advanced: { default: "Advanced options", i18key: "behavior.copy.advanced" },
+  addEntry: { default: "Add", i18key: "behavior.copy.addEntry" },
+  next: { default: "Continue", i18key: "behavior.copy.next" },
+  previous: { default: "Back", i18key: "behavior.copy.previous" },
+  finish: { default: "Save event", i18key: "behavior.copy.finish" },
+  noneYet: { default: "not set", i18key: "behavior.copy.noneYet" },
+  alwaysShort: { default: "always", i18key: "behavior.copy.alwaysShort" },
+  stepOf: { default: "Step {step} of 3", i18key: "behavior.copy.stepOf" },
 } as const;
 
-const TRIGGER_LABELS: Record<AutomationEventType, { es: string; en: string }> = {
-  'tiktok.chat': { es: 'Alguien comenta', en: 'Someone comments' },
-  'tiktok.gift': { es: 'Alguien envía un regalo', en: 'Someone sends a gift' },
-  'tiktok.like': { es: 'Alguien da me gusta', en: 'Someone likes' },
-  'tiktok.follow': { es: 'Alguien te sigue', en: 'Someone follows' },
-  'tiktok.share': { es: 'Alguien comparte', en: 'Someone shares' },
-  'tiktok.join': { es: 'Alguien entra al directo', en: 'Someone joins the live' },
-  'tiktok.social': { es: 'Acción social', en: 'Social action' },
-  'tiktok.room_stats': { es: 'Estado de la sala', en: 'Room stats' },
-  'tiktok.connected': { es: 'Conexión iniciada', en: 'Connected' },
-  'tiktok.disconnected': { es: 'Conexión terminada', en: 'Disconnected' },
-  'points.awarded': { es: 'Se otorgan puntos', en: 'Points awarded' },
-  'plugin.emit': { es: 'Evento interno', en: 'Internal event' },
+type BehaviorCopy = { -readonly [Key in keyof typeof COPY]: string };
+
+function copyFor(locale: Locale): BehaviorCopy {
+  const copy = {} as BehaviorCopy;
+  for (const [key, value] of Object.entries(COPY)) copy[key as keyof typeof COPY] = i18nText(locale, value);
+  return copy;
+}
+
+const TRIGGER_LABELS: Record<AutomationEventType, I18nText> = {
+  "tiktok.chat": { default: "Someone comments", i18key: "behavior.trigger.tiktok.chat" },
+  "tiktok.gift": { default: "Someone sends a gift", i18key: "behavior.trigger.tiktok.gift" },
+  "tiktok.like": { default: "Someone likes", i18key: "behavior.trigger.tiktok.like" },
+  "tiktok.follow": { default: "Someone follows", i18key: "behavior.trigger.tiktok.follow" },
+  "tiktok.share": { default: "Someone shares", i18key: "behavior.trigger.tiktok.share" },
+  "tiktok.join": { default: "Someone joins the live", i18key: "behavior.trigger.tiktok.join" },
+  "tiktok.social": { default: "Social action", i18key: "behavior.trigger.tiktok.social" },
+  "tiktok.room_stats": { default: "Room stats", i18key: "behavior.trigger.tiktok.room_stats" },
+  "tiktok.connected": { default: "Connected", i18key: "behavior.trigger.tiktok.connected" },
+  "tiktok.disconnected": { default: "Disconnected", i18key: "behavior.trigger.tiktok.disconnected" },
+  "points.awarded": { default: "Points awarded", i18key: "behavior.trigger.points.awarded" },
+  "plugin.emit": { default: "Internal event", i18key: "behavior.trigger.plugin.emit" },
 };
 
 const COOLDOWN_CHOICES = [0, 3_000, 5_000, 10_000, 30_000, 60_000];
 
 export function BehaviorView(props: BehaviorViewProps) {
   const { locale, snapshot, runs, testRuns, error } = props;
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
   const [actionQuery, setActionQuery] = useState('');
   const [eventQuery, setEventQuery] = useState('');
@@ -623,7 +549,7 @@ function ActionPicker({
   onCancel: () => void;
   onOpenPlugins: () => void;
 }) {
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   const [query, setQuery] = useState('');
   const matches = (type: ActionTypeDefinition): boolean =>
     !query.trim() || i18nText(locale, type.title).toLowerCase().includes(query.trim().toLowerCase());
@@ -746,7 +672,7 @@ function ActionEditor({
   onDelete: (id: string) => void;
   onTest: (action: LiveAction, trigger?: AutomationEventType) => void;
 }) {
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   const [draft, setDraft] = useState<LiveAction>(action);
   const type = actionTypes.find((entry) => entry.id === draft.typeId);
   const permissions = deriveActionPermissions(draft);
@@ -872,7 +798,7 @@ function EventEditor({
   onDelete: (id: string) => void;
   onTest: (event: LiveEvent) => void;
 }) {
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   const [draft, setDraft] = useState<LiveEvent>(event);
   const [step, setStep] = useState(1);
 
@@ -899,7 +825,7 @@ function EventEditor({
         <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={copy.back}>‹</button>
         <div className="plg-topbar__text">
           <h2 className="plg-topbar__title">{draft.name || copy.newEvent}</h2>
-          <span className="plg-topbar__subtitle plg-mono">{copy.stepOf(step)} · {draft.trigger}</span>
+          <span className="plg-topbar__subtitle plg-mono">{t(locale, 'behavior.copy.stepOf', { step })} · {draft.trigger}</span>
         </div>
         <div className="plg-topbar__actions">
           {!isNew && (
@@ -1153,7 +1079,7 @@ function SortControl({
   value: SortMode;
   onChange: (sort: SortMode) => void;
 }) {
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   return (
     <IconSelect
       className="plg-sort"

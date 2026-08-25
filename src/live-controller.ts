@@ -26,18 +26,20 @@ import { createBuiltInActionRegistry } from './automation/behavior/builtins.ts';
 import { normalizeAction } from './automation/behavior/schema.ts';
 import { BUILTIN_TRANSLATION_CATALOG, PLUGIN_DESCRIPTORS } from './automation/behavior/catalog.ts';
 import type { BehaviorRun, BehaviorSnapshot, Localized, PluginDescriptor, PluginStatus } from './automation/behavior/types.ts';
-import { NativeAudioService } from './automation/services/audio-service.ts';
 import { HttpService } from './automation/services/http-service.ts';
 import { NapiVmService } from './automation/services/napi-vm-service.ts';
 import { NapiVmLanguageService } from './automation/services/napi-vm-language-service.ts';
 import { AutomationPluginLoader } from './automation/plugins/plugin-loader.ts';
 import { PluginManager } from './automation/plugins/plugin-manager.ts';
-import { SonicBoomProvider } from './automation/providers/sonicboom.ts';
 import type { AutomationCapabilities } from './automation/capabilities.ts';
 import type { AutomationConnectionContext, AutomationEvent, JsonObject } from './automation/types.ts';
 import { AutomationDatabase } from './db/automation-db.ts';
 import { PointsDatabase } from './db/points-db.ts';
 import { ensureAppPaths } from './platform/app-paths.ts';
+import { PluginAudioCapability, PluginTtsCapability } from './plugins/capabilities.ts';
+import { PluginRuntime } from './plugins/runtime.ts';
+import { AudioProviderRegistry, TTSProviderRegistry } from './plugins/registries.ts';
+import type { PluginJsonValue } from './plugins/types.ts';
 import {
   cleanUsername,
   hasUser,
@@ -73,8 +75,11 @@ export class LiveController {
   readonly behavior: BehaviorEngine;
   readonly pluginManager: PluginManager;
   readonly actionRegistry: ReturnType<typeof createBuiltInActionRegistry>;
-  readonly audioService: NativeAudioService;
-  readonly sonicBoom: SonicBoomProvider;
+  readonly audioProviders: AudioProviderRegistry;
+  readonly ttsProviders: TTSProviderRegistry;
+  readonly audioService: PluginAudioCapability;
+  readonly ttsService: PluginTtsCapability;
+  readonly pluginRuntime: PluginRuntime;
   readonly napiVm: NapiVmService;
   readonly napiVmLanguage: NapiVmLanguageService;
   readonly automationCapabilities: AutomationCapabilities;
@@ -87,14 +92,17 @@ export class LiveController {
     this.actionRegistry = createBuiltInActionRegistry();
     this.automationDb = new AutomationDatabase(undefined, this.actionRegistry);
     this.pluginManager = new PluginManager(nodeRegistry, this.actionRegistry);
-    this.audioService = new NativeAudioService();
-    this.sonicBoom = new SonicBoomProvider();
+    const appPaths = ensureAppPaths();
+    this.audioProviders = new AudioProviderRegistry();
+    this.ttsProviders = new TTSProviderRegistry();
+    this.audioService = new PluginAudioCapability(this.audioProviders);
+    this.ttsService = new PluginTtsCapability(this.ttsProviders);
     this.napiVm = new NapiVmService();
     this.napiVmLanguage = new NapiVmLanguageService();
     this.automationCapabilities = {
       http: new HttpService(),
       audio: this.audioService,
-      tts: this.sonicBoom,
+      tts: this.ttsService,
       points: {
         adjust: (uniqueId, delta) => {
           const result = this.pointsDb.awardPoints(uniqueId, 'manual', { customAmount: delta });
@@ -117,6 +125,31 @@ export class LiveController {
       },
       vm: this.napiVm,
     };
+    this.pluginRuntime = new PluginRuntime({
+      rootDirectory: appPaths.plugins,
+      builtinDirectory: appPaths.builtinPlugins,
+      dataDirectory: appPaths.pluginData,
+      audioProviders: this.audioProviders,
+      ttsProviders: this.ttsProviders,
+      isEnabled: (pluginId) => {
+        const state = this.automationDb.listPluginStates().find((entry) => entry.id === pluginId);
+        return state ? state.installed && state.enabled : true;
+      },
+      log: (message) => console.warn(`[plugins] ${message}`),
+      onLoaded: (manifest) => {
+        console.log(`[plugins] loaded ${manifest.id}@${manifest.version}`);
+        this.reloadBehavior();
+        this.sendBehavior();
+      },
+      onUnloaded: (manifest) => {
+        console.log(`[plugins] unloaded ${manifest.id}`);
+        this.reloadBehavior();
+        this.sendBehavior();
+      },
+    });
+    void this.pluginRuntime.loadAll().catch((error: unknown) => {
+      console.error('[plugins] discovery failed:', errorMessage(error));
+    });
     this.automationRuntime = new AutomationRuntime(nodeRegistry, {
       capabilities: this.automationCapabilities,
       capabilitiesForPlugin: (pluginId, available) => pluginId === 'core'
@@ -124,7 +157,7 @@ export class LiveController {
         : this.pluginManager.capabilitiesFor(pluginId, available),
     });
     this.pluginLoader = new AutomationPluginLoader({
-      rootDirectory: ensureAppPaths().plugins,
+      rootDirectory: appPaths.plugins,
       manager: this.pluginManager,
       capabilities: this.automationCapabilities,
       isInstalled: (pluginId) => this.automationDb.listPluginStates().find((entry) => entry.id === pluginId)?.installed,
@@ -148,6 +181,7 @@ export class LiveController {
 
     this.automationBus.subscribe('*', (event) => this.automationRuntime.handleEvent(event));
     this.automationBus.subscribe('*', (event) => this.behavior.handleEvent(event));
+    this.automationBus.subscribe('*', (event) => this.pluginRuntime.publishHostEvent('automation.event', event as unknown as PluginJsonValue));
     this.automationBus.onError((error, event) => {
       console.error(`[automation-bus] ${event.type}:`, error);
     });
@@ -170,7 +204,7 @@ export class LiveController {
     this.#live = null;
     this.automationRuntime.cancelAll();
     this.audioService.stopAll();
-    void this.sonicBoom.stop();
+    void this.ttsProviders.stopAll();
     this.send({ type: 'connection', status: 'disconnected' });
   }
 
@@ -178,6 +212,7 @@ export class LiveController {
     this.stop();
     this.clearAutomationContextTimer();
     await this.pluginLoader.stopAll();
+    await this.pluginRuntime.stopAll();
     this.napiVm.clearAll();
     this.napiVmLanguage.clearAll();
   }
@@ -441,11 +476,23 @@ export class LiveController {
         }
         this.automationDb.setPluginState(message.id, message.installed, true);
         if (!message.installed) {
-          this.pluginLoader.unload(message.id);
-          this.reloadAutomationWorkflows();
-          this.sendBehavior();
+          if (this.pluginRuntime.isDiscovered(message.id)) {
+            void this.pluginRuntime.setEnabled(message.id, false).then(() => {
+              this.reloadBehavior();
+              this.sendBehavior();
+            }).catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+          } else {
+            this.pluginLoader.unload(message.id);
+            this.reloadAutomationWorkflows();
+            this.sendBehavior();
+          }
         } else if (this.pluginLoader.directoryFor(message.id)) {
           void this.loadDiscoveredPlugin(message.id);
+        } else if (this.pluginRuntime.directoryFor(message.id)) {
+          void this.pluginRuntime.setEnabled(message.id, true).then(() => {
+            this.reloadBehavior();
+            this.sendBehavior();
+          }).catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
         } else {
           this.reloadBehavior();
           this.sendBehavior();
@@ -459,8 +506,15 @@ export class LiveController {
           break;
         }
         this.automationDb.setPluginState(message.id, true, message.enabled);
-        this.reloadBehavior();
-        this.sendBehavior();
+        if (this.pluginRuntime.isDiscovered(message.id)) {
+          void this.pluginRuntime.setEnabled(message.id, message.enabled).then(() => {
+            this.reloadBehavior();
+            this.sendBehavior();
+          }).catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        } else {
+          this.reloadBehavior();
+          this.sendBehavior();
+        }
         break;
       }
       case 'analyze-automation-script':
@@ -532,20 +586,30 @@ export class LiveController {
   private behaviorSnapshot(): BehaviorSnapshot {
     const states = this.automationDb.listPluginStates();
     const discovered = this.pluginLoader.listDiscovered();
+    const providerPlugins = this.pluginRuntime.list();
+    const providerActionTypes = (pluginId: string): string[] => this.actionRegistry.definitions()
+      .filter((definition) => definition.source.kind === 'plugin' && definition.source.pluginId === pluginId)
+      .map((definition) => definition.id);
     const descriptors = [
-      ...PLUGIN_DESCRIPTORS,
+      ...providerPlugins.map((entry) => appManifestToDescriptor(entry.manifest, providerActionTypes(entry.id))),
       ...this.pluginManager.list().map((manifest) => manifestToDescriptor(manifest, this.pluginManager.actionDefinitions(manifest.id).map((definition) => definition.id))),
       ...discovered.map((entry) => manifestToDescriptor(entry.manifest, this.pluginManager.actionDefinitions(entry.manifest.id).map((definition) => definition.id))),
+      ...PLUGIN_DESCRIPTORS,
     ]
       .filter((descriptor, index, all) => all.findIndex((entry) => entry.id === descriptor.id) === index);
     const plugins: PluginStatus[] = descriptors.map((descriptor) => {
       const state = states.find((entry) => entry.id === descriptor.id);
       const isDiscovered = discovered.some((entry) => entry.manifest.id === descriptor.id);
+      const isProviderPlugin = providerPlugins.some((entry) => entry.id === descriptor.id);
       return {
         descriptor,
-        installed: state ? state.installed : isDiscovered,
+        installed: state ? state.installed : isDiscovered || isProviderPlugin,
         enabled: state ? state.enabled : true,
-        available: isDiscovered ? this.pluginManager.get(descriptor.id) !== undefined : true,
+        available: isProviderPlugin
+          ? this.pluginRuntime.isActive(descriptor.id)
+          : isDiscovered
+            ? this.pluginManager.get(descriptor.id) !== undefined
+            : true,
       };
     });
 
@@ -554,7 +618,7 @@ export class LiveController {
       events: this.automationDb.listEvents(),
       plugins,
       actionTypes: this.actionRegistry.definitions(),
-      translations: mergeTranslationCatalog(BUILTIN_TRANSLATION_CATALOG, this.pluginManager.translations()),
+      translations: mergeTranslationCatalog(BUILTIN_TRANSLATION_CATALOG, this.pluginManager.translations(), this.pluginRuntime.translationCatalog()),
     };
   }
 
@@ -913,6 +977,23 @@ export class LiveController {
   }
 }
 
+function appManifestToDescriptor(manifest: import('./plugins/manifest.ts').AppPluginManifest, actionTypeIds: string[]): PluginDescriptor {
+  const dependency = manifest.native?.package
+    ? `${manifest.native.package} · precompiled native package`
+    : manifest.type
+      ? `${manifest.type} plugin`
+      : 'Bun plugin';
+  return {
+    id: manifest.id,
+    name: { default: manifest.name, i18key: `plugin.${manifest.id}.name` },
+    version: manifest.version,
+    description: { default: manifest.description ?? `${manifest.name} provider`, i18key: `plugin.${manifest.id}.description` },
+    dependency: { default: dependency, i18key: `plugin.${manifest.id}.dependency` },
+    permissions: [...manifest.capabilities, ...manifest.permissions],
+    actionTypeIds,
+  };
+}
+
 function manifestToDescriptor(manifest: import('./automation/plugins/manifest.ts').AutomationPluginManifest, actionTypeIds: string[]): PluginDescriptor {
   const metadata = manifest.metadata ?? {};
   return {
@@ -933,7 +1014,6 @@ function localizedMetadata(value: JsonValueLike, fallback: string, i18key: strin
     if (typeof object.default === 'string' && typeof object.i18key === 'string' && object.default.trim()) {
       return { default: object.default, i18key: object.i18key };
     }
-    if (typeof object.es === 'string' && typeof object.en === 'string') return { es: object.es, en: object.en };
   }
   return { default: fallback, i18key };
 }

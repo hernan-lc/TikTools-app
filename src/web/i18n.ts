@@ -1,4 +1,5 @@
 import type { TranslationCatalog } from '../automation/behavior/types.ts';
+import { BEHAVIOR_UI_TRANSLATIONS } from './behavior-i18n.ts';
 
 export const supportedLocales = ['en', 'es'] as const;
 export type Locale = (typeof supportedLocales)[number];
@@ -438,9 +439,9 @@ const spanish: Record<TranslationKey, string> = {
   levelBadge: 'N.º {level}',
 };
 
-const dictionary: Record<Locale, Record<TranslationKey, string>> = {
-  en: english,
-  es: spanish,
+const dictionary: Record<Locale, Record<string, string>> = {
+  en: { ...english, ...(BEHAVIOR_UI_TRANSLATIONS.en ?? {}) },
+  es: { ...spanish, ...(BEHAVIOR_UI_TRANSLATIONS.es ?? {}) },
 };
 
 let pluginDictionary: TranslationCatalog = {};
@@ -469,9 +470,7 @@ export function i18nText(locale: Locale, value: unknown): string {
   }
 
   if (typeof object.default === 'string') return object.default;
-  // Read old descriptors while stored plugins migrate to the new contract.
-  const legacy = object[locale] ?? object.en;
-  return typeof legacy === 'string' ? legacy : '';
+  return '';
 }
 
 export function t(locale: Locale, key: TranslationKey | string, values: Record<string, string | number> = {}): string {

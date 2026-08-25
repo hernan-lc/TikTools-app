@@ -11,8 +11,9 @@ The app is built for people who want a lightweight live dashboard with a local d
 - Local points, levels, subscriber bonuses, viewer leaderboard, and creator history.
 - Analytics for the current session.
 - Behavior rules that connect events, filters, cooldowns, and actions.
-- Built-in HTTP, points, delay, logging, script, audio, and text-to-speech capabilities.
+- Built-in HTTP, points, delay, logging, and script capabilities, plus plugin-backed audio and text-to-speech providers.
 - Optional worker-backed automation plugins with declared permissions.
+- Dynamic AppPlugins for native audio/TTS providers, with scoped APIs and prebuilt `.plugin` installation.
 - English and Spanish UI translations with dark and light themes.
 - A system-tray icon that hides the window instead of immediately quitting the app.
 
@@ -28,6 +29,7 @@ The root README is the index for the project documentation. Start with the artic
 | [Development Guide](docs/DEVELOPMENT.md) | Work on the codebase, run checks, and build a host bundle. |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnose connection, native dependency, data, or plugin issues. |
 | [Automations](docs/AUTOMATIONS.md) | Build behavior rules, workflows, scripts, and plugins. |
+| [App plugins](docs/PLUGINS.md) | Build and install dynamic provider plugins such as MiniAudio and SonicBoom. |
 | [UI Kit Usage](docs/UI_KIT_USAGE.md) | Use the shared Preact components and UI conventions. |
 
 ## Quick start
@@ -130,12 +132,16 @@ LiveController -> AutomationEventBus -> BehaviorEngine / WorkflowRuntime
     |                       |                    |
     v                       v                    v
 SQLite databases       WebView messages     host capabilities
-                       (validated bridge)   HTTP / audio / TTS / points / VM
+                       (validated bridge)   HTTP / points / VM + plugin providers
 ```
 
 The native host owns the TikTok client, persistence, automation runtime, and privileged capabilities. The Preact frontend owns presentation and sends JSON messages through the validated bridge. See [Architecture](docs/ARCHITECTURE.md) for the full message and data flow.
 
 Sandbox plugins run in a separate `TikTools.exe --plugin-worker` process in a compiled release, or in `bun index.ts --plugin-worker ...` during development. The worker keeps the token-authenticated localhost IPC, VM loop limit, source and message size limits, manifest permissions, and capability broker.
+
+Audio and TTS providers are AppPlugins loaded with Bun `import()`. Their native
+dependencies stay inside the plugin package, and the root host has no direct
+MiniAudio or SonicBoom import.
 
 ## Contributing
 

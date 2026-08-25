@@ -87,14 +87,17 @@ Stop the app before moving or replacing a database. Back up the app `data/` dire
 
 Check all of the following:
 
-- The plugin is under `plugins/<directory>/plugin.json`.
-- The manifest uses supported `manifestVersion` and `apiVersion` values.
+- The automation plugin is under `plugins/<directory>/plugin.json`, or the
+  provider AppPlugin is installed under the app-data plugin directory.
+- Automation manifests use supported `manifestVersion` and `apiVersion` values;
+  provider manifests use `schemaVersion: 1` and a compatible `host.api` range.
 - The plugin id, version, execution mode, and permissions are valid.
 - The plugin declares every capability and network/files permission it needs.
 - The plugin is installed and enabled in the Plugins tab.
-- The optional native dependency used by the plugin is available on the current platform.
+- The plugin's precompiled native dependency is available for the current
+  platform/architecture; installation never compiles it.
 
-Read the terminal messages prefixed with `[automation-plugins]` during development, or `TikTools.log` in the compiled app. A sandbox plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path. The worker is self-hosted by `TikTools.exe`; Node.js and `plugin-worker.cjs` are not required.
+Read terminal messages prefixed with `[automation-plugins]` or `[plugins]` during development, or `TikTools.log` in the compiled app. A sandbox automation plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path. Trusted provider plugins are reviewed dynamic imports; use a separate process for truly untrusted native code.
 
 ## Text-to-speech is unavailable
 

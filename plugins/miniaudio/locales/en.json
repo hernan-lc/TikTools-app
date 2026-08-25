@@ -1,0 +1,7 @@
+{
+  "settings": {
+    "title": "Audio settings",
+    "outputDevice": "Output device",
+    "volume": "Volume"
+  }
+}

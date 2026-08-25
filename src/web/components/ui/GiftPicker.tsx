@@ -1,32 +1,25 @@
 import type { GiftCatalogEntry, ViewerRecord } from '../../../shared/messages.ts';
-import type { Locale } from '../../i18n.ts';
+import { i18nText, t, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph } from '../condition-icons.tsx';
 import { PickerModal } from './PickerModal.tsx';
 
 const GIFT_COPY = {
-  es: {
-    title: 'Elegir regalo',
-    description: 'Los regalos del directo, con su precio en diamantes.',
-    search: 'Buscar regalo',
-    empty: 'No hay regalos guardados todavía: conéctate una vez a un directo y se rellena solo.',
-    manual: 'Escribir el nombre a mano',
-    manualPlaceholder: 'Rosa',
-    done: 'Listo',
-    close: 'Cancelar',
-    already: 'Ese regalo ya está en la lista: se usa el de arriba.',
-  },
-  en: {
-    title: 'Pick a gift',
-    description: "The live's gifts, with their diamond price.",
-    search: 'Search gift',
-    empty: 'No gifts stored yet: connect to a live once and this fills in by itself.',
-    manual: 'Type the name by hand',
-    manualPlaceholder: 'Rose',
-    done: 'Done',
-    close: 'Cancel',
-    already: 'That gift is already in the list: the one above is used.',
-  },
+  title: { default: "Pick a gift", i18key: "picker.gift.title" },
+  description: { default: "The live's gifts, with their diamond price.", i18key: "picker.gift.description" },
+  search: { default: "Search gift", i18key: "picker.gift.search" },
+  empty: { default: "No gifts stored yet: connect to a live once and this fills in by itself.", i18key: "picker.gift.empty" },
+  manual: { default: "Type the name by hand", i18key: "picker.gift.manual" },
+  manualPlaceholder: { default: "Rose", i18key: "picker.gift.manualPlaceholder" },
+  done: { default: "Done", i18key: "picker.gift.done" },
+  close: { default: "Cancel", i18key: "picker.gift.close" },
+  already: { default: "That gift is already in the list: the one above is used.", i18key: "picker.gift.already" },
 } as const;
+
+function giftCopyFor(locale: Locale) {
+  const copy = {} as Record<keyof typeof GIFT_COPY, string>;
+  for (const [key, value] of Object.entries(GIFT_COPY)) copy[key as keyof typeof GIFT_COPY] = i18nText(locale, value);
+  return copy;
+}
 
 type GiftPickerProps = {
   locale: Locale;
@@ -39,7 +32,7 @@ type GiftPickerProps = {
 
 /** Gifts are stored by NAME, because that is what the event carries. */
 export function GiftPicker({ locale, gifts, selected, multiple, onPick, onClose }: GiftPickerProps) {
-  const copy = GIFT_COPY[locale];
+  const copy = giftCopyFor(locale);
   const seen = new Set<string>();
   const options = gifts
     .filter((gift) => {
@@ -82,31 +75,23 @@ export function GiftPicker({ locale, gifts, selected, multiple, onPick, onClose 
 }
 
 const USER_COPY = {
-  es: {
-    title: 'Elegir usuario',
-    description: 'Quien ya ha pasado por tus directos, ordenado por puntos.',
-    search: 'Buscar por @ o nombre',
-    empty: 'Todavía no hay usuarios conocidos. Escribe el @ a mano.',
-    manual: 'Escribir un @ a mano',
-    manualPlaceholder: 'luna_dev',
-    done: 'Listo',
-    close: 'Cancelar',
-    already: 'Ese usuario ya está en la lista: se usa el de arriba.',
-    points: (points: number) => `${Math.round(points)} pts`,
-  },
-  en: {
-    title: 'Pick a viewer',
-    description: 'People already seen in your lives, ordered by points.',
-    search: 'Search by @ or name',
-    empty: 'No known viewers yet. Type the @ by hand.',
-    manual: 'Type an @ by hand',
-    manualPlaceholder: 'luna_dev',
-    done: 'Done',
-    close: 'Cancel',
-    already: 'That viewer is already in the list: the one above is used.',
-    points: (points: number) => `${Math.round(points)} pts`,
-  },
+  title: { default: "Pick a viewer", i18key: "picker.user.title" },
+  description: { default: "People already seen in your lives, ordered by points.", i18key: "picker.user.description" },
+  search: { default: "Search by @ or name", i18key: "picker.user.search" },
+  empty: { default: "No known viewers yet. Type the @ by hand.", i18key: "picker.user.empty" },
+  manual: { default: "Type an @ by hand", i18key: "picker.user.manual" },
+  manualPlaceholder: { default: "luna_dev", i18key: "picker.user.manualPlaceholder" },
+  done: { default: "Done", i18key: "picker.user.done" },
+  close: { default: "Cancel", i18key: "picker.user.close" },
+  already: { default: "That viewer is already in the list: the one above is used.", i18key: "picker.user.already" },
+  points: { default: "{points} pts", i18key: "picker.user.points" },
 } as const;
+
+function userCopyFor(locale: Locale) {
+  const copy = {} as Record<keyof typeof USER_COPY, string>;
+  for (const [key, value] of Object.entries(USER_COPY)) copy[key as keyof typeof USER_COPY] = i18nText(locale, value);
+  return { ...copy, points: (points: number) => t(locale, 'picker.user.points', { points: Math.round(points) }) };
+}
 
 type UserPickerProps = {
   locale: Locale;
@@ -119,7 +104,7 @@ type UserPickerProps = {
 
 /** Known viewers come from the points table — the only list the app owns. */
 export function UserPicker({ locale, viewers, selected, multiple, onPick, onClose }: UserPickerProps) {
-  const copy = USER_COPY[locale];
+  const copy = userCopyFor(locale);
   const options = viewers.map((viewer) => ({
     value: viewer.uniqueId,
     label: `@${viewer.uniqueId}`,

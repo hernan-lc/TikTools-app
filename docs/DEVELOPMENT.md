@@ -22,6 +22,9 @@ The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` imp
 | `bun run typecheck` | Run strict TypeScript checking without emitting files. |
 | `bun run test` | Run tests under `src`. |
 | `bun run test:plugin-worker` | Run the plugin worker smoke test. |
+| `bun run build:plugins` | Build the checked-in MiniAudio and SonicBoom AppPlugin entries. |
+| `bun run package:plugin <dir> [file.plugin]` | Package a prebuilt plugin directory with checksums. |
+| `bun run install:plugin <file.plugin> [--replace]` | Manually install a validated prebuilt plugin archive. |
 | `bun run smoke:compiled` | Launch the built EXE with a fixture plugin and verify app-data paths. |
 | `bun run smoke:compiled-worker` | Execute nodes and a capability through the compiled worker process. |
 | `bun run smoke:compiled-integration` | Execute a compiled worker through the real host and capability broker. |
@@ -84,6 +87,13 @@ For graph nodes, add the node definition and implementation in `src/automation/n
 ## Adding a plugin
 
 A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, permissions, and optional locale files such as `{ "i18n": { "en": "i18n/en.json", "es": "i18n/es.json" } }`. Locale files are flat key/value JSON maps and should namespace keys with the plugin id. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md). A sandbox entry may register both nodes and actions; actions are described with JSON Schema and execute in the worker through the capability broker.
+
+Provider AppPlugins use the separate `schemaVersion: 1` manifest contract in
+`src/plugins/` and are loaded with dynamic `import()`. Use that contract for
+audio/TTS/native providers; do not add provider-specific imports to the host.
+The MiniAudio and SonicBoom package fixtures live under `plugins/` and their
+native dependencies are packaged with the plugin rather than the root
+`package.json`. See [App plugins](PLUGINS.md).
 
 Trusted plugins are host code and should only be used for reviewed, bundled integrations. A worker process is a crash/isolation boundary, not a full security sandbox.
 

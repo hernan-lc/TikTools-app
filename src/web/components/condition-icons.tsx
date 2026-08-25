@@ -1,5 +1,5 @@
 import type { FieldIcon } from '../../automation/behavior/fields.ts';
-import type { FilterOperator } from '../../automation/behavior/types.ts';
+import type { FilterOperator, I18nText } from '../../automation/behavior/types.ts';
 
 /**
  * Two icon sets the condition editor leans on: one per kind of field, and one
@@ -33,18 +33,18 @@ const OPERATOR_PATHS: Record<FilterOperator, string[]> = {
 };
 
 /** One wording per operator, used by the table, the summaries and the sentence. */
-export const OPERATOR_LABELS: Record<FilterOperator, Record<'es' | 'en', string>> = {
-  gte: { es: 'al menos', en: 'at least' },
-  gt: { es: 'más que', en: 'more than' },
-  lte: { es: 'como mucho', en: 'at most' },
-  lt: { es: 'menos que', en: 'less than' },
-  eq: { es: 'es', en: 'is' },
-  neq: { es: 'no es', en: 'is not' },
-  in: { es: 'es uno de', en: 'is one of' },
-  contains: { es: 'contiene', en: 'contains' },
-  'starts-with': { es: 'empieza por', en: 'starts with' },
-  'is-true': { es: 'es cierto', en: 'is true' },
-  'is-false': { es: 'es falso', en: 'is false' },
+export const OPERATOR_LABELS: Record<FilterOperator, I18nText> = {
+  "gte": { default: "at least", i18key: "behavior.operator.gte" },
+  "gt": { default: "more than", i18key: "behavior.operator.gt" },
+  "lte": { default: "at most", i18key: "behavior.operator.lte" },
+  "lt": { default: "less than", i18key: "behavior.operator.lt" },
+  "eq": { default: "is", i18key: "behavior.operator.eq" },
+  "neq": { default: "is not", i18key: "behavior.operator.neq" },
+  "in": { default: "is one of", i18key: "behavior.operator.in" },
+  "contains": { default: "contains", i18key: "behavior.operator.contains" },
+  "starts-with": { default: "starts with", i18key: "behavior.operator.starts-with" },
+  "is-true": { default: "is true", i18key: "behavior.operator.is-true" },
+  "is-false": { default: "is false", i18key: "behavior.operator.is-false" },
 };
 
 /** The code equivalent, shown under the name so the symbol is learnable. */

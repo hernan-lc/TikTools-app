@@ -14,9 +14,6 @@
       "devDependencies": {
         "@types/bun": "latest",
       },
-      "optionalDependencies": {
-        "miniaudio_node": "^1.6.0",
-      },
       "peerDependencies": {
         "typescript": "^6",
       },
@@ -54,8 +51,6 @@
     "bun": ["bun@1.4.0", "", { "optionalDependencies": { "@oven/bun-darwin-aarch64": "1.4.0", "@oven/bun-darwin-x64": "1.4.0", "@oven/bun-freebsd-aarch64": "1.4.0", "@oven/bun-freebsd-x64": "1.4.0", "@oven/bun-linux-aarch64": "1.4.0", "@oven/bun-linux-aarch64-android": "1.4.0", "@oven/bun-linux-aarch64-musl": "1.4.0", "@oven/bun-linux-x64": "1.4.0", "@oven/bun-linux-x64-android": "1.4.0", "@oven/bun-linux-x64-musl": "1.4.0", "@oven/bun-windows-aarch64": "1.4.0", "@oven/bun-windows-x64": "1.4.0" }, "os": [ "!aix", "!sunos", "!openbsd", ], "cpu": [ "x64", "arm64", ], "bin": { "bun": "bin/bun.exe", "bunx": "bin/bunx.exe" } }, "sha512-iRiFkc2W7UVpCyZXO9tod45TP9QCyN19fWqbpeN/jaM/K7uzeHYx/OSPsahMJazGKBgPsnxRt+4Jc43d8BcHZw=="],
 
     "bun-types": ["bun-types@1.4.0", "", { "dependencies": { "@types/node": "*" } }, "sha512-iIKw23BspnQQYd3prITOBxeUsxBHnwzX6YJfGMuNOZzeNcMmVqzIIVGRm1l69ogaPQmb4wB6BN8mA5bE9YuC5Q=="],
-
-    "miniaudio_node": ["miniaudio_node@1.6.0", "", {}, "sha512-KCjr6PMBwEI6iFVMgOpLFnS6UL3u2xywZ2M3nWko8GNBwwJX2K29Kl0x06qRVGZwRiOwIKdWFgARYa2MlPvm1w=="],
 
     "napi-vm": ["napi-vm@0.1.4", "", {}, "sha512-P0KpRzhDhckzFPJMREZzCkRsI/RKTkUQTOOks4zz+dhVwu5IF+jWrawM/R5KseUOaIwdhiXV63C6R6Yo6zK8nA=="],
 

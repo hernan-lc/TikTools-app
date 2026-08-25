@@ -10,6 +10,8 @@ describe('key/value i18n metadata', () => {
 
     expect(i18nText('es', { default: 'Hello {name}', i18key: 'test.greeting' })).toBe('Hola {name}');
     expect(i18nText('en', { default: 'Hello', i18key: 'test.missing' })).toBe('Hello');
+    expect(i18nText('es', { default: 'Behavior', i18key: 'behavior.copy.title' })).toBe('Comportamiento');
+    expect(i18nText('en', { es: 'Viejo', en: 'Old' })).toBe('');
   });
 
   test('keeps the existing key-based t helper compatible with plugin keys', () => {

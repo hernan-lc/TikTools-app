@@ -8,17 +8,17 @@ import type { ActionTypeDefinition } from './types.ts';
 const definition: ActionTypeDefinition = {
   id: 'test.schema-action',
   version: 1,
-  title: { en: 'Schema action', es: 'Acción de esquema' },
-  description: { en: 'Test', es: 'Prueba' },
+  title: { default: 'Schema action', i18key: 'test.schema-action.title' },
+  description: { default: 'Test', i18key: 'test.schema-action.description' },
   tag: 'test',
   source: { kind: 'builtin' },
   configSchema: {
     type: 'object',
     required: ['url'],
     properties: {
-      url: { type: 'string', title: { en: 'URL', es: 'URL' }, default: 'https://example.test' },
-      retries: { type: 'integer', title: { en: 'Retries', es: 'Reintentos' }, default: 2, minimum: 0, maximum: 5 },
-      enabled: { type: 'boolean', title: { en: 'Enabled', es: 'Activo' }, default: true },
+      url: { type: 'string', title: { default: 'URL', i18key: 'test.schema-action.url' }, default: 'https://example.test' },
+      retries: { type: 'integer', title: { default: 'Retries', i18key: 'test.schema-action.retries' }, default: 2, minimum: 0, maximum: 5 },
+      enabled: { type: 'boolean', title: { default: 'Enabled', i18key: 'test.schema-action.enabled' }, default: true },
     },
   },
   requiredCapabilities: [],

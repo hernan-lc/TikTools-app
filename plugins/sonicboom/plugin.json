@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "tts.sonicboom",
+  "name": "SonicBoom",
+  "version": "1.0.0",
+  "description": "Local text-to-speech provider backed by SonicBoom.",
+  "main": "./dist/plugin.js",
+  "host": {
+    "api": "^1.0.0",
+    "uiApi": "^1.0.0"
+  },
+  "type": "tts",
+  "capabilities": [
+    "tts.synthesis"
+  ],
+  "permissions": [
+    "tts.output",
+    "filesystem.write",
+    "process.spawn",
+    "network.local"
+  ],
+  "isolation": "trusted",
+  "i18n": {
+    "default": "en",
+    "directory": "./locales"
+  },
+  "assets": {
+    "icon": "./assets/icon.svg"
+  }
+}

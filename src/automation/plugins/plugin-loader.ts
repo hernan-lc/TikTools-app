@@ -9,6 +9,7 @@ import {
   assertValidPluginManifest,
   type AutomationPluginManifest,
 } from './manifest.ts';
+import { isAppPluginManifest } from '../../plugins/manifest.ts';
 import { PluginManager } from './plugin-manager.ts';
 import { PluginWorkerHost } from './plugin-worker-host.ts';
 
@@ -86,6 +87,7 @@ export class AutomationPluginLoader {
     const resolvedDirectory = await realpath(directory);
     const manifestPath = join(resolvedDirectory, 'plugin.json');
     const manifest = await readManifest(manifestPath);
+    if (!manifest) return { directory: resolvedDirectory, loaded: false };
     this.#discovered.set(manifest.id, { directory: resolvedDirectory, manifest });
     if (this.#options.isInstalled?.(manifest.id) === false) {
       return { directory: resolvedDirectory, manifest, loaded: false };
@@ -160,7 +162,7 @@ export class AutomationPluginLoader {
   }
 }
 
-async function readManifest(path: string): Promise<AutomationPluginManifest> {
+async function readManifest(path: string): Promise<AutomationPluginManifest | undefined> {
   const info = await stat(path);
   if (!info.isFile()) throw new Error('Plugin manifest is not a file.');
   if (info.size > MAX_MANIFEST_BYTES) throw new Error('Plugin manifest exceeds the 256 KB limit.');
@@ -170,6 +172,7 @@ async function readManifest(path: string): Promise<AutomationPluginManifest> {
   } catch {
     throw new Error('Plugin manifest is not valid JSON.');
   }
+  if (isAppPluginManifest(value)) return undefined;
   assertValidPluginManifest(value);
   return value;
 }

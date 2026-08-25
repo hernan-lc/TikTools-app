@@ -1,31 +1,31 @@
 import { useState } from 'preact/hooks';
 
 import type { AutomationEventType } from '../../../automation/types.ts';
+import type { I18nText } from '../../../automation/behavior/types.ts';
 import { Button } from '../ui/Button.tsx';
 import { FormField } from '../ui/FormField.tsx';
 import { Modal } from '../ui/Modal.tsx';
 import { TextInput } from '../ui/TextInput.tsx';
-import { t, type Locale } from '../../i18n.ts';
+import { i18nText, t, type Locale } from '../../i18n.ts';
 
 type EventChoice = {
   value: AutomationEventType;
-  en: string;
-  es: string;
+  label: I18nText;
   icon: string;
 };
 
 export const WORKFLOW_EVENT_CHOICES: EventChoice[] = [
-  { value: 'tiktok.chat', en: 'Chat message', es: 'Mensaje de chat', icon: '💬' },
-  { value: 'tiktok.gift', en: 'Gift received', es: 'Regalo recibido', icon: '🎁' },
-  { value: 'tiktok.like', en: 'Likes', es: 'Likes', icon: '❤️' },
-  { value: 'tiktok.follow', en: 'New follower', es: 'Nuevo seguidor', icon: '⭐' },
-  { value: 'tiktok.share', en: 'Live shared', es: 'LIVE compartido', icon: '↗' },
-  { value: 'tiktok.join', en: 'Viewer joined', es: 'Espectador entra', icon: '👋' },
-  { value: 'tiktok.social', en: 'Social action', es: 'Acción social', icon: '👥' },
-  { value: 'tiktok.room_stats', en: 'Room statistics', es: 'Estadísticas de sala', icon: '📊' },
-  { value: 'tiktok.connected', en: 'LIVE connected', es: 'LIVE conectado', icon: '🔌' },
-  { value: 'tiktok.disconnected', en: 'LIVE disconnected', es: 'LIVE desconectado', icon: '⏹' },
-  { value: 'points.awarded', en: 'Points awarded', es: 'Puntos otorgados', icon: '🏆' },
+  { value: "tiktok.chat", label: { default: "Chat message", i18key: "workflow.event.tiktok.chat" }, icon: "💬" },
+  { value: "tiktok.gift", label: { default: "Gift received", i18key: "workflow.event.tiktok.gift" }, icon: "🎁" },
+  { value: "tiktok.like", label: { default: "Likes", i18key: "workflow.event.tiktok.like" }, icon: "❤️" },
+  { value: "tiktok.follow", label: { default: "New follower", i18key: "workflow.event.tiktok.follow" }, icon: "⭐" },
+  { value: "tiktok.share", label: { default: "Live shared", i18key: "workflow.event.tiktok.share" }, icon: "↗" },
+  { value: "tiktok.join", label: { default: "Viewer joined", i18key: "workflow.event.tiktok.join" }, icon: "👋" },
+  { value: "tiktok.social", label: { default: "Social action", i18key: "workflow.event.tiktok.social" }, icon: "👥" },
+  { value: "tiktok.room_stats", label: { default: "Room statistics", i18key: "workflow.event.tiktok.room_stats" }, icon: "📊" },
+  { value: "tiktok.connected", label: { default: "LIVE connected", i18key: "workflow.event.tiktok.connected" }, icon: "🔌" },
+  { value: "tiktok.disconnected", label: { default: "LIVE disconnected", i18key: "workflow.event.tiktok.disconnected" }, icon: "⏹" },
+  { value: "points.awarded", label: { default: "Points awarded", i18key: "workflow.event.points.awarded" }, icon: "🏆" },
 ];
 
 type WorkflowWizardModalProps = {
@@ -100,7 +100,7 @@ export function WorkflowWizardModal({ locale, onClose, onCreate }: WorkflowWizar
           <div className="node-editor-event-picker__selected">
             <span className="node-editor-event-picker__selected-icon">{selected?.icon}</span>
             <div>
-              <strong>{locale === 'es' ? selected?.es : selected?.en}</strong>
+              <strong>{i18nText(locale, selected?.label)}</strong>
               <small>{name}</small>
             </div>
           </div>
@@ -113,7 +113,7 @@ export function WorkflowWizardModal({ locale, onClose, onCreate }: WorkflowWizar
                 onClick={() => setEventType(choice.value)}
               >
                 <span>{choice.icon}</span>
-                <span>{locale === 'es' ? choice.es : choice.en}</span>
+                <span>{i18nText(locale, choice.label)}</span>
               </button>
             ))}
           </div>

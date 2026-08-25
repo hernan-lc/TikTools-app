@@ -503,10 +503,6 @@ function normalizeLocalized(value: unknown, label: string): Localized {
   if (typeof object.default === 'string' && object.default.trim() && typeof object.i18key === 'string' && /^[a-zA-Z0-9_.-]{1,160}$/.test(object.i18key)) {
     return { default: object.default, i18key: object.i18key } satisfies I18nText;
   }
-  // Compatibility for worker packages published before the key/default contract.
-  if (typeof object.en === 'string' && typeof object.es === 'string' && object.en.trim() && object.es.trim()) {
-    return { en: object.en, es: object.es };
-  }
   throw new Error(`${label} must contain default and i18key.`);
 }
 

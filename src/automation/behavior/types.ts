@@ -9,8 +9,6 @@ import type { AutomationEventType, JsonObject } from '../types.ts';
  * filter must pass, and an "or" is expressed inside a single filter with the
  * `in` operator.
  */
-export type Locale = 'es' | 'en';
-
 /**
  * Localized metadata is intentionally a small, serializable value object.
  *
@@ -26,8 +24,8 @@ export interface I18nText extends JsonObject {
 /** Locale -> key -> translated value. Locale files use this exact shape. */
 export type TranslationCatalog = Record<string, Record<string, string>>;
 
-/** @deprecated Legacy per-locale descriptors are read during migration only. */
-export type Localized = I18nText | Record<Locale, string>;
+/** Every localized descriptor uses the default/key contract. */
+export type Localized = I18nText;
 
 export type ActionFieldKind =
   | 'text'

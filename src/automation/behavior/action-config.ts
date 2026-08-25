@@ -21,7 +21,7 @@ export function schemaForActionType(type: ActionTypeDefinition): JsonObject {
 }
 
 function jsonLocalized(value: Localized): JsonObject {
-  return 'default' in value ? value : { default: value.en, i18key: '' };
+  return value;
 }
 
 /** Presentation metadata for fields that JSON Schema intentionally does not own. */

@@ -9,48 +9,39 @@ import {
 import type { EventFilter, FilterOperator } from '../../../automation/behavior/types.ts';
 import type { AutomationEventType } from '../../../automation/types.ts';
 import type { GiftCatalogEntry, ViewerRecord } from '../../../shared/messages.ts';
-import { i18nText, type Locale } from '../../i18n.ts';
+import { i18nText, t, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph, OperatorGlyph, OPERATOR_CODE, OPERATOR_LABELS } from '../condition-icons.tsx';
 import { GiftPicker, UserPicker } from './GiftPicker.tsx';
 import { IconSelect } from './IconSelect.tsx';
 import { InfoTip } from './InfoTip.tsx';
 
 const COPY = {
-  es: {
-    colField: 'Dato',
-    colOperator: 'Comparación',
-    colValue: 'Valor',
-    add: 'Añadir condición',
-    remove: 'Quitar',
-    custom: 'Otro campo (avanzado)…',
-    customPlaceholder: 'event.data.loQueSea',
-    missing: 'falta el valor',
-    missingHint: 'Sin valor, esta condición no se cumple nunca: rellénala o quítala.',
-    choose: 'Elegir…',
-    empty: 'Sin condiciones: el evento se dispara siempre.',
-    headHint: 'Se comparan datos del evento. Todas las condiciones deben cumplirse; el único «o» es la comparación «es uno de».',
-    yes: 'sí',
-    no: 'no',
-    values: (count: number) => `${count} valores`,
-  },
-  en: {
-    colField: 'Field',
-    colOperator: 'Comparison',
-    colValue: 'Value',
-    add: 'Add condition',
-    remove: 'Remove',
-    custom: 'Another field (advanced)…',
-    customPlaceholder: 'event.data.whatever',
-    missing: 'value missing',
-    missingHint: 'With no value this condition never passes: fill it in or remove it.',
-    choose: 'Pick…',
-    empty: 'No conditions: the event always fires.',
-    headHint: 'Event data is compared. Every condition must pass; the only "or" is the "is one of" comparison.',
-    yes: 'yes',
-    no: 'no',
-    values: (count: number) => `${count} values`,
-  },
+  colField: { default: "Field", i18key: "condition.colField" },
+  colOperator: { default: "Comparison", i18key: "condition.colOperator" },
+  colValue: { default: "Value", i18key: "condition.colValue" },
+  add: { default: "Add condition", i18key: "condition.add" },
+  remove: { default: "Remove", i18key: "condition.remove" },
+  custom: { default: "Another field (advanced)…", i18key: "condition.custom" },
+  customPlaceholder: { default: "event.data.whatever", i18key: "condition.customPlaceholder" },
+  missing: { default: "value missing", i18key: "condition.missing" },
+  missingHint: { default: "With no value this condition never passes: fill it in or remove it.", i18key: "condition.missingHint" },
+  choose: { default: "Pick…", i18key: "condition.choose" },
+  empty: { default: "No conditions: the event always fires.", i18key: "condition.empty" },
+  headHint: { default: "Event data is compared. Every condition must pass; the only \"or\" is the \"is one of\" comparison.", i18key: "condition.headHint" },
+  yes: { default: "yes", i18key: "condition.yes" },
+  no: { default: "no", i18key: "condition.no" },
+  values: { default: "{count} values", i18key: "condition.values" },
 } as const;
+
+type ConditionCopy = Omit<{ -readonly [Key in keyof typeof COPY]: string }, 'values'> & { values: (count: number) => string };
+
+function copyFor(locale: Locale): ConditionCopy {
+  const copy = {} as Omit<ConditionCopy, 'values'>;
+  for (const [key, value] of Object.entries(COPY)) {
+    if (key !== 'values') copy[key as keyof Omit<ConditionCopy, 'values'>] = i18nText(locale, value);
+  }
+  return { ...copy, values: (count) => t(locale, 'condition.values', { count }) };
+}
 
 const CUSTOM = '__custom__';
 
@@ -71,7 +62,7 @@ type PickerState = { index: number; kind: 'gift' | 'user'; multiple: boolean } |
  * for — a gift picker, a viewer picker, a number, a switch.
  */
 export function ConditionTable({ locale, trigger, filters, gifts, viewers, onChange }: ConditionTableProps) {
-  const copy = COPY[locale];
+  const copy = copyFor(locale);
   const [picker, setPicker] = useState<PickerState>(null);
   const fields = fieldsForTrigger(trigger);
 
@@ -275,7 +266,7 @@ type ValueProps = {
   filter: EventFilter;
   kind: FieldValueKind;
   missing: boolean;
-  copy: (typeof COPY)[Locale];
+  copy: ConditionCopy;
   onOpenPicker: (multiple: boolean) => void;
   onValue: (value: string) => void;
   onValues: (values: string[]) => void;
@@ -323,7 +314,7 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
         ))}
         <input
           className={`plg-input plg-cond__inline${missing ? ' is-missing' : ''}`}
-          placeholder={locale === 'es' ? 'añadir y pulsar Intro' : 'add and press Enter'}
+          placeholder={t(locale, 'condition.addValuePlaceholder')}
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();

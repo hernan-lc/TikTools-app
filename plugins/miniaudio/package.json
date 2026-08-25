@@ -1,0 +1,12 @@
+{
+  "name": "@tiktools/plugin-miniaudio",
+  "private": true,
+  "type": "module",
+  "version": "1.6.3",
+  "optionalDependencies": {
+    "miniaudio_node": "^1.6.0"
+  },
+  "scripts": {
+    "build": "bun build src/plugin.ts --outfile dist/plugin.js --target bun"
+  }
+}
