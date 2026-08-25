@@ -8,7 +8,8 @@
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test src",
     "test:plugin-worker": "bun run src/automation/plugins/worker-smoke.ts",
-    "build:host": "bun run scripts/build-host.ts"
+    "build:host": "bun run scripts/build-host.ts",
+    "build:exe": "bun build ./index.ts --compile --target=bun-windows-x64 --minify --sourcemap --bytecode --outfile ./dist/TikTools.exe"
   },
   "devDependencies": {
     "@types/bun": "latest"
