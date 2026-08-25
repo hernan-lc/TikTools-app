@@ -52,6 +52,28 @@
 .plg-btn--sm { height: 36px; padding: 0 12px; font-size: 12px; }
 .plg-btn--icon { width: 36px; height: 36px; padding: 0; flex-shrink: 0; }
 .plg-btn--block { width: 100%; }
+.plg-btn { white-space: nowrap; }
+
+/* Icon-only control: the label lives in the tooltip, so nothing can overflow. */
+.plg-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--plg-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.plg-iconbtn:hover { transform: none; color: var(--plg-text); border-color: var(--plg-line-strong); }
+.plg-iconbtn:active { transform: none; }
+.plg-iconbtn.is-danger:hover { color: var(--plg-err); border-color: rgba(239, 71, 111, 0.4); }
+.plg-iconbtn:focus-visible { outline: 2px solid var(--plg-accent); outline-offset: 1px; }
 .plg-btn:hover { transform: none; }
 .plg-btn:active { transform: none; }
 
@@ -187,15 +209,16 @@
 .plg-topbar__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .plg-topbar__title { margin: 0; font-size: 18px; font-weight: 700; }
 .plg-topbar__subtitle { font-size: 12px; color: var(--plg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plg-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.plg-topbar { flex-wrap: wrap; }
+.plg-topbar__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 
 .plg-toolbar { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; flex-shrink: 0; }
 .plg-scroll { flex: 1; min-height: 0; overflow: auto; }
 .plg-stack { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 16px; }
 .plg-form { display: flex; flex-direction: column; gap: 16px; padding: 16px; }
 .plg-group { display: flex; flex-direction: column; gap: 10px; }
-.plg-inline { display: flex; gap: 8px; }
-.plg-inline > * { flex: 1; min-width: 0; }
+.plg-inline { display: flex; flex-wrap: wrap; gap: 8px; }
+.plg-inline > * { flex: 1 1 200px; min-width: 0; }
 
 /* ---- plugin row ---- */
 .plg-row {
@@ -370,19 +393,23 @@
 .plg-kv-row .plg-input--key { flex: 0 0 34%; }
 
 /* ---- desktop: the same screens with a second column ---- */
-@media (min-width: 900px) {
+/* The aside only appears once the main column can still hold a table. */
+@media (min-width: 1180px) {
+  .plg-form { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 20px; }
+  .plg-form__main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .plg-side { padding: 0; }
   .plg-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; flex: 1; min-height: 0; }
   .plg-body > .plg-scroll { min-height: 0; }
   .plg-body__aside { border-left: 1px solid var(--plg-line); overflow: auto; }
+}
+
+@media (min-width: 900px) {
   .plg-toolbar { flex-direction: row; align-items: center; justify-content: space-between; }
   .plg-toolbar .plg-input { max-width: 280px; }
   .plg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .plg-detail { display: flex; }
   .plg-modal { align-items: center; padding: 24px; }
   .plg-modal__card { max-height: 720px; border-radius: 12px; }
-  .plg-form { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 20px; }
-  .plg-form__main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .plg-side { padding: 0; }
   .plg-btn { height: 36px; }
   .plg-btn--icon { width: 36px; }
   .plg-input, .plg-select { height: 36px; }
@@ -390,7 +417,7 @@
 
 /* ==========================================================================
    BEHAVIOR — two tables (actions and events), action grid, event editor.
-   Cards on mobile, real table rows from 900px up.
+   Cards on mobile, real table rows from 1180px up.
    ========================================================================== */
 
 .plg-section { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 20px; }
@@ -398,19 +425,27 @@
 .plg-section__title { display: flex; align-items: baseline; gap: 10px; }
 .plg-section__title h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .plg-section__count { font-size: 12px; color: var(--plg-dim); }
-.plg-section__tools { display: flex; align-items: center; gap: 8px; }
+.plg-section__tools { display: flex; align-items: center; gap: 8px; flex: 1 1 220px; min-width: 0; justify-content: flex-end; }
+.plg-section__tools .plg-input { flex: 1 1 auto; min-width: 0; }
 
 .plg-table { display: flex; flex-direction: column; gap: 8px; }
 .plg-table__head { display: none; }
+/* Card layout: switch · name · actions on the first line, the rest stacked. */
 .plg-table__row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
   padding: 12px;
   border: 1px solid var(--plg-line);
   border-radius: 10px;
   background: var(--plg-surface);
 }
+.plg-table__row > * { grid-column: 1 / -1; min-width: 0; }
+.plg-table__row > .plg-switch { grid-column: 1; grid-row: 1; }
+.plg-table__row > .plg-table__link { grid-column: 2; grid-row: 1; }
+.plg-table__row > .plg-table__actions { grid-column: 3; grid-row: 1; }
+.plg-table__meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .plg-table__row.is-off { opacity: 0.6; }
 .plg-table__row.has-error { border-color: rgba(239, 71, 111, 0.4); }
 .plg-table__main { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -424,6 +459,8 @@
 .plg-table__actions { display: flex; align-items: center; gap: 6px; }
 /* The name is the only clickable cell, so the row stays a plain grid. */
 .plg-table__link {
+  display: block;
+  width: 100%;
   padding: 0;
   border: none;
   background: transparent;
@@ -490,7 +527,15 @@
 }
 .plg-step__title { font-size: 14px; font-weight: 600; }
 .plg-step__hint { font-size: 12px; color: var(--plg-dim); }
-.plg-step__body { display: flex; flex-direction: column; gap: 10px; }
+.plg-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--plg-line);
+  border-radius: 10px;
+  background: var(--plg-surface);
+}
 .plg-sentence {
   padding: 14px 16px;
   border-radius: 10px;
@@ -574,7 +619,9 @@
   .plg-section { padding: 0 20px 20px; }
   .plg-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .plg-dashed { height: 38px; }
+}
 
+@media (min-width: 1180px) {
   .plg-table { gap: 0; border: 1px solid var(--plg-line); border-radius: 10px; overflow: hidden; }
   .plg-table__head {
     display: grid;
@@ -589,6 +636,7 @@
     text-transform: uppercase;
     color: var(--plg-dim);
   }
+  .plg-table__head > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .plg-table__row {
     display: grid;
     align-items: center;
@@ -599,12 +647,13 @@
     border-radius: 0;
     background: transparent;
   }
+  .plg-table__row > * { grid-column: auto; grid-row: auto; }
   .plg-table__row:last-child { border-bottom: none; }
   .plg-table__row.has-error { border-left: 2px solid var(--plg-err); }
   .plg-table--actions .plg-table__head,
-  .plg-table--actions .plg-table__row { grid-template-columns: 44px minmax(0, 1.3fr) 120px 88px minmax(0, 1.5fr) 120px 36px; }
+  .plg-table--actions .plg-table__row { grid-template-columns: 44px minmax(0, 1.2fr) minmax(0, 140px) minmax(0, 1.4fr) minmax(0, 130px) 72px; }
   .plg-table--events .plg-table__head,
-  .plg-table--events .plg-table__row { grid-template-columns: 44px minmax(0, 1fr) 130px minmax(0, 1.3fr) minmax(0, 1.2fr) 36px; }
+  .plg-table--events .plg-table__row { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 130px) minmax(0, 1.3fr) minmax(0, 1.2fr) 72px; }
   .plg-table__actions { justify-content: flex-end; }
 }
 
@@ -648,7 +697,8 @@
   text-align: left;
   cursor: pointer;
 }
-.plg-steps__item.is-active { border-color: var(--plg-accent); }
+.plg-steps__item { justify-content: flex-start; }
+.plg-steps__item.is-active { border-color: var(--plg-accent); background: var(--plg-surface); }
 .plg-steps__item:hover { transform: none; }
 .plg-steps__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .plg-steps__label { font-size: 12.5px; font-weight: 600; }

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 
+import { IconPencil, IconTrash } from '../components/icons.tsx';
+
 import {
   BUILTIN_ACTION_TYPES,
   PLUGIN_DESCRIPTORS,
@@ -65,7 +67,6 @@ const COPY = {
     colActive: 'Activa',
     colName: 'Nombre',
     colOrigin: 'Origen',
-    colKind: 'Tipo',
     colDoes: 'Qué hace',
     colLast: 'Última vez',
     colTrigger: 'Desencadenante',
@@ -90,6 +91,7 @@ const COPY = {
     back: 'Volver',
     save: 'Guardar',
     remove: 'Eliminar',
+    edit: 'Editar',
     test: 'Probar',
     name: 'Nombre',
     permissions: 'Permisos',
@@ -141,7 +143,6 @@ const COPY = {
     colActive: 'Active',
     colName: 'Name',
     colOrigin: 'Source',
-    colKind: 'Type',
     colDoes: 'What it does',
     colLast: 'Last run',
     colTrigger: 'Trigger',
@@ -166,6 +167,7 @@ const COPY = {
     back: 'Back',
     save: 'Save',
     remove: 'Delete',
+    edit: 'Edit',
     test: 'Run test',
     name: 'Name',
     permissions: 'Permissions',
@@ -371,7 +373,6 @@ export function BehaviorView(props: BehaviorViewProps) {
                 <span>{copy.colActive}</span>
                 <span>{copy.colName}</span>
                 <span>{copy.colOrigin}</span>
-                <span>{copy.colKind}</span>
                 <span>{copy.colDoes}</span>
                 <span>{copy.colLast}</span>
                 <span />
@@ -402,11 +403,13 @@ export function BehaviorView(props: BehaviorViewProps) {
                     >
                       {action.name}
                     </button>
-                    <span className="plg-table__origin">
-                      {type ? originLabel(type, locale, copy.builtIn) : '—'}
-                      {!usable && ` · ${copy.pluginMissing}`}
+                    <span className="plg-table__meta">
+                      <span className="plg-table__origin">
+                        {type ? originLabel(type, locale, copy.builtIn) : '—'}
+                        {!usable && ` · ${copy.pluginMissing}`}
+                      </span>
+                      <span className="plg-pill plg-pill--mono">{type?.tag ?? '—'}</span>
                     </span>
-                    <span className="plg-pill plg-pill--mono">{type?.tag ?? '—'}</span>
                     <span className="plg-table__detail">{describeAction(action)}</span>
                     <span className={`plg-table__status${!action.enabled ? '' : failing ? ' is-err' : lastRun ? ' is-ok' : ''}`}>
                       <span className={`plg-dot${!action.enabled ? '' : failing ? ' is-err' : lastRun ? ' is-ok' : ''}`} />
@@ -419,13 +422,25 @@ export function BehaviorView(props: BehaviorViewProps) {
                     <span className="plg-table__actions">
                       <button
                         type="button"
-                        className="plg-btn plg-btn--icon plg-btn--danger"
+                        className="plg-iconbtn"
+                        aria-label={copy.edit}
+                        data-tooltip={copy.edit}
+                        data-tooltip-pos="left"
+                        onClick={() => setScreen({ kind: 'action', action, isNew: false })}
+                      >
+                        <IconPencil />
+                      </button>
+                      <button
+                        type="button"
+                        className="plg-iconbtn is-danger"
                         aria-label={copy.remove}
+                        data-tooltip={copy.remove}
+                        data-tooltip-pos="left"
                         onClick={() => {
                           if (confirm(copy.confirmDeleteAction)) props.onDeleteAction(action.id);
                         }}
                       >
-                        ×
+                        <IconTrash />
                       </button>
                     </span>
                   </div>
@@ -513,13 +528,25 @@ export function BehaviorView(props: BehaviorViewProps) {
                   <span className="plg-table__actions">
                     <button
                       type="button"
-                      className="plg-btn plg-btn--icon plg-btn--danger"
+                      className="plg-iconbtn"
+                      aria-label={copy.edit}
+                      data-tooltip={copy.edit}
+                      data-tooltip-pos="left"
+                      onClick={() => setScreen({ kind: 'event', event, isNew: false })}
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      type="button"
+                      className="plg-iconbtn is-danger"
                       aria-label={copy.remove}
+                      data-tooltip={copy.remove}
+                      data-tooltip-pos="left"
                       onClick={() => {
                         if (confirm(copy.confirmDeleteEvent)) props.onDeleteEvent(event.id);
                       }}
                     >
-                      ×
+                      <IconTrash />
                     </button>
                   </span>
                 </div>
@@ -1114,11 +1141,12 @@ function EventEditor({
                       )}
                       <button
                         type="button"
-                        className="plg-btn plg-btn--icon plg-btn--danger"
+                        className="plg-iconbtn is-danger"
                         aria-label={copy.remove}
+                        data-tooltip={copy.remove}
                         onClick={() => update({ filters: draft.filters.filter((_, position) => position !== index) })}
                       >
-                        ×
+                        <IconTrash />
                       </button>
                     </div>
 
