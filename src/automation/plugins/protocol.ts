@@ -1,4 +1,5 @@
 import type { AutomationPluginManifest } from './manifest.ts';
+import type { ActionTypeDefinition } from '../behavior/types.ts';
 import type {
   AutomationEvent,
   JsonObject,
@@ -7,6 +8,7 @@ import type {
   NodeExecutionResult,
   WorkflowNode,
 } from '../types.ts';
+import type { LiveAction } from '../behavior/types.ts';
 
 /**
  * The worker protocol deliberately carries only JSON. VM handles, host
@@ -20,12 +22,24 @@ export interface SandboxNodeDescriptor {
   isAsync?: boolean;
 }
 
+export interface SandboxActionDescriptor {
+  definition: Omit<ActionTypeDefinition, 'source'> & { source?: ActionTypeDefinition['source'] };
+  handler: string;
+  async?: boolean;
+  isAsync?: boolean;
+}
+
 export interface SandboxExecutionRequest {
   runId: string;
   workflowId: string;
   node: WorkflowNode;
   event: AutomationEvent;
   inputs: JsonObject;
+}
+
+export interface SandboxActionExecutionRequest {
+  action: LiveAction;
+  event: AutomationEvent;
 }
 
 export type PluginWorkerRequest =
@@ -43,6 +57,14 @@ export type PluginWorkerRequest =
       nodeType: string;
       executionId: string;
       request: SandboxExecutionRequest;
+    }
+  | {
+      type: 'request';
+      id: string;
+      method: 'executeAction';
+      actionType: string;
+      executionId: string;
+      request: SandboxActionExecutionRequest;
     }
   | {
       type: 'request';
@@ -85,6 +107,7 @@ export type PluginWorkerResponse =
 
 export interface SandboxLoadResult {
   nodes: SandboxNodeDescriptor[];
+  actions: SandboxActionDescriptor[];
 }
 
 export function isPluginWorkerResponse(value: unknown): value is PluginWorkerResponse {
@@ -153,4 +176,9 @@ export function asNodeExecutionResult(value: unknown): NodeExecutionResult {
     next = nextValue as string[];
   }
   return { outputs, next };
+}
+
+export function asActionExecutionResult(value: unknown): { summary: string } {
+  const object = asJsonObject(value, 'Plugin action result');
+  return { summary: asString(object.summary, 'Plugin action result.summary') };
 }

@@ -195,6 +195,47 @@ This matches SonicBoom’s current server shape. A future stdio worker can imple
 
 ## Plugin boundary
 
+### Declarative plugin actions
+
+Plugins can contribute behavior actions without importing the WebView. The worker SDK supports both `registerNode()` and `registerAction()`:
+
+```js
+import { registerAction, capability } from "@tiktools/sdk";
+
+registerAction({
+  definition: {
+    id: "dev.example.webhook",
+    version: 1,
+    title: { en: "Webhook", es: "Webhook" },
+    description: { en: "Send an event", es: "Envía un evento" },
+    tag: "http",
+    source: { kind: "plugin", pluginId: "dev.example.webhook" },
+    configSchema: {
+      type: "object",
+      required: ["url"],
+      properties: {
+        url: { type: "string", title: { en: "URL", es: "URL" } },
+        body: { type: "string", format: "json", title: { en: "JSON body", es: "Cuerpo JSON" } }
+      }
+    },
+    requiredCapabilities: ["http.request"]
+  },
+  isAsync: true,
+  handler: `
+    const response = await capability("http.request", {
+      method: "POST",
+      url: action.config.url,
+      body: action.config.body
+    });
+    return { summary: String(response.status) };
+  `
+});
+```
+
+The host renders the schema in its own modal/form components. `uiHints` can mark fields as templates, advanced fields, conditional fields, or key/value maps. Plugin code cannot inject arbitrary Preact, HTML, or DOM into the WebView.
+
+String templates use `{{ event.* }}` paths. For fields marked as JSON, TikTools renders templates first and parses the final text as JSON; invalid output is rejected before the capability is called. Hosts and domains used for network permissions must remain statically discoverable.
+
 Trusted plugins can register `NodeImplementation` objects through `PluginManager`, but their manifest must declare every capability required by their nodes. They are host code and should be bundled with TikTools or another reviewed native provider.
 
 Downloaded plugins are loaded from `plugins/<id>/plugin.json` only when they declare `executionMode: "sandbox"`. The loader reads the entry source, starts a child worker, and exposes only the SDK module below. A sandbox plugin entry registers descriptors; handler bodies are strings evaluated by `napi-vm` inside the worker:

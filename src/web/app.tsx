@@ -107,7 +107,7 @@ function App() {
   const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
 
-  const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [] });
+  const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [], actionTypes: [] });
   const [giftCatalog, setGiftCatalog] = useState<GiftCatalogEntry[]>([]);
   const [behaviorRuns, setBehaviorRuns] = useState<BehaviorRun[]>([]);
   const [behaviorTestRuns, setBehaviorTestRuns] = useState<BehaviorRun[]>([]);
@@ -549,6 +549,7 @@ function App() {
             locale={locale}
             plugins={behavior.plugins}
             actions={behavior.actions}
+            actionTypes={behavior.actionTypes}
             error={behaviorError}
             onSetInstalled={handleSetPluginInstalled}
             onSetEnabled={handleSetPluginEnabled}

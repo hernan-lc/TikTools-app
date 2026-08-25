@@ -7,6 +7,7 @@ import {
   asString,
   isJsonObject,
   isJsonValue,
+  asActionExecutionResult,
   type PluginWorkerRequest,
 } from './protocol.ts';
 
@@ -17,6 +18,7 @@ const LOOP_LIMIT = 1_000_000;
 
 const SDK_MODULE = `
   export function registerNode(descriptor) { return __tiktools_register_node(descriptor); }
+  export function registerAction(descriptor) { return __tiktools_register_action(descriptor); }
   export function log(...args) { return __tiktools_log(args); }
   export function capability(name, params) { return __tiktools_capability(name, params); }
 `;
@@ -28,6 +30,12 @@ type Transport = {
 };
 
 type SandboxNode = {
+  definition: JsonObject;
+  handler: string;
+  async: boolean;
+};
+
+type SandboxAction = {
   definition: JsonObject;
   handler: string;
   async: boolean;
@@ -47,6 +55,7 @@ export async function runPluginWorker(args: string[]): Promise<void> {
   const endpoint = readEndpoint(args);
   const vm = createVm();
   const nodes = new Map<string, SandboxNode>();
+  const actions = new Map<string, SandboxAction>();
   const capabilityWaiters = new Map<string, CapabilityWaiter>();
   let activeExecutionId: string | undefined;
   let loaded = false;
@@ -72,6 +81,10 @@ export async function runPluginWorker(args: string[]): Promise<void> {
   vm.registerModule('@tiktools/sdk', SDK_MODULE);
   vm.exposeFunction('__tiktools_register_node', (value: unknown) => {
     registerNode(value, nodes);
+    return null;
+  });
+  vm.exposeFunction('__tiktools_register_action', (value: unknown) => {
+    registerAction(value, actions);
     return null;
   });
   vm.exposeFunction('__tiktools_log', (value: unknown) => {
@@ -106,7 +119,7 @@ export async function runPluginWorker(args: string[]): Promise<void> {
         }
         vm.run(request.source);
         loaded = true;
-        send({ type: 'response', id: request.id, ok: true, result: { nodes: [...nodes.values()] } });
+        send({ type: 'response', id: request.id, ok: true, result: { nodes: [...nodes.values()], actions: [...actions.values()] } });
         return;
       }
 
@@ -117,6 +130,20 @@ export async function runPluginWorker(args: string[]): Promise<void> {
         activeExecutionId = request.executionId;
         try {
           const result = await executeNode(vm, descriptor, request.request);
+          send({ type: 'response', id: request.id, ok: true, result });
+        } finally {
+          activeExecutionId = undefined;
+        }
+        return;
+      }
+
+      if (request.method === 'executeAction') {
+        if (!loaded) throw new Error('Plugin worker has not loaded a plugin.');
+        const descriptor = actions.get(request.actionType);
+        if (!descriptor) throw new Error(`Unknown sandbox action type: ${request.actionType}`);
+        activeExecutionId = request.executionId;
+        try {
+          const result = await executeAction(vm, descriptor, request.request);
           send({ type: 'response', id: request.id, ok: true, result });
         } finally {
           activeExecutionId = undefined;
@@ -262,6 +289,25 @@ function executeNode(
   return run();
 }
 
+function executeAction(
+  vm: Vm,
+  descriptor: SandboxAction,
+  request: Extract<PluginWorkerRequest, { type: 'request'; method: 'executeAction' }>['request'],
+): Promise<JsonObject> | JsonObject {
+  vm.setGlobal('event', request.event);
+  vm.setGlobal('action', request.action);
+  const source = descriptor.async
+    ? `import { capability, log } from '@tiktools/sdk';\nasync function __tiktools_main(event, action) {\n${descriptor.handler}\n}\nJSON.stringify(await __tiktools_main(event, action))`
+    : `import { capability, log } from '@tiktools/sdk';\nJSON.stringify((function (event, action) {\n${descriptor.handler}\n})(event, action))`;
+  const run = async (): Promise<JsonObject> => {
+    vm.setLoopLimit(LOOP_LIMIT);
+    const raw = descriptor.async ? await vm.runAsync(source) : vm.run(source);
+    const value = raw === 'undefined' ? null : JSON.parse(raw) as unknown;
+    return asActionExecutionResult(value) as JsonObject;
+  };
+  return run();
+}
+
 function registerNode(value: unknown, nodes: Map<string, SandboxNode>): void {
   const descriptor = asJsonObject(value, 'Node descriptor');
   const definition = asJsonObject(descriptor.definition, 'Node descriptor.definition');
@@ -278,6 +324,18 @@ function registerNode(value: unknown, nodes: Map<string, SandboxNode>): void {
   });
 }
 
+function registerAction(value: unknown, actions: Map<string, SandboxAction>): void {
+  const descriptor = asJsonObject(value, 'Action descriptor');
+  const definition = asJsonObject(descriptor.definition, 'Action descriptor.definition');
+  const id = asString(definition.id, 'Action definition.id');
+  const handler = asString(descriptor.handler, 'Action descriptor.handler');
+  if (!/^[a-z0-9][a-z0-9._-]{1,127}$/i.test(id)) throw new Error(`Action ${id} has an invalid id.`);
+  if (byteLength(handler) > MAX_HANDLER_BYTES) throw new Error(`Action ${id} handler exceeds the 256 KB limit.`);
+  if (actions.has(id)) throw new Error(`Duplicate sandbox action type: ${id}`);
+  validateActionDefinition(definition, id);
+  actions.set(id, { definition, handler, async: descriptor.isAsync === true || descriptor.async === true });
+}
+
 function validateDefinition(definition: JsonObject, type: string): void {
   if (typeof definition.version !== 'number' || !Number.isInteger(definition.version) || definition.version < 1) {
     throw new Error(`Node ${type} has an invalid version.`);
@@ -291,6 +349,16 @@ function validateDefinition(definition: JsonObject, type: string): void {
     throw new Error(`Node ${type} must declare inputs and outputs.`);
   }
   asJsonObject(definition.configSchema, `Node ${type} configSchema`);
+}
+
+function validateActionDefinition(definition: JsonObject, id: string): void {
+  if (typeof definition.version !== 'number' || !Number.isInteger(definition.version) || definition.version < 1) throw new Error(`Action ${id} has an invalid version.`);
+  for (const field of ['title', 'description', 'tag']) {
+    if (!definition[field] || (typeof definition[field] !== 'string' && !isJsonObject(definition[field]))) throw new Error(`Action ${id} has an invalid ${field}.`);
+  }
+  if (!definition.source || !isJsonObject(definition.source)) throw new Error(`Action ${id} must declare a source.`);
+  asJsonObject(definition.configSchema, `Action ${id} configSchema`);
+  if (!Array.isArray(definition.requiredCapabilities) || definition.requiredCapabilities.some((entry) => typeof entry !== 'string')) throw new Error(`Action ${id} has invalid capabilities.`);
 }
 
 function normalizeNodeResult(value: unknown): JsonObject {
@@ -325,6 +393,9 @@ function isWorkerRequest(value: unknown): value is PluginWorkerRequest {
   if (value.method === 'load') return typeof value.source === 'string' && isJsonObject(value.manifest);
   if (value.method === 'execute') {
     return typeof value.nodeType === 'string' && typeof value.executionId === 'string' && isJsonObject(value.request);
+  }
+  if (value.method === 'executeAction') {
+    return typeof value.actionType === 'string' && typeof value.executionId === 'string' && isJsonObject(value.request);
   }
   return value.method === 'shutdown';
 }

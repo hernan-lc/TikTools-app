@@ -21,6 +21,7 @@ import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.tsx';
 import { asNumber, asString } from './graph.ts';
 import { t, type Locale } from '../../i18n.ts';
+import { SchemaForm } from '../ui/SchemaForm.tsx';
 
 type NodeConfigFormProps = {
   locale: Locale;
@@ -341,29 +342,10 @@ function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { lo
 
 function GenericConfigForm({ locale, node, definition, onChange }: { locale: Locale; node: WorkflowNode; definition?: NodeDefinition; onChange: (config: JsonObject) => void }) {
   const ui = formLabels(locale);
-  const schemaProperties = definition && isJsonObject(definition.configSchema.properties) ? definition.configSchema.properties : {};
-  const keys = [...new Set([...Object.keys(schemaProperties), ...Object.keys(node.config)])];
-  if (keys.length === 0) return <p className="node-editor-form-empty">{ui.noForm}</p>;
-  return (
-    <div className="node-editor-form-stack">
-      {keys.map((key) => {
-        const schema = isJsonObject(schemaProperties[key]) ? schemaProperties[key] : {};
-        const type = asString(schema.type, 'string');
-        const value = node.config[key] ?? schema.default;
-        if (type === 'boolean') {
-          return <Checkbox key={key} checked={value === true} onCheckedChange={(next) => onChange({ ...node.config, [key]: next })} label={key} />;
-        }
-        if (type === 'number' || type === 'integer') {
-          return <FormField key={key} label={key}><NumberInput value={asNumber(value)} onValueChange={(next) => onChange({ ...node.config, [key]: next })} /></FormField>;
-        }
-        if (Array.isArray(schema.enum)) {
-          const options = schema.enum.filter((option): option is string => typeof option === 'string').map((option) => ({ value: option, label: option }));
-          if (options.length > 0) return <FormField key={key} label={key}><Select value={asString(value, options[0]?.value)} options={options} onValueChange={(next) => onChange({ ...node.config, [key]: next })} /></FormField>;
-        }
-        return <FormField key={key} label={key}><TextInput value={asString(value)} onValueChange={(next) => onChange({ ...node.config, [key]: next })} /></FormField>;
-      })}
-    </div>
-  );
+  if (!definition || !isJsonObject(definition.configSchema)) return <p className="node-editor-form-empty">{ui.noForm}</p>;
+  const properties = definition.configSchema.properties;
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties) || Object.keys(properties).length === 0) return <p className="node-editor-form-empty">{ui.noForm}</p>;
+  return <SchemaForm locale={locale} schema={definition.configSchema} value={node.config} onChange={onChange} />;
 }
 
 function formatValue(value: JsonValue | undefined): string {

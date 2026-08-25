@@ -6,22 +6,17 @@ import { OPERATOR_LABELS } from '../components/condition-icons.tsx';
 import { IconSelect } from '../components/ui/IconSelect.tsx';
 import { findField } from '../../automation/behavior/fields.ts';
 
-import {
-  BUILTIN_ACTION_TYPES,
-  PLUGIN_DESCRIPTORS,
-  actionTypesForPlugin,
-  findActionType,
-} from '../../automation/behavior/catalog.ts';
+import { defaultActionConfig } from '../../automation/behavior/action-config.ts';
+import { schemaForAction } from '../components/ui/SchemaForm.tsx';
+import { SchemaForm } from '../components/ui/SchemaForm.tsx';
 import {
   BEHAVIOR_TRIGGERS,
   createActionId,
   createEventId,
   deriveActionPermissions,
   readString,
-  readStringMap,
 } from '../../automation/behavior/schema.ts';
 import type {
-  ActionField,
   ActionTypeDefinition,
   BehaviorRun,
   BehaviorSnapshot,
@@ -31,7 +26,7 @@ import type {
   LiveEvent,
   PluginStatus,
 } from '../../automation/behavior/types.ts';
-import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
+import type { AutomationEventType } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
 import type { GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
 import type { Locale } from '../i18n.ts';
@@ -265,7 +260,7 @@ export function BehaviorView(props: BehaviorViewProps) {
     return map;
   }, [runs]);
 
-  const availableTypes = useMemo(() => availableActionTypes(snapshot.plugins), [snapshot.plugins]);
+  const availableTypes = useMemo(() => availableActionTypes(snapshot.plugins, snapshot.actionTypes), [snapshot.plugins, snapshot.actionTypes]);
 
   if (screen.kind === 'picker') {
     return (
@@ -274,6 +269,7 @@ export function BehaviorView(props: BehaviorViewProps) {
         plugins={snapshot.plugins}
         onCancel={() => setScreen({ kind: 'list' })}
         onOpenPlugins={props.onOpenPlugins}
+        actionTypes={snapshot.actionTypes}
         onPick={(type) => setScreen({ kind: 'action', action: createActionFromType(type, locale), isNew: true })}
       />
     );
@@ -285,6 +281,7 @@ export function BehaviorView(props: BehaviorViewProps) {
         key={screen.action.id}
         locale={locale}
         action={screen.action}
+        actionTypes={snapshot.actionTypes}
         isNew={screen.isNew}
         error={error}
         testRuns={testRuns}
@@ -398,7 +395,7 @@ export function BehaviorView(props: BehaviorViewProps) {
               </div>
 
               {sortedActions.map((action) => {
-                const type = findActionType(action.typeId);
+                const type = snapshot.actionTypes.find((entry) => entry.id === action.typeId);
                 const lastRun = lastRunByAction.get(action.id);
                 const failing = lastRun?.status === 'error';
                 const usable = !type || type.source.kind === 'builtin' || availableTypes.has(action.typeId);
@@ -614,12 +611,14 @@ export function BehaviorView(props: BehaviorViewProps) {
 function ActionPicker({
   locale,
   plugins,
+  actionTypes,
   onPick,
   onCancel,
   onOpenPlugins,
 }: {
   locale: Locale;
   plugins: PluginStatus[];
+  actionTypes: ActionTypeDefinition[];
   onPick: (type: ActionTypeDefinition) => void;
   onCancel: () => void;
   onOpenPlugins: () => void;
@@ -661,14 +660,14 @@ function ActionPicker({
             <span className="plg-group-note">{copy.builtInNote}</span>
           </div>
           <div className="plg-cards">
-            {BUILTIN_ACTION_TYPES.filter(matches).map((type) => (
+            {actionTypes.filter((type) => type.source.kind === 'builtin').filter(matches).map((type) => (
               <ActionTypeCard key={type.id} locale={locale} type={type} onPick={() => onPick(type)} />
             ))}
           </div>
         </div>
 
         {installed.map((plugin) => {
-          const types = actionTypesForPlugin(plugin.descriptor.id).filter(matches);
+          const types = actionTypes.filter((type) => type.source.kind === 'plugin' && type.source.pluginId === plugin.descriptor.id).filter(matches);
           if (types.length === 0) return null;
           return (
             <div className="plg-section" key={plugin.descriptor.id}>
@@ -727,6 +726,7 @@ function ActionTypeCard({
 function ActionEditor({
   locale,
   action,
+  actionTypes,
   isNew,
   error,
   testRuns,
@@ -737,6 +737,7 @@ function ActionEditor({
 }: {
   locale: Locale;
   action: LiveAction;
+  actionTypes: ActionTypeDefinition[];
   isNew: boolean;
   error?: string;
   testRuns: BehaviorRun[];
@@ -747,40 +748,9 @@ function ActionEditor({
 }) {
   const copy = COPY[locale];
   const [draft, setDraft] = useState<LiveAction>(action);
-  const type = findActionType(draft.typeId);
+  const type = actionTypes.find((entry) => entry.id === draft.typeId);
   const permissions = deriveActionPermissions(draft);
   const testRun = testRuns.find((run) => run.actionId === draft.id) ?? testRuns[0];
-
-  // A field that depends on another one disappears while that other value makes
-  // it meaningless — its stored value survives, so switching back restores it.
-  const applies = (field: ActionField): boolean => {
-    const condition = field.showIf;
-    if (!condition) return true;
-    const current = readString(draft.config[condition.key]);
-    if (condition.equals && !condition.equals.includes(current)) return false;
-    if (condition.notEquals && condition.notEquals.includes(current)) return false;
-    return true;
-  };
-  const visibleFields = (type?.fields ?? []).filter(applies);
-  const basicFields = visibleFields.filter((field) => !field.advanced);
-  const advancedFields = visibleFields.filter((field) => field.advanced);
-
-  const setField = (key: string, value: string): void =>
-    setDraft((current) => ({ ...current, config: { ...current.config, [key]: value } }));
-  const setMap = (key: string, value: Record<string, string>): void =>
-    setDraft((current) => ({ ...current, config: { ...current.config, [key]: value as JsonObject } }));
-
-  const renderField = (field: ActionField) => (
-    <ActionFieldInput
-      key={field.key}
-      locale={locale}
-      field={field}
-      value={readString(draft.config[field.key])}
-      entries={readStringMap(draft.config[field.key])}
-      onChange={(value) => setField(field.key, value)}
-      onChangeMap={(value) => setMap(field.key, value)}
-    />
-  );
 
   return (
     <div className="plg">
@@ -827,14 +797,10 @@ function ActionEditor({
               />
             </div>
 
-            {basicFields.map(renderField)}
-
-            {advancedFields.length > 0 && (
-              <details className="plg-details">
-                <summary>{copy.advanced}</summary>
-                <div className="plg-details__body">{advancedFields.map(renderField)}</div>
-              </details>
-            )}
+            {type ? (() => {
+              const form = schemaForAction(type);
+              return <SchemaForm locale={locale} schema={form.schema} uiHints={form.uiHints} value={draft.config} onChange={(config) => setDraft((current) => ({ ...current, config }))} />;
+            })() : <div className="plg-alert">{draft.typeId}</div>}
           </div>
 
           <div className="plg-side">
@@ -875,126 +841,6 @@ function ActionEditor({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ActionFieldInput({
-  locale,
-  field,
-  value,
-  entries,
-  onChange,
-  onChangeMap,
-}: {
-  locale: Locale;
-  field: ActionField;
-  value: string;
-  entries: Record<string, string>;
-  onChange: (value: string) => void;
-  onChangeMap: (entries: Record<string, string>) => void;
-}) {
-  const copy = COPY[locale];
-  const label = (
-    <div className="plg-label-row">
-      <label className="plg-label">{field.label[locale]}</label>
-      {field.hint && <InfoTip text={field.hint[locale]} position="right" />}
-    </div>
-  );
-
-  if (field.kind === 'keyvalue') {
-    const rows = Object.entries(entries);
-    return (
-      <div className="plg-field">
-        {label}
-        {rows.map(([key, entry]) => (
-          <div className="plg-kv-row" key={key}>
-            <input
-              className="plg-input plg-input--mono plg-input--key"
-              value={key}
-              onChange={(event) => {
-                const next: Record<string, string> = {};
-                for (const [name, val] of rows) next[name === key ? (event.currentTarget as HTMLInputElement).value : name] = val;
-                onChangeMap(next);
-              }}
-            />
-            <input
-              className="plg-input plg-input--mono"
-              value={entry}
-              onInput={(event) => onChangeMap({ ...entries, [key]: (event.currentTarget as HTMLInputElement).value })}
-            />
-            <button
-              type="button"
-              className="plg-btn plg-btn--icon plg-btn--danger"
-              aria-label={copy.remove}
-              onClick={() => {
-                const next = { ...entries };
-                delete next[key];
-                onChangeMap(next);
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          className="plg-btn plg-btn--sm"
-          onClick={() => onChangeMap({ ...entries, [`campo-${rows.length + 1}`]: '' })}
-        >
-          + {copy.addEntry}
-        </button>
-      </div>
-    );
-  }
-
-  if (field.kind === 'boolean') {
-    return (
-      <div className="plg-switch-row">
-        <button
-          type="button"
-          className={`plg-switch${value === 'true' ? ' is-on' : ''}`}
-          aria-label={field.label[locale]}
-          onClick={() => onChange(value === 'true' ? 'false' : 'true')}
-        >
-          <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
-        </button>
-        <label className="plg-label" onClick={() => onChange(value === 'true' ? 'false' : 'true')}>
-          {field.label[locale]}
-        </label>
-        {field.hint && <InfoTip text={field.hint[locale]} position="right" />}
-      </div>
-    );
-  }
-
-  return (
-    <div className="plg-field">
-      {label}
-      {field.kind === 'select' && (
-        <select className="plg-select" value={value} onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}>
-          {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>{option.label[locale]}</option>
-          ))}
-        </select>
-      )}
-      {(field.kind === 'textarea' || field.kind === 'code') && (
-        <textarea
-          className={`plg-textarea${field.kind === 'code' ? ' plg-textarea--code' : ''}`}
-          rows={field.kind === 'code' ? 16 : 6}
-          spellcheck={false}
-          value={value}
-          onInput={(event) => onChange((event.currentTarget as HTMLTextAreaElement).value)}
-        />
-      )}
-      {(field.kind === 'text' || field.kind === 'number') && (
-        <input
-          className={`plg-input${field.template ? ' plg-input--mono' : ''}`}
-          type={field.kind === 'number' ? 'number' : 'text'}
-          value={value}
-          placeholder={field.placeholder}
-          onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
-        />
-      )}
     </div>
   );
 }
@@ -1335,39 +1181,28 @@ function SortGlyph({ direction }: { direction: 'up' | 'down' | 'dot' | 'dot-off'
   );
 }
 
-function availableActionTypes(plugins: PluginStatus[]): Set<string> {
+function availableActionTypes(plugins: PluginStatus[], actionTypes: ActionTypeDefinition[]): Set<string> {
   const ids = new Set<string>();
-  for (const type of BUILTIN_ACTION_TYPES) ids.add(type.id);
+  for (const type of actionTypes) if (type.source.kind === 'builtin') ids.add(type.id);
   for (const plugin of plugins) {
     if (!plugin.installed || !plugin.enabled) continue;
-    for (const id of plugin.descriptor.actionTypeIds) ids.add(id);
+    for (const type of actionTypes) {
+      if (type.source.kind === 'plugin' && type.source.pluginId === plugin.descriptor.id) ids.add(type.id);
+    }
   }
   return ids;
 }
 
 function createActionFromType(type: ActionTypeDefinition, locale: Locale): LiveAction {
-  const config: JsonObject = {};
-  for (const field of type.fields) {
-    config[field.key] = field.kind === 'keyvalue' ? parseKeyValueDefault(field.value) : field.value;
-  }
+  const config = defaultActionConfig(type);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: createActionId(),
     name: type.title[locale],
     typeId: type.id,
     enabled: true,
     config,
   };
-}
-
-function parseKeyValueDefault(value: string): JsonObject {
-  const entries: JsonObject = {};
-  for (const line of value.split('\n')) {
-    const index = line.indexOf('=');
-    if (index <= 0) continue;
-    entries[line.slice(0, index).trim()] = line.slice(index + 1).trim();
-  }
-  return entries;
 }
 
 function createEvent(locale: Locale): LiveEvent {
@@ -1385,11 +1220,10 @@ function createEvent(locale: Locale): LiveEvent {
   };
 }
 
-function originLabel(type: ActionTypeDefinition, locale: Locale, builtInLabel: string): string {
+function originLabel(type: ActionTypeDefinition, _locale: Locale, builtInLabel: string): string {
   const source = type.source;
   if (source.kind === 'builtin') return builtInLabel;
-  const descriptor = PLUGIN_DESCRIPTORS.find((plugin) => plugin.id === source.pluginId);
-  return descriptor?.name ?? source.pluginId;
+  return source.pluginId;
 }
 
 function describeAction(action: LiveAction): string {

@@ -1,5 +1,7 @@
 import type { AutomationEventType, JsonObject, JsonValue } from '../types.ts';
 import { findActionType } from './catalog.ts';
+import type { ActionRegistry } from './action-registry.ts';
+import { normalizeActionConfig } from './action-config.ts';
 import type {
   EventFilter,
   FilterOperator,
@@ -38,30 +40,34 @@ const OPERATORS: FilterOperator[] = [
 const MAX_TEXT = 4_096;
 const MAX_CODE = 20_000;
 
-export function normalizeAction(value: unknown): LiveAction {
+export function normalizeAction(value: unknown, registry?: ActionRegistry): LiveAction {
   const raw = record(value, 'action');
   const id = identifier(raw.id, 'action.id');
   const typeId = text(raw.typeId, 'action.typeId');
-  const type = findActionType(typeId);
+  const type = registry?.getDefinition(typeId) ?? findActionType(typeId);
   if (!type) throw new Error(`Unknown action type: ${typeId}`);
-
-  const config: JsonObject = {};
-  const rawConfig = raw.config && typeof raw.config === 'object' && !Array.isArray(raw.config)
-    ? raw.config as Record<string, unknown>
-    : {};
-
-  for (const field of type.fields) {
-    const entry = rawConfig[field.key];
-    if (field.kind === 'keyvalue') {
-      config[field.key] = stringMap(entry);
-      continue;
-    }
-    const limit = field.kind === 'code' || field.kind === 'textarea' ? MAX_CODE : MAX_TEXT;
-    config[field.key] = typeof entry === 'string' ? entry.slice(0, limit) : field.value;
-  }
+  const config = normalizeActionConfig(type, raw.config);
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    id,
+    name: text(raw.name, 'action.name').slice(0, 120),
+    typeId,
+    enabled: raw.enabled !== false,
+    config,
+  };
+}
+
+/** Bridge-only normalization for action ids that may belong to an unloaded plugin. */
+export function normalizeUnresolvedAction(value: unknown): LiveAction {
+  const raw = record(value, 'action');
+  const id = identifier(raw.id, 'action.id');
+  const typeId = text(raw.typeId, 'action.typeId');
+  const config = raw.config && typeof raw.config === 'object' && !Array.isArray(raw.config)
+    ? limitUnknownConfig(raw.config as Record<string, unknown>)
+    : {};
+  return {
+    schemaVersion: raw.schemaVersion === 2 ? 2 : 1,
     id,
     name: text(raw.name, 'action.name').slice(0, 120),
     typeId,
@@ -201,6 +207,17 @@ function stringMap(value: unknown): JsonObject {
     count += 1;
   }
   return entries;
+}
+
+function limitUnknownConfig(value: Record<string, unknown>): JsonObject {
+  const config: JsonObject = {};
+  for (const [key, entry] of Object.entries(value).slice(0, 64)) {
+    if (!key.trim()) continue;
+    if (entry === null || typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') config[key.slice(0, 120)] = typeof entry === 'string' ? entry.slice(0, MAX_CODE) : entry;
+    else if (Array.isArray(entry)) config[key.slice(0, 120)] = entry.slice(0, 64).filter((item): item is JsonValue => item === null || typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean');
+    else if (typeof entry === 'object') config[key.slice(0, 120)] = limitUnknownConfig(entry as Record<string, unknown>);
+  }
+  return config;
 }
 
 /** Internal event names stay dotted lower-case so they cannot collide with TikTok types by accident. */

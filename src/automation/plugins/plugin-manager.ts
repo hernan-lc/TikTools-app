@@ -1,4 +1,5 @@
 import { NodeRegistry } from '../node-registry.ts';
+import { ActionRegistry, type ActionImplementation } from '../behavior/action-registry.ts';
 import type { AutomationCapabilities } from '../capabilities.ts';
 import type { NodeImplementation } from '../types.ts';
 import {
@@ -9,12 +10,15 @@ import {
 
 export class PluginManager {
   readonly #registry: NodeRegistry;
+  readonly #actions: ActionRegistry;
   readonly #plugins = new Map<string, AutomationPluginManifest>();
   readonly #pluginNodeTypes = new Map<string, string[]>();
+  readonly #pluginActionTypes = new Map<string, string[]>();
   readonly #pluginDisposers = new Map<string, () => void | Promise<void>>();
 
-  constructor(registry: NodeRegistry) {
+  constructor(registry: NodeRegistry, actions = new ActionRegistry()) {
     this.#registry = registry;
+    this.#actions = actions;
   }
 
   register(plugin: AutomationPlugin): void {
@@ -35,28 +39,43 @@ export class PluginManager {
   #register(plugin: AutomationPlugin, onUnload?: () => void | Promise<void>): void {
     const { manifest } = plugin;
     if (this.#plugins.has(manifest.id)) throw new Error(`Automation plugin is already registered: ${manifest.id}`);
-    if (plugin.nodes.length === 0) throw new Error(`Automation plugin has no nodes: ${manifest.id}`);
+    const nodes = plugin.nodes ?? [];
+    const actions = plugin.actions ?? [];
+    if (nodes.length === 0 && actions.length === 0) throw new Error(`Automation plugin has no contributions: ${manifest.id}`);
 
-    validatePluginNodes(plugin.nodes, manifest);
-    for (const node of plugin.nodes) {
+    validatePluginNodes(nodes, manifest);
+    validatePluginActions(actions, manifest);
+    for (const node of nodes) {
       if (this.#registry.get(node.definition.type)) {
         throw new Error(`Plugin ${manifest.id} conflicts with node type: ${node.definition.type}`);
       }
     }
+    for (const action of actions) {
+      if (this.#actions.get(action.definition.id)) {
+        throw new Error(`Plugin ${manifest.id} conflicts with action type: ${action.definition.id}`);
+      }
+    }
 
     const registered: string[] = [];
+    const registeredActions: string[] = [];
     try {
-      for (const node of plugin.nodes) {
+      for (const node of nodes) {
         this.#registry.register(node);
         registered.push(node.definition.type);
       }
+      for (const action of actions) {
+        this.#actions.register(action);
+        registeredActions.push(action.definition.id);
+      }
     } catch (error) {
       for (const type of registered) this.#registry.unregister(type);
+      for (const type of registeredActions) this.#actions.unregister(type);
       throw error;
     }
 
     this.#plugins.set(manifest.id, manifest);
     this.#pluginNodeTypes.set(manifest.id, registered);
+    this.#pluginActionTypes.set(manifest.id, registeredActions);
     if (onUnload) this.#pluginDisposers.set(manifest.id, onUnload);
   }
 
@@ -90,6 +109,12 @@ export class PluginManager {
     return [...this.#plugins.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  actionDefinitions(pluginId?: string) {
+    const definitions = this.#actions.definitions();
+    if (!pluginId) return definitions;
+    return definitions.filter((definition) => definition.source.kind === 'plugin' && definition.source.pluginId === pluginId);
+  }
+
   hasPermission(pluginId: string, capability: string): boolean {
     return this.#plugins.get(pluginId)?.permissions.capabilities?.includes(capability) ?? false;
   }
@@ -110,9 +135,11 @@ export class PluginManager {
   #detach(pluginId: string): (() => void | Promise<void>) | null | undefined {
     if (!this.#plugins.has(pluginId)) return undefined;
     for (const type of this.#pluginNodeTypes.get(pluginId) ?? []) this.#registry.unregister(type);
+    for (const type of this.#pluginActionTypes.get(pluginId) ?? []) this.#actions.unregister(type);
     const disposer = this.#pluginDisposers.get(pluginId) ?? null;
     this.#pluginDisposers.delete(pluginId);
     this.#pluginNodeTypes.delete(pluginId);
+    this.#pluginActionTypes.delete(pluginId);
     this.#plugins.delete(pluginId);
     return disposer;
   }
@@ -126,6 +153,23 @@ function validatePluginNodes(nodes: NodeImplementation[], manifest: AutomationPl
     seen.add(definition.type);
     if (definition.pluginId !== manifest.id) {
       throw new Error(`Node ${definition.type} must declare pluginId=${manifest.id}.`);
+    }
+    for (const capability of definition.requiredCapabilities ?? []) {
+      if (!manifest.permissions.capabilities?.includes(capability)) {
+        throw new Error(`Plugin ${manifest.id} has not requested capability: ${capability}`);
+      }
+    }
+  }
+}
+
+function validatePluginActions(actions: ActionImplementation[], manifest: AutomationPluginManifest): void {
+  const seen = new Set<string>();
+  for (const action of actions) {
+    const definition = action.definition;
+    if (seen.has(definition.id)) throw new Error(`Plugin ${manifest.id} declares duplicate action type: ${definition.id}`);
+    seen.add(definition.id);
+    if (definition.source.kind !== 'plugin' || definition.source.pluginId !== manifest.id) {
+      throw new Error(`Action ${definition.id} must declare pluginId=${manifest.id}.`);
     }
     for (const capability of definition.requiredCapabilities ?? []) {
       if (!manifest.permissions.capabilities?.includes(capability)) {

@@ -1,4 +1,5 @@
 import type { JsonObject, NodeImplementation } from '../types.ts';
+import type { ActionImplementation } from '../behavior/action-registry.ts';
 
 export type PluginExecutionMode = 'sandbox' | 'trusted';
 
@@ -24,7 +25,8 @@ export interface AutomationPluginManifest {
 
 export interface AutomationPlugin {
   manifest: AutomationPluginManifest;
-  nodes: NodeImplementation[];
+  nodes?: NodeImplementation[];
+  actions?: ActionImplementation[];
 }
 
 export function assertValidPluginManifest(value: unknown): asserts value is AutomationPluginManifest {

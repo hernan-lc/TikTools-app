@@ -55,17 +55,25 @@ export type ActionSource =
 
 export interface ActionTypeDefinition {
   id: string;
+  /** Versioned configuration contract shared by the host and plugins. */
+  version?: number;
   title: Localized;
   description: Localized;
   /** Short machine-ish label shown on the card: fetch, emit, audio… */
   tag: string;
   source: ActionSource;
-  fields: ActionField[];
+  /** Legacy field metadata. New actions should use configSchema and uiHints. */
+  fields?: ActionField[];
+  /** JSON Schema subset used by the host-owned configuration renderer. */
+  configSchema?: JsonObject;
+  /** Host-owned presentation hints; never executable plugin code. */
+  uiHints?: JsonObject;
   requiredCapabilities: string[];
 }
 
 export interface LiveAction {
-  schemaVersion: 1;
+  /** Version 2 is the descriptor/JSON-schema action format; v1 is migrated on read. */
+  schemaVersion: 1 | 2;
   id: string;
   name: string;
   typeId: string;
@@ -155,4 +163,5 @@ export interface BehaviorSnapshot {
   actions: LiveAction[];
   events: LiveEvent[];
   plugins: PluginStatus[];
+  actionTypes: ActionTypeDefinition[];
 }

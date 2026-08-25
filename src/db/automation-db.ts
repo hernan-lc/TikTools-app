@@ -3,7 +3,8 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { isWorkflowGraph } from '../automation/graph.ts';
-import { normalizeAction, normalizeEvent } from '../automation/behavior/schema.ts';
+import { normalizeAction, normalizeEvent, normalizeUnresolvedAction } from '../automation/behavior/schema.ts';
+import type { ActionRegistry } from '../automation/behavior/action-registry.ts';
 import type { LiveAction, LiveEvent } from '../automation/behavior/types.ts';
 import type { WorkflowGraph } from '../automation/types.ts';
 import { ensureAppPaths } from '../platform/app-paths.ts';
@@ -49,8 +50,10 @@ export interface WorkflowRecord {
 
 export class AutomationDatabase {
   private readonly db: Database;
+  private readonly actionRegistry?: ActionRegistry;
 
-  constructor(dbPath?: string) {
+  constructor(dbPath?: string, actionRegistry?: ActionRegistry) {
+    this.actionRegistry = actionRegistry;
     const defaultPath = join(ensureAppPaths().data, 'tiktok-automation.db');
     const resolvedPath = dbPath || defaultPath;
     const directory = dirname(resolvedPath);
@@ -115,7 +118,14 @@ export class AutomationDatabase {
   }
 
   listActions(): LiveAction[] {
-    return this.readAll('behavior_actions', (value) => normalizeAction(value));
+    return this.readAll('behavior_actions', (value) => {
+      try {
+        return normalizeAction(value, this.actionRegistry);
+      } catch {
+        // Keep a saved action visible when its plugin is currently missing.
+        return normalizeUnresolvedAction(value);
+      }
+    });
   }
 
   saveAction(action: LiveAction): LiveAction {

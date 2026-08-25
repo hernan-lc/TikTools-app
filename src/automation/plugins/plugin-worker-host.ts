@@ -6,6 +6,7 @@ import { basename, resolve } from 'node:path';
 import type { AutomationPluginManifest } from './manifest.ts';
 import type { PluginCapabilityBroker } from './capability-broker.ts';
 import {
+  asActionExecutionResult,
   asJsonObject,
   asNodeExecutionResult,
   asString,
@@ -14,8 +15,11 @@ import {
   type PluginWorkerRequest,
   type PluginWorkerResponse,
   type SandboxLoadResult,
+  type SandboxActionDescriptor,
   type SandboxNodeDescriptor,
 } from './protocol.ts';
+import type { ActionExecutionContext, ActionExecutionResult, ActionImplementation } from '../behavior/action-registry.ts';
+import type { ActionTypeDefinition, Localized } from '../behavior/types.ts';
 import type {
   AutomationEventType,
   ExecutionLogEntry,
@@ -48,7 +52,7 @@ type PendingCall = {
 export class PluginWorkerHost {
   readonly #options: PluginWorkerHostOptions;
   readonly #pending = new Map<string, PendingCall>();
-  readonly #contexts = new Map<string, NodeExecutionContext>();
+  readonly #contexts = new Map<string, NodeExecutionContext | ActionExecutionContext>();
   #process: ChildProcess | undefined;
   #server: Server | undefined;
   #socket: Socket | undefined;
@@ -64,7 +68,7 @@ export class PluginWorkerHost {
     this.#options = options;
   }
 
-  async start(): Promise<NodeDefinition[]> {
+  async start(): Promise<{ nodes: NodeDefinition[]; actions: ActionImplementation[] }> {
     if (this.#process) throw new Error(`Plugin worker is already running: ${this.#options.manifest.id}`);
     this.#stopped = false;
     this.#token = randomBytes(24).toString('hex');
@@ -98,7 +102,10 @@ export class PluginWorkerHost {
         source: this.#options.source,
       });
       const result = parseLoadResult(raw);
-      return result.nodes.map((descriptor) => normalizeDefinition(descriptor, this.#options.manifest.id));
+      return {
+        nodes: result.nodes.map((descriptor) => normalizeDefinition(descriptor, this.#options.manifest.id)),
+        actions: result.actions.map((descriptor) => normalizeActionDefinition(descriptor, this.#options.manifest.id, this.executeAction.bind(this))),
+      };
     } catch (error) {
       await this.stop();
       throw error;
@@ -107,6 +114,12 @@ export class PluginWorkerHost {
 
   async execute(context: NodeExecutionContext): Promise<NodeExecutionResult> {
     const run = this.#executionQueue.then(() => this.#executeOne(context));
+    this.#executionQueue = run.then(() => undefined, () => undefined);
+    return run;
+  }
+
+  async executeAction(context: ActionExecutionContext): Promise<ActionExecutionResult> {
+    const run = this.#executionQueue.then(() => this.#executeActionOne(context));
     this.#executionQueue = run.then(() => undefined, () => undefined);
     return run;
   }
@@ -132,6 +145,26 @@ export class PluginWorkerHost {
     try {
       const raw = await this.#call(request);
       return asNodeExecutionResult(raw);
+    } finally {
+      this.#contexts.delete(executionId);
+    }
+  }
+
+  async #executeActionOne(context: ActionExecutionContext): Promise<ActionExecutionResult> {
+    if (!this.#process) throw new Error(`Plugin worker is not running: ${this.#options.manifest.id}`);
+    const executionId = `${this.#options.manifest.id}-action-execution-${++this.#executionSequence}`;
+    const request: PluginWorkerRequest = {
+      type: 'request',
+      id: '',
+      method: 'executeAction',
+      actionType: context.action.typeId,
+      executionId,
+      request: { action: context.action, event: context.event },
+    };
+    this.#contexts.set(executionId, context);
+    try {
+      const raw = await this.#call(request);
+      return asActionExecutionResult(raw);
     } finally {
       this.#contexts.delete(executionId);
     }
@@ -407,7 +440,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
 function parseLoadResult(value: unknown): SandboxLoadResult {
   const object = asJsonObject(value, 'Plugin load result');
   if (!Array.isArray(object.nodes)) throw new Error('Plugin load result.nodes must be an array.');
-  return { nodes: object.nodes.map(parseNodeDescriptor) };
+  if (!Array.isArray(object.actions)) throw new Error('Plugin load result.actions must be an array.');
+  return { nodes: object.nodes.map(parseNodeDescriptor), actions: object.actions.map(parseActionDescriptor) };
 }
 
 function parseNodeDescriptor(value: unknown): SandboxNodeDescriptor {
@@ -418,6 +452,53 @@ function parseNodeDescriptor(value: unknown): SandboxNodeDescriptor {
     handler: asString(object.handler, 'Sandbox node handler'),
     async: object.async === true,
   };
+}
+
+function parseActionDescriptor(value: unknown): SandboxActionDescriptor {
+  const object = asJsonObject(value, 'Sandbox action descriptor');
+  const definition = asJsonObject(object.definition, 'Sandbox action definition');
+  return {
+    definition: definition as never,
+    handler: asString(object.handler, 'Sandbox action handler'),
+    async: object.async === true,
+  };
+}
+
+function normalizeActionDefinition(
+  descriptor: SandboxActionDescriptor,
+  pluginId: string,
+  execute: (context: ActionExecutionContext) => Promise<ActionExecutionResult>,
+): ActionImplementation {
+  const definition = descriptor.definition as unknown as JsonObject;
+  const id = asString(definition.id, 'Sandbox action definition.id');
+  const version = definition.version;
+  if (!id.trim() || id.length > 160 || typeof version !== 'number' || !Number.isInteger(version) || version < 1) throw new Error(`Sandbox action ${id} metadata is invalid.`);
+  const title = normalizeLocalized(definition.title, `Sandbox action ${id} title`);
+  const description = normalizeLocalized(definition.description, `Sandbox action ${id} description`);
+  const tag = asString(definition.tag, `Sandbox action ${id} tag`);
+  const configSchema = asJsonObject(definition.configSchema, `Sandbox action ${id} configSchema`);
+  const requiredCapabilities = normalizeStrings(definition.requiredCapabilities, `Sandbox action ${id} requiredCapabilities`);
+  const uiHints = definition.uiHints === undefined ? undefined : asJsonObject(definition.uiHints, `Sandbox action ${id} uiHints`);
+  const actionDefinition: ActionTypeDefinition = {
+    id,
+    version,
+    title,
+    description,
+    tag,
+    source: { kind: 'plugin', pluginId },
+    configSchema,
+    uiHints,
+    requiredCapabilities,
+  };
+  return { definition: actionDefinition, execute };
+}
+
+function normalizeLocalized(value: unknown, label: string): Localized {
+  if (typeof value === 'string' && value.trim()) return { en: value, es: value };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} is invalid.`);
+  const object = value as Record<string, unknown>;
+  if (typeof object.en !== 'string' || typeof object.es !== 'string' || !object.en.trim() || !object.es.trim()) throw new Error(`${label} must contain en and es.`);
+  return { en: object.en, es: object.es };
 }
 
 function normalizeDefinition(descriptor: SandboxNodeDescriptor, pluginId: string): NodeDefinition {

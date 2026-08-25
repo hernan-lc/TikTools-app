@@ -1,13 +1,13 @@
 import { useState } from 'preact/hooks';
 
-import { BUILTIN_ACTION_TYPES, findActionType } from '../../automation/behavior/catalog.ts';
-import type { LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
+import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
 import type { Locale } from '../i18n.ts';
 
 type PluginsViewProps = {
   locale: Locale;
   plugins: PluginStatus[];
   actions: LiveAction[];
+  actionTypes: ActionTypeDefinition[];
   error?: string;
   onSetInstalled: (id: string, installed: boolean) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
@@ -58,6 +58,7 @@ export function PluginsView({
   locale,
   plugins,
   actions,
+  actionTypes,
   error,
   onSetInstalled,
   onSetEnabled,
@@ -103,7 +104,7 @@ export function PluginsView({
               <span className="plg-dot is-ok" />
               <span className="plg-banner__label">{copy.builtInLabel}</span>
               <span className="plg-banner__list">
-                {BUILTIN_ACTION_TYPES.map((type) => type.title[locale]).join(' · ')}
+                {actionTypes.filter((type) => type.source.kind === 'builtin').map((type) => type.title[locale]).join(' · ')}
               </span>
               <span className="plg-banner__note">{copy.builtInNote}</span>
             </div>
@@ -111,7 +112,7 @@ export function PluginsView({
 
           {visible.map((plugin) => {
             const usedBy = actions.filter((action) => {
-              const type = findActionType(action.typeId);
+              const type = actionTypes.find((entry) => entry.id === action.typeId);
               return type?.source.kind === 'plugin' && type.source.pluginId === plugin.descriptor.id;
             }).length;
 
@@ -137,7 +138,7 @@ export function PluginsView({
                       <span className="plg-group-note">{copy.actionsLabel}</span>
                       {plugin.descriptor.actionTypeIds.map((id) => (
                         <span className="plg-pill" key={id}>
-                          {findActionType(id)?.title[locale] ?? id}
+                          {actionTypes.find((entry) => entry.id === id)?.title[locale] ?? id}
                         </span>
                       ))}
                     </div>

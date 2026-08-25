@@ -8,3 +8,5 @@ export * from './Table.tsx';
 export * from './Page.tsx';
 export * from './Button.tsx';
 export * from './Modal.tsx';
+export * from './SchemaForm.tsx';
+export * from './SchemaModal.tsx';

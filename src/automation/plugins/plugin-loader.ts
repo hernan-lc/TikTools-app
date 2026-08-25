@@ -2,7 +2,7 @@ import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 
 import type { AutomationCapabilities } from '../capabilities.ts';
-import type { NodeImplementation, NodeExecutionContext, NodeDefinition } from '../types.ts';
+import type { NodeImplementation, NodeExecutionContext } from '../types.ts';
 import { PluginCapabilityBroker } from './capability-broker.ts';
 import {
   assertValidPluginManifest,
@@ -20,6 +20,7 @@ export interface PluginLoaderOptions {
   capabilities: AutomationCapabilities;
   log?: (message: string) => void;
   onLoaded?: (manifest: AutomationPluginManifest) => void;
+  isInstalled?: (pluginId: string) => boolean | undefined;
 }
 
 export interface PluginLoadResult {
@@ -37,6 +38,7 @@ export interface PluginLoadResult {
 export class AutomationPluginLoader {
   readonly #options: PluginLoaderOptions;
   readonly #workers = new Map<string, PluginWorkerHost>();
+  readonly #discovered = new Map<string, { directory: string; manifest: AutomationPluginManifest }>();
   #loading: Promise<PluginLoadResult[]> | undefined;
 
   constructor(options: PluginLoaderOptions) {
@@ -82,6 +84,10 @@ export class AutomationPluginLoader {
     const resolvedDirectory = await realpath(directory);
     const manifestPath = join(resolvedDirectory, 'plugin.json');
     const manifest = await readManifest(manifestPath);
+    this.#discovered.set(manifest.id, { directory: resolvedDirectory, manifest });
+    if (this.#options.isInstalled?.(manifest.id) === false) {
+      return { directory: resolvedDirectory, manifest, loaded: false };
+    }
     if (manifest.executionMode !== 'sandbox') {
       throw new Error(`Plugin ${manifest.id} is trusted; install it through a host integration instead.`);
     }
@@ -103,14 +109,14 @@ export class AutomationPluginLoader {
       log: (entry) => this.#options.log?.(`[${manifest.id}] ${entry.message}`),
     });
 
-    let definitions: NodeDefinition[];
     try {
-      definitions = await worker.start();
-      const nodes: NodeImplementation[] = definitions.map((definition) => ({
+      const loaded = await worker.start();
+      const nodes: NodeImplementation[] = loaded.nodes.map((definition) => ({
         definition,
         execute: (context: NodeExecutionContext) => worker.execute(context),
       }));
-      this.#options.manager.registerSandbox({ manifest, nodes }, () => worker.stop());
+      const actions = loaded.actions;
+      this.#options.manager.registerSandbox({ manifest, nodes, actions }, () => worker.stop());
       this.#workers.set(manifest.id, worker);
       this.#options.onLoaded?.(manifest);
     } catch (error) {
@@ -125,6 +131,16 @@ export class AutomationPluginLoader {
     const unloaded = this.#options.manager.unregister(pluginId);
     this.#workers.delete(pluginId);
     return unloaded;
+  }
+
+  listDiscovered(): Array<{ directory: string; manifest: AutomationPluginManifest; loaded: boolean }> {
+    return [...this.#discovered.values()]
+      .sort((a, b) => a.manifest.name.localeCompare(b.manifest.name))
+      .map((entry) => ({ ...entry, loaded: this.#workers.has(entry.manifest.id) }));
+  }
+
+  directoryFor(pluginId: string): string | undefined {
+    return this.#discovered.get(pluginId)?.directory;
   }
 
   async stopAll(): Promise<void> {

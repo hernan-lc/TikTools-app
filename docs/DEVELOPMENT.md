@@ -73,11 +73,13 @@ Do not pass arbitrary page objects into host services. Treat every WebView messa
 
 For the current Behavior UI, add the action type and schema in `src/automation/behavior/`, then update its catalog, localized labels, engine execution, and tests. If it needs a host capability, declare that dependency and enforce it through the capability layer.
 
+New behavior actions should register through `ActionRegistry`. Their configuration is a bounded JSON Schema object with optional UI hints (`kind`, `template`, `advanced`, `showIf`, and localized labels). The WebView renders this descriptor through `SchemaForm`; plugins do not ship Preact or DOM code. Built-in actions use the same registry and execution contract as sandbox actions. Existing behavior records with action schema version 1 are normalized to version 2 on read/save; records for missing plugins remain visible but unavailable.
+
 For graph nodes, add the node definition and implementation in `src/automation/nodes/builtins.ts`, then add configuration and suggestions in `src/web/components/node-editor/` as appropriate. Saved workflow graphs must remain JSON-safe and pass graph validation.
 
 ## Adding a plugin
 
-A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, and permissions. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md).
+A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, and permissions. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md). A sandbox entry may register both nodes and actions; actions are described with JSON Schema and execute in the worker through the capability broker.
 
 Trusted plugins are host code and should only be used for reviewed, bundled integrations. A worker process is a crash/isolation boundary, not a full security sandbox.
 

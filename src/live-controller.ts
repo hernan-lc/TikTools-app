@@ -22,8 +22,10 @@ import { assertValidWorkflowGraph } from './automation/graph.ts';
 import { createBuiltInNodeRegistry } from './automation/nodes/builtins.ts';
 import { AutomationRuntime } from './automation/runtime.ts';
 import { BehaviorEngine, sampleEventFor } from './automation/behavior/engine.ts';
+import { createBuiltInActionRegistry } from './automation/behavior/builtins.ts';
+import { normalizeAction } from './automation/behavior/schema.ts';
 import { PLUGIN_DESCRIPTORS } from './automation/behavior/catalog.ts';
-import type { BehaviorRun, BehaviorSnapshot, PluginStatus } from './automation/behavior/types.ts';
+import type { BehaviorRun, BehaviorSnapshot, PluginDescriptor, PluginStatus } from './automation/behavior/types.ts';
 import { NativeAudioService } from './automation/services/audio-service.ts';
 import { HttpService } from './automation/services/http-service.ts';
 import { NapiVmService } from './automation/services/napi-vm-service.ts';
@@ -32,7 +34,7 @@ import { AutomationPluginLoader } from './automation/plugins/plugin-loader.ts';
 import { PluginManager } from './automation/plugins/plugin-manager.ts';
 import { SonicBoomProvider } from './automation/providers/sonicboom.ts';
 import type { AutomationCapabilities } from './automation/capabilities.ts';
-import type { AutomationConnectionContext, AutomationEvent } from './automation/types.ts';
+import type { AutomationConnectionContext, AutomationEvent, JsonObject } from './automation/types.ts';
 import { AutomationDatabase } from './db/automation-db.ts';
 import { PointsDatabase } from './db/points-db.ts';
 import { ensureAppPaths } from './platform/app-paths.ts';
@@ -70,6 +72,7 @@ export class LiveController {
   readonly automationRuntime: AutomationRuntime;
   readonly behavior: BehaviorEngine;
   readonly pluginManager: PluginManager;
+  readonly actionRegistry: ReturnType<typeof createBuiltInActionRegistry>;
   readonly audioService: NativeAudioService;
   readonly sonicBoom: SonicBoomProvider;
   readonly napiVm: NapiVmService;
@@ -79,10 +82,11 @@ export class LiveController {
 
   constructor(private readonly send: SendHostMessage) {
     this.pointsDb = new PointsDatabase();
-    this.automationDb = new AutomationDatabase();
     this.automationBus = new AutomationEventBus();
     const nodeRegistry = createBuiltInNodeRegistry();
-    this.pluginManager = new PluginManager(nodeRegistry);
+    this.actionRegistry = createBuiltInActionRegistry();
+    this.automationDb = new AutomationDatabase(undefined, this.actionRegistry);
+    this.pluginManager = new PluginManager(nodeRegistry, this.actionRegistry);
     this.audioService = new NativeAudioService();
     this.sonicBoom = new SonicBoomProvider();
     this.napiVm = new NapiVmService();
@@ -123,11 +127,13 @@ export class LiveController {
       rootDirectory: ensureAppPaths().plugins,
       manager: this.pluginManager,
       capabilities: this.automationCapabilities,
+      isInstalled: (pluginId) => this.automationDb.listPluginStates().find((entry) => entry.id === pluginId)?.installed,
       log: (message) => console.warn(`[automation-plugins] ${message}`),
       onLoaded: (manifest) => {
         console.log(`[automation-plugins] loaded ${manifest.id}@${manifest.version}`);
         this.reloadAutomationWorkflows();
         this.send({ type: 'automation-node-catalog', nodes: this.automationRuntime.getNodeDefinitions() });
+        this.sendBehavior();
       },
     });
     void this.pluginLoader.loadAll().catch((error: unknown) => {
@@ -135,6 +141,7 @@ export class LiveController {
     });
     this.behavior = new BehaviorEngine({
       capabilities: this.automationCapabilities,
+      actionRegistry: this.actionRegistry,
       publish: (event) => this.automationBus.publish(event),
       onRun: (run) => this.#onBehaviorRun(run),
     });
@@ -353,7 +360,7 @@ export class LiveController {
         break;
       case 'save-action':
         try {
-          this.automationDb.saveAction(message.action);
+          this.automationDb.saveAction(normalizeAction(message.action, this.actionRegistry));
           this.reloadBehavior();
           this.sendBehavior();
         } catch (error) {
@@ -427,14 +434,22 @@ export class LiveController {
         break;
       }
       case 'set-plugin-install': {
-        const descriptor = PLUGIN_DESCRIPTORS.find((plugin) => plugin.id === message.id);
+        const descriptor = this.behaviorSnapshot().plugins.find((plugin) => plugin.descriptor.id === message.id)?.descriptor;
         if (!descriptor) {
           this.send({ type: 'behavior-error', message: `Unknown plugin: ${message.id}` });
           break;
         }
         this.automationDb.setPluginState(message.id, message.installed, true);
-        this.reloadBehavior();
-        this.sendBehavior();
+        if (!message.installed) {
+          this.pluginLoader.unload(message.id);
+          this.reloadAutomationWorkflows();
+          this.sendBehavior();
+        } else if (this.pluginLoader.directoryFor(message.id)) {
+          void this.loadDiscoveredPlugin(message.id);
+        } else {
+          this.reloadBehavior();
+          this.sendBehavior();
+        }
         break;
       }
       case 'set-plugin-enabled': {
@@ -516,13 +531,21 @@ export class LiveController {
 
   private behaviorSnapshot(): BehaviorSnapshot {
     const states = this.automationDb.listPluginStates();
-    const plugins: PluginStatus[] = PLUGIN_DESCRIPTORS.map((descriptor) => {
+    const discovered = this.pluginLoader.listDiscovered();
+    const descriptors = [
+      ...PLUGIN_DESCRIPTORS,
+      ...this.pluginManager.list().map((manifest) => manifestToDescriptor(manifest, this.pluginManager.actionDefinitions(manifest.id).map((definition) => definition.id))),
+      ...discovered.map((entry) => manifestToDescriptor(entry.manifest, this.pluginManager.actionDefinitions(entry.manifest.id).map((definition) => definition.id))),
+    ]
+      .filter((descriptor, index, all) => all.findIndex((entry) => entry.id === descriptor.id) === index);
+    const plugins: PluginStatus[] = descriptors.map((descriptor) => {
       const state = states.find((entry) => entry.id === descriptor.id);
+      const isDiscovered = discovered.some((entry) => entry.manifest.id === descriptor.id);
       return {
         descriptor,
-        installed: Boolean(state?.installed),
+        installed: state ? state.installed : isDiscovered,
         enabled: state ? state.enabled : true,
-        available: true,
+        available: isDiscovered ? this.pluginManager.get(descriptor.id) !== undefined : true,
       };
     });
 
@@ -530,6 +553,7 @@ export class LiveController {
       actions: this.automationDb.listActions(),
       events: this.automationDb.listEvents(),
       plugins,
+      actionTypes: this.actionRegistry.definitions(),
     };
   }
 
@@ -864,4 +888,50 @@ export class LiveController {
       }
     }
   }
+
+  private async loadDiscoveredPlugin(pluginId: string): Promise<void> {
+    if (this.pluginManager.get(pluginId)) {
+      this.reloadBehavior();
+      this.sendBehavior();
+      return;
+    }
+    const directory = this.pluginLoader.directoryFor(pluginId);
+    if (!directory) {
+      this.reloadBehavior();
+      this.sendBehavior();
+      return;
+    }
+    try {
+      await this.pluginLoader.loadDirectory(directory);
+      this.reloadAutomationWorkflows();
+      this.sendBehavior();
+    } catch (error) {
+      this.send({ type: 'behavior-error', message: errorMessage(error) });
+      this.sendBehavior();
+    }
+  }
 }
+
+function manifestToDescriptor(manifest: import('./automation/plugins/manifest.ts').AutomationPluginManifest, actionTypeIds: string[]): PluginDescriptor {
+  const metadata = manifest.metadata ?? {};
+  return {
+    id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    description: localizedMetadata(metadata.description, manifest.name),
+    dependency: localizedMetadata(metadata.dependency, 'Sandbox worker'),
+    permissions: [...(manifest.permissions.capabilities ?? []), ...(manifest.permissions.network ?? []).map((entry) => `network:${entry}`)],
+    actionTypeIds,
+  };
+}
+
+function localizedMetadata(value: JsonValueLike, fallback: string): { es: string; en: string } {
+  if (typeof value === 'string' && value.trim()) return { es: value, en: value };
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const object = value as Record<string, unknown>;
+    if (typeof object.es === 'string' && typeof object.en === 'string') return { es: object.es, en: object.en };
+  }
+  return { es: fallback, en: fallback };
+}
+
+type JsonValueLike = JsonObject | string | number | boolean | null | JsonValueLike[] | undefined;

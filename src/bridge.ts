@@ -1,5 +1,5 @@
 import { isWorkflowGraph } from './automation/graph.ts';
-import { normalizeAction, normalizeEvent } from './automation/behavior/schema.ts';
+import { normalizeUnresolvedAction, normalizeEvent } from './automation/behavior/schema.ts';
 import type { AutomationEventType } from './automation/types.ts';
 import type { PageMessage, PointsConfig } from './shared/messages.ts';
 
@@ -158,7 +158,7 @@ export function parsePageMessage(raw: string): PageMessage | null {
   // The page is untrusted input: only records the schema accepts cross over.
   if (message.type === 'save-action' || message.type === 'test-action') {
     try {
-      const action = normalizeAction(message.action);
+      const action = normalizeUnresolvedAction(message.action);
       return message.type === 'save-action'
         ? { type: 'save-action', action }
         : {
