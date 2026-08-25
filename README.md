@@ -69,6 +69,7 @@ bun run typecheck          # Type-check the application
 bun run test               # Run the app test suite
 bun run test:plugin-worker # Run the plugin worker smoke test
 bun run smoke:compiled     # Smoke-test the built EXE and self-hosted plugin
+bun run smoke:compiled-worker # Execute a node and capability through the compiled worker
 bun run build:host          # Build a development host bundle
 bun run build:exe           # Build dist/TikTools.exe for Windows
 ```

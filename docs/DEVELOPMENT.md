@@ -23,6 +23,7 @@ The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` imp
 | `bun run test` | Run tests under `src`. |
 | `bun run test:plugin-worker` | Run the plugin worker smoke test. |
 | `bun run smoke:compiled` | Launch the built EXE with a fixture plugin and verify app-data paths. |
+| `bun run smoke:compiled-worker` | Execute nodes and a capability through the compiled worker process. |
 | `bun run build:host` | Build a development host bundle in `dist/`. |
 | `bun run build:exe` | Build the Windows GUI executable at `dist/TikTools.exe`. |
 
@@ -91,6 +92,7 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run smoke:compiled
+bun run smoke:compiled-worker
 bun run build:host
 bun run build:exe
 ~~~

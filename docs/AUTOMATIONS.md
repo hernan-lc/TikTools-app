@@ -270,6 +270,7 @@ bun run test:plugin-worker
 bun run build:host
 bun run build:exe
 bun run smoke:compiled
+bun run smoke:compiled-worker
 ```
 
 `bun run test` is scoped to the app’s tests. Running bare `bun test` also discovers the vendored TikTok signer tests, which currently expect generated `vendor/tiktok-signer/.../dist` files that are not checked in.

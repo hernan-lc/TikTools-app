@@ -9,6 +9,7 @@
     "test": "bun test src",
     "test:plugin-worker": "bun run src/automation/plugins/worker-smoke.ts",
     "smoke:compiled": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/smoke-compiled.ps1",
+    "smoke:compiled-worker": "bun run scripts/smoke-compiled-worker.ts",
     "build:host": "bun run scripts/build-host.ts",
     "build:exe": "bun run scripts/build-exe.ts"
   },
