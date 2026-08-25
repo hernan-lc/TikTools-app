@@ -22,6 +22,8 @@ import {
 import { assertValidWorkflowGraph } from './automation/graph.ts';
 import { createBuiltInNodeRegistry } from './automation/nodes/builtins.ts';
 import { AutomationRuntime } from './automation/runtime.ts';
+import { LivePluginEngine, sampleEventFor } from './automation/live-plugins/engine.ts';
+import type { LivePluginRun } from './automation/live-plugins/types.ts';
 import { NativeAudioService } from './automation/services/audio-service.ts';
 import { HttpService } from './automation/services/http-service.ts';
 import { NapiVmService } from './automation/services/napi-vm-service.ts';
@@ -65,6 +67,7 @@ export class LiveController {
   readonly automationDb: AutomationDatabase;
   readonly automationBus: AutomationEventBus;
   readonly automationRuntime: AutomationRuntime;
+  readonly livePlugins: LivePluginEngine;
   readonly pluginManager: PluginManager;
   readonly audioService: NativeAudioService;
   readonly sonicBoom: SonicBoomProvider;
@@ -129,10 +132,19 @@ export class LiveController {
     void this.pluginLoader.loadAll().catch((error: unknown) => {
       console.error('[automation-plugins] discovery failed:', errorMessage(error));
     });
+    this.livePlugins = new LivePluginEngine({
+      capabilities: this.automationCapabilities,
+      publish: (event) => this.automationBus.publish(event),
+      onRun: (run) => this.#onLivePluginRun(run),
+    });
+
     this.automationBus.subscribe('*', (event) => this.automationRuntime.handleEvent(event));
+    this.automationBus.subscribe('*', (event) => this.livePlugins.handleEvent(event));
     this.automationBus.onError((error, event) => {
       console.error(`[automation-bus] ${event.type}:`, error);
     });
+
+    this.livePlugins.setAll(this.automationDb.listLivePlugins().map((record) => record.plugin));
 
     for (const workflow of this.automationDb.listWorkflows()) {
       try {
@@ -330,6 +342,50 @@ export class LiveController {
           this.send({ type: 'automation-error', message: errorMessage(error) });
         }
         break;
+      case 'get-live-plugins':
+        this.sendLivePlugins();
+        this.send({ type: 'live-plugin-runs', runs: this.livePlugins.recentRuns(30) });
+        break;
+      case 'save-live-plugin':
+        try {
+          const record = this.automationDb.saveLivePlugin(message.plugin);
+          this.livePlugins.upsert(record.plugin);
+          this.sendLivePlugins();
+        } catch (error) {
+          this.send({ type: 'live-plugin-error', message: errorMessage(error) });
+        }
+        break;
+      case 'delete-live-plugin':
+        if (!this.automationDb.deleteLivePlugin(message.id)) {
+          this.send({ type: 'live-plugin-error', message: `Unknown plugin: ${message.id}` });
+          break;
+        }
+        this.livePlugins.remove(message.id);
+        this.sendLivePlugins();
+        break;
+      case 'set-live-plugin-enabled':
+        try {
+          const record = this.automationDb.setLivePluginEnabled(message.id, message.enabled);
+          this.livePlugins.upsert(record.plugin);
+          this.sendLivePlugins();
+        } catch (error) {
+          this.send({ type: 'live-plugin-error', message: errorMessage(error) });
+        }
+        break;
+      case 'test-live-plugin': {
+        // The editor tests against the last real event so the preview and the
+        // run use the same values; a sample event covers the offline case.
+        const event = this.#lastAutomationEvent?.type === message.plugin.trigger
+          ? this.#lastAutomationEvent
+          : sampleEventFor(message.plugin.trigger);
+        void this.livePlugins
+          .test(message.plugin, event)
+          .then((run) => this.send({ type: 'live-plugin-test-result', run }))
+          .catch((error: unknown) => {
+            this.send({ type: 'live-plugin-error', message: errorMessage(error) });
+          });
+        break;
+      }
       case 'analyze-automation-script':
         try {
           const analysis = this.napiVmLanguage.analyze(
@@ -345,6 +401,15 @@ export class LiveController {
         }
         break;
     }
+  }
+
+  private sendLivePlugins(): void {
+    this.send({ type: 'live-plugins', plugins: this.automationDb.listLivePlugins() });
+  }
+
+  #onLivePluginRun(run: LivePluginRun): void {
+    if (run.status === 'skipped' && !run.test) return;
+    this.send({ type: 'live-plugin-runs', runs: this.livePlugins.recentRuns(30) });
   }
 
   async connect(request: Extract<PageMessage, { type: 'connect' }>): Promise<void> {
@@ -651,6 +716,8 @@ export class LiveController {
   }
 
   private reloadAutomationWorkflows(): void {
+    this.livePlugins.setAll(this.automationDb.listLivePlugins().map((record) => record.plugin));
+
     for (const workflow of this.automationDb.listWorkflows()) {
       try {
         this.automationRuntime.registerWorkflow(workflow.graph);

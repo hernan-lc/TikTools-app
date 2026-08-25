@@ -23,7 +23,9 @@ export type AutomationEventType =
   | 'tiktok.room_stats'
   | 'tiktok.connected'
   | 'tiktok.disconnected'
-  | 'points.awarded';
+  | 'points.awarded'
+  /** Internal event published by a live plugin's `emit` action. */
+  | 'plugin.emit';
 
 export interface AutomationUser extends JsonObject {
   userId?: string;

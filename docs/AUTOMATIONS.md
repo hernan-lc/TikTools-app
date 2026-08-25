@@ -17,6 +17,55 @@ WorkflowRuntime
       +-- worker-isolated napi-vm plugins
 ```
 
+## Live plugins (current UI)
+
+The Plugins tab replaces the node editor. A live plugin is one record: an event,
+an optional filter, a cooldown, and one action. There is no graph, no ports, and
+no edges.
+
+```text
+AutomationEvent -> LivePluginEngine -> fetch | emit
+                                         |
+                                         +-- overlay.sound -> NativeAudioService
+                                         +-- tts.speak     -> SonicBoomProvider
+                                         +-- points.add    -> PointsDatabase
+```
+
+- `src/automation/live-plugins/types.ts` defines the record; `schema.ts`
+  normalizes whatever crosses the bridge or comes back from SQLite and derives
+  the permissions, which are never typed by hand.
+- `templates.ts` is the gallery: `fetch`, `emit`, sound, TTS, points, and the
+  code editor. Sound, TTS, and points are `emit` templates whose well-known
+  event type the engine binds to a host capability, so the model keeps exactly
+  two output primitives.
+- `engine.ts` checks the filter and the cooldown, renders `{{ event.* }}`
+  placeholders, and performs the action. HTTP goes through `HttpService` with an
+  allowlist built from the configured URL, so a templated host is refused: the
+  allowlist has to be knowable before the event arrives.
+- Plugins are stored in the `live_plugins` table of `src/db/automation-db.ts`.
+  Run history is session-only and lives in the engine, like the live event
+  snapshot.
+
+Code plugins run in the synchronous `napi-vm` session, which only exchanges
+JSON. A script therefore returns what should happen and the host performs it
+against the same capabilities the templates use:
+
+```js
+log(`${event.user.uniqueId} · ${event.data.diamondCount}`)
+
+return {
+  emit: [{ type: "overlay.rank", data: { nombre: event.user.nickname } }],
+  fetch: { url: "https://hooks.example.com/rank", method: "POST", body: "{}" },
+  emitResponseAs: "overlay.rank.done",
+}
+```
+
+`fetch` from a script is checked against the hosts that appear in the script
+source, so a plugin cannot reach a domain it does not declare.
+
+The workflow engine below still runs saved graphs and worker-backed plugins; it
+no longer has a UI.
+
 ## Current implementation
 
 - `src/automation/types.ts` defines JSON-safe events, ports, workflows, node definitions, and execution contexts.

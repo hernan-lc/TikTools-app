@@ -1,3 +1,4 @@
+import type { LivePlugin, LivePluginRecord, LivePluginRun } from '../automation/live-plugins/types.ts';
 import type {
   AutomationEventType,
   AutomationEvent,
@@ -109,7 +110,12 @@ export type PageMessage =
       source: string;
       offset: number;
       eventType?: AutomationEventType;
-    };
+    }
+  | { type: 'get-live-plugins' }
+  | { type: 'save-live-plugin'; plugin: LivePlugin }
+  | { type: 'delete-live-plugin'; id: string }
+  | { type: 'set-live-plugin-enabled'; id: string; enabled: boolean }
+  | { type: 'test-live-plugin'; plugin: LivePlugin };
 
 export type TopViewerPayload = {
   rank: number;
@@ -151,4 +157,8 @@ export type HostMessage =
   | { type: 'automation-node-catalog'; nodes: NodeDefinition[] }
   | { type: 'automation-context'; event: AutomationEvent | null; capturedAt?: number }
   | { type: 'automation-script-analysis'; analysis: AutomationScriptAnalysis }
-  | { type: 'automation-error'; message: string };
+  | { type: 'automation-error'; message: string }
+  | { type: 'live-plugins'; plugins: LivePluginRecord[] }
+  | { type: 'live-plugin-runs'; runs: LivePluginRun[] }
+  | { type: 'live-plugin-test-result'; run: LivePluginRun }
+  | { type: 'live-plugin-error'; message: string };

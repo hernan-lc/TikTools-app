@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
-import type { AutomationWorkflowRecord, HostMessage, PageMessage } from '../shared/messages.ts';
-import type { AutomationEvent, AutomationEventType, AutomationScriptAnalysis, NodeDefinition, WorkflowGraph } from '../automation/types.ts';
+import type { HostMessage, PageMessage } from '../shared/messages.ts';
+import type { LivePlugin, LivePluginRecord, LivePluginRun } from '../automation/live-plugins/types.ts';
 import { NavigationRail } from './components/nav-rail.tsx';
 import { TopNav } from './components/top-nav.tsx';
 import { t, type Locale } from './i18n.ts';
@@ -30,7 +30,7 @@ import type {
   ViewerRecord,
 } from './types.ts';
 import { AnalyticsView } from './views/analytics-view.tsx';
-import { AutomationsView } from './views/automations-view.tsx';
+import { PluginsView } from './views/plugins-view.tsx';
 import { ConnectView } from './views/connect-view.tsx';
 import { FeedView } from './views/feed-view.tsx';
 import { PointsView } from './views/points-view.tsx';
@@ -99,12 +99,11 @@ function App() {
   const [activeCreatorRecord, setActiveCreatorRecord] = useState<CreatorRecord | null>(null);
   const [recentCreators, setRecentCreators] = useState<CreatorRecord[]>([]);
 
-  const [automationWorkflows, setAutomationWorkflows] = useState<AutomationWorkflowRecord[]>([]);
-  const [automationNodes, setAutomationNodes] = useState<NodeDefinition[]>([]);
-  const [automationError, setAutomationError] = useState('');
-  const [automationScriptAnalysis, setAutomationScriptAnalysis] = useState<AutomationScriptAnalysis | undefined>();
-  const [automationLastEvent, setAutomationLastEvent] = useState<AutomationEvent | undefined>();
-  const [automationLastEventCapturedAt, setAutomationLastEventCapturedAt] = useState<number | undefined>();
+
+  const [livePlugins, setLivePlugins] = useState<LivePluginRecord[]>([]);
+  const [livePluginRuns, setLivePluginRuns] = useState<LivePluginRun[]>([]);
+  const [livePluginTestRun, setLivePluginTestRun] = useState<LivePluginRun | undefined>();
+  const [livePluginError, setLivePluginError] = useState('');
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -146,9 +145,7 @@ function App() {
     send({ type: 'get-creator' });
     send({ type: 'get-recent-creators', limit: 10 });
     send({ type: 'get-app-state' });
-    send({ type: 'get-automation-workflows' });
-    send({ type: 'get-automation-nodes' });
-    send({ type: 'get-automation-context' });
+    send({ type: 'get-live-plugins' });
   }, []);
 
   // Handle messages from the native runtime
@@ -272,25 +269,21 @@ function App() {
         console.log('[app-state]', message.state);
       }
 
-      if (message.type === 'automation-workflows') {
-        setAutomationWorkflows(message.workflows);
+      if (message.type === 'live-plugins') {
+        setLivePlugins(message.plugins);
+        setLivePluginError('');
       }
 
-      if (message.type === 'automation-node-catalog') {
-        setAutomationNodes(message.nodes);
+      if (message.type === 'live-plugin-runs') {
+        setLivePluginRuns(message.runs);
       }
 
-      if (message.type === 'automation-context') {
-        setAutomationLastEvent(message.event ?? undefined);
-        setAutomationLastEventCapturedAt(message.capturedAt);
+      if (message.type === 'live-plugin-test-result') {
+        setLivePluginTestRun(message.run);
       }
 
-      if (message.type === 'automation-script-analysis') {
-        setAutomationScriptAnalysis(message.analysis);
-      }
-
-      if (message.type === 'automation-error') {
-        setAutomationError(message.message);
+      if (message.type === 'live-plugin-error') {
+        setLivePluginError(message.message);
       }
 
       if (message.type === 'gift-debug') {
@@ -399,35 +392,25 @@ function App() {
     send({ type: 'adjust-points', uniqueId, delta });
   };
 
-  const handleRefreshAutomations = (): void => {
-    setAutomationError('');
-    send({ type: 'get-automation-workflows' });
-    send({ type: 'get-automation-nodes' });
+  const handleSaveLivePlugin = (plugin: LivePlugin): void => {
+    setLivePluginError('');
+    send({ type: 'save-live-plugin', plugin });
   };
 
-  const handleSaveAutomation = (graph: WorkflowGraph): void => {
-    setAutomationError('');
-    send({ type: 'save-automation-workflow', graph });
+  const handleDeleteLivePlugin = (id: string): void => {
+    setLivePluginError('');
+    send({ type: 'delete-live-plugin', id });
   };
 
-  const handleDeleteAutomation = (id: string): void => {
-    setAutomationError('');
-    send({ type: 'delete-automation-workflow', id });
+  const handleSetLivePluginEnabled = (id: string, enabled: boolean): void => {
+    setLivePluginError('');
+    send({ type: 'set-live-plugin-enabled', id, enabled });
   };
 
-  const handleSetAutomationEnabled = (id: string, enabled: boolean): void => {
-    setAutomationError('');
-    send({ type: 'set-automation-workflow-enabled', id, enabled });
-  };
-
-  const handleAnalyzeAutomationScript = (nodeId: string, source: string, offset: number, eventType?: AutomationEventType): void => {
-    send({
-      type: 'analyze-automation-script',
-      nodeId,
-      source,
-      offset,
-      eventType,
-    });
+  const handleTestLivePlugin = (plugin: LivePlugin): void => {
+    setLivePluginError('');
+    setLivePluginTestRun(undefined);
+    send({ type: 'test-live-plugin', plugin });
   };
 
   // Connect automatically on initial startup if a handle is saved
@@ -497,19 +480,16 @@ function App() {
         )}
 
         {activeTab === 'automations' && (
-          <AutomationsView
+          <PluginsView
             locale={locale}
-            workflows={automationWorkflows}
-            nodes={automationNodes}
-            error={automationError}
-            scriptAnalysis={automationScriptAnalysis}
-            lastEvent={automationLastEvent}
-            lastEventCapturedAt={automationLastEventCapturedAt}
-            onRefresh={handleRefreshAutomations}
-            onSave={handleSaveAutomation}
-            onDelete={handleDeleteAutomation}
-            onSetEnabled={handleSetAutomationEnabled}
-            onAnalyzeScript={handleAnalyzeAutomationScript}
+            plugins={livePlugins}
+            runs={livePluginRuns}
+            testRun={livePluginTestRun}
+            error={livePluginError}
+            onSave={handleSaveLivePlugin}
+            onDelete={handleDeleteLivePlugin}
+            onSetEnabled={handleSetLivePluginEnabled}
+            onTest={handleTestLivePlugin}
           />
         )}
 

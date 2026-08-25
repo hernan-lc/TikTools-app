@@ -3,6 +3,8 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { isWorkflowGraph } from '../automation/graph.ts';
+import { normalizeLivePlugin } from '../automation/live-plugins/schema.ts';
+import type { LivePlugin, LivePluginRecord } from '../automation/live-plugins/types.ts';
 import type { WorkflowGraph } from '../automation/types.ts';
 
 interface WorkflowRow {
@@ -10,6 +12,15 @@ interface WorkflowRow {
   name: string;
   enabled: number;
   graph_json: string;
+  created_at: number;
+  updated_at: number;
+}
+
+interface LivePluginRow {
+  id: string;
+  name: string;
+  enabled: number;
+  plugin_json: string;
   created_at: number;
   updated_at: number;
 }
@@ -90,6 +101,83 @@ export class AutomationDatabase {
     return result.changes > 0;
   }
 
+  listLivePlugins(): LivePluginRecord[] {
+    const rows = this.db.query(`
+      SELECT id, name, enabled, plugin_json, created_at, updated_at
+      FROM live_plugins
+      ORDER BY updated_at DESC, name ASC
+    `).all([]) as LivePluginRow[];
+    const records: LivePluginRecord[] = [];
+    for (const row of rows) {
+      try {
+        records.push(this.fromPluginRow(row));
+      } catch (error) {
+        console.warn(`[live-plugins] ${row.id} was skipped:`, error);
+      }
+    }
+    return records;
+  }
+
+  getLivePlugin(id: string): LivePluginRecord | null {
+    const row = this.db.query(`
+      SELECT id, name, enabled, plugin_json, created_at, updated_at
+      FROM live_plugins
+      WHERE id = ?
+    `).get([id]) as LivePluginRow | null;
+    return row ? this.fromPluginRow(row) : null;
+  }
+
+  saveLivePlugin(plugin: LivePlugin): LivePluginRecord {
+    const now = Date.now();
+    const existing = this.getLivePlugin(plugin.id);
+    const createdAt = existing?.createdAt ?? now;
+    this.db.query(`
+      INSERT INTO live_plugins (id, name, enabled, plugin_json, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        enabled = excluded.enabled,
+        plugin_json = excluded.plugin_json,
+        updated_at = excluded.updated_at
+    `).run([
+      plugin.id,
+      plugin.name,
+      plugin.enabled ? 1 : 0,
+      JSON.stringify(plugin),
+      createdAt,
+      now,
+    ]);
+    const saved = this.getLivePlugin(plugin.id);
+    if (!saved) throw new Error(`Plugin was not saved: ${plugin.id}`);
+    return saved;
+  }
+
+  setLivePluginEnabled(id: string, enabled: boolean): LivePluginRecord {
+    const existing = this.getLivePlugin(id);
+    if (!existing) throw new Error(`Unknown plugin: ${id}`);
+    return this.saveLivePlugin({ ...existing.plugin, enabled });
+  }
+
+  deleteLivePlugin(id: string): boolean {
+    const result = this.db.query('DELETE FROM live_plugins WHERE id = ?').run([id]);
+    return result.changes > 0;
+  }
+
+  private fromPluginRow(row: LivePluginRow): LivePluginRecord {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.plugin_json) as unknown;
+    } catch {
+      throw new Error('Stored plugin contains invalid JSON.');
+    }
+    const plugin = normalizeLivePlugin(parsed);
+    return {
+      plugin: { ...plugin, enabled: Boolean(row.enabled) },
+      createdAt: Number(row.created_at),
+      updatedAt: Number(row.updated_at),
+    };
+  }
+
   private initTables(): void {
     this.db.run(`
       CREATE TABLE IF NOT EXISTS automation_workflows (
@@ -97,6 +185,16 @@ export class AutomationDatabase {
         name TEXT NOT NULL,
         enabled INTEGER NOT NULL DEFAULT 0,
         graph_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS live_plugins (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        plugin_json TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )

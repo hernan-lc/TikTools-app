@@ -1,4 +1,5 @@
 import { isWorkflowGraph } from './automation/graph.ts';
+import { normalizeLivePlugin } from './automation/live-plugins/schema.ts';
 import type { AutomationEventType } from './automation/types.ts';
 import type { PageMessage, PointsConfig } from './shared/messages.ts';
 
@@ -130,6 +131,29 @@ export function parsePageMessage(raw: string): PageMessage | null {
     };
   }
 
+  if (message.type === 'get-live-plugins') return { type: 'get-live-plugins' };
+  if (message.type === 'delete-live-plugin' && typeof message.id === 'string') {
+    return { type: 'delete-live-plugin', id: message.id };
+  }
+  if (
+    message.type === 'set-live-plugin-enabled' &&
+    typeof message.id === 'string' &&
+    typeof message.enabled === 'boolean'
+  ) {
+    return { type: 'set-live-plugin-enabled', id: message.id, enabled: message.enabled };
+  }
+  if (message.type === 'save-live-plugin' || message.type === 'test-live-plugin') {
+    // The page is untrusted input: only a plugin the schema accepts crosses over.
+    try {
+      const plugin = normalizeLivePlugin(message.plugin);
+      return message.type === 'save-live-plugin'
+        ? { type: 'save-live-plugin', plugin }
+        : { type: 'test-live-plugin', plugin };
+    } catch {
+      return null;
+    }
+  }
+
   return null;
 }
 
@@ -144,5 +168,6 @@ function isAutomationEventType(value: unknown): value is AutomationEventType {
     || value === 'tiktok.room_stats'
     || value === 'tiktok.connected'
     || value === 'tiktok.disconnected'
-    || value === 'points.awarded';
+    || value === 'points.awarded'
+    || value === 'plugin.emit';
 }
