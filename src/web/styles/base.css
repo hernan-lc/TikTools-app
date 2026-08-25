@@ -3,6 +3,30 @@
   box-sizing: border-box;
 }
 
+/* Keep native scrollbars compact and consistent across the WebView. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}
+
 html, body, #app {
   width: 100%;
   height: 100%;
@@ -27,4 +51,3 @@ button, input, select, textarea {
   font: inherit;
   color: inherit;
 }
-

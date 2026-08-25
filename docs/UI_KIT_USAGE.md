@@ -109,6 +109,4 @@ const cols: Column<ViewerRecord>[] = [
 - [ ] Replace `.error-banner`/`.recent-chip`/inline styles → `<Alert>`/`<Chip>`/`<Badge>`
 - [ ] Wrap each view in `<Page>` (`narrow` for Connect/Settings)
 
-See `src/web/views/connect-view.ui-example.tsx` for full Connect migration.
-See `docs/REDESIGN_PLAN.md` for phased rollout.
-
+See [Development Guide](DEVELOPMENT.md) for frontend conventions, current view ownership, and the validation checklist.

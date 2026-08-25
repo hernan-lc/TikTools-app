@@ -1,62 +1,129 @@
-# TikTok LIVE Inbox (WebView + tray example)
+# TikTools
 
-This is a small Bun desktop example built with:
+TikTools is a Bun-powered desktop companion for TikTok LIVE. It connects to a live room, displays chat and engagement telemetry, awards viewer points, and runs configurable automations from an embedded WebView window.
 
-- [webview-napi](https://www.npmjs.com/package/webview-napi) for the native window and local WebView UI;
-- [tray-icon-node](https://www.npmjs.com/package/tray-icon-node) for the system-tray menu;
-- [Preact](https://preactjs.com/) for the small, component-based wizard UI;
-- a small in-app i18n layer with English and Spanish translations, plus dark and light themes;
-- [tiktok-signer](https://github.com/nglmercer/tiktok-signer), included as vendor/tiktok-signer, for its ttl-live Node client.
+The app is built for people who want a lightweight live dashboard with a local data store, a system-tray workflow, and extensible event-driven behavior.
 
-The app has a three-step wizard:
+## What it includes
 
-1. choose the interface language and dark/light theme;
-2. enter a creator handle and optionally provide an authenticated TikTok cookie header;
-3. use the dashboard to receive chat, gift, like, join, follow, and share events in the WebView.
+- TikTok LIVE connection with guest discovery or an authenticated Cookie header.
+- Live feed for chat, gifts, likes, joins, follows, shares, and room statistics.
+- Local points, levels, subscriber bonuses, viewer leaderboard, and creator history.
+- Analytics for the current session.
+- Behavior rules that connect events, filters, cooldowns, and actions.
+- Built-in HTTP, points, delay, logging, script, audio, and text-to-speech capabilities.
+- Optional worker-backed automation plugins with declared permissions.
+- English and Spanish UI translations with dark and light themes.
+- A system-tray icon that hides the window instead of immediately quitting the app.
 
-The configuration step also has “Pick a live automatically”. It follows the upstream example: it bootstraps an anonymous guest identity when needed, searches TikTok live rooms, chooses one result, and connects directly with its room ID.
+## Documentation index
 
-The window hides to the system tray when it is closed. Use the tray menu to show it again or quit.
+The root README is the index for the project documentation. Start with the article that matches your task:
 
-On the first run, the wizard asks for a creator username. That username is saved in WebView local storage and used to reconnect automatically on later launches, so setup is not shown every time. Use the Configuration button in the messages view to change the username or provide an optional authenticated Cookie header. Cookies remain memory-only.
+| Article | Use it when you need to… |
+| --- | --- |
+| [Getting Started](docs/GETTING_STARTED.md) | Install dependencies and launch the desktop app. |
+| [User Guide](docs/USER_GUIDE.md) | Connect to a room and understand the dashboard tabs. |
+| [Architecture](docs/ARCHITECTURE.md) | Understand the native host, WebView, bridge, live controller, and databases. |
+| [Development Guide](docs/DEVELOPMENT.md) | Work on the codebase, run checks, and build a host bundle. |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnose connection, native dependency, data, or plugin issues. |
+| [Automations](docs/AUTOMATIONS.md) | Build behavior rules, workflows, scripts, and plugins. |
+| [UI Kit Usage](docs/UI_KIT_USAGE.md) | Use the shared Preact components and UI conventions. |
 
-## Minimal architecture
+## Quick start
 
-- `Bun.serve({ port: 0 })` serves `src/web/index.html` and its bundled Preact/CSS assets on an ephemeral localhost port.
-- The embedded `webview-napi` window loads that URL, so the frontend stays modular and can use normal TypeScript modules and framework tooling.
-- `src/live-controller.ts` owns discovery, guest bootstrap, WebSocket reconnects, and event conversion; `src/bridge.ts` validates WebView IPC messages.
-- `src/automation/` contains the event bus, workflow runtime, built-in nodes, host capabilities, and plugin boundary. The reusable visual workflow UI lives in `src/web/components/node-editor/`; it edits the app-owned workflow model through cards, a creation wizard, and typed forms. See [docs/AUTOMATIONS.md](docs/AUTOMATIONS.md) for the graph model and integration examples.
-- `src/web/i18n.ts` and `src/web/preferences.ts` keep language/theme state in the frontend; preferences persist in WebView local storage and default to the browser language/system theme.
-- One native window plus one tray icon is enough: closing the window hides it, while the tray restores or quits it.
+Requirements:
 
-Preact is a good fit here because it provides reusable components and predictable state with very little runtime overhead. Vue would also work, but would add a larger dependency and a second framework style without a benefit for this small wizard. A second native window is not needed unless settings or another independent workflow grows later.
+- [Bun](https://bun.sh/) with a version that supports the dependencies in `package.json`.
+- Git, including submodule support.
+- The native WebView and tray dependencies required by your operating system. Linux users should see [Getting Started](docs/GETTING_STARTED.md).
 
-## Run
+From a fresh checkout:
 
-Linux needs the WebKitGTK and tray dependencies used by the native packages. On Debian or Ubuntu:
-
-~~~~bash
-sudo apt-get install libwebkit2gtk-4.0-dev libappindicator3-dev libsoup2.4-dev
-~~~~
-
-Then run:
-
-~~~~bash
+```bash
 git submodule update --init --recursive
 bun install
 bun run typecheck
 bun run start
-~~~~
+```
 
-The server binds to port `0`, so the operating system selects a free local port. The selected URL is passed directly to the embedded WebView; no fixed port or separate frontend process is required.
+The app starts a local Bun server on an ephemeral port and opens that URL in the embedded native WebView. No separate frontend server or fixed port is required.
 
-## Session modes
+## First connection
 
-The current upstream ttl-live client supports two modes:
+1. Choose a language and theme.
+2. Enter a TikTok creator handle. The leading `@` is optional.
+3. Leave the Cookie field empty to try anonymous guest mode, or paste an authenticated TikTok Cookie request header when the room requires it.
+4. Connect directly, or use automatic live selection.
+5. Use the navigation rail to open Feed, Points, Analytics, Behavior, Plugins, or Settings.
 
-- Leave the first wizard field blank to bootstrap a short-lived, memory-only anonymous TikTok guest identity.
-- Paste a Cookie request header from a logged-in browser to use an authenticated session.
+The creator handle, recent handles, language, and theme are stored in WebView local storage. Session cookies are kept in memory only; they are not saved to the repository or the local databases.
 
-The cookie, whether guest or authenticated, stays in memory and is never written to the repository. Do not log, commit, or share authenticated cookies. Use the app only with rooms you are authorized to monitor, and follow TikTok’s terms.
+## Common commands
 
-If guest bootstrap is rate-limited, returns no usable cookies, or the anonymous WebSocket handshake is rejected, the wizard displays the upstream error so you can retry with an authenticated Cookie header.
+```bash
+bun run start              # Start the desktop app
+bun run typecheck          # Type-check the application
+bun run test               # Run the app test suite
+bun run test:plugin-worker # Run the plugin worker smoke test
+bun run build:host         # Build the Bun host and copy plugin-worker.cjs
+```
+
+`bun run test` intentionally runs tests under `src`. A bare `bun test` also discovers tests inside the vendored signer submodule, which may require generated distribution files that are not checked into this repository.
+
+## Project layout
+
+```text
+index.ts                    Application entry point
+src/main.ts                 Native window, WebView, tray, and shutdown lifecycle
+src/server.ts               Ephemeral Bun server for the WebView frontend
+src/live-controller.ts      TikTok connection, event conversion, persistence, and host actions
+src/bridge.ts               Runtime validation for WebView-to-host messages
+src/live-events.ts          TikTok event normalization and UI projections
+src/db/                     SQLite databases for points and automations
+src/automation/             Event bus, behavior engine, workflows, capabilities, and plugins
+src/web/                    Preact application, views, components, and styles
+vendor/tiktok-signer/       Git submodule containing the upstream TikTok client
+data/                       Runtime SQLite files created by the app
+docs/                       Project documentation indexed above
+scripts/build-host.ts       Host bundle and plugin worker build script
+```
+
+## Data and privacy
+
+The app writes local SQLite files under `data/`:
+
+- `tiktok-points.db` stores point rules, viewer totals, point transactions, creator history, app state, and the cached gift catalog.
+- `tiktok-automation.db` stores workflows, behavior actions and events, and plugin state.
+
+Authenticated Cookie headers are sensitive credentials. Do not log, commit, paste, or share them. Use the app only with rooms and accounts you are authorized to monitor, and follow TikTok’s terms and applicable policies.
+
+## Architecture at a glance
+
+```text
+TikTok LIVE
+    |
+    v
+LiveController -> AutomationEventBus -> BehaviorEngine / WorkflowRuntime
+    |                       |                    |
+    v                       v                    v
+SQLite databases       WebView messages     host capabilities
+                       (validated bridge)   HTTP / audio / TTS / points / VM
+```
+
+The native host owns the TikTok client, persistence, automation runtime, and privileged capabilities. The Preact frontend owns presentation and sends JSON messages through the validated bridge. See [Architecture](docs/ARCHITECTURE.md) for the full message and data flow.
+
+## Contributing
+
+Keep changes focused and type-safe. Before opening a change, run the relevant checks:
+
+```bash
+bun run typecheck
+bun run test
+bun run test:plugin-worker
+bun run build:host
+```
+
+For UI work, keep reusable controls in `src/web/components/ui/`, shared tokens in `src/web/styles/variables.css`, and view-specific layout in the corresponding stylesheet. Update the relevant article in `docs/` when behavior, setup, or public extension points change.
+
+If anonymous guest bootstrap is rate-limited or rejected, retry later or connect with an authenticated Cookie header. See [Troubleshooting](docs/TROUBLESHOOTING.md) for more diagnostics.
