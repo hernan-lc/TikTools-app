@@ -1,13 +1,13 @@
 import { Database } from 'sqlite-napi';
 import { existsSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 import { isWorkflowGraph } from '../automation/graph.ts';
 import { normalizeAction, normalizeEvent, normalizeUnresolvedAction } from '../automation/behavior/schema.ts';
 import type { ActionRegistry } from '../automation/behavior/action-registry.ts';
 import type { LiveAction, LiveEvent } from '../automation/behavior/types.ts';
 import type { WorkflowGraph } from '../automation/types.ts';
-import { ensureAppPaths } from '../platform/app-paths.ts';
+import { resolveDatabasePath } from './legacy-migration.ts';
 
 interface WorkflowRow {
   id: string;
@@ -54,8 +54,7 @@ export class AutomationDatabase {
 
   constructor(dbPath?: string, actionRegistry?: ActionRegistry) {
     this.actionRegistry = actionRegistry;
-    const defaultPath = join(ensureAppPaths().data, 'tiktok-automation.db');
-    const resolvedPath = dbPath || defaultPath;
+    const resolvedPath = resolveDatabasePath('tiktok-automation.db', dbPath);
     const directory = dirname(resolvedPath);
     if (!existsSync(directory)) mkdirSync(directory, { recursive: true });
     this.db = new Database(resolvedPath);

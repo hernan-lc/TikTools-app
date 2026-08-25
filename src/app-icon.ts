@@ -84,3 +84,68 @@ export function createAppIconRgba(size = 32): Buffer {
   return rgba;
 }
 
+/** Encode the shared mark as a multi-size Windows ICO for the compiled EXE. */
+export function createAppIconIco(): Buffer {
+  const sizes = [16, 32, 48, 64, 128, 256];
+  const images = sizes.map((size) => createIcoImage(size));
+  const directorySize = 6 + sizes.length * 16;
+  const output = Buffer.alloc(directorySize + images.reduce((total, image) => total + image.length, 0));
+  output.writeUInt16LE(0, 0);
+  output.writeUInt16LE(1, 2);
+  output.writeUInt16LE(sizes.length, 4);
+
+  let imageOffset = directorySize;
+  for (let index = 0; index < sizes.length; index += 1) {
+    const size = sizes[index]!;
+    const image = images[index]!;
+    const entryOffset = 6 + index * 16;
+    output[entryOffset] = size === 256 ? 0 : size;
+    output[entryOffset + 1] = size === 256 ? 0 : size;
+    output[entryOffset + 2] = 0;
+    output[entryOffset + 3] = 0;
+    output.writeUInt16LE(1, entryOffset + 4);
+    output.writeUInt16LE(32, entryOffset + 6);
+    output.writeUInt32LE(image.length, entryOffset + 8);
+    output.writeUInt32LE(imageOffset, entryOffset + 12);
+    image.copy(output, imageOffset);
+    imageOffset += image.length;
+  }
+
+  return output;
+}
+
+function createIcoImage(size: number): Buffer {
+  const rgba = createAppIconRgba(size);
+  const maskRowBytes = Math.ceil(size / 32) * 4;
+  const pixelBytes = size * size * 4;
+  const image = Buffer.alloc(40 + pixelBytes + maskRowBytes * size);
+  image.writeUInt32LE(40, 0);
+  image.writeInt32LE(size, 4);
+  image.writeInt32LE(size * 2, 8);
+  image.writeUInt16LE(1, 12);
+  image.writeUInt16LE(32, 14);
+  image.writeUInt32LE(0, 16);
+  image.writeUInt32LE(pixelBytes, 20);
+  image.writeInt32LE(0, 24);
+  image.writeInt32LE(0, 28);
+  image.writeUInt32LE(0, 32);
+  image.writeUInt32LE(0, 36);
+
+  for (let y = 0; y < size; y += 1) {
+    const destinationRow = size - 1 - y;
+    for (let x = 0; x < size; x += 1) {
+      const sourceOffset = (y * size + x) * 4;
+      const destinationOffset = 40 + (destinationRow * size + x) * 4;
+      image[destinationOffset] = rgba[sourceOffset + 2]!;
+      image[destinationOffset + 1] = rgba[sourceOffset + 1]!;
+      image[destinationOffset + 2] = rgba[sourceOffset]!;
+      image[destinationOffset + 3] = rgba[sourceOffset + 3]!;
+      if (rgba[sourceOffset + 3] === 0) {
+        const maskOffset = 40 + pixelBytes + destinationRow * maskRowBytes + Math.floor(x / 8);
+        image[maskOffset] = image[maskOffset]! | (0x80 >> (x % 8));
+      }
+    }
+  }
+
+  return image;
+}

@@ -35,6 +35,8 @@ export interface PluginWorkerHostOptions {
   manifest: AutomationPluginManifest;
   source: string;
   broker: PluginCapabilityBroker;
+  /** Optional executable override used by the compiled integration smoke test. */
+  executablePath?: string;
   startupTimeoutMs?: number;
   log?: (entry: Pick<ExecutionLogEntry, 'level' | 'message' | 'metadata'>) => void;
 }
@@ -74,7 +76,7 @@ export class PluginWorkerHost {
     this.#token = randomBytes(24).toString('hex');
     const { server, port, connection } = await createWorkerServer(this.#token);
     this.#server = server;
-    const launch = getWorkerProcessArgs(port, this.#token);
+    const launch = getWorkerProcessArgs(port, this.#token, this.#options.executablePath);
     const child = spawn(launch.command, launch.args, {
       cwd: ensureAppPaths().root,
       stdio: ['ignore', 'ignore', 'pipe'],
@@ -301,8 +303,9 @@ export class PluginWorkerHost {
   }
 }
 
-function getWorkerProcessArgs(port: number, token: string): { command: string; args: string[] } {
+function getWorkerProcessArgs(port: number, token: string, executablePath?: string): { command: string; args: string[] } {
   const workerArgs = ['--plugin-worker', '--port', String(port), '--token', token];
+  if (executablePath) return { command: resolve(executablePath), args: workerArgs };
   if (Bun.isStandaloneExecutable || basename(process.execPath).toLowerCase() === 'tiktools.exe') {
     return { command: process.execPath, args: workerArgs };
   }

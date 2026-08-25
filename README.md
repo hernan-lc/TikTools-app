@@ -70,8 +70,10 @@ bun run test               # Run the app test suite
 bun run test:plugin-worker # Run the plugin worker smoke test
 bun run smoke:compiled     # Smoke-test the built EXE and self-hosted plugin
 bun run smoke:compiled-worker # Execute a node and capability through the compiled worker
+bun run smoke:compiled-integration # Execute through the compiled host and capability broker
 bun run build:host          # Build a development host bundle
 bun run build:exe           # Build dist/TikTools.exe for Windows
+bun run verify:exe          # Build and run the complete compiled release gate
 ```
 
 `bun run test` intentionally runs tests under `src`. A bare `bun test` also discovers tests inside the vendored signer submodule, which may require generated distribution files that are not checked into this repository.
@@ -145,6 +147,9 @@ bun run test
 bun run test:plugin-worker
 bun run build:host
 bun run build:exe
+bun run smoke:compiled
+bun run smoke:compiled-worker
+bun run smoke:compiled-integration
 ```
 
 For UI work, keep reusable controls in `src/web/components/ui/`, shared tokens in `src/web/styles/variables.css`, and view-specific layout in the corresponding stylesheet. Update the relevant article in `docs/` when behavior, setup, or public extension points change.

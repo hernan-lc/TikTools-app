@@ -1,5 +1,5 @@
 import { runPluginWorker } from './src/automation/plugins/plugin-worker.ts';
-import { installProcessLogging, logApp } from './src/platform/logger.ts';
+import { installProcessLogging } from './src/platform/logger.ts';
 
 installProcessLogging();
 
@@ -14,7 +14,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  logApp('error', 'Fatal TikTools startup failure.', error);
-  console.error(error instanceof Error ? error.stack ?? error.message : error);
+  console.error('Fatal TikTools startup failure.', error);
   process.exitCode = 1;
 });

@@ -28,6 +28,12 @@ registerNode({
 });
 `;
 
+const CONNECTION_TIMEOUT_MS = 15_000;
+const HANDSHAKE_TIMEOUT_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const CAPABILITY_TIMEOUT_MS = 5_000;
+const SHUTDOWN_TIMEOUT_MS = 5_000;
+
 const server = createServer();
 await listen(server);
 const port = (server.address() as { port: number }).port;
@@ -38,35 +44,57 @@ const child = Bun.spawn([executable, '--plugin-worker', '--port', String(port), 
 
 let socket: Socket | undefined;
 try {
-  socket = await waitForConnection(server);
+  socket = await withChildTimeout(
+    waitForConnection(server),
+    CONNECTION_TIMEOUT_MS,
+    'Compiled worker connection',
+    child,
+  );
   socket.setEncoding('utf8');
   const protocol = createProtocol(socket);
-  const hello = await protocol.hello;
+  const hello = await withChildTimeout(protocol.hello, HANDSHAKE_TIMEOUT_MS, 'Compiled worker handshake', child);
   if (hello.type !== 'hello' || hello.token !== token) throw new Error('Compiled worker handshake token was not returned.');
 
-  const loaded = await protocol.request({
+  const loaded = await withChildTimeout(protocol.request({
     type: 'request',
     id: 'load-1',
     method: 'load',
     manifest,
     source,
-  });
+  }), REQUEST_TIMEOUT_MS, 'Compiled worker load request', child);
   if (!loaded.ok || !Array.isArray((loaded.result as Message | undefined)?.nodes)
     || ((loaded.result as Message).nodes as unknown[]).length !== 2) {
     throw new Error('Compiled worker did not load both fixture nodes.');
   }
 
-  const sync = await protocol.request(executeRequest('compiled.worker.sync', 'execute-1'));
+  const sync = await withChildTimeout(
+    protocol.request(executeRequest('compiled.worker.sync', 'execute-1')),
+    REQUEST_TIMEOUT_MS,
+    'Compiled worker sync execute request',
+    child,
+  );
   if (!sync.ok || ((sync.result as Message).outputs as Message).value !== 42) {
     throw new Error('Compiled worker sync node returned an unexpected result.');
   }
 
-  const asyncResult = await protocol.request(executeRequest('compiled.worker.async', 'execute-2'));
+  const asyncResultPromise = withChildTimeout(
+    protocol.request(executeRequest('compiled.worker.async', 'execute-2')),
+    REQUEST_TIMEOUT_MS,
+    'Compiled worker async execute request',
+    child,
+  );
+  await withChildTimeout(protocol.capabilityRequest, CAPABILITY_TIMEOUT_MS, 'Compiled worker capability request', child);
+  const asyncResult = await asyncResultPromise;
   if (!asyncResult.ok || ((asyncResult.result as Message).outputs as Message).value !== 42) {
     throw new Error('Compiled worker capability node returned an unexpected result.');
   }
 
-  const shutdown = await protocol.request({ type: 'request', id: 'shutdown-1', method: 'shutdown' });
+  const shutdown = await withChildTimeout(
+    protocol.request({ type: 'request', id: 'shutdown-1', method: 'shutdown' }),
+    SHUTDOWN_TIMEOUT_MS,
+    'Compiled worker shutdown request',
+    child,
+  );
   if (!shutdown.ok) throw new Error('Compiled worker did not acknowledge shutdown.');
   console.log('Compiled TikTools.exe worker protocol smoke test passed.');
 } finally {
@@ -95,6 +123,7 @@ function executeRequest(nodeType: string, executionId: string): Message {
 
 function createProtocol(socket: Socket): {
   hello: Promise<Message>;
+  capabilityRequest: Promise<Message>;
   request: (message: Message) => Promise<Message>;
 } {
   let buffer = '';
@@ -104,7 +133,20 @@ function createProtocol(socket: Socket): {
     helloResolve = resolveHello;
     helloReject = rejectHello;
   });
+  let capabilityResolve: ((message: Message) => void) | undefined;
+  let capabilityReject: ((error: Error) => void) | undefined;
+  const capabilityRequest = new Promise<Message>((resolveCapability, rejectCapability) => {
+    capabilityResolve = resolveCapability;
+    capabilityReject = rejectCapability;
+  });
   const pending = new Map<string, { resolve: (message: Message) => void; reject: (error: Error) => void }>();
+
+  const fail = (error: Error): void => {
+    helloReject?.(error);
+    capabilityReject?.(error);
+    for (const call of pending.values()) call.reject(error);
+    pending.clear();
+  };
 
   socket.on('data', (chunk: string | Buffer) => {
     buffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
@@ -114,12 +156,19 @@ function createProtocol(socket: Socket): {
       const line = buffer.slice(0, newline).trim();
       buffer = buffer.slice(newline + 1);
       if (!line) continue;
-      const message = JSON.parse(line) as Message;
+      let message: Message;
+      try {
+        message = JSON.parse(line) as Message;
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       if (message.type === 'hello') {
         helloResolve?.(message);
         continue;
       }
       if (message.type === 'capability.request') {
+        capabilityResolve?.(message);
         socket.write(`${JSON.stringify({
           type: 'capability.response',
           requestId: message.requestId,
@@ -136,19 +185,51 @@ function createProtocol(socket: Socket): {
     }
   });
   socket.on('error', (error) => {
-    helloReject?.(error);
-    for (const call of pending.values()) call.reject(error);
-    pending.clear();
+    fail(error);
+  });
+  socket.on('close', () => {
+    fail(new Error('Compiled worker IPC connection closed.'));
   });
 
   return {
     hello,
+    capabilityRequest,
     request: (message) => new Promise<Message>((resolveRequest, rejectRequest) => {
       const id = String(message.id);
       pending.set(id, { resolve: resolveRequest, reject: rejectRequest });
-      socket.write(`${JSON.stringify(message)}\n`);
+      try {
+        socket.write(`${JSON.stringify(message)}\n`);
+      } catch (error) {
+        pending.delete(id);
+        rejectRequest(error instanceof Error ? error : new Error(String(error)));
+      }
     }),
   };
+}
+
+async function withChildTimeout<T>(promise: Promise<T>, ms: number, label: string, child: Bun.Subprocess): Promise<T> {
+  const childExit = child.exited.then((code): never => {
+    throw new Error(`${label} aborted because TikTools.exe exited with code ${code}.`);
+  });
+  return withTimeout(Promise.race([promise, childExit]), ms, label);
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function listen(server: Server): Promise<void> {
