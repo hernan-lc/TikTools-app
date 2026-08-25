@@ -49,6 +49,35 @@ ask for. `src/automation/behavior/engine.ts` evaluates them, renders
 `HttpService` with an allowlist built from the configured URL, so a templated
 host is refused: the allowlist has to be knowable before the event arrives.
 
+### The condition editor
+
+Nobody types `event.data.diamondCount`. `src/automation/behavior/fields.ts` is
+the catalog of fields each trigger carries — label, icon, and the *kind* of
+value it holds (`gift`, `user`, `number`, `text`, `boolean`). That kind decides
+two things: which operators the row offers (`operatorsFor`) and which editor the
+value gets. `src/web/components/ui/ConditionTable.tsx` renders the table (field
+select · comparison · value · remove) and flags a filter whose value is still
+empty, because such a filter can never pass.
+
+Values that name real things come from real sources, through
+`src/web/components/ui/PickerModal.tsx` — one searchable list with a picture per
+row:
+
+- **gifts** (`GiftPicker`) from the room's gift list. The submodule already
+  reads it — `Discovery.giftList(roomId)`, an unsigned request the client runs
+  on connect through `fetchGifts` — so nothing new was needed there. The
+  controller stores that map in the `gift_catalog` table (`storeGiftCatalog`)
+  and, when the table is empty, refreshes it from the last known `roomId`
+  without connecting (`refreshGiftCatalog`), which is what makes the picker work
+  while offline. The filter stores the gift NAME, which is what the event
+  carries.
+- **viewers** (`UserPicker`) from the points table's leaderboard, plus a plain
+  `@` field for someone the app has never seen.
+
+Comparisons are drawn, not typed: `src/web/components/condition-icons.tsx` has
+one SVG glyph per operator (`>=`, `!==`, `∈`…) plus the code equivalent shown in
+its tooltip, so the symbol is learnable rather than decorative.
+
 Actions, events and plugin state live in the `behavior_actions`,
 `behavior_events` and `behavior_plugins` tables of `src/db/automation-db.ts`.
 Run history is session-only and lives in the engine, like the live event

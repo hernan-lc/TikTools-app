@@ -55,6 +55,8 @@ export const BUILTIN_ACTION_TYPES: ActionTypeDefinition[] = [
         kind: 'textarea',
         value: '{\n  "usuario": "{{ event.user.uniqueId }}",\n  "evento": "{{ event.type }}"\n}',
         template: true,
+        // A GET carries no body, so the field would only be noise.
+        showIf: { key: 'method', notEquals: ['GET'] },
       },
       { key: 'timeoutMs', label: { es: 'Tiempo máximo (ms)', en: 'Timeout (ms)' }, kind: 'number', value: '5000', advanced: true },
       {

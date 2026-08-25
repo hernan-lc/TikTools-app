@@ -243,6 +243,48 @@ export class PointsDatabase {
         updated_at INTEGER
       )
     `);
+
+    // Gift catalog — the room's gift list, kept so the condition editor can
+    // offer real gifts (name, price, icon) while the app is disconnected.
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS gift_catalog (
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        diamond_count INTEGER DEFAULT 0,
+        icon_url TEXT,
+        updated_at INTEGER
+      )
+    `);
+  }
+
+  public saveGiftCatalog(gifts: Array<{ id: string; name: string; diamondCount: number; iconUrl?: string }>): void {
+    if (gifts.length === 0) return;
+    const now = Date.now();
+    const statement = this.db.query(`
+      INSERT INTO gift_catalog (id, name, diamond_count, icon_url, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        diamond_count = excluded.diamond_count,
+        icon_url = COALESCE(excluded.icon_url, gift_catalog.icon_url),
+        updated_at = excluded.updated_at
+    `);
+    for (const gift of gifts) {
+      if (!gift.id || !gift.name) continue;
+      statement.run([gift.id, gift.name, Math.round(gift.diamondCount) || 0, gift.iconUrl ?? null, now]);
+    }
+  }
+
+  public getGiftCatalog(): Array<{ id: string; name: string; diamondCount: number; iconUrl?: string }> {
+    const rows = this.db
+      .query('SELECT id, name, diamond_count, icon_url FROM gift_catalog ORDER BY diamond_count ASC, name ASC')
+      .all([]) as Array<{ id: string; name: string; diamond_count: number; icon_url: string | null }>;
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      diamondCount: row.diamond_count,
+      iconUrl: row.icon_url ?? undefined,
+    }));
   }
 
   public getConfig(): PointsConfig {

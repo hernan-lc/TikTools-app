@@ -343,6 +343,10 @@ export class LiveController {
           this.send({ type: 'automation-error', message: errorMessage(error) });
         }
         break;
+      case 'get-gift-catalog':
+        this.sendGiftCatalog();
+        void this.refreshGiftCatalog();
+        break;
       case 'get-behavior':
         this.sendBehavior();
         this.send({ type: 'behavior-runs', runs: this.behavior.recentRuns(30) });
@@ -461,6 +465,51 @@ export class LiveController {
     }
   }
 
+  /** The room's gift list, cached so the condition editor works offline. */
+  private storeGiftCatalog(): void {
+    const gifts = this.#live?.gifts;
+    if (!gifts || gifts.size === 0) return;
+    this.pointsDb.saveGiftCatalog(
+      [...gifts.values()].map((gift) => ({
+        id: String(gift.id),
+        name: gift.name,
+        diamondCount: gift.diamondCount,
+        iconUrl: gift.iconUrl || undefined,
+      })),
+    );
+    this.sendGiftCatalog();
+  }
+
+  /**
+   * The gift list needs no signature and no session — `Discovery.giftList` is
+   * a plain read — so the catalog can be filled from the last known room while
+   * the app is disconnected, which is when events are usually configured.
+   */
+  private async refreshGiftCatalog(): Promise<void> {
+    if (this.pointsDb.getGiftCatalog().length > 0) return;
+    const roomId = this.pointsDb.getAppState('lastRoomId');
+    if (!roomId) return;
+    try {
+      const gifts = await new Discovery({}).giftList(roomId);
+      if (gifts.size === 0) return;
+      this.pointsDb.saveGiftCatalog(
+        [...gifts.values()].map((gift) => ({
+          id: String(gift.id),
+          name: gift.name,
+          diamondCount: gift.diamondCount,
+          iconUrl: gift.iconUrl || undefined,
+        })),
+      );
+      this.sendGiftCatalog();
+    } catch (error) {
+      console.warn(`[gift-catalog] could not read the gift list for room ${roomId}: ${errorMessage(error)}`);
+    }
+  }
+
+  private sendGiftCatalog(): void {
+    this.send({ type: 'gift-catalog', gifts: this.pointsDb.getGiftCatalog() });
+  }
+
   private sendBehavior(): void {
     this.send({ type: 'behavior', snapshot: this.behaviorSnapshot() });
   }
@@ -570,6 +619,7 @@ export class LiveController {
         type: 'leaderboard',
         viewers: this.pointsDb.getLeaderboard(50),
       });
+      this.storeGiftCatalog();
       this.publishAutomationEvent(createConnectedEvent(state, this.#automationContext.connectionId));
     });
 

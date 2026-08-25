@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
-import type { HostMessage, PageMessage } from '../shared/messages.ts';
+import type { GiftCatalogEntry, HostMessage, PageMessage } from '../shared/messages.ts';
 import type {
   BehaviorRun,
   BehaviorSnapshot,
@@ -108,6 +108,7 @@ function App() {
 
 
   const [behavior, setBehavior] = useState<BehaviorSnapshot>({ actions: [], events: [], plugins: [] });
+  const [giftCatalog, setGiftCatalog] = useState<GiftCatalogEntry[]>([]);
   const [behaviorRuns, setBehaviorRuns] = useState<BehaviorRun[]>([]);
   const [behaviorTestRuns, setBehaviorTestRuns] = useState<BehaviorRun[]>([]);
   const [behaviorError, setBehaviorError] = useState('');
@@ -153,6 +154,7 @@ function App() {
     send({ type: 'get-recent-creators', limit: 10 });
     send({ type: 'get-app-state' });
     send({ type: 'get-behavior' });
+    send({ type: 'get-gift-catalog' });
   }, []);
 
   // Handle messages from the native runtime
@@ -276,6 +278,10 @@ function App() {
         console.log('[app-state]', message.state);
       }
 
+      if (message.type === 'gift-catalog') {
+        setGiftCatalog(message.gifts);
+        return;
+      }
       if (message.type === 'behavior') {
         setBehavior(message.snapshot);
         setBehaviorError('');
@@ -520,6 +526,8 @@ function App() {
         {activeTab === 'behavior' && (
           <BehaviorView
             locale={locale}
+            gifts={giftCatalog}
+            viewers={leaderboard}
             snapshot={behavior}
             runs={behaviorRuns}
             testRuns={behaviorTestRuns}

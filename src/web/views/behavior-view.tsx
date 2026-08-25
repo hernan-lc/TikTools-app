@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
 
 import { IconPencil, IconTrash } from '../components/icons.tsx';
+import { ConditionTable } from '../components/ui/ConditionTable.tsx';
+import { OPERATOR_LABELS } from '../components/condition-icons.tsx';
+import { IconSelect } from '../components/ui/IconSelect.tsx';
+import { findField } from '../../automation/behavior/fields.ts';
 
 import {
   BUILTIN_ACTION_TYPES,
@@ -29,11 +33,15 @@ import type {
 } from '../../automation/behavior/types.ts';
 import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
+import type { GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
 import type { Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
   locale: Locale;
   snapshot: BehaviorSnapshot;
+  /** Sources for the value pickers: the room's gifts and the known viewers. */
+  gifts: GiftCatalogEntry[];
+  viewers: ViewerRecord[];
   runs: BehaviorRun[];
   testRuns: BehaviorRun[];
   error?: string;
@@ -47,6 +55,9 @@ type BehaviorViewProps = {
   onTestEvent: (event: LiveEvent) => void;
   onOpenPlugins: () => void;
 };
+
+/** Both tables sort the same four ways, from the header or from the control. */
+type SortMode = 'name' | 'name-desc' | 'enabled' | 'disabled';
 
 type Screen =
   | { kind: 'list' }
@@ -64,6 +75,11 @@ const COPY = {
     newEvent: 'Nuevo evento',
     searchAction: 'Buscar acción',
     searchEvent: 'Buscar evento',
+    sortBy: 'Ordenar',
+    sortName: 'Nombre A-Z',
+    sortNameDesc: 'Nombre Z-A',
+    sortActive: 'Activas primero',
+    sortInactive: 'Inactivas primero',
     colActive: 'Activa',
     colName: 'Nombre',
     colOrigin: 'Origen',
@@ -140,6 +156,11 @@ const COPY = {
     newEvent: 'New event',
     searchAction: 'Search action',
     searchEvent: 'Search event',
+    sortBy: 'Sort',
+    sortName: 'Name A-Z',
+    sortNameDesc: 'Name Z-A',
+    sortActive: 'Active first',
+    sortInactive: 'Inactive first',
     colActive: 'Active',
     colName: 'Name',
     colOrigin: 'Source',
@@ -224,31 +245,6 @@ const TRIGGER_LABELS: Record<AutomationEventType, { es: string; en: string }> = 
   'plugin.emit': { es: 'Evento interno', en: 'Internal event' },
 };
 
-const OPERATOR_LABELS: Array<{ id: FilterOperator; es: string; en: string }> = [
-  { id: 'gte', es: 'es al menos', en: 'is at least' },
-  { id: 'gt', es: 'es mayor que', en: 'is greater than' },
-  { id: 'lte', es: 'es como mucho', en: 'is at most' },
-  { id: 'lt', es: 'es menor que', en: 'is less than' },
-  { id: 'eq', es: 'es igual a', en: 'is' },
-  { id: 'neq', es: 'no es', en: 'is not' },
-  { id: 'contains', es: 'contiene', en: 'contains' },
-  { id: 'starts-with', es: 'empieza por', en: 'starts with' },
-  { id: 'in', es: 'es uno de', en: 'is one of' },
-  { id: 'is-true', es: 'es verdadero', en: 'is true' },
-  { id: 'is-false', es: 'es falso o vacío', en: 'is false or empty' },
-];
-
-const COMMON_FIELDS = ['event.user.uniqueId', 'event.user.nickname'];
-const FIELDS_BY_TRIGGER: Partial<Record<AutomationEventType, string[]>> = {
-  'tiktok.gift': ['event.data.diamondCount', 'event.data.giftName', 'event.data.repeatCount', 'event.data.repeatEnd'],
-  'tiktok.chat': ['event.data.comment'],
-  'tiktok.like': ['event.data.count', 'event.data.total'],
-  'tiktok.social': ['event.data.followCount', 'event.data.shareCount'],
-  'tiktok.room_stats': ['event.data.viewers', 'event.data.totalUsers'],
-  'points.awarded': ['event.data.delta', 'event.data.totalPoints', 'event.data.level'],
-  'plugin.emit': ['event.data.emitType'],
-};
-
 const COOLDOWN_CHOICES = [0, 3_000, 5_000, 10_000, 30_000, 60_000];
 
 export function BehaviorView(props: BehaviorViewProps) {
@@ -257,6 +253,8 @@ export function BehaviorView(props: BehaviorViewProps) {
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
   const [actionQuery, setActionQuery] = useState('');
   const [eventQuery, setEventQuery] = useState('');
+  const [actionSort, setActionSort] = useState<SortMode>('name');
+  const [eventSort, setEventSort] = useState<SortMode>('name');
 
   const lastRunByAction = useMemo(() => {
     const map = new Map<string, BehaviorRun>();
@@ -312,6 +310,8 @@ export function BehaviorView(props: BehaviorViewProps) {
         event={screen.event}
         isNew={screen.isNew}
         actions={snapshot.actions}
+        gifts={props.gifts}
+        viewers={props.viewers}
         error={error}
         testRuns={testRuns}
         onCancel={() => setScreen({ kind: 'list' })}
@@ -328,12 +328,25 @@ export function BehaviorView(props: BehaviorViewProps) {
     );
   }
 
+  const sortRows = <T extends { name: string; enabled: boolean }>(rows: T[], sort: SortMode): T[] =>
+    [...rows].sort((left, right) => {
+      if (sort === 'enabled' || sort === 'disabled') {
+        const delta = Number(right.enabled) - Number(left.enabled);
+        if (delta !== 0) return sort === 'enabled' ? delta : -delta;
+        return left.name.localeCompare(right.name);
+      }
+      const byName = left.name.localeCompare(right.name);
+      return sort === 'name-desc' ? -byName : byName;
+    });
+
   const visibleActions = snapshot.actions.filter((action) =>
     !actionQuery.trim() || action.name.toLowerCase().includes(actionQuery.trim().toLowerCase()));
   const visibleEvents = snapshot.events.filter((event) =>
     !eventQuery.trim()
     || event.name.toLowerCase().includes(eventQuery.trim().toLowerCase())
     || event.trigger.includes(eventQuery.trim().toLowerCase()));
+  const sortedActions = sortRows(visibleActions, actionSort);
+  const sortedEvents = sortRows(visibleEvents, eventSort);
 
   return (
     <div className="plg">
@@ -362,6 +375,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                   placeholder={copy.searchAction}
                   onInput={(event) => setActionQuery((event.currentTarget as HTMLInputElement).value)}
                 />
+                <SortControl locale={locale} value={actionSort} onChange={setActionSort} />
                 <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => setScreen({ kind: 'picker' })}>
                   {copy.newAction}
                 </button>
@@ -370,15 +384,20 @@ export function BehaviorView(props: BehaviorViewProps) {
 
             <div className="plg-table plg-table--actions">
               <div className="plg-table__head">
-                <span>{copy.colActive}</span>
-                <span>{copy.colName}</span>
+                <SortHeader
+                  label={copy.colActive}
+                  sort={actionSort}
+                  onSort={setActionSort}
+                  by="enabled"
+                />
+                <SortHeader label={copy.colName} sort={actionSort} onSort={setActionSort} by="name" />
                 <span>{copy.colOrigin}</span>
                 <span>{copy.colDoes}</span>
                 <span>{copy.colLast}</span>
                 <span />
               </div>
 
-              {visibleActions.map((action) => {
+              {sortedActions.map((action) => {
                 const type = findActionType(action.typeId);
                 const lastRun = lastRunByAction.get(action.id);
                 const failing = lastRun?.status === 'error';
@@ -472,6 +491,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                   placeholder={copy.searchEvent}
                   onInput={(event) => setEventQuery((event.currentTarget as HTMLInputElement).value)}
                 />
+                <SortControl locale={locale} value={eventSort} onChange={setEventSort} />
                 <button
                   type="button"
                   className="plg-btn plg-btn--primary plg-btn--sm"
@@ -484,15 +504,15 @@ export function BehaviorView(props: BehaviorViewProps) {
 
             <div className="plg-table plg-table--events">
               <div className="plg-table__head">
-                <span>{copy.colActive}</span>
-                <span>{copy.colName}</span>
+                <SortHeader label={copy.colActive} sort={eventSort} onSort={setEventSort} by="enabled" />
+                <SortHeader label={copy.colName} sort={eventSort} onSort={setEventSort} by="name" />
                 <span>{copy.colTrigger}</span>
                 <span>{copy.colFilters}</span>
                 <span>{copy.colActions}</span>
                 <span />
               </div>
 
-              {visibleEvents.map((event) => (
+              {sortedEvents.map((event) => (
                 <div className={`plg-table__row${event.enabled ? '' : ' is-off'}`} key={event.id}>
                   <button
                     type="button"
@@ -514,7 +534,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                     {event.filters.length === 0 && <span className="plg-pill">{copy.always}</span>}
                     {event.filters.map((filter, index) => (
                       <span className="plg-pill plg-pill--mono" key={`${filter.path}-${index}`}>
-                        {describeFilter(filter, locale)}
+                        {describeFilter(filter, locale, event.trigger)}
                       </span>
                     ))}
                   </span>
@@ -731,8 +751,19 @@ function ActionEditor({
   const permissions = deriveActionPermissions(draft);
   const testRun = testRuns.find((run) => run.actionId === draft.id) ?? testRuns[0];
 
-  const basicFields = (type?.fields ?? []).filter((field) => !field.advanced);
-  const advancedFields = (type?.fields ?? []).filter((field) => field.advanced);
+  // A field that depends on another one disappears while that other value makes
+  // it meaningless — its stored value survives, so switching back restores it.
+  const applies = (field: ActionField): boolean => {
+    const condition = field.showIf;
+    if (!condition) return true;
+    const current = readString(draft.config[condition.key]);
+    if (condition.equals && !condition.equals.includes(current)) return false;
+    if (condition.notEquals && condition.notEquals.includes(current)) return false;
+    return true;
+  };
+  const visibleFields = (type?.fields ?? []).filter(applies);
+  const basicFields = visibleFields.filter((field) => !field.advanced);
+  const advancedFields = visibleFields.filter((field) => field.advanced);
 
   const setField = (key: string, value: string): void =>
     setDraft((current) => ({ ...current, config: { ...current.config, [key]: value } }));
@@ -973,6 +1004,8 @@ function EventEditor({
   event,
   isNew,
   actions,
+  gifts,
+  viewers,
   error,
   testRuns,
   onCancel,
@@ -984,6 +1017,8 @@ function EventEditor({
   event: LiveEvent;
   isNew: boolean;
   actions: LiveAction[];
+  gifts: GiftCatalogEntry[];
+  viewers: ViewerRecord[];
   error?: string;
   testRuns: BehaviorRun[];
   onCancel: () => void;
@@ -996,13 +1031,6 @@ function EventEditor({
   const [step, setStep] = useState(1);
 
   const update = (patch: Partial<LiveEvent>): void => setDraft((current) => ({ ...current, ...patch }));
-  const updateFilter = (index: number, patch: Partial<EventFilter>): void =>
-    setDraft((current) => ({
-      ...current,
-      filters: current.filters.map((filter, position) => (position === index ? { ...filter, ...patch } : filter)),
-    }));
-
-  const suggestions = [...(FIELDS_BY_TRIGGER[draft.trigger] ?? []), ...COMMON_FIELDS];
   const chosenNames = draft.actionIds
     .map((id) => actions.find((action) => action.id === id)?.name)
     .filter((name): name is string => Boolean(name));
@@ -1014,7 +1042,7 @@ function EventEditor({
       label: copy.stepFilters,
       sub: draft.filters.length === 0
         ? copy.alwaysShort
-        : draft.filters.map((filter) => describeFilter(filter, locale)).join(' · '),
+        : draft.filters.map((filter) => describeFilter(filter, locale, draft.trigger)).join(' · '),
     },
     { number: 3, label: copy.stepDo, sub: chosenNames.length === 0 ? copy.noneYet : chosenNames.join(' · ') },
   ];
@@ -1103,72 +1131,14 @@ function EventEditor({
                   <InfoTip text={copy.orHint} position="right" />
                 </div>
 
-                <datalist id="behavior-fields">
-                  {suggestions.map((path) => <option value={path} key={path} />)}
-                </datalist>
-
-                {draft.filters.length === 0 && <span className="plg-note">{copy.noFilters}</span>}
-
-                {draft.filters.map((filter, index) => (
-                  <div className="plg-filter" key={`${index}-${filter.path}`}>
-                    <span className="plg-filter__lead">{index === 0 ? copy.stepFilters : locale === 'es' ? 'y además…' : 'and also…'}</span>
-                    <div className="plg-filter__controls">
-                      <input
-                        className="plg-input plg-input--mono"
-                        list="behavior-fields"
-                        value={filter.path}
-                        placeholder="event.data.diamondCount"
-                        onInput={(node) => updateFilter(index, { path: (node.currentTarget as HTMLInputElement).value })}
-                      />
-                      <select
-                        className="plg-select"
-                        value={filter.operator}
-                        onChange={(node) => {
-                          const operator = (node.currentTarget as HTMLSelectElement).value as FilterOperator;
-                          updateFilter(index, { operator, values: operator === 'in' ? filter.values ?? [] : undefined });
-                        }}
-                      >
-                        {OPERATOR_LABELS.map((operator) => (
-                          <option key={operator.id} value={operator.id}>{operator[locale]}</option>
-                        ))}
-                      </select>
-                      {filter.operator !== 'in' && filter.operator !== 'is-true' && filter.operator !== 'is-false' && (
-                        <input
-                          className="plg-input"
-                          value={filter.value}
-                          onInput={(node) => updateFilter(index, { value: (node.currentTarget as HTMLInputElement).value })}
-                        />
-                      )}
-                      <button
-                        type="button"
-                        className="plg-iconbtn is-danger"
-                        aria-label={copy.remove}
-                        data-tooltip={copy.remove}
-                        onClick={() => update({ filters: draft.filters.filter((_, position) => position !== index) })}
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-
-                    {filter.operator === 'in' && (
-                      <ValueList
-                        locale={locale}
-                        values={filter.values ?? []}
-                        onChange={(values) => updateFilter(index, { values })}
-                      />
-                    )}
-                  </div>
-                ))}
-
-                <button
-                  type="button"
-                  className="plg-dashed"
-                  onClick={() => update({
-                    filters: [...draft.filters, { path: suggestions[0] ?? 'event.user.uniqueId', operator: 'gte', value: '' }],
-                  })}
-                >
-                  {copy.addFilter}
-                </button>
+                <ConditionTable
+                  locale={locale}
+                  trigger={draft.trigger}
+                  filters={draft.filters}
+                  gifts={gifts}
+                  viewers={viewers}
+                  onChange={(filters) => update({ filters })}
+                />
               </div>
             )}
 
@@ -1196,22 +1166,24 @@ function EventEditor({
                   {actions.length === 0 && <span className="plg-note">{copy.noActionsYet}</span>}
                 </div>
 
-                <div className="plg-switch-row">
-                  <button
-                    type="button"
-                    className={`plg-switch${draft.runMode === 'random' ? ' is-on' : ''}`}
-                    aria-label={copy.runMode}
-                    onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
-                  >
-                    <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
-                  </button>
-                  <label
-                    className="plg-label"
-                    onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
-                  >
-                    {copy.runMode}
-                  </label>
-                </div>
+                {draft.actionIds.length > 1 && (
+                  <div className="plg-switch-row">
+                    <button
+                      type="button"
+                      className={`plg-switch${draft.runMode === 'random' ? ' is-on' : ''}`}
+                      aria-label={copy.runMode}
+                      onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
+                    >
+                      <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
+                    </button>
+                    <label
+                      className="plg-label"
+                      onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
+                    >
+                      {copy.runMode}
+                    </label>
+                  </div>
+                )}
 
                 <div className="plg-inline">
                   <div className="plg-field">
@@ -1226,6 +1198,7 @@ function EventEditor({
                       ))}
                     </select>
                   </div>
+                  {draft.cooldownMs > 0 && (
                   <div className="plg-field">
                     <div className="plg-label-row">
                       <label className="plg-label">{copy.cooldownScope}</label>
@@ -1245,6 +1218,7 @@ function EventEditor({
                       <option value="global">{copy.global}</option>
                     </select>
                   </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1292,39 +1266,72 @@ function EventEditor({
   );
 }
 
-function ValueList({
+/** A clickable column header that toggles between its two directions. */
+function SortHeader({
+  label,
+  sort,
+  onSort,
+  by,
+}: {
+  label: string;
+  sort: SortMode;
+  onSort: (sort: SortMode) => void;
+  by: 'name' | 'enabled';
+}) {
+  const modes: SortMode[] = by === 'name' ? ['name', 'name-desc'] : ['enabled', 'disabled'];
+  const index = modes.indexOf(sort);
+  const active = index >= 0;
+
+  return (
+    <button
+      type="button"
+      className={`plg-sorth${active ? ' is-active' : ''}`}
+      aria-label={label}
+      onClick={() => onSort(modes[index === 0 ? 1 : 0]!)}
+    >
+      {label}
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {active && index === 1 ? <path d="m6 9 6 6 6-6" /> : <path d="m6 15 6-6 6 6" />}
+      </svg>
+    </button>
+  );
+}
+
+/** The same four orders as the headers, for the card layout on narrow screens. */
+function SortControl({
   locale,
-  values,
+  value,
   onChange,
 }: {
   locale: Locale;
-  values: string[];
-  onChange: (values: string[]) => void;
+  value: SortMode;
+  onChange: (sort: SortMode) => void;
 }) {
   const copy = COPY[locale];
-  const [draft, setDraft] = useState('');
-
   return (
-    <div className="plg-values">
-      {values.map((value, index) => (
-        <span className="plg-value" key={`${value}-${index}`}>
-          {value}
-          <button type="button" onClick={() => onChange(values.filter((_, position) => position !== index))}>×</button>
-        </span>
-      ))}
-      <input
-        className="plg-input plg-input--key"
-        value={draft}
-        placeholder={copy.addValue}
-        onInput={(event) => setDraft((event.currentTarget as HTMLInputElement).value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' || !draft.trim()) return;
-          event.preventDefault();
-          onChange([...values, draft.trim()]);
-          setDraft('');
-        }}
-      />
-    </div>
+    <IconSelect
+      className="plg-sort"
+      ariaLabel={copy.sortBy}
+      value={value}
+      onChange={(next) => onChange(next as SortMode)}
+      options={[
+        { value: 'name', label: copy.sortName, icon: <SortGlyph direction="up" /> },
+        { value: 'name-desc', label: copy.sortNameDesc, icon: <SortGlyph direction="down" /> },
+        { value: 'enabled', label: copy.sortActive, icon: <SortGlyph direction="dot" /> },
+        { value: 'disabled', label: copy.sortInactive, icon: <SortGlyph direction="dot-off" /> },
+      ]}
+    />
+  );
+}
+
+function SortGlyph({ direction }: { direction: 'up' | 'down' | 'dot' | 'dot-off' }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {direction === 'up' && <path d="M6 16V5m0 0L3 8m3-3 3 3M12 6h9M12 12h6M12 18h3" />}
+      {direction === 'down' && <path d="M6 5v11m0 0 3-3m-3 3-3-3M12 6h9M12 12h6M12 18h3" />}
+      {direction === 'dot' && <path d="M5 8h14M5 16h14" />}
+      {direction === 'dot-off' && <path d="M5 8h14M5 16h14M4 4l16 16" />}
+    </svg>
   );
 }
 
@@ -1408,17 +1415,19 @@ function describeAction(action: LiveAction): string {
   }
 }
 
-function describeFilter(filter: EventFilter, locale: Locale): string {
-  const operator = OPERATOR_LABELS.find((entry) => entry.id === filter.operator)?.[locale] ?? filter.operator;
-  const field = filter.path.replace(/^event\.(data|user)\./, '');
-  if (filter.operator === 'in') return `${field} ${operator} ${(filter.values ?? []).join(', ')}`;
+function describeFilter(filter: EventFilter, locale: Locale, trigger?: AutomationEventType): string {
+  const operator = OPERATOR_LABELS[filter.operator][locale];
+  const field = (trigger && findField(trigger, filter.path)?.label[locale])
+    ?? filter.path.replace(/^event\.(data|user)\./, '');
   if (filter.operator === 'is-true' || filter.operator === 'is-false') return `${field} ${operator}`;
-  return `${field} ${operator} ${filter.value}`;
+  // A filter with no value yet reads as an ellipsis instead of a dangling word.
+  const value = filter.operator === 'in' ? (filter.values ?? []).join(', ') : filter.value;
+  return `${field} ${operator} ${value || '…'}`;
 }
 
 function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale): string {
   const trigger = TRIGGER_LABELS[event.trigger][locale].toLowerCase();
-  const filters = event.filters.map((filter) => describeFilter(filter, locale));
+  const filters = event.filters.map((filter) => describeFilter(filter, locale, event.trigger));
   const names = event.actionIds
     .map((id) => actions.find((action) => action.id === id)?.name)
     .filter((name): name is string => Boolean(name));

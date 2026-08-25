@@ -131,6 +131,8 @@ export function parsePageMessage(raw: string): PageMessage | null {
     };
   }
 
+  if (message.type === 'get-gift-catalog') return { type: 'get-gift-catalog' };
+
   if (message.type === 'get-behavior') return { type: 'get-behavior' };
 
   if (message.type === 'delete-action' && typeof message.id === 'string') {

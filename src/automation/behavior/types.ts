@@ -21,6 +21,17 @@ export type ActionFieldKind =
   | 'keyvalue'
   | 'code';
 
+/**
+ * A field that only makes sense once another one holds a certain value —
+ * a body has nothing to say on a GET. Hidden fields keep their stored value,
+ * so switching back does not lose what was typed.
+ */
+export interface FieldCondition {
+  key: string;
+  equals?: string[];
+  notEquals?: string[];
+}
+
 export interface ActionField {
   key: string;
   label: Localized;
@@ -34,6 +45,8 @@ export interface ActionField {
   /** Kept behind the "advanced options" disclosure so the form stays short. */
   advanced?: boolean;
   hint?: Localized;
+  /** Rendered only while this holds. */
+  showIf?: FieldCondition;
 }
 
 export type ActionSource =

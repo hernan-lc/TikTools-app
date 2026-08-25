@@ -116,6 +116,7 @@ export type PageMessage =
       offset: number;
       eventType?: AutomationEventType;
     }
+  | { type: 'get-gift-catalog' }
   | { type: 'get-behavior' }
   | { type: 'save-action'; action: LiveAction }
   | { type: 'delete-action'; id: string }
@@ -127,6 +128,13 @@ export type PageMessage =
   | { type: 'test-event'; event: LiveEvent }
   | { type: 'set-plugin-install'; id: string; installed: boolean }
   | { type: 'set-plugin-enabled'; id: string; enabled: boolean };
+
+export type GiftCatalogEntry = {
+  id: string;
+  name: string;
+  diamondCount: number;
+  iconUrl?: string;
+};
 
 export type TopViewerPayload = {
   rank: number;
@@ -163,6 +171,7 @@ export type HostMessage =
   | { type: 'creator-state'; creator: CreatorRecord | null }
   | { type: 'recent-creators'; creators: CreatorRecord[] }
   | { type: 'app-state'; state: Record<string, string> }
+  | { type: 'gift-catalog'; gifts: GiftCatalogEntry[] }
   | { type: 'gift-debug'; giftId?: string; iconUrl?: string; hasIcon: boolean; totalGifts: number }
   | { type: 'automation-workflows'; workflows: AutomationWorkflowRecord[] }
   | { type: 'automation-node-catalog'; nodes: NodeDefinition[] }
