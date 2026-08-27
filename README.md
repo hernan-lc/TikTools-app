@@ -51,7 +51,21 @@ bun run start
 
 The app starts a local Bun server on an ephemeral port and opens that URL in the embedded native WebView. No separate frontend server or fixed port is required.
 
-For a Windows release executable, run `bun run build:exe`. The generated `dist/TikTools.exe` includes the Bun runtime and bundled frontend, hides its console window, and self-hosts sandbox plugin workers. Bun and Node.js are not required on the target machine; Windows WebView2 is still required.
+For a release executable, run `bun run build:exe`, which compiles for the machine
+you are on and writes `dist/TikTools-<platform>-<arch>` (`.exe` on Windows). Name
+targets explicitly to cross-compile, for example `bun run build:exe windows-x64
+linux-arm64`, or `bun run build:exe:all` for every supported target
+(`windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`). Bun
+downloads the target runtime and embeds the matching native addons, so a Linux
+machine can produce the Windows build. macOS targets build only when named
+explicitly: `tray-icon-node` ships no macOS binary yet, so they fail at tray
+startup.
+
+Each executable includes the Bun runtime and bundled frontend and self-hosts
+sandbox plugin workers; Bun and Node.js are not required on the target machine.
+The system WebView is: WebView2 on Windows, WebKitGTK on Linux, WKWebView on
+macOS. The `smoke:compiled*` gates run against the host build only, so releases
+for other platforms should be verified on a runner for that platform.
 
 ## First connection
 
@@ -70,11 +84,12 @@ bun run start              # Start the desktop app
 bun run typecheck          # Type-check the application
 bun run test               # Run the app test suite
 bun run test:plugin-worker # Run the plugin worker smoke test
-bun run smoke:compiled     # Smoke-test the built EXE and self-hosted plugin
+bun run smoke:compiled     # Smoke-test the built executable and self-hosted plugin
 bun run smoke:compiled-worker # Execute a node and capability through the compiled worker
 bun run smoke:compiled-integration # Execute through the compiled host and capability broker
 bun run build:host          # Build a development host bundle
-bun run build:exe           # Build dist/TikTools.exe for Windows
+bun run build:exe           # Build the executable for this platform
+bun run build:exe:all       # Build executables for every supported target
 bun run verify:exe          # Build and run the complete compiled release gate
 ```
 
@@ -137,7 +152,7 @@ SQLite databases       WebView messages     host capabilities
 
 The native host owns the TikTok client, persistence, automation runtime, and privileged capabilities. The Preact frontend owns presentation and sends JSON messages through the validated bridge. See [Architecture](docs/ARCHITECTURE.md) for the full message and data flow.
 
-Sandbox plugins run in a separate `TikTools.exe --plugin-worker` process in a compiled release, or in `bun index.ts --plugin-worker ...` during development. The worker keeps the token-authenticated localhost IPC, VM loop limit, source and message size limits, manifest permissions, and capability broker.
+Sandbox plugins run in a separate `TikTools --plugin-worker` process in a compiled release, or in `bun index.ts --plugin-worker ...` during development. The worker keeps the token-authenticated localhost IPC, VM loop limit, source and message size limits, manifest permissions, and capability broker.
 
 Audio and TTS providers are AppPlugins loaded with Bun `import()`. Their native
 dependencies stay inside the plugin package, and the root host has no direct

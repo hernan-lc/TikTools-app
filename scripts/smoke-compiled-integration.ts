@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { artifactPath } from './build-targets.ts';
 
 import { PluginCapabilityBroker } from '../src/automation/plugins/capability-broker.ts';
 import { createBuiltInNodeRegistry } from '../src/automation/nodes/builtins.ts';
@@ -6,7 +6,7 @@ import { PluginManager } from '../src/automation/plugins/plugin-manager.ts';
 import { PluginWorkerHost } from '../src/automation/plugins/plugin-worker-host.ts';
 import type { NodeExecutionContext } from '../src/automation/types.ts';
 
-const executable = resolve(process.cwd(), 'dist', 'TikTools.exe');
+const executable = artifactPath();
 const manifest = {
   manifestVersion: 1 as const,
   id: 'dev.tiktools.compiled-integration-smoke',

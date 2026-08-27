@@ -54,24 +54,45 @@ The host starts a Bun server on port `0`, allowing the operating system to choos
 
 The default window is resizable and opens at 900 × 680 pixels. Closing the window hides it in the tray; choose **Show live chat** from the tray menu to restore it.
 
-## Windows standalone executable
+## Standalone executable
 
-Build the release executable from Windows with:
+Build the release executable for the machine you are on with:
 
-~~~powershell
+~~~bash
 bun run build:exe
 ~~~
 
-The result is `dist/TikTools.exe`. It contains the Bun runtime and bundled Preact frontend, uses the GUI subsystem so no console window is shown, and starts sandbox plugins by launching itself with `--plugin-worker`. Bun and Node.js are not required on the target machine. Windows WebView2 is required.
+The result is `dist/TikTools-<platform>-<arch>`, with an `.exe` extension on
+Windows. Pass targets to cross-compile, or build the whole matrix:
+
+~~~bash
+bun run build:exe windows-x64 linux-arm64
+bun run build:exe:all   # windows-x64, windows-arm64, linux-x64, linux-arm64
+~~~
+
+Bun downloads the runtime for each target and embeds the native addon that
+matches it, so a Linux machine can produce the Windows executable. The macOS
+targets (`darwin-x64`, `darwin-arm64`) build only when named explicitly and are
+left out of `build:exe:all`, because `tray-icon-node` publishes no macOS binary;
+they fail at tray startup until it does. The
+`smoke:compiled*` gates only run the host build, so verify a cross-compiled
+release on that platform (a CI runner matrix is the usual way) before shipping.
+
+Each executable contains the Bun runtime and bundled Preact frontend, and starts
+sandbox plugins by launching itself with `--plugin-worker`. Bun and Node.js are
+not required on the target machine. The system WebView is: WebView2 on Windows,
+WebKitGTK (`webkit2gtk-4.1`) on Linux, WKWebView on macOS. On Windows the build
+also carries the icon and version resources and uses the GUI subsystem, so no
+console window is shown.
 
 Test it from a different working directory before distributing it:
 
-~~~powershell
-Set-Location $env:TEMP
-& 'C:\path\to\TikTools-app\dist\TikTools.exe'
+~~~bash
+cd "$TMPDIR" && /path/to/TikTools-app/dist/TikTools-linux-x64
 ~~~
 
-The executable should open the desktop window without PowerShell, cmd, or Bun console flashes. The release directory does not need `plugin-worker.cjs` or a separate Node.js installation.
+The window should open without console flashes. The release directory does not
+need `plugin-worker.cjs` or a separate Node.js installation.
 
 ## First launch
 
@@ -91,7 +112,7 @@ To produce a distributable host bundle:
 bun run build:host
 ~~~
 
-The output is written to `dist/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:exe` for the Windows standalone executable.
+The output is written to `dist/host/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:exe` for the standalone executable.
 
 Set a different output directory when needed:
 

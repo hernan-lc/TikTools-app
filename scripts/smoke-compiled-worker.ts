@@ -1,10 +1,11 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import { randomBytes } from 'node:crypto';
-import { resolve } from 'node:path';
+
+import { artifactPath } from './build-targets.ts';
 
 type Message = Record<string, unknown>;
 
-const executable = resolve(process.cwd(), 'dist', 'TikTools.exe');
+const executable = artifactPath();
 const token = randomBytes(24).toString('hex');
 const manifest = {
   manifestVersion: 1,
@@ -96,7 +97,7 @@ try {
     child,
   );
   if (!shutdown.ok) throw new Error('Compiled worker did not acknowledge shutdown.');
-  console.log('Compiled TikTools.exe worker protocol smoke test passed.');
+  console.log('Compiled worker protocol smoke test passed.');
 } finally {
   socket?.destroy();
   server.close();
@@ -209,7 +210,7 @@ function createProtocol(socket: Socket): {
 
 async function withChildTimeout<T>(promise: Promise<T>, ms: number, label: string, child: Bun.Subprocess): Promise<T> {
   const childExit = child.exited.then((code): never => {
-    throw new Error(`${label} aborted because TikTools.exe exited with code ${code}.`);
+    throw new Error(`${label} aborted because the compiled app exited with code ${code}.`);
   });
   return withTimeout(Promise.race([promise, childExit]), ms, label);
 }

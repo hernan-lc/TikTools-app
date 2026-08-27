@@ -1,4 +1,4 @@
-import { WebviewRuntime } from 'webview-napi/runtime';
+import { WebviewRuntime } from './platform/webview-runtime.ts';
 
 import { parsePageMessage } from './bridge.ts';
 import { LiveController } from './live-controller.ts';
