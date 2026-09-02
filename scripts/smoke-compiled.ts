@@ -8,7 +8,7 @@ import { artifactPath, hostTarget } from './build-targets.ts';
 const target = hostTarget();
 const executable = artifactPath(target);
 if (!existsSync(executable)) {
-  throw new Error(`Missing ${executable}. Run bun run build:exe first.`);
+  throw new Error(`Missing ${executable}. Run bun run build:binary first.`);
 }
 
 const root = await mkdtemp(join(tmpdir(), 'TikTools-compiled-smoke-'));

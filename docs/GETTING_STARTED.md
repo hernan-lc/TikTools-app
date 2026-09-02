@@ -59,21 +59,21 @@ The default window is resizable and opens at 900 × 680 pixels. Closing the wind
 Build the release executable for the machine you are on with:
 
 ~~~bash
-bun run build:exe
+bun run build:binary
 ~~~
 
 The result is `dist/TikTools-<platform>-<arch>`, with an `.exe` extension on
 Windows. Pass targets to cross-compile, or build the whole matrix:
 
 ~~~bash
-bun run build:exe windows-x64 linux-arm64
-bun run build:exe:all   # windows-x64, windows-arm64, linux-x64, linux-arm64
+bun run build:binary windows-x64 linux-arm64
+bun run build:binary:all   # windows-x64, windows-arm64, linux-x64, linux-arm64
 ~~~
 
 Bun downloads the runtime for each target and embeds the native addon that
 matches it, so a Linux machine can produce the Windows executable. The macOS
 targets (`darwin-x64`, `darwin-arm64`) build only when named explicitly and are
-left out of `build:exe:all`, because `tray-icon-node` publishes no macOS binary;
+left out of `build:binary:all`, because `tray-icon-node` publishes no macOS binary;
 they fail at tray startup until it does. The
 `smoke:compiled*` gates only run the host build, so verify a cross-compiled
 release on that platform (a CI runner matrix is the usual way) before shipping.
@@ -112,7 +112,7 @@ To produce a distributable host bundle:
 bun run build:host
 ~~~
 
-The output is written to `dist/host/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:exe` for the standalone executable.
+The output is written to `dist/host/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:binary` for the standalone executable.
 
 Set a different output directory when needed:
 

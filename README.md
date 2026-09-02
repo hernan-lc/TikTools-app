@@ -51,10 +51,10 @@ bun run start
 
 The app starts a local Bun server on an ephemeral port and opens that URL in the embedded native WebView. No separate frontend server or fixed port is required.
 
-For a release executable, run `bun run build:exe`, which compiles for the machine
+For a release executable, run `bun run build:binary`, which compiles for the machine
 you are on and writes `dist/TikTools-<platform>-<arch>` (`.exe` on Windows). Name
-targets explicitly to cross-compile, for example `bun run build:exe windows-x64
-linux-arm64`, or `bun run build:exe:all` for every supported target
+targets explicitly to cross-compile, for example `bun run build:binary windows-x64
+linux-arm64`, or `bun run build:binary:all` for every supported target
 (`windows-x64`, `windows-arm64`, `linux-x64`, `linux-arm64`). Bun
 downloads the target runtime and embeds the matching native addons, so a Linux
 machine can produce the Windows build. macOS targets build only when named
@@ -87,10 +87,13 @@ bun run test:plugin-worker # Run the plugin worker smoke test
 bun run smoke:compiled     # Smoke-test the built executable and self-hosted plugin
 bun run smoke:compiled-worker # Execute a node and capability through the compiled worker
 bun run smoke:compiled-integration # Execute through the compiled host and capability broker
+bun run build               # Build the binary for this platform
 bun run build:host          # Build a development host bundle
-bun run build:exe           # Build the executable for this platform
-bun run build:exe:all       # Build executables for every supported target
-bun run verify:exe          # Build and run the complete compiled release gate
+bun run build:binary        # Build the binary for this platform
+bun run build:binary:all    # Build binaries for every supported target
+bun run build:all           # Build plugins, host bundle, and every supported binary
+bun run clean               # Remove dist/ build output
+bun run verify:binary       # Build and run the complete compiled release gate
 ```
 
 `bun run test` intentionally runs tests under `src`. A bare `bun test` also discovers tests inside the vendored signer submodule, which may require generated distribution files that are not checked into this repository.
@@ -109,9 +112,11 @@ src/automation/             Event bus, behavior engine, workflows, capabilities,
 src/platform/               Central app-data paths and hidden-console logging
 src/web/                    Preact application, views, components, and styles
 vendor/tiktok-signer/       Git submodule containing the upstream TikTok client
-scripts/build-exe.ts        Windows standalone executable build
+scripts/build.ts            Unified build CLI (binary/host/plugins/all/clean/list)
+scripts/build-lib.ts        Shared binary/host/plugin build tasks
+scripts/build-binary.ts     Standalone binary build (wraps build-lib)
+scripts/build-host.ts       Host bundle build (wraps build-lib)
 docs/                       Project documentation indexed above
-scripts/build-host.ts       Host bundle and plugin worker build script
 ```
 
 ## Data and privacy
@@ -167,7 +172,7 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run build:host
-bun run build:exe
+bun run build:binary
 bun run smoke:compiled
 bun run smoke:compiled-worker
 bun run smoke:compiled-integration

@@ -29,8 +29,8 @@ The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` imp
 | `bun run smoke:compiled-worker` | Execute nodes and a capability through the compiled worker process. |
 | `bun run smoke:compiled-integration` | Execute a compiled worker through the real host and capability broker. |
 | `bun run build:host` | Build a development host bundle in `dist/`. |
-| `bun run build:exe` | Build the Windows GUI executable at `dist/TikTools.exe`. |
-| `bun run verify:exe` | Build the host and EXE, then run all compiled smoke tests. |
+| `bun run build:binary` | Build the standalone GUI binary at `dist/TikTools-<platform>-<arch>`. |
+| `bun run verify:binary` | Build the host and binary, then run all compiled smoke tests. |
 
 Use `bun test path/to/file.test.ts` when you need to focus on one test file.
 
@@ -108,16 +108,16 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run build:host
-bun run build:exe
+bun run build:binary
 bun run smoke:compiled
 bun run smoke:compiled-worker
 bun run smoke:compiled-integration
 ~~~
 
-The executable-only release gate can be run with `bun run verify:exe`. It
-builds the host and Windows executable before running all compiled smoke tests.
+The executable-only release gate can be run with `bun run verify:binary`. It
+builds the host and standalone binary before running all compiled smoke tests.
 
-The build writes generated output to `dist/`; do not edit it by hand. `build:exe` cleans the output directory before producing `TikTools.exe`, so stale worker sidecars cannot be mistaken for release dependencies. The compiled executable statically bundles the frontend and verifies the native N-API modules at runtime when the GUI, databases, tray, and worker features are exercised.
+The build writes generated output to `dist/`; do not edit it by hand. `build:binary` cleans the output directory before producing the binary, so stale worker sidecars cannot be mistaken for release dependencies. The compiled executable statically bundles the frontend and verifies the native N-API modules at runtime when the GUI, databases, tray, and worker features are exercised.
 
 Writable runtime paths are resolved by `src/platform/app-paths.ts`. On Windows they default to `%LOCALAPPDATA%/TikTools/`, not `process.cwd()`. On first startup after this path change, each missing new database is copied from its matching `./data/<name>.db` legacy file without overwriting an existing new database; the migration is logged. Fatal startup errors, plugin worker failures, native warnings, and provider errors are written to `%LOCALAPPDATA%/TikTools/logs/TikTools.log`; credentials and worker tokens are redacted. The log rotates to `TikTools.log.1` at 5 MiB.
 

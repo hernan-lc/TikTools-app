@@ -1,6 +1,7 @@
 {
   "name": "tiktok-live-appv3",
   "module": "index.ts",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -8,16 +9,21 @@
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test src",
     "test:plugin-worker": "bun run src/automation/plugins/worker-smoke.ts",
-    "build:plugins": "bun run scripts/build-plugins.ts",
+    "build": "bun run scripts/build.ts",
+    "build:plugins": "bun run scripts/build.ts plugins",
     "package:plugin": "bun run scripts/package-plugin.ts",
     "install:plugin": "bun run scripts/install-plugin.ts",
     "smoke:compiled": "bun run scripts/smoke-compiled.ts",
     "smoke:compiled-worker": "bun run scripts/smoke-compiled-worker.ts",
     "smoke:compiled-integration": "bun run scripts/smoke-compiled-integration.ts",
-    "build:host": "bun run scripts/build-host.ts",
-    "build:exe": "bun run scripts/build-exe.ts",
-    "build:exe:all": "bun run scripts/build-exe.ts all",
-    "verify:exe": "bun run build:host && bun run build:exe && bun run smoke:compiled && bun run smoke:compiled-worker && bun run smoke:compiled-integration"
+    "build:host": "bun run scripts/build.ts host",
+    "build:binary": "bun run scripts/build.ts binary",
+    "build:binary:all": "bun run scripts/build.ts binary all",
+    "build:linux": "bun run scripts/build.ts binary linux-x64",
+    "build:linux:all": "bun run scripts/build.ts binary linux-x64 linux-arm64",
+    "build:all": "bun run scripts/build.ts all",
+    "clean": "bun run scripts/build.ts clean",
+    "verify:binary": "bun run build:host && bun run build:binary && bun run smoke:compiled && bun run smoke:compiled-worker && bun run smoke:compiled-integration"
   },
   "devDependencies": {
     "@types/bun": "latest"

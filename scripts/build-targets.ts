@@ -38,7 +38,10 @@ export const compileTargets: readonly CompileTarget[] = [
   },
 ];
 
-export const outputDirectory = resolve(process.cwd(), process.env.TIKTOOLS_EXE_OUTDIR ?? 'dist');
+export const outputDirectory = resolve(
+  process.cwd(),
+  process.env.TIKTOOLS_BINARY_OUTDIR ?? process.env.TIKTOOLS_EXE_OUTDIR ?? 'dist',
+);
 
 /** The target matching the machine running the build, used by the smoke tests. */
 export function hostTarget(): CompileTarget {
@@ -57,24 +60,33 @@ export function artifactPath(target: CompileTarget = hostTarget()): string {
 }
 
 /**
- * Targets requested on the command line (`bun run build:exe linux-x64 windows-x64`)
- * or through `TIKTOOLS_EXE_TARGETS`. `all` expands to every target; the default is
- * the host platform, which is the only one the local smoke tests can run.
+ * Targets requested on the command line (`bun run build:binary linux-x64 windows-x64`)
+ * or through `TIKTOOLS_BINARY_TARGETS` (legacy `TIKTOOLS_EXE_TARGETS`). `all`
+ * expands to every target; the default is the host platform, which is the only
+ * one the local smoke tests can run.
  */
 export function resolveTargets(requested: readonly string[]): CompileTarget[] {
   const names = requested.length > 0
     ? requested
-    : (process.env.TIKTOOLS_EXE_TARGETS?.split(/[\s,]+/).filter(Boolean) ?? []);
+    : ((process.env.TIKTOOLS_BINARY_TARGETS ?? process.env.TIKTOOLS_EXE_TARGETS)
+        ?.split(/[\s,]+/)
+        .filter(Boolean) ?? []);
   if (names.length === 0) return [hostTarget()];
   if (names.includes('all')) return compileTargets.filter((candidate) => !candidate.unsupported);
 
-  return names.map((name) => {
+  const seen = new Set<string>();
+  const targets: CompileTarget[] = [];
+  for (const name of names) {
     const normalized = name.startsWith('bun-') ? name : `bun-${name}`;
     const match = compileTargets.find((candidate) => candidate.target === normalized);
     if (!match) {
       const known = compileTargets.map((candidate) => candidate.target.slice(4)).join(', ');
       throw new Error(`Unknown build target "${name}". Known targets: ${known}, all.`);
     }
-    return match;
-  });
+    if (!seen.has(match.target)) {
+      seen.add(match.target);
+      targets.push(match);
+    }
+  }
+  return targets;
 }

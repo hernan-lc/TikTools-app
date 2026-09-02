@@ -331,7 +331,7 @@ plugin package -> plugin-worker -> napi-vm -> capability broker
 
 The worker protocol exchanges only JSON-safe events, node descriptors, execution results, logs, and named capability requests. It uses an authenticated loopback socket because Bun’s current piped stdin behavior is not incremental in all supported launch modes; this remains child-process IPC and can be replaced with stdio or named pipes without changing node definitions.
 
-The worker is an imported TypeScript module, so `build:host` and `build:exe` do not copy a `plugin-worker.cjs` sidecar. The Windows executable embeds the Bun runtime, frontend, and native modules it needs; its worker child is the same `TikTools.exe` launched with `--plugin-worker`. `TIKTOOLS_HOST_OUTDIR=/path/to/output bun run build:host` changes the development bundle destination.
+The worker is an imported TypeScript module, so `build:host` and `build:binary` do not copy a `plugin-worker.cjs` sidecar. The Windows executable embeds the Bun runtime, frontend, and native modules it needs; its worker child is the same `TikTools.exe` launched with `--plugin-worker`. `TIKTOOLS_HOST_OUTDIR=/path/to/output bun run build:host` changes the development bundle destination.
 
 ## Verification
 
@@ -340,7 +340,7 @@ bun run typecheck
 bun run test
 bun run test:plugin-worker
 bun run build:host
-bun run build:exe
+bun run build:binary
 bun run smoke:compiled
 bun run smoke:compiled-worker
 bun run smoke:compiled-integration
