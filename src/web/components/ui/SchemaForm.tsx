@@ -1,4 +1,4 @@
-import { useMemo } from 'preact/hooks';
+import { useCallback, useMemo } from 'preact/hooks';
 
 import type { AutomationEvent, AutomationEventType, JsonObject, JsonValue } from '../../../automation/types.ts';
 import type { ActionTypeDefinition, Localized } from '../../../automation/behavior/types.ts';
@@ -7,6 +7,7 @@ import { getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestio
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { mergeSuggestions, suggestionsFromObject } from '../autocomplete/autocomplete.ts';
 import { AdvancedSection } from './FieldPanels.tsx';
+import { CodeEditor, formatJsonText } from './CodeEditor.tsx';
 import { InfoTip } from './InfoTip.tsx';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
@@ -43,12 +44,51 @@ function defaultScopeFor(name: string, template: boolean): TemplateSuggestionSco
 }
 
 /**
+ * Shared suggestion resolver so custom editors (e.g. the fetch layout) offer
+ * exactly the same variables as the generic form: trigger scope plus any
+ * object pushed via `suggestionContext`.
+ */
+export function useFieldSuggestions(args: {
+  locale: Locale;
+  suggestionContext?: JsonValue | AutomationEvent;
+  suggestionScopes?: Partial<Record<string, TemplateSuggestionScope>>;
+  eventType?: AutomationEventType;
+  lastEvent?: AutomationEvent;
+  templateSuggestions?: TemplateSuggestion[];
+}): (name: string, template: boolean) => TemplateSuggestion[] {
+  const {
+    locale,
+    suggestionContext,
+    suggestionScopes = {},
+    eventType,
+    lastEvent,
+    templateSuggestions = [],
+  } = args;
+  const contextItems = useMemo<AutocompleteItem[]>(() => {
+    if (suggestionContext === undefined) return [];
+    const root = suggestionContext as JsonValue;
+    // `AutomationEvent` arrives as `{ type, user, data… }` — expose as `event.*`.
+    if (root !== null && typeof root === 'object' && !Array.isArray(root) && 'type' in (root as JsonObject) && !('event' in (root as JsonObject))) {
+      return suggestionsFromObject({ event: root } as unknown as JsonValue, '', { maxItems: 80 });
+    }
+    return suggestionsFromObject(root, '', { maxItems: 80 });
+  }, [suggestionContext]);
+
+  return useCallback((name: string, template: boolean): TemplateSuggestion[] => {
+    const scope = suggestionScopes[name] ?? defaultScopeFor(name, template);
+    const scoped = getTemplateSuggestions(eventType, locale, lastEvent, scope, undefined);
+    const merged = mergeSuggestions(scoped, contextItems, templateSuggestions);
+    return merged as TemplateSuggestion[];
+  }, [suggestionScopes, eventType, locale, lastEvent, contextItems, templateSuggestions]);
+}
+
+/**
  * Small, deliberately bounded JSON Schema renderer. It renders data, never
  * code: plugin packages can describe forms but cannot inject DOM or Preact.
  *
- * Every field gets a tooltip (InfoTip) when it has a hint, a `{{ }}` badge
- * when it is templated, and autocomplete when it can use `{{ event.* }}` —
- * from the trigger scope plus any object pushed via `suggestionContext`.
+ * Every field gets a tooltip (InfoTip) when it has a hint, inline `{{ }}`
+ * highlight, and autocomplete when it can use `{{ event.* }}` — from the
+ * trigger scope plus any object pushed via `suggestionContext`.
  */
 export function SchemaForm({
   locale,
@@ -70,22 +110,14 @@ export function SchemaForm({
   const advanced = visible.filter(([key]) => hints[key]?.advanced === true);
   const update = (key: string, next: JsonValue): void => onChange({ ...value, [key]: next });
 
-  const contextItems = useMemo<AutocompleteItem[]>(() => {
-    if (suggestionContext === undefined) return [];
-    const root = suggestionContext as JsonValue;
-    // `AutomationEvent` arrives as `{ type, user, data… }` — expose as `event.*`.
-    if (root !== null && typeof root === 'object' && !Array.isArray(root) && 'type' in (root as JsonObject) && !('event' in (root as JsonObject))) {
-      return suggestionsFromObject({ event: root } as unknown as JsonValue, '', { maxItems: 80 });
-    }
-    return suggestionsFromObject(root, '', { maxItems: 80 });
-  }, [suggestionContext]);
-
-  const suggestionsFor = (name: string, template: boolean): TemplateSuggestion[] => {
-    const scope = suggestionScopes[name] ?? defaultScopeFor(name, template);
-    const scoped = getTemplateSuggestions(eventType, locale, lastEvent, scope, undefined);
-    const merged = mergeSuggestions(scoped, contextItems, templateSuggestions);
-    return merged as TemplateSuggestion[];
-  };
+  const suggestionsFor = useFieldSuggestions({
+    locale,
+    suggestionContext,
+    suggestionScopes,
+    eventType,
+    lastEvent,
+    templateSuggestions,
+  });
 
   return (
     <div className="plg-form__schema">
@@ -212,20 +244,31 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   }
 
   if (kind === 'textarea' || kind === 'code' || schema.type === 'array' || schema.format === 'json') {
-    // Templated textareas (Body…) get full autocomplete + highlight + hover type.
+    // Templated textareas (Body…) get the code editor: line numbers, JSON
+    // highlight, `{{ }}` pills and variable autocomplete.
     if (hasAutocomplete && schema.type !== 'array' && kind !== 'code') {
+      const json = schema.format === 'json';
+      const editorValue = json && typeof value === 'string' ? value : displayValue;
       return (
         <div className="plg-field">
-          <TemplateField
+          <div className="plg-label-row">
+            <label className="plg-label">{label}</label>
+            {hintText ? <InfoTip text={hintText} position="right" /> : null}
+          </div>
+          <CodeEditor
             locale={locale}
-            value={schema.format === 'json' && typeof value === 'string' ? value : displayValue}
+            language={json ? 'json' : 'text'}
+            value={editorValue}
             onValueChange={onChange}
             suggestions={templateSuggestions}
-            multiline
+            filename={json ? `${name}.json` : undefined}
+            mime={json ? 'application/json' : undefined}
             rows={6}
             ariaLabel={label}
-            label={label}
-            hint={hintText || undefined}
+            onFormat={json ? () => {
+              const formatted = formatJsonText(editorValue);
+              if (formatted !== null && formatted !== editorValue) onChange(formatted);
+            } : undefined}
           />
         </div>
       );

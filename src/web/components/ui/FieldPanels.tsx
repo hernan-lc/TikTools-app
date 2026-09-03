@@ -1,4 +1,7 @@
+import { useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
+import type { BehaviorRun } from '../../../automation/behavior/types.ts';
+import { t, type Locale } from '../../i18n.ts';
 import { InfoTip } from './InfoTip.tsx';
 
 /** Collapsible group for advanced fields, with a count badge + tooltip. */
@@ -31,67 +34,130 @@ export function AdvancedSection({
   );
 }
 
-/** Right-side card: what the engine derived from the current draft. */
-export function PermissionsPanel({
-  title,
-  hint,
+/** Right-side cards: derived network allowlist and engine capabilities. */
+export function PermissionCards({
+  locale,
   network,
   capabilities,
   noneLabel,
-  networkHint,
-  capabilitiesHint,
 }: {
-  title: string;
-  hint: string;
+  locale: Locale;
   network: string[];
   capabilities: string[];
   noneLabel: string;
-  networkHint: string;
-  capabilitiesHint: string;
 }) {
   return (
-    <div className="plg-panel">
-      <div className="plg-panel__head">
-        <span className="plg-section-title">{title}</span>
-        <InfoTip text={hint} position="left" />
+    <section aria-label={t(locale, 'behavior.editor.permsTitle')}>
+      <div className="act-side-title">{t(locale, 'behavior.editor.permsTitle')}</div>
+      <div className="act-cards">
+        <div className="act-card">
+          <span className="act-card__label">{t(locale, 'behavior.editor.networkCard')}</span>
+          {network.length === 0 && <span className="act-card__empty">{noneLabel}</span>}
+          {network.map((host) => (
+            <span className="act-card__row" key={host}>
+              <i className="act-dot is-net" aria-hidden="true" />
+              <code>{host}</code>
+            </span>
+          ))}
+        </div>
+        <div className="act-card">
+          <span className="act-card__label">{t(locale, 'behavior.editor.capsCard')}</span>
+          {capabilities.length === 0 && <span className="act-card__empty">{noneLabel}</span>}
+          {capabilities.map((capability) => (
+            <span className="act-card__row" key={capability}>
+              <i className="act-dot is-cap" aria-hidden="true" />
+              <code>{capability}</code>
+            </span>
+          ))}
+        </div>
       </div>
-      <div className="plg-kv" data-tooltip={networkHint} data-tooltip-pos="left" data-tooltip-wide="">
-        <span className="plg-kv__key">network</span>
-        <span className="plg-kv__value">{network.join(', ') || noneLabel}</span>
-      </div>
-      <div className="plg-kv" data-tooltip={capabilitiesHint} data-tooltip-pos="left" data-tooltip-wide="">
-        <span className="plg-kv__key">capabilities</span>
-        <span className="plg-kv__value">{capabilities.join(', ') || noneLabel}</span>
-      </div>
-    </div>
+    </section>
   );
 }
 
-/** Right-side card: last test output. */
-export function ConsolePanel({
-  title,
-  hint,
-  lines,
+function parseRunStatus(run: BehaviorRun | undefined): { code?: string; ok: boolean; text: string } {
+  if (!run) return { ok: true, text: '' };
+  const code = /(\d{3})/.exec(`${run.summary} ${run.logs.join(' ')}`)?.[1];
+  if (run.status === 'error') return { code, ok: false, text: run.error ?? run.summary };
+  return { code, ok: true, text: code ? `${code} OK` : run.summary };
+}
+
+/** Right-side test console: run button, status pill and response viewer. */
+export function TestConsole({
+  locale,
+  run,
+  headers,
+  onRun,
   emptyLabel,
 }: {
-  title: string;
-  hint: string;
-  lines: string[];
+  locale: Locale;
+  run?: BehaviorRun;
+  /** Configured request headers shown under the headers tab (fetch only). */
+  headers?: Record<string, string>;
+  onRun: () => void;
   emptyLabel: string;
 }) {
-  const visible = lines.length > 0 ? lines : [emptyLabel];
+  const [tab, setTab] = useState<'response' | 'headers'>('response');
+  const status = parseRunStatus(run);
+  const headerEntries = Object.entries(headers ?? {});
+  const showTabs = headerEntries.length > 0;
+
   return (
-    <div className="plg-panel">
-      <div className="plg-panel__head">
-        <span className="plg-section-title">{title}</span>
-        <InfoTip text={hint} position="left" />
+    <section aria-label={t(locale, 'behavior.editor.consoleTitle')}>
+      <div className="act-console-head">
+        <span className="act-side-title act-side-title--inline">
+          <i className={`act-dot ${run ? (status.ok ? 'is-net' : 'is-err') : ''}`} aria-hidden="true" />
+          {t(locale, 'behavior.editor.consoleTitle')}
+        </span>
+        <button type="button" className="act-runbtn" onClick={onRun}>
+          <span className="act-runbtn__icon" aria-hidden="true">▶</span>
+          {t(locale, 'behavior.editor.runTest')}
+        </button>
       </div>
-      <div className="plg-console" role="log" aria-label={title}>
-        {visible.map((line, index) => (
-          <div key={`${index}-${line}`}>{line}</div>
+
+      {run && (
+        <div className="act-status">
+          <span className={`act-pill ${status.ok ? 'is-ok' : 'is-err'}`}>{status.text}</span>
+          <span className="act-ms">{run.durationMs} ms</span>
+        </div>
+      )}
+
+      {showTabs && (
+        <div className="act-tabs act-tabs--console" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'response'}
+            className={`act-tab${tab === 'response' ? ' is-active' : ''}`}
+            onClick={() => setTab('response')}
+          >
+            {t(locale, 'behavior.editor.responseTab')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'headers'}
+            className={`act-tab${tab === 'headers' ? ' is-active' : ''}`}
+            onClick={() => setTab('headers')}
+          >
+            {t(locale, 'behavior.editor.respHeadersTab', { count: headerEntries.length })}
+          </button>
+        </div>
+      )}
+
+      <div className="act-code" role="log" aria-label={t(locale, 'behavior.editor.consoleTitle')}>
+        {(!showTabs || tab === 'response') && (
+          run && run.logs.length > 0
+            ? run.logs.map((line, index) => <div key={`${index}-${line}`}>{line}</div>)
+            : <span className="act-code__empty">{emptyLabel}</span>
+        )}
+        {showTabs && tab === 'headers' && headerEntries.map(([key, value]) => (
+          <div key={key} className="act-code__kv">
+            <span className="act-code__k">{key}:</span> <span className="act-code__v">{value}</span>
+          </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 

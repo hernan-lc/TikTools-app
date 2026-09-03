@@ -8,10 +8,11 @@ import { findField } from '../../automation/behavior/fields.ts';
 
 import { defaultActionConfig } from '../../automation/behavior/action-config.ts';
 import { sampleEventFor } from '../../automation/behavior/engine.ts';
-import { schemaForAction } from '../components/ui/SchemaForm.tsx';
+import { schemaForAction, useFieldSuggestions } from '../components/ui/SchemaForm.tsx';
 import { SchemaForm } from '../components/ui/SchemaForm.tsx';
-import { FieldLabel } from '../components/ui/FieldLabel.tsx';
-import { ConsolePanel, PermissionsPanel } from '../components/ui/FieldPanels.tsx';
+import { CodeEditor, formatJsonText } from '../components/ui/CodeEditor.tsx';
+import { TemplateField } from '../components/node-editor/TemplateField.tsx';
+import { PermissionCards, TestConsole } from '../components/ui/FieldPanels.tsx';
 import type { TemplateSuggestionScope } from '../components/node-editor/template-suggestions.ts';
 import {
   BEHAVIOR_TRIGGERS,
@@ -19,6 +20,7 @@ import {
   createEventId,
   deriveActionPermissions,
   readString,
+  readStringMap,
 } from '../../automation/behavior/schema.ts';
 import type {
   ActionTypeDefinition,
@@ -31,7 +33,7 @@ import type {
   I18nText,
   PluginStatus,
 } from '../../automation/behavior/types.ts';
-import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
+import type { AutomationEventType, JsonObject, JsonValue } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
 import type { ActionOptionItem, GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../i18n.ts';
@@ -639,6 +641,8 @@ function ActionEditor({
     if (draft.typeId === 'core.log') return { message: 'message' };
     return {};
   }, [draft.typeId]);
+  const suggestionsFor = useFieldSuggestions({ locale, suggestionContext, suggestionScopes });
+  const isFetch = draft.typeId === 'core.fetch';
 
   return (
     <div className="plg">
@@ -699,14 +703,11 @@ function ActionEditor({
             {error && <div className="plg-alert">{error}</div>}
 
             <div className="plg-field">
-              <FieldLabel label={t(locale, 'behavior.copy.name')} hint={type ? i18nText(locale, type.description) : t(locale, 'behavior.copy.nameHint')} />
+              <span className="act-label">{t(locale, 'behavior.editor.actionName')}</span>
               <input
-                className="plg-input"
+                className="plg-input act-name-input"
                 value={draft.name}
-                aria-label={t(locale, 'behavior.copy.name')}
-                data-tooltip={t(locale, 'behavior.copy.nameHint')}
-                data-tooltip-pos="right"
-                data-tooltip-wide=""
+                aria-label={t(locale, 'behavior.editor.actionName')}
                 placeholder={type ? i18nText(locale, type.title) : undefined}
                 onInput={(event) => setDraft((current) => ({ ...current, name: (event.currentTarget as HTMLInputElement).value }))}
               />
@@ -725,58 +726,43 @@ function ActionEditor({
                     </button>
                   </div>
                 )}
-                <SchemaForm
-                  locale={locale}
-                  schema={form.schema}
-                  uiHints={form.uiHints}
-                  value={draft.config}
-                  fieldOptions={fieldOptions}
-                  suggestionContext={suggestionContext}
-                  suggestionScopes={suggestionScopes}
-                  onChange={(config) => setDraft((current) => ({ ...current, config }))}
-                />
+                {isFetch ? (
+                  <FetchFields
+                    locale={locale}
+                    draft={draft}
+                    form={form}
+                    suggestionsFor={suggestionsFor}
+                    suggestionContext={suggestionContext}
+                    onPatchConfig={(patch) => setDraft((current) => ({ ...current, config: { ...current.config, ...patch } }))}
+                  />
+                ) : (
+                  <SchemaForm
+                    locale={locale}
+                    schema={form.schema}
+                    uiHints={form.uiHints}
+                    value={draft.config}
+                    fieldOptions={fieldOptions}
+                    suggestionContext={suggestionContext}
+                    suggestionScopes={suggestionScopes}
+                    onChange={(config) => setDraft((current) => ({ ...current, config }))}
+                  />
+                )}
               </>
             ) : <div className="plg-alert">{draft.typeId}</div>}
           </div>
 
-          <div className="plg-side">
-            <PermissionsPanel
-              title={t(locale, 'behavior.copy.permissions')}
-              hint={t(locale, 'behavior.copy.permissionsHint')}
+          <div className="plg-side act-side">
+            <PermissionCards
+              locale={locale}
               network={permissions.network}
               capabilities={permissions.capabilities}
               noneLabel={t(locale, 'behavior.copy.none')}
-              networkHint={t(locale, 'behavior.copy.networkHint')}
-              capabilitiesHint={t(locale, 'behavior.copy.capabilitiesHint')}
             />
-
-            <button
-              type="button"
-              className="plg-btn plg-btn--block"
-              data-tooltip={t(locale, 'behavior.copy.testHint')}
-              data-tooltip-pos="left"
-              data-tooltip-wide=""
-              onClick={() => onTest(draft)}
-            >
-              {t(locale, 'behavior.copy.test')}
-            </button>
-
-            {testRun && (
-              <div
-                className={`plg-panel ${testRun.status === 'error' ? 'plg-panel--err' : 'plg-panel--ok'}`}
-                data-tooltip={testRun.error ?? testRun.summary}
-                data-tooltip-pos="left"
-                data-tooltip-wide=""
-              >
-                <span className="plg-row__name">{testRun.error ?? testRun.summary}</span>
-                <span className="plg-mono">{testRun.durationMs} ms</span>
-              </div>
-            )}
-
-            <ConsolePanel
-              title={t(locale, 'behavior.copy.console')}
-              hint={t(locale, 'behavior.copy.consoleHint')}
-              lines={testRun?.logs ?? []}
+            <TestConsole
+              locale={locale}
+              run={testRun}
+              headers={isFetch ? readStringMap(draft.config.headers) : undefined}
+              onRun={() => onTest(draft)}
               emptyLabel={t(locale, 'behavior.copy.consoleEmpty')}
             />
           </div>
@@ -784,6 +770,249 @@ function ActionEditor({
       </div>
     </div>
   );
+}
+
+/** Endpoint + tabbed body layout for `core.fetch`, following the webhook-editor mockup. */
+function FetchFields({
+  locale,
+  draft,
+  form,
+  suggestionsFor,
+  suggestionContext,
+  onPatchConfig,
+}: {
+  locale: Locale;
+  draft: LiveAction;
+  form: { schema: JsonObject; uiHints?: JsonObject };
+  suggestionsFor: (name: string, template: boolean) => Array<{ value: string; label: string }>;
+  suggestionContext: JsonObject;
+  onPatchConfig: (patch: JsonObject) => void;
+}) {
+  const [tab, setTab] = useState<'body' | 'headers' | 'auth'>('body');
+  const method = readString(draft.config.method) || 'POST';
+  const isGet = method.toUpperCase() === 'GET';
+  const activeTab: 'body' | 'headers' | 'auth' = isGet && tab === 'body' ? 'headers' : tab;
+  const headers = readStringMap(draft.config.headers);
+  const headerCount = Object.keys(headers).length;
+  const body = readString(draft.config.body);
+
+  const properties = objectPropertiesOf(form.schema.properties);
+  const fieldHints = objectPropertiesOf(
+    form.uiHints && typeof form.uiHints.fields === 'object' && !Array.isArray(form.uiHints.fields)
+      ? form.uiHints.fields as JsonObject
+      : undefined,
+  );
+  const advancedKeys = Object.keys(properties).filter((key) => {
+    const hint = fieldHints[key];
+    return hint !== undefined && (hint as JsonObject).advanced === true && key !== 'headers';
+  });
+  const advancedSummary = advancedKeys
+    .map((key) => fieldTitle(properties[key], locale) || key)
+    .slice(0, 3)
+    .join(', ');
+  const headersForm = stripAdvanced(pickForm(form, ['headers']));
+  const advancedForm = stripAdvanced(pickForm(form, advancedKeys));
+
+  const formatBody = (): void => {
+    const formatted = formatJsonText(body);
+    if (formatted !== null && formatted !== body) onPatchConfig({ body: formatted });
+  };
+
+  return (
+    <div className="act-fetch">
+      <div className="plg-field">
+        <span className="act-label">
+          {t(locale, 'behavior.editor.endpoint')}
+          {fieldHint(fieldHints.url, locale) && <InfoTip text={fieldHint(fieldHints.url, locale)} position="right" />}
+        </span>
+        <div className="act-endpoint">
+          <select
+            className="act-method"
+            value={method}
+            aria-label={fieldTitle(properties.method, locale) || 'Method'}
+            onChange={(event) => onPatchConfig({ method: (event.currentTarget as HTMLSelectElement).value })}
+          >
+            {methodOptions(properties.method, fieldHints.method, locale).map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <TemplateField
+            locale={locale}
+            value={readString(draft.config.url)}
+            onValueChange={(next) => onPatchConfig({ url: next })}
+            suggestions={suggestionsFor('url', true)}
+            ariaLabel={fieldTitle(properties.url, locale) || 'URL'}
+            placeholder={fieldPlaceholder(fieldHints.url) ?? 'https://'}
+          />
+        </div>
+      </div>
+
+      <div className="act-tabrow">
+        <div className="act-tabs" role="tablist">
+          {!isGet && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'body'}
+              className={`act-tab${activeTab === 'body' ? ' is-active' : ''}`}
+              onClick={() => setTab('body')}
+            >
+              {t(locale, 'behavior.editor.bodyTab')}
+            </button>
+          )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'headers'}
+            className={`act-tab${activeTab === 'headers' ? ' is-active' : ''}`}
+            onClick={() => setTab('headers')}
+          >
+            {t(locale, 'behavior.editor.headersTab')}
+            {headerCount > 0 && <span className="act-tabcount">{headerCount}</span>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'auth'}
+            className={`act-tab${activeTab === 'auth' ? ' is-active' : ''}`}
+            onClick={() => setTab('auth')}
+          >
+            {t(locale, 'behavior.editor.authTab')}
+          </button>
+        </div>
+        {activeTab === 'body' && (
+          <button type="button" className="act-format" onClick={formatBody}>
+            <span aria-hidden="true">☰</span> {t(locale, 'behavior.editor.format')}
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'body' && (
+        <CodeEditor
+          locale={locale}
+          language="json"
+          value={body}
+          onValueChange={(next) => onPatchConfig({ body: next })}
+          suggestions={suggestionsFor('body', true)}
+          filename="payload.json"
+          mime="application/json"
+          rows={7}
+          ariaLabel={fieldTitle(properties.body, locale) || 'Body'}
+        />
+      )}
+
+      {activeTab === 'headers' && (
+        <div className="act-headers">
+          <SchemaForm
+            locale={locale}
+            schema={headersForm.schema}
+            uiHints={headersForm.uiHints}
+            value={draft.config}
+            suggestionContext={suggestionContext}
+            suggestionScopes={{ headers: 'http-data' }}
+            onChange={(config) => onPatchConfig({ headers: config.headers ?? {} })}
+          />
+        </div>
+      )}
+
+      {activeTab === 'auth' && (
+        <div className="act-auth-empty">{t(locale, 'behavior.editor.authEmpty')}</div>
+      )}
+
+      {advancedKeys.length > 0 && (
+        <details className="plg-details act-adv">
+          <summary>
+            <span>{t(locale, 'behavior.copy.advanced')}</span>
+            {advancedSummary && <span className="act-adv__summary">{advancedSummary}</span>}
+          </summary>
+          <div className="plg-details__body">
+            <SchemaForm
+              locale={locale}
+              schema={advancedForm.schema}
+              uiHints={advancedForm.uiHints}
+              value={draft.config}
+              onChange={(config) => onPatchConfig(config)}
+            />
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/** Helpers to slice a form schema down to the fields a tab owns. */
+function objectPropertiesOf(value: JsonValue | undefined): Record<string, JsonObject> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, JsonObject] => Boolean(entry[1]) && typeof entry[1] === 'object' && !Array.isArray(entry[1])),
+  );
+}
+
+function pickForm(form: { schema: JsonObject; uiHints?: JsonObject }, keys: string[]): { schema: JsonObject; uiHints?: JsonObject } {
+  const properties = objectPropertiesOf(form.schema.properties);
+  const pickedProperties: JsonObject = {};
+  for (const key of keys) if (properties[key]) pickedProperties[key] = properties[key] as JsonValue;
+  const fields = objectPropertiesOf(
+    form.uiHints && typeof form.uiHints.fields === 'object' && !Array.isArray(form.uiHints.fields)
+      ? form.uiHints.fields as JsonObject
+      : undefined,
+  );
+  const pickedFields: JsonObject = {};
+  for (const key of keys) if (fields[key]) pickedFields[key] = fields[key] as JsonValue;
+  return {
+    schema: { ...form.schema, properties: pickedProperties },
+    uiHints: form.uiHints ? { ...form.uiHints, fields: pickedFields } : undefined,
+  };
+}
+
+function stripAdvanced(form: { schema: JsonObject; uiHints?: JsonObject }): { schema: JsonObject; uiHints?: JsonObject } {
+  if (!form.uiHints || typeof form.uiHints.fields !== 'object' || Array.isArray(form.uiHints.fields)) return form;
+  const fields: JsonObject = {};
+  for (const [key, hint] of Object.entries(form.uiHints.fields as JsonObject)) {
+    if (hint && typeof hint === 'object' && !Array.isArray(hint)) {
+      const { advanced: _dropped, ...rest } = hint as JsonObject;
+      void _dropped;
+      fields[key] = rest as JsonValue;
+    } else {
+      fields[key] = hint as JsonValue;
+    }
+  }
+  return { schema: form.schema, uiHints: { ...form.uiHints, fields } };
+}
+
+function fieldTitle(schema: JsonObject | undefined, locale: Locale): string {
+  if (!schema) return '';
+  const title = (schema as JsonObject).title;
+  return i18nText(locale, title);
+}
+
+function fieldHint(hint: JsonObject | undefined, locale: Locale): string {
+  if (!hint) return '';
+  return i18nText(locale, (hint as JsonObject).hint);
+}
+
+function fieldPlaceholder(hint: JsonObject | undefined): string | undefined {
+  if (!hint) return undefined;
+  const placeholder = (hint as JsonObject).placeholder;
+  return typeof placeholder === 'string' ? placeholder : undefined;
+}
+
+function methodOptions(
+  schema: JsonObject | undefined,
+  hint: JsonObject | undefined,
+  locale: Locale,
+): Array<{ value: string; label: string }> {
+  const values = schema && Array.isArray((schema as JsonObject).enum)
+    ? ((schema as JsonObject).enum as JsonValue[]).filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  const hinted = hint && Array.isArray((hint as JsonObject).options)
+    ? ((hint as JsonObject).options as JsonValue[]).filter((entry): entry is JsonObject => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
+    : [];
+  const fallback = values.length > 0 ? values : ['GET', 'POST', 'PUT', 'DELETE'];
+  return fallback.map((value) => {
+    const labeled = hinted.find((entry) => entry.value === value);
+    return { value, label: labeled ? i18nText(locale, labeled.label) || value : value };
+  });
 }
 
 function EventEditor({
