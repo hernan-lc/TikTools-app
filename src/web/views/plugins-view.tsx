@@ -1,6 +1,10 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 
 import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
+import type { JsonObject } from '../../automation/types.ts';
+import type { PluginSettingValues } from '../../shared/messages.ts';
+import type { PluginSettingsState } from '../app.tsx';
+import { SchemaForm } from '../components/ui/SchemaForm.tsx';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
 type PluginsViewProps = {
@@ -11,6 +15,9 @@ type PluginsViewProps = {
   error?: string;
   onSetInstalled: (id: string, installed: boolean) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
+  settings: Record<string, PluginSettingsState>;
+  onGetSettings: (id: string) => void;
+  onSaveSettings: (id: string, values: PluginSettingValues) => void;
 };
 
 function pluginCopy(locale: Locale) {
@@ -31,6 +38,9 @@ function pluginCopy(locale: Locale) {
     explore: t(locale, 'pluginsBrowse'),
     usedBy: (count: number) => t(locale, 'pluginUsedBy', { count }),
     confirm: t(locale, 'pluginUninstallConfirm'),
+    settings: t(locale, 'pluginSettings'),
+    saveSettings: t(locale, 'pluginSettingsSave'),
+    settingsHint: t(locale, 'pluginSettingsHint'),
   };
 }
 
@@ -42,6 +52,9 @@ export function PluginsView({
   error,
   onSetInstalled,
   onSetEnabled,
+  settings,
+  onGetSettings,
+  onSaveSettings,
 }: PluginsViewProps) {
   const copy = pluginCopy(locale);
   const [tab, setTab] = useState<'installed' | 'store'>('installed');
@@ -162,6 +175,17 @@ export function PluginsView({
                     {copy.usedBy(usedBy)}
                   </div>
                 )}
+
+                {plugin.installed && plugin.descriptor.hasSettings && (
+                  <PluginSettingsForm
+                    locale={locale}
+                    pluginId={plugin.descriptor.id}
+                    plugin={plugin}
+                    state={settings[plugin.descriptor.id]}
+                    onGetSettings={onGetSettings}
+                    onSaveSettings={onSaveSettings}
+                  />
+                )}
               </div>
             );
           })}
@@ -178,4 +202,72 @@ export function PluginsView({
       </div>
     </div>
   );
+}
+
+/** Host-rendered JSON settings for one plugin. Nothing here executes plugin code. */
+function PluginSettingsForm({
+  locale,
+  pluginId,
+  plugin,
+  state,
+  onGetSettings,
+  onSaveSettings,
+}: {
+  locale: Locale;
+  pluginId: string;
+  plugin: PluginStatus;
+  state?: PluginSettingsState;
+  onGetSettings: (id: string) => void;
+  onSaveSettings: (id: string, values: PluginSettingValues) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<JsonObject | null>(null);
+  useEffect(() => {
+    if (open && state) setDraft((current) => current ?? { ...state.values });
+  }, [open, state]);
+  if (!plugin.descriptor.hasSettings) return null;
+  return (
+    <div className="plg-plugin__settings">
+      <button
+        type="button"
+        className="plg-btn plg-btn--sm"
+        onClick={() => {
+          if (!open && !state) onGetSettings(pluginId);
+          if (!open) setDraft(null);
+          setOpen(!open);
+        }}
+      >
+        {t(locale, 'pluginSettings')}
+      </button>
+      {open && state && (
+        <div className="plg-form">
+          <span className="plg-group-note">{t(locale, 'pluginSettingsHint')}</span>
+          <SchemaForm
+            locale={locale}
+            schema={state.schema}
+            uiHints={state.uiHints}
+            value={draft ?? state.values}
+            onChange={(value) => setDraft(value)}
+          />
+          <div className="plg-row">
+            <button
+              type="button"
+              className="plg-btn plg-btn--primary plg-btn--sm"
+              onClick={() => onSaveSettings(pluginId, toSettingValues(draft ?? state.values))}
+            >
+              {t(locale, 'pluginSettingsSave')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function toSettingValues(value: JsonObject): PluginSettingValues {
+  const clean: PluginSettingValues = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') clean[key] = entry;
+  }
+  return clean;
 }

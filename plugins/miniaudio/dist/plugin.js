@@ -1,5 +1,5 @@
 // @bun
-// plugins/miniaudio/native/miniaudio_node/index.js
+// native/miniaudio_node/index.js
 import { basename, join } from "path";
 import { pathToFileURL } from "url";
 var nativePromise;
@@ -20,7 +20,36 @@ function nativeTarget() {
   return `${process.platform}-${process.arch}-${abi}`;
 }
 
-// plugins/miniaudio/src/plugin.ts
+// src/settings.ts
+import { isAbsolute, join as join2, normalize } from "path";
+var DEFAULT_VOLUME = 1;
+function resolveSoundFile(soundsDir, file) {
+  const path = file.trim();
+  if (!path || isAbsolute(path))
+    return path;
+  if (typeof soundsDir !== "string" || !soundsDir.trim())
+    return path;
+  return normalize(join2(soundsDir.trim(), path));
+}
+function normalizeVolume(value, fallback) {
+  const candidate = typeof value === "number" && Number.isFinite(value) ? value : toNumber(fallback);
+  return clamp(candidate);
+}
+function toNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value))
+    return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed))
+      return parsed;
+  }
+  return DEFAULT_VOLUME;
+}
+function clamp(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+// src/plugin.ts
 var plugin = {
   async activate(ctx) {
     if (!ctx.audio)
@@ -43,7 +72,9 @@ var plugin = {
       capabilities: ["playback", "devices"],
       priority: 10,
       async play(file, options = {}) {
-        const path = file.trim();
+        const soundsDir = await ctx.storage.get("soundsDir");
+        const defaultVolume = await ctx.storage.get("defaultVolume");
+        const path = resolveSoundFile(typeof soundsDir === "string" ? soundsDir : "", file);
         if (!path)
           throw new Error("Audio file path cannot be empty.");
         prune();
@@ -55,7 +86,7 @@ var plugin = {
           stopAll();
         const player = await createAudioPlayer();
         player.loadFile(path);
-        player.setVolume(clamp(options.volume ?? 1, 0, 1));
+        player.setVolume(normalizeVolume(options.volume, defaultVolume));
         player.play();
         players.push(player);
         return { played: true, path, activePlayers: players.length };
@@ -67,9 +98,6 @@ var plugin = {
   }
 };
 var plugin_default = plugin;
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
 export {
   plugin_default as default
 };

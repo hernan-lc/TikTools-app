@@ -517,6 +517,32 @@ export class LiveController {
         }
         break;
       }
+      case 'get-plugin-settings': {
+        const schema = this.pluginRuntime.settingsSchema(message.id);
+        if (!schema) {
+          this.send({ type: 'behavior-error', message: `Plugin offers no settings: ${message.id}` });
+          break;
+        }
+        void this.pluginRuntime.readSettings(message.id)
+          .then((values) => this.send({ type: 'plugin-settings', id: message.id, schema: schema.schema as JsonObject, uiHints: schema.uiHints as JsonObject | undefined, values: values as unknown as JsonObject }))
+          .catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        break;
+      }
+      case 'save-plugin-settings': {
+        void this.pluginRuntime.writeSettings(message.id, message.values)
+          .then((values) => {
+            const schema = this.pluginRuntime.settingsSchema(message.id);
+            if (schema) this.send({ type: 'plugin-settings', id: message.id, schema: schema.schema as JsonObject, uiHints: schema.uiHints as JsonObject | undefined, values: values as unknown as JsonObject });
+          })
+          .catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        break;
+      }
+      case 'get-action-options': {
+        void this.actionOptions(message.source)
+          .then((options) => this.send({ type: 'action-options', source: message.source, options }))
+          .catch((error: unknown) => this.send({ type: 'behavior-error', message: errorMessage(error) }));
+        break;
+      }
       case 'analyze-automation-script':
         try {
           const analysis = this.napiVmLanguage.analyze(
@@ -581,6 +607,15 @@ export class LiveController {
 
   private sendBehavior(): void {
     this.send({ type: 'behavior', snapshot: this.behaviorSnapshot() });
+  }
+
+  /** On-demand option lists for JSON-driven editors (voice pickers, device lists, …). */
+  private async actionOptions(source: string): Promise<Array<{ value: string; label: string }>> {
+    if (source === 'tts.voices') {
+      const voices = await this.ttsService.listVoices();
+      return voices.map((voice) => ({ value: voice.id, label: voice.name ?? voice.id }));
+    }
+    throw new Error(`Unknown options source: ${source}`);
   }
 
   private behaviorSnapshot(): BehaviorSnapshot {
@@ -991,6 +1026,7 @@ function appManifestToDescriptor(manifest: import('./plugins/manifest.ts').AppPl
     dependency: { default: dependency, i18key: `plugin.${manifest.id}.dependency` },
     permissions: [...manifest.capabilities, ...manifest.permissions],
     actionTypeIds,
+    hasSettings: manifest.settings !== undefined,
   };
 }
 

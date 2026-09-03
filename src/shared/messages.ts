@@ -8,9 +8,14 @@ import type {
   AutomationEventType,
   AutomationEvent,
   AutomationScriptAnalysis,
+  JsonObject,
   NodeDefinition,
   WorkflowGraph,
 } from '../automation/types.ts';
+
+export type PluginSettingValues = Record<string, string | number | boolean>;
+
+export type ActionOptionItem = { value: string; label: string };
 
 export type UiEvent = {
   kind: 'chat' | 'gift' | 'like' | 'member' | 'social';
@@ -127,7 +132,10 @@ export type PageMessage =
   | { type: 'set-event-enabled'; id: string; enabled: boolean }
   | { type: 'test-event'; event: LiveEvent }
   | { type: 'set-plugin-install'; id: string; installed: boolean }
-  | { type: 'set-plugin-enabled'; id: string; enabled: boolean };
+  | { type: 'set-plugin-enabled'; id: string; enabled: boolean }
+  | { type: 'get-plugin-settings'; id: string }
+  | { type: 'save-plugin-settings'; id: string; values: PluginSettingValues }
+  | { type: 'get-action-options'; source: string };
 
 export type GiftCatalogEntry = {
   id: string;
@@ -181,4 +189,6 @@ export type HostMessage =
   | { type: 'behavior'; snapshot: BehaviorSnapshot }
   | { type: 'behavior-runs'; runs: BehaviorRun[] }
   | { type: 'behavior-test-result'; runs: BehaviorRun[] }
-  | { type: 'behavior-error'; message: string };
+  | { type: 'behavior-error'; message: string }
+  | { type: 'plugin-settings'; id: string; schema: JsonObject; uiHints?: JsonObject; values: JsonObject }
+  | { type: 'action-options'; source: string; options: ActionOptionItem[] };

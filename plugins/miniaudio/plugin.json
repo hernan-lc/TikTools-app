@@ -19,6 +19,33 @@
     "filesystem.read"
   ],
   "isolation": "trusted",
+  "settings": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "soundsDir": {
+          "type": "string",
+          "title": { "default": "Sounds folder", "i18key": "audio.miniaudio.settings.soundsDir.label" },
+          "default": ""
+        },
+        "defaultVolume": {
+          "type": "number",
+          "title": { "default": "Default volume", "i18key": "audio.miniaudio.settings.defaultVolume.label" },
+          "default": 1
+        }
+      }
+    },
+    "uiHints": {
+      "fields": {
+        "soundsDir": {
+          "hint": { "default": "Relative sound names resolve against this folder. Empty means relative to the app.", "i18key": "audio.miniaudio.settings.soundsDir.hint" }
+        },
+        "defaultVolume": {
+          "hint": { "default": "Used when an action sends no volume. 0 is silent, 1 is full.", "i18key": "audio.miniaudio.settings.defaultVolume.hint" }
+        }
+      }
+    }
+  },
   "native": {
     "package": "miniaudio_node",
     "targets": [

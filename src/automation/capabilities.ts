@@ -34,8 +34,14 @@ export interface AudioCapability {
   playFile(path: string, options?: { volume?: number; overlap?: 'allow' | 'restart' | 'drop' }): Promise<JsonObject>;
 }
 
+export interface TtsVoiceOption {
+  id: string;
+  name?: string;
+}
+
 export interface TtsCapability {
   synthesize(text: string, options?: JsonObject): Promise<JsonObject>;
+  listVoices?(): Promise<TtsVoiceOption[]>;
 }
 
 export interface PointsCapability {

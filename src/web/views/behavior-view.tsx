@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { IconPencil, IconTrash } from '../components/icons.tsx';
 import { ConditionTable } from '../components/ui/ConditionTable.tsx';
@@ -27,9 +27,9 @@ import type {
   I18nText,
   PluginStatus,
 } from '../../automation/behavior/types.ts';
-import type { AutomationEventType } from '../../automation/types.ts';
+import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
 import { InfoTip } from '../components/ui/InfoTip.tsx';
-import type { GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
+import type { ActionOptionItem, GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
@@ -50,6 +50,9 @@ type BehaviorViewProps = {
   onSetEventEnabled: (id: string, enabled: boolean) => void;
   onTestEvent: (event: LiveEvent) => void;
   onOpenPlugins: () => void;
+  /** On-demand option lists keyed by options source (e.g. `tts.voices`). */
+  actionOptions: Record<string, ActionOptionItem[]>;
+  onGetActionOptions: (source: string) => void;
 };
 
 /** Both tables sort the same four ways, from the header or from the control. */
@@ -134,6 +137,7 @@ const COPY = {
   confirmDeleteEvent: { default: "Delete this event?", i18key: "behavior.copy.confirmDeleteEvent" },
   pluginMissing: { default: "plugin not installed", i18key: "behavior.copy.pluginMissing" },
   advanced: { default: "Advanced options", i18key: "behavior.copy.advanced" },
+  refreshOptions: { default: "Refresh options", i18key: "behavior.copy.refreshOptions" },
   addEntry: { default: "Add", i18key: "behavior.copy.addEntry" },
   next: { default: "Continue", i18key: "behavior.copy.next" },
   previous: { default: "Back", i18key: "behavior.copy.previous" },
@@ -144,6 +148,21 @@ const COPY = {
 } as const;
 
 type BehaviorCopy = { -readonly [Key in keyof typeof COPY]: string };
+
+/** Fields whose select options come from the host on demand (`optionsFrom` in uiHints). */
+function fieldsWithOptions(uiHints?: JsonObject): Array<{ key: string; source: string }> {
+  if (!uiHints || typeof uiHints !== 'object' || Array.isArray(uiHints)) return [];
+  const fields = uiHints.fields;
+  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return [];
+  const result: Array<{ key: string; source: string }> = [];
+  for (const [key, hint] of Object.entries(fields as JsonObject)) {
+    if (hint && typeof hint === 'object' && !Array.isArray(hint)) {
+      const source = (hint as JsonObject).optionsFrom;
+      if (typeof source === 'string' && /^[a-z][a-z0-9._-]{0,63}$/.test(source)) result.push({ key, source });
+    }
+  }
+  return result;
+}
 
 function copyFor(locale: Locale): BehaviorCopy {
   const copy = {} as BehaviorCopy;
@@ -211,6 +230,8 @@ export function BehaviorView(props: BehaviorViewProps) {
         isNew={screen.isNew}
         error={error}
         testRuns={testRuns}
+        actionOptions={props.actionOptions}
+        onGetActionOptions={props.onGetActionOptions}
         onCancel={() => setScreen({ kind: 'list' })}
         onSave={(action) => {
           props.onSaveAction(action);
@@ -656,6 +677,8 @@ function ActionEditor({
   isNew,
   error,
   testRuns,
+  actionOptions,
+  onGetActionOptions,
   onCancel,
   onSave,
   onDelete,
@@ -667,6 +690,8 @@ function ActionEditor({
   isNew: boolean;
   error?: string;
   testRuns: BehaviorRun[];
+  actionOptions: Record<string, ActionOptionItem[]>;
+  onGetActionOptions: (source: string) => void;
   onCancel: () => void;
   onSave: (action: LiveAction) => void;
   onDelete: (id: string) => void;
@@ -677,6 +702,19 @@ function ActionEditor({
   const type = actionTypes.find((entry) => entry.id === draft.typeId);
   const permissions = deriveActionPermissions(draft);
   const testRun = testRuns.find((run) => run.actionId === draft.id) ?? testRuns[0];
+  const form = type ? schemaForAction(type) : undefined;
+  const dynamicFields = useMemo(() => fieldsWithOptions(form?.uiHints), [form?.uiHints]);
+  useEffect(() => {
+    for (const field of dynamicFields) onGetActionOptions(field.source);
+  }, [type?.id]);
+  const fieldOptions = useMemo(() => {
+    const merged: Record<string, Array<{ value: string; label: string }>> = {};
+    for (const field of dynamicFields) {
+      const options = actionOptions[field.source];
+      if (options && options.length > 0) merged[field.key] = options;
+    }
+    return merged;
+  }, [dynamicFields, actionOptions]);
 
   return (
     <div className="plg">
@@ -723,10 +761,22 @@ function ActionEditor({
               />
             </div>
 
-            {type ? (() => {
-              const form = schemaForAction(type);
-              return <SchemaForm locale={locale} schema={form.schema} uiHints={form.uiHints} value={draft.config} onChange={(config) => setDraft((current) => ({ ...current, config }))} />;
-            })() : <div className="plg-alert">{draft.typeId}</div>}
+            {form ? (
+              <>
+                {dynamicFields.length > 0 && (
+                  <div className="plg-row">
+                    <button
+                      type="button"
+                      className="plg-btn plg-btn--sm"
+                      onClick={() => { for (const field of dynamicFields) onGetActionOptions(field.source); }}
+                    >
+                      {copy.refreshOptions}
+                    </button>
+                  </div>
+                )}
+                <SchemaForm locale={locale} schema={form.schema} uiHints={form.uiHints} value={draft.config} fieldOptions={fieldOptions} onChange={(config) => setDraft((current) => ({ ...current, config }))} />
+              </>
+            ) : <div className="plg-alert">{draft.typeId}</div>}
           </div>
 
           <div className="plg-side">

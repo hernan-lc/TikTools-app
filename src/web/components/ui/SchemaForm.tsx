@@ -6,6 +6,8 @@ import { TemplateField } from '../node-editor/TemplateField.tsx';
 import type { TemplateSuggestion } from '../node-editor/template-suggestions.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
+export type FieldOption = { value: string; label: string };
+
 export type SchemaFormProps = {
   locale: Locale;
   schema: JsonObject;
@@ -13,13 +15,15 @@ export type SchemaFormProps = {
   value: JsonObject;
   onChange: (value: JsonObject) => void;
   templateSuggestions?: TemplateSuggestion[];
+  /** Dynamic per-field options fetched on demand (voices, devices, …). */
+  fieldOptions?: Record<string, FieldOption[]>;
 };
 
 /**
  * Small, deliberately bounded JSON Schema renderer. It renders data, never
  * code: plugin packages can describe forms but cannot inject DOM or Preact.
  */
-export function SchemaForm({ locale, schema, uiHints, value, onChange, templateSuggestions = [] }: SchemaFormProps) {
+export function SchemaForm({ locale, schema, uiHints, value, onChange, templateSuggestions = [], fieldOptions = {} }: SchemaFormProps) {
   const properties = useMemo(() => objectProperties(schema.properties), [schema]);
   const hints = objectProperties(uiHints?.fields);
   const visible = Object.entries(properties).filter(([key]) => applies(hints[key]?.showIf, value));
@@ -30,14 +34,14 @@ export function SchemaForm({ locale, schema, uiHints, value, onChange, templateS
   return (
     <div className="plg-form__schema">
       {basic.map(([key, field]) => (
-        <SchemaField key={key} locale={locale} name={key} schema={field} hint={hints[key]} value={value[key]} onChange={(next) => update(key, next)} templateSuggestions={templateSuggestions} />
+        <SchemaField key={key} locale={locale} name={key} schema={field} hint={hints[key]} value={value[key]} onChange={(next) => update(key, next)} templateSuggestions={templateSuggestions} fieldOptions={fieldOptions[key]} />
       ))}
       {advanced.length > 0 && (
         <details className="plg-details">
           <summary>{t(locale, 'advancedOptions')}</summary>
           <div className="plg-details__body">
             {advanced.map(([key, field]) => (
-              <SchemaField key={key} locale={locale} name={key} schema={field} hint={hints[key]} value={value[key]} onChange={(next) => update(key, next)} templateSuggestions={templateSuggestions} />
+              <SchemaField key={key} locale={locale} name={key} schema={field} hint={hints[key]} value={value[key]} onChange={(next) => update(key, next)} templateSuggestions={templateSuggestions} fieldOptions={fieldOptions[key]} />
             ))}
           </div>
         </details>
@@ -53,7 +57,7 @@ export function schemaForAction(type: ActionTypeDefinition): { schema: JsonObjec
   };
 }
 
-function SchemaField({ locale, name, schema, hint, value, onChange, templateSuggestions }: {
+function SchemaField({ locale, name, schema, hint, value, onChange, templateSuggestions, fieldOptions }: {
   locale: Locale;
   name: string;
   schema: JsonObject;
@@ -61,6 +65,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   value: JsonValue | undefined;
   onChange: (value: JsonValue) => void;
   templateSuggestions: TemplateSuggestion[];
+  fieldOptions?: FieldOption[];
 }) {
   const label = localized(schema.title, locale) || name;
   const hintText = localized(hint?.hint, locale);
@@ -121,7 +126,8 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
       label: localized(entry.label, locale) || (typeof entry.value === 'string' ? entry.value : ''),
     }))
     : [];
-  const options = schemaOptions.length > 0 ? schemaOptions : hintedOptions;
+  const dynamicOptions = Array.isArray(fieldOptions) ? fieldOptions.filter((entry) => entry && typeof entry.value === 'string') : [];
+  const options = schemaOptions.length > 0 ? schemaOptions : dynamicOptions.length > 0 ? dynamicOptions : hintedOptions;
   if (options.length > 0) {
     return (
       <div className="plg-field">

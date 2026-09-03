@@ -97,3 +97,38 @@ that directory as a platform-specific `.plugin` archive.
 Treat trusted dynamic-import plugins as reviewed code. A Worker can isolate
 JavaScript execution and a separate process is appropriate for untrusted native
 code, but neither boundary is implied by `node:vm`.
+
+## JSON settings
+
+A plugin can declare a small settings form in `plugin.json` instead of
+building its own UI. The host renders it with the owned `SchemaForm` and
+stores the values in the plugin's own `settings.json`:
+
+```json
+{
+  "settings": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string", "default": "127.0.0.1" },
+        "port": { "type": "integer", "default": 3000 }
+      }
+    }
+  }
+}
+```
+
+Only `string`, `number`, `integer`, and `boolean` properties are allowed (up
+to 32 keys, 16 KB total). The host keeps undeclared keys out and coerces each
+value to its declared type; the plugin reads them through the usual
+`ctx.storage.get()` calls, so changes apply without a restart. SonicBoom
+uses this for its host/port settings.
+
+## Dynamic action options
+
+An action type can mark a field with `"optionsFrom": "<source>"` in its
+`uiHints` (for example `tts.speak` voice uses `tts.voices`). The behavior
+editor asks the host for the current list when the editor opens and offers a
+refresh button; when the list is empty the field stays a free-text input.
+Sources are resolved host-side (currently `tts.voices` from the active TTS
+provider), so no plugin code runs in the editor.

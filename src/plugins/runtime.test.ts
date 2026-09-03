@@ -65,6 +65,58 @@ describe('generic app plugin runtime', () => {
     }
   });
 
+  test('reads and writes JSON-schema settings through shared storage', async () => {
+    const root = await mkdtemp(join(process.env.TEMP ?? process.cwd(), 'tiktools-plugin-settings-'));
+    const pluginDirectory = join(root, 'plugins', 'dev.example.settings');
+    try {
+      await mkdir(pluginDirectory, { recursive: true });
+      await writeFile(join(pluginDirectory, 'plugin.json'), JSON.stringify({
+        schemaVersion: 1,
+        id: 'dev.example.settings',
+        name: 'Settings fixture',
+        version: '1.0.0',
+        main: './index.js',
+        host: { api: '^1.0.0' },
+        capabilities: [],
+        permissions: [],
+        settings: {
+          schema: {
+            type: 'object',
+            properties: {
+              host: { type: 'string', default: '127.0.0.1' },
+              port: { type: 'integer', default: 3000 },
+            },
+          },
+        },
+      }));
+      await writeFile(join(pluginDirectory, 'index.js'), `
+        export default {
+          async activate(ctx) {
+            await ctx.storage.set('port', 4000);
+          },
+        };
+      `);
+
+      const runtime = new PluginRuntime({
+        rootDirectory: join(root, 'plugins'),
+        dataDirectory: join(root, 'data'),
+        audioProviders: new AudioProviderRegistry(),
+        ttsProviders: new TTSProviderRegistry(),
+      });
+      const results = await runtime.loadAll();
+      expect(results[0]?.loaded).toBe(true);
+      // Defaults merge over stored values; the plugin wrote port 4000 on activate.
+      expect(await runtime.readSettings('dev.example.settings')).toEqual({ host: '127.0.0.1', port: 4000 });
+      // String numbers coerce; undeclared keys are dropped.
+      expect(await runtime.writeSettings('dev.example.settings', { port: '5000', extra: true }))
+        .toEqual({ host: '127.0.0.1', port: 5000 });
+      await expect(runtime.writeSettings('dev.example.settings', { port: 'not-a-port' })).rejects.toThrow();
+      await expect(runtime.readSettings('dev.example.unknown')).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test('validates host ranges and rejects paths outside the package', () => {
     expect(satisfiesVersion('1.4.0', '^1.0.0')).toBe(true);
     expect(satisfiesVersion('2.0.0', '^1.0.0')).toBe(false);

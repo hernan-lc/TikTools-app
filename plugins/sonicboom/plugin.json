@@ -20,6 +20,33 @@
     "network.local"
   ],
   "isolation": "trusted",
+  "settings": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "title": { "default": "Host", "i18key": "tts.sonicboom.settings.host.label" },
+          "default": "127.0.0.1"
+        },
+        "port": {
+          "type": "integer",
+          "title": { "default": "Port", "i18key": "tts.sonicboom.settings.port.label" },
+          "default": 3000
+        }
+      }
+    },
+    "uiHints": {
+      "fields": {
+        "host": {
+          "hint": { "default": "Where the SonicBoom server listens. Applies immediately, no restart needed.", "i18key": "tts.sonicboom.settings.host.hint" }
+        },
+        "port": {
+          "hint": { "default": "SonicBoom listens on 3000 unless PORT is set.", "i18key": "tts.sonicboom.settings.port.hint" }
+        }
+      }
+    }
+  },
   "i18n": {
     "default": "en",
     "directory": "./locales"

@@ -146,6 +146,8 @@ export interface PluginDescriptor {
   dependency: Localized;
   permissions: string[];
   actionTypeIds: string[];
+  /** True when the plugin declares a JSON settings schema for the Plugins UI. */
+  hasSettings?: boolean;
 }
 
 export interface PluginStatus {

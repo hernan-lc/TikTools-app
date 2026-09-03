@@ -23,6 +23,17 @@ export interface PluginAssetsManifest {
   icon?: string;
 }
 
+/**
+ * Host-rendered settings form. The manifest declares a small JSON Schema
+ * subset; the WebView renders it with the host-owned SchemaForm and the
+ * values persist in the plugin's own storage file. No plugin code runs
+ * in the UI: settings are data only.
+ */
+export interface PluginSettingsManifest {
+  schema: Record<string, unknown>;
+  uiHints?: Record<string, unknown>;
+}
+
 export interface PluginNativeManifest {
   package?: string;
   targets?: string[];
@@ -45,6 +56,7 @@ export interface AppPluginManifest {
   ui?: PluginUIManifest;
   i18n?: PluginI18nManifest;
   assets?: PluginAssetsManifest;
+  settings?: PluginSettingsManifest;
 }
 
 export interface ReadPluginManifestOptions {
@@ -81,6 +93,7 @@ export function isAppPluginManifest(value: unknown): value is AppPluginManifest 
   if (manifest.ui !== undefined && !isUiManifest(manifest.ui)) return false;
   if (manifest.i18n !== undefined && !isI18nManifest(manifest.i18n)) return false;
   if (manifest.assets !== undefined && !isAssetsManifest(manifest.assets)) return false;
+  if (manifest.settings !== undefined && !isSettingsManifest(manifest.settings)) return false;
   return true;
 }
 
@@ -177,6 +190,59 @@ function isAssetsManifest(value: unknown): value is PluginAssetsManifest {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const assets = value as Record<string, unknown>;
   return assets.icon === undefined || isSafeRelativePath(assets.icon);
+}
+
+const SETTINGS_TYPES = ['string', 'number', 'integer', 'boolean'];
+const MAX_SETTINGS_PROPS = 32;
+const MAX_SETTINGS_BYTES = 16 * 1024;
+
+function isSettingsManifest(value: unknown): value is PluginSettingsManifest {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const settings = value as Record<string, unknown>;
+  if (!isSettingsSchema(settings.schema)) return false;
+  if (settings.uiHints !== undefined && (!settings.uiHints || typeof settings.uiHints !== 'object' || Array.isArray(settings.uiHints))) return false;
+  try {
+    if (JSON.stringify(settings).length > MAX_SETTINGS_BYTES) return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+function isSettingsSchema(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const schema = value as Record<string, unknown>;
+  if (schema.type !== 'object') return false;
+  if (!schema.properties || typeof schema.properties !== 'object' || Array.isArray(schema.properties)) return false;
+  const entries = Object.entries(schema.properties as Record<string, unknown>);
+  if (entries.length === 0 || entries.length > MAX_SETTINGS_PROPS) return false;
+  return entries.every(([key, prop]) => /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(key) && isSettingsProp(prop));
+}
+
+function isSettingsProp(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prop = value as Record<string, unknown>;
+  if (!SETTINGS_TYPES.includes(prop.type as string)) return false;
+  if (prop.enum !== undefined) {
+    if (!Array.isArray(prop.enum) || prop.enum.length === 0 || prop.enum.length > 64) return false;
+    if (!prop.enum.every((entry) => typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean')) return false;
+  }
+  if (prop.default !== undefined && !matchesSettingType(prop.default, prop.type as string)) return false;
+  if (prop.title !== undefined && typeof prop.title !== 'string' && !isLocalizedText(prop.title)) return false;
+  return true;
+}
+
+function isLocalizedText(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const text = value as Record<string, unknown>;
+  return typeof text.default === 'string' && typeof text.i18key === 'string';
+}
+
+function matchesSettingType(value: unknown, type: string): boolean {
+  if (type === 'string') return typeof value === 'string';
+  if (type === 'boolean') return typeof value === 'boolean';
+  if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
+  return typeof value === 'number' && Number.isInteger(value);
 }
 
 function isStringArray(value: unknown): value is string[] {

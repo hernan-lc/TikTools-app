@@ -191,6 +191,8 @@ export class PluginRuntime {
   readonly #options: PluginRuntimeOptions;
   readonly #entries = new Map<string, DiscoveredEntry>();
   readonly #contexts = new Map<string, PluginContextState>();
+  /** One storage per plugin id, shared by the plugin context and the host settings UI. */
+  readonly #storages = new Map<string, PluginStorage>();
   readonly #commands = new PluginCommandRegistry();
   readonly #events = new PluginEventRegistry();
   readonly #ui = new PluginUIRegistry();
@@ -331,12 +333,53 @@ export class PluginRuntime {
     }
   }
 
+  #storageFor(pluginId: string): PluginStorage {
+    const existing = this.#storages.get(pluginId);
+    if (existing) return existing;
+    const storage = new PluginStorage(join(this.#options.dataDirectory, pluginId));
+    this.#storages.set(pluginId, storage);
+    return storage;
+  }
+
+  /** JSON Schema + hints declared by the manifest, if the plugin offers settings. */
+  settingsSchema(pluginId: string): { schema: Record<string, unknown>; uiHints?: Record<string, unknown> } | undefined {
+    const settings = this.#entries.get(pluginId)?.manifest.settings;
+    if (!settings) return undefined;
+    return { schema: settings.schema, uiHints: settings.uiHints };
+  }
+
+  /** Stored values merged over schema defaults, so the form always has a value per key. */
+  async readSettings(pluginId: string): Promise<PluginJsonObject> {
+    const entry = this.#entries.get(pluginId);
+    if (!entry) throw new Error(`Unknown plugin: ${pluginId}.`);
+    const stored = await this.#storageFor(pluginId).values();
+    return applySettingDefaults(entry.manifest, stored);
+  }
+
+  /**
+   * Persists settings sent by the host UI. Only keys declared in the schema
+   * survive, each coerced to its declared type; anything else throws.
+   */
+  async writeSettings(pluginId: string, values: PluginJsonObject): Promise<PluginJsonObject> {
+    const entry = this.#entries.get(pluginId);
+    if (!entry) throw new Error(`Unknown plugin: ${pluginId}.`);
+    const schema = entry.manifest.settings?.schema;
+    if (!schema) throw new Error(`Plugin ${pluginId} offers no settings.`);
+    const storage = this.#storageFor(pluginId);
+    const clean = sanitizeSettings(schema, values);
+    for (const [key, value] of Object.entries(clean)) {
+      if (value === undefined) continue;
+      await storage.set(key, value);
+    }
+    return applySettingDefaults(entry.manifest, await storage.values());
+  }
+
   async #createContext(entry: DiscoveredEntry): Promise<PluginContextState> {
     const manifest = entry.manifest;
     const dataDirectory = join(this.#options.dataDirectory, manifest.id);
     const disposables: Disposable[] = [];
     const logger = createLogger(manifest.id, this.#options.log);
-    const storage = new PluginStorage(dataDirectory);
+    const storage = this.#storageFor(manifest.id);
     const commands: CommandAPI = {
       register: (name, handler) => {
         requirePermission(manifest, 'commands.register');
@@ -548,6 +591,56 @@ async function createI18n(rootDirectory: string, manifest: AppPluginManifest, lo
     catalog,
     t: (key, variables) => interpolate(catalog[activeLocale]?.[key] ?? catalog[defaultLocale]?.[key] ?? key, variables),
   };
+}
+
+function settingProperties(schema: Record<string, unknown>): Record<string, Record<string, unknown>> {
+  const properties = schema.properties;
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties)) return {};
+  return properties as Record<string, Record<string, unknown>>;
+}
+
+function applySettingDefaults(manifest: AppPluginManifest, stored: PluginJsonObject): PluginJsonObject {
+  const schema = manifest.settings?.schema;
+  if (!schema) return { ...stored };
+  const result: PluginJsonObject = { ...stored };
+  for (const [key, prop] of Object.entries(settingProperties(schema))) {
+    if (result[key] === undefined && prop.default !== undefined) result[key] = prop.default as PluginJsonValue;
+  }
+  return result;
+}
+
+/** Keeps only schema-declared keys, coerced to their declared type. Throws on mismatch. */
+function sanitizeSettings(schema: Record<string, unknown>, values: PluginJsonObject): PluginJsonObject {
+  const clean: PluginJsonObject = {};
+  for (const [key, prop] of Object.entries(settingProperties(schema))) {
+    if (!(key in values)) continue;
+    clean[key] = coerceSetting(key, prop, values[key]);
+  }
+  return clean;
+}
+
+function coerceSetting(key: string, prop: Record<string, unknown>, value: PluginJsonValue | undefined): PluginJsonValue {
+  const type = prop.type;
+  let coerced: PluginJsonValue;
+  if (type === 'boolean') {
+    if (typeof value === 'boolean') coerced = value;
+    else if (value === 'true') coerced = true;
+    else if (value === 'false') coerced = false;
+    else throw new Error(`Setting ${key} needs true or false.`);
+  } else if (type === 'integer' || type === 'number') {
+    const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+    if (!Number.isFinite(numeric)) throw new Error(`Setting ${key} needs a number.`);
+    if (type === 'integer' && !Number.isInteger(numeric)) throw new Error(`Setting ${key} needs a whole number.`);
+    coerced = numeric;
+  } else {
+    if (typeof value !== 'string') throw new Error(`Setting ${key} needs text.`);
+    if (value.length > 4_096) throw new Error(`Setting ${key} is too long.`);
+    coerced = value;
+  }
+  if (Array.isArray(prop.enum) && !prop.enum.some((entry) => entry === coerced)) {
+    throw new Error(`Setting ${key} has an unsupported value.`);
+  }
+  return coerced;
 }
 
 function flattenTranslations(value: unknown, prefix: string, target: Record<string, string>): void {

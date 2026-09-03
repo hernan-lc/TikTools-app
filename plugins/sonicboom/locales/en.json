@@ -2,6 +2,14 @@
   "settings": {
     "title": "SonicBoom settings",
     "voice": "Voice",
-    "language": "Language"
+    "language": "Language",
+    "host": {
+      "label": "Host",
+      "hint": "Where the SonicBoom server listens. Applies immediately, no restart needed."
+    },
+    "port": {
+      "label": "Port",
+      "hint": "SonicBoom listens on 3000 unless PORT is set."
+    }
   }
 }

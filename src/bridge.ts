@@ -155,6 +155,21 @@ export function parsePageMessage(raw: string): PageMessage | null {
     return null;
   }
 
+  if (message.type === 'get-plugin-settings' && typeof message.id === 'string') {
+    return { type: 'get-plugin-settings', id: message.id };
+  }
+
+  if (message.type === 'save-plugin-settings' && typeof message.id === 'string') {
+    const values = sanitizeSettingValues(message.values);
+    if (!values) return null;
+    return { type: 'save-plugin-settings', id: message.id, values };
+  }
+
+  if (message.type === 'get-action-options' && typeof message.source === 'string') {
+    if (!/^[a-z][a-z0-9._-]{0,63}$/.test(message.source)) return null;
+    return { type: 'get-action-options', source: message.source };
+  }
+
   // The page is untrusted input: only records the schema accepts cross over.
   if (message.type === 'save-action' || message.type === 'test-action') {
     try {
@@ -183,6 +198,25 @@ export function parsePageMessage(raw: string): PageMessage | null {
   }
 
   return null;
+}
+
+function sanitizeSettingValues(value: unknown): Record<string, string | number | boolean> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length > 32) return null;
+  const clean: Record<string, string | number | boolean> = {};
+  for (const [key, entry] of entries) {
+    if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(key)) return null;
+    if (typeof entry === 'string') {
+      if (entry.length > 4_096) return null;
+      clean[key] = entry;
+    } else if (typeof entry === 'number' || typeof entry === 'boolean') {
+      clean[key] = entry;
+    } else {
+      return null;
+    }
+  }
+  return clean;
 }
 
 function isAutomationEventType(value: unknown): value is AutomationEventType {

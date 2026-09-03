@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { render } from 'preact';
 
-import type { GiftCatalogEntry, HostMessage, PageMessage } from '../shared/messages.ts';
+import type { ActionOptionItem, GiftCatalogEntry, HostMessage, PageMessage, PluginSettingValues } from '../shared/messages.ts';
+import type { JsonObject } from '../automation/types.ts';
+
+export type PluginSettingsState = {
+  schema: JsonObject;
+  uiHints?: JsonObject;
+  values: JsonObject;
+};
 import type {
   BehaviorRun,
   BehaviorSnapshot,
@@ -112,6 +119,8 @@ function App() {
   const [behaviorRuns, setBehaviorRuns] = useState<BehaviorRun[]>([]);
   const [behaviorTestRuns, setBehaviorTestRuns] = useState<BehaviorRun[]>([]);
   const [behaviorError, setBehaviorError] = useState('');
+  const [pluginSettings, setPluginSettings] = useState<Record<string, PluginSettingsState>>({});
+  const [actionOptions, setActionOptions] = useState<Record<string, ActionOptionItem[]>>({});
 
   const [telemetry, setTelemetry] = useState<StreamTelemetry>({
     chats: 0,
@@ -300,6 +309,15 @@ function App() {
         setBehaviorError(message.message);
       }
 
+      if (message.type === 'plugin-settings') {
+        setPluginSettings((prev) => ({ ...prev, [message.id]: { schema: message.schema, uiHints: message.uiHints, values: message.values } }));
+        setBehaviorError('');
+      }
+
+      if (message.type === 'action-options') {
+        setActionOptions((prev) => ({ ...prev, [message.source]: message.options }));
+      }
+
       if (message.type === 'gift-debug') {
         console.warn(
           `[gift-debug] giftId=${message.giftId} hasIcon=${message.hasIcon} totalGifts=${message.totalGifts} icon=${message.iconUrl?.slice(0, 80) || 'MISSING'}`,
@@ -458,6 +476,19 @@ function App() {
     send({ type: 'set-plugin-enabled', id, enabled });
   };
 
+  const handleGetPluginSettings = (id: string): void => {
+    send({ type: 'get-plugin-settings', id });
+  };
+
+  const handleSavePluginSettings = (id: string, values: PluginSettingValues): void => {
+    setBehaviorError('');
+    send({ type: 'save-plugin-settings', id, values });
+  };
+
+  const handleGetActionOptions = (source: string): void => {
+    send({ type: 'get-action-options', source });
+  };
+
   // Connect automatically on initial startup if a handle is saved
   useEffect(() => {
     if (initialUsername) {
@@ -542,6 +573,8 @@ function App() {
             onSetEventEnabled={handleSetEventEnabled}
             onTestEvent={handleTestEvent}
             onOpenPlugins={() => setActiveTab('plugins')}
+            actionOptions={actionOptions}
+            onGetActionOptions={handleGetActionOptions}
           />
         )}
 
@@ -554,6 +587,9 @@ function App() {
             error={behaviorError}
             onSetInstalled={handleSetPluginInstalled}
             onSetEnabled={handleSetPluginEnabled}
+            settings={pluginSettings}
+            onGetSettings={handleGetPluginSettings}
+            onSaveSettings={handleSavePluginSettings}
           />
         )}
 

@@ -1,5 +1,6 @@
 import type { AppPlugin, AudioProvider, PluginContext } from '../../../sdk/plugin-api/index.ts';
 import { createAudioPlayer } from '../native/miniaudio_node/index.js';
+import { normalizeVolume, resolveSoundFile } from './settings.ts';
 
 const plugin: AppPlugin = {
   async activate(ctx: PluginContext): Promise<void> {
@@ -20,7 +21,10 @@ const plugin: AppPlugin = {
       capabilities: ['playback', 'devices'],
       priority: 10,
       async play(file, options = {}) {
-        const path = file.trim();
+        // Settings are read on every use, so the Plugins UI applies without a restart.
+        const soundsDir = await ctx.storage.get('soundsDir');
+        const defaultVolume = await ctx.storage.get('defaultVolume');
+        const path = resolveSoundFile(typeof soundsDir === 'string' ? soundsDir : '', file);
         if (!path) throw new Error('Audio file path cannot be empty.');
         prune();
         const overlap = options.overlap ?? 'allow';
@@ -30,7 +34,7 @@ const plugin: AppPlugin = {
         if (overlap === 'restart') stopAll();
         const player = await createAudioPlayer();
         player.loadFile(path);
-        player.setVolume(clamp(options.volume ?? 1, 0, 1));
+        player.setVolume(normalizeVolume(options.volume, defaultVolume));
         player.play();
         players.push(player);
         return { played: true, path, activePlayers: players.length };
@@ -43,7 +47,3 @@ const plugin: AppPlugin = {
 };
 
 export default plugin;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}

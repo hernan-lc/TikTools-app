@@ -35,6 +35,12 @@ export class PluginStorage implements StorageAPI {
     await this.#persist(file);
   }
 
+  /** Reads every stored value. Used by the host settings UI; plugins keep using get/set. */
+  async values(): Promise<PluginJsonObject> {
+    const file = await this.#read();
+    return { ...file.values };
+  }
+
   async delete(key: string): Promise<void> {
     assertKey(key);
     const file = await this.#read();

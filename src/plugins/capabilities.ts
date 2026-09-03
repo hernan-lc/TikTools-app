@@ -35,6 +35,20 @@ export class PluginTtsCapability implements TtsCapability {
     };
     return await provider.synthesize(request) as JsonObject;
   }
+
+  async listVoices(): Promise<Array<{ id: string; name?: string }>> {
+    const provider = this.registry.getProvider();
+    if (!provider?.listVoices) return [];
+    try {
+      const voices = await provider.listVoices();
+      return voices
+        .filter((voice) => voice && typeof voice.id === 'string' && voice.id.trim())
+        .slice(0, 100)
+        .map((voice) => ({ id: voice.id, name: typeof voice.name === 'string' ? voice.name : undefined }));
+    } catch {
+      return [];
+    }
+  }
 }
 
 function normalizeFormat(value: unknown): TTSRequest['format'] {

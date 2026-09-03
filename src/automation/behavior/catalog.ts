@@ -213,6 +213,15 @@ const RAW_PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
       { key: 'voice', label: { default: "Voice", i18key: "automation.action.tts.speak.field.voice.label" }, kind: 'text', value: 'M1', advanced: true },
       { key: 'lang', label: { default: "Language", i18key: "automation.action.tts.speak.field.lang.label" }, kind: 'text', value: 'es', advanced: true },
     ],
+    // The voice list is fetched from the active TTS provider on demand;
+    // without options the editor keeps the legacy free-text input.
+    uiHints: {
+      fields: {
+        text: { kind: 'text', template: true },
+        voice: { kind: 'text', advanced: true, optionsFrom: 'tts.voices' },
+        lang: { kind: 'text', advanced: true },
+      },
+    },
   },
 ];
 
