@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'preact/hooks';
 import type { AutomationEvent, AutomationEventType, JsonObject, JsonValue } from '../../../automation/types.ts';
 import type { ActionTypeDefinition, Localized } from '../../../automation/behavior/types.ts';
 import { TemplateField } from '../node-editor/TemplateField.tsx';
-import { getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestionScope } from '../node-editor/template-suggestions.ts';
+import { getFetchUrlTemplates, getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestionScope } from '../node-editor/template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { mergeSuggestions, suggestionsFromObject } from '../autocomplete/autocomplete.ts';
 import { AdvancedSection } from './FieldPanels.tsx';
@@ -328,7 +328,10 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   }
 
   // Text: templated (or with pushed suggestions) → autocomplete input.
+  // URL-like fields stay quiet while typing a hostname: bare words match URL
+  // presets in the dropdown, variables only inside `{{ }}` or via Ctrl+Space.
   if (hasAutocomplete) {
+    const isUrlField = /url|link|endpoint|webhook/i.test(name);
     return (
       <div className="plg-field">
         <TemplateField
@@ -339,6 +342,8 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
           ariaLabel={label}
           label={label}
           hint={hintText || undefined}
+          bareWordTrigger={!isUrlField}
+          urlPresets={isUrlField ? getFetchUrlTemplates() : undefined}
         />
       </div>
     );
@@ -433,8 +438,8 @@ function KeyValueEditor({
         <label className="plg-label">{label}</label>
         <InfoTip text={hintText || t(locale, 'headersDefaultHint')} position="right" />
       </div>
-      {Object.entries(entries).map(([key, entry]) => (
-        <div className="plg-kv-row" key={key}>
+      {Object.entries(entries).map(([key, entry], index) => (
+        <div className="plg-kv-row" key={`header-${index}`}>
           <input
             className="plg-input plg-input--mono plg-input--key"
             value={key}
@@ -443,8 +448,12 @@ function KeyValueEditor({
             data-tooltip-pos="right"
             placeholder="content-type"
             onInput={(event) => {
+              const nextName = event.currentTarget.value;
+              const list = Object.entries(entries);
               const next: JsonObject = {};
-              for (const [currentKey, currentValue] of Object.entries(entries)) next[currentKey === key ? event.currentTarget.value : currentKey] = currentValue;
+              list.forEach(([currentKey, currentValue], currentIndex) => {
+                next[currentIndex === index ? nextName : currentKey] = currentValue;
+              });
               onChange(next);
             }}
           />
@@ -452,7 +461,14 @@ function KeyValueEditor({
             <TemplateField
               locale={locale}
               value={String(entry ?? '')}
-              onValueChange={(next) => onChange({ ...entries, [key]: next })}
+              onValueChange={(next) => {
+                const list = Object.entries(entries);
+                const nextEntries: JsonObject = {};
+                list.forEach(([currentKey, currentValue], currentIndex) => {
+                  nextEntries[currentKey] = currentIndex === index ? next : currentValue;
+                });
+                onChange(nextEntries);
+              }}
               suggestions={suggestions}
               ariaLabel={valueLabel}
               label={valueLabel}

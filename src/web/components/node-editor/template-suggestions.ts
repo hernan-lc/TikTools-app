@@ -37,7 +37,10 @@ export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, { obser
   identity: { observed: 'identity' },
   text: { observed: 'text' },
   'sound-file': { observed: 'path' },
-  'http-url': { observed: 'path' },
+  // URL destination: the host itself stays literal (engine allowlist), but the
+  // path/query can embed any event variable (`?user={{ event.user.uniqueId }}`).
+  // Filtering to path-like keys here left the field nearly empty, so offer all.
+  'http-url': { observed: 'all' },
   'http-data': { observed: 'all' },
   compare: { observed: 'all' },
 };
@@ -181,4 +184,107 @@ function humanizePath(path: string): string {
 
 function truncate(value: string): string {
   return value.length > 96 ? `${value.slice(0, 93)}...` : value;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fetch URL presets (quick targets for the Call-URL endpoint field).  */
+/* ------------------------------------------------------------------ */
+
+export type FetchUrlTemplate = {
+  /** Stable id; re-registering the same id replaces the preset. */
+  id: string;
+  /** Short chip label, e.g. `localhost:3000`. */
+  label: string;
+  /** Full URL to apply, e.g. `http://localhost:3000/`. */
+  url: string;
+  /** Tooltip shown on hover. */
+  hint?: string;
+};
+
+const BUILTIN_FETCH_URL_TEMPLATES: FetchUrlTemplate[] = [
+  { id: 'local-node', label: 'localhost:3000', url: 'http://localhost:3000/', hint: 'Local dev server (Node, Vite…)' },
+  { id: 'local-py', label: '127.0.0.1:8000', url: 'http://127.0.0.1:8000/', hint: 'Local dev server (Python, …)' },
+  { id: 'local-lan', label: '192.168.1.100:3000', url: 'http://192.168.1.100:3000/', hint: 'Example host on your LAN — edit the IP' },
+  { id: 'remote-https', label: 'https://', url: 'https://', hint: 'Public webhook (Discord, StreamElements, …)' },
+];
+
+/** Host/plugin-registered presets. Import this module and call
+ * `registerFetchUrlTemplate({ id, label, url })` to add project targets. */
+const customFetchUrlTemplates = new Map<string, FetchUrlTemplate>();
+
+export function registerFetchUrlTemplate(template: FetchUrlTemplate): void {
+  const id = template.id.trim();
+  const url = template.url.trim();
+  if (!id || !url) throw new Error('A URL template needs an id and a url.');
+  if (!/^https?:\/\//i.test(url)) throw new Error('A URL template must start with http:// or https://.');
+  customFetchUrlTemplates.set(id, {
+    id: id.slice(0, 64),
+    label: template.label.trim().slice(0, 48) || url,
+    url: url.slice(0, 512),
+    hint: template.hint?.slice(0, 160),
+  });
+}
+
+export function getFetchUrlTemplates(): FetchUrlTemplate[] {
+  return [...BUILTIN_FETCH_URL_TEMPLATES, ...customFetchUrlTemplates.values()];
+}
+
+/**
+ * True when the URL points at this machine / LAN. Mirrors the engine's
+ * `isPrivateHostname` (see `src/automation/services/http-service.ts`): such
+ * targets only run with “Allow local network” enabled.
+ */
+export function isLocalFetchUrl(rawUrl: string): boolean {
+  const hostname = extractFetchHostname(rawUrl);
+  if (
+    hostname === 'localhost'
+    || hostname.endsWith('.localhost')
+    || hostname.endsWith('.local')
+    || hostname === '::1'
+    || hostname === '0:0:0:0:0:0:0:1'
+    || hostname === '::'
+  ) return true;
+  if (hostname.includes(':')) return true;
+  const octets = hostname.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  const [first = -1, second = -1] = octets;
+  return first === 0
+    || first === 10
+    || first === 127
+    || (first === 100 && second >= 64 && second <= 127)
+    || (first === 169 && second === 254)
+    || (first === 172 && second >= 16 && second <= 31)
+    || (first === 192 && second === 168);
+}
+
+/** Host without port/brackets, lowercased. Uses the URL parser first so
+ * bracketed IPv6 (`http://[::1]:3000/`) survives; falls back to a
+ * bracket-aware regex split for half-typed input while editing. */
+function extractFetchHostname(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  try {
+    const hostname = new URL(trimmed).hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (hostname) return hostname;
+  } catch {
+    // Half-typed while editing (`https://`, `http://local…`) — fall through.
+  }
+  const host = /^https?:\/\/([^/?#\s]+)/i.exec(trimmed)?.[1]?.toLowerCase() ?? '';
+  if (!host) return '';
+  if (host.startsWith('[')) return /^\[([^\]]+)\]/.exec(host)?.[1] ?? '';
+  return host.split(':')[0] ?? '';
+}
+
+/**
+ * Apply a preset keeping the user's path/query: only the `scheme://host`
+ * origin is swapped. With no origin yet (empty field, `https://`), the
+ * preset URL is used as-is.
+ */
+export function applyFetchUrlTemplate(current: string, templateUrl: string): string {
+  const origin = /^https?:\/\/[^/?#\s]*/i.exec(templateUrl.trim())?.[0]?.replace(/\/+$/, '') ?? templateUrl.trim();
+  const match = /^https?:\/\/[^/?#\s]*/i.exec(current);
+  if (!match) return templateUrl;
+  const rest = current.slice(match[0].length);
+  if (!rest) return `${origin}/`;
+  if (/^[/?#]/.test(rest)) return `${origin}${rest}`;
+  return `${origin}/${rest}`;
 }

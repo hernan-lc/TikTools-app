@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import type {
   AutomationEvent,
@@ -15,7 +15,7 @@ import { NumberInput } from '../ui/NumberInput.tsx';
 import { Select } from '../ui/Select.tsx';
 import { Checkbox } from '../ui/Checkbox.tsx';
 import { TemplateField } from './TemplateField.tsx';
-import { getTemplateSuggestions, type TemplateSuggestionScope } from './template-suggestions.ts';
+import { getFetchUrlTemplates, getTemplateSuggestions, isLocalFetchUrl, type TemplateSuggestionScope } from './template-suggestions.ts';
 import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.tsx';
 import { asNumber, asString } from './graph.ts';
@@ -285,16 +285,27 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
 
 function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { locale: Locale; eventType?: AutomationEventType; lastEvent?: AutomationEvent; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
   const templateValues = (scope: TemplateSuggestionScope) => getTemplateSuggestions(eventType, locale, lastEvent, scope);
+  const urlValue = asString(config.url);
+  const allowPrivate = config.allowPrivateNetwork === true || config.allowPrivateNetwork === 'true';
+  const urlPresets = useMemo(() => getFetchUrlTemplates(), []);
   return (
     <div className="node-editor-form-stack">
       <Select label={t(locale, 'nodeMethod')} value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
-      <TemplateField locale={locale} label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} />
+      <TemplateField locale={locale} label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={urlValue} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} bareWordTrigger={false} urlPresets={urlPresets} />
+      {urlValue.trim() && isLocalFetchUrl(urlValue) && !allowPrivate && (
+        <p className="act-localhint" role="note">
+          <span>{t(locale, 'behavior.editor.localNetHint')}</span>
+          <button type="button" className="act-preset" onClick={() => onChange('allowPrivateNetwork', true)}>
+            {t(locale, 'behavior.editor.enableLocalNet')}
+          </button>
+        </p>
+      )}
       <TemplateField locale={locale} label={t(locale, 'nodeRequestBody')} value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} />
       <TemplateField locale={locale} label={t(locale, 'nodeHeaders')} hint={t(locale, 'nodeHeadersHint')} value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} />
       <NumberInput label={t(locale, 'nodeTimeout')} value={asNumber(config.timeoutMs, 10000)} min={100} max={120000} step={100} suffix="ms" onValueChange={(value) => onChange('timeoutMs', value)} />
       <Select label={t(locale, 'nodeResponseType')} value={asString(config.responseType, 'auto')} options={[{ value: 'auto', label: 'Auto' }, { value: 'json', label: 'JSON' }, { value: 'text', label: 'Text' }, { value: 'bytes', label: 'Bytes' }]} onValueChange={(value) => onChange('responseType', value)} />
       <Select label={t(locale, 'nodeRedirect')} value={asString(config.redirect, 'error')} options={[{ value: 'error', label: t(locale, 'nodeBlockRedirects') }, { value: 'follow', label: t(locale, 'nodeFollowRedirects') }]} onValueChange={(value) => onChange('redirect', value)} />
-      <Checkbox checked={config.allowPrivateNetwork === true} onCheckedChange={(value) => onChange('allowPrivateNetwork', value)} label={t(locale, 'nodeAllowPrivateNetwork')} />
+      <Checkbox checked={allowPrivate} onCheckedChange={(value) => onChange('allowPrivateNetwork', value)} label={t(locale, 'nodeAllowPrivateNetwork')} />
     </div>
   );
 }

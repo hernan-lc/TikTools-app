@@ -13,7 +13,11 @@ import { SchemaForm } from '../components/ui/SchemaForm.tsx';
 import { CodeEditor, formatJsonText } from '../components/ui/CodeEditor.tsx';
 import { TemplateField } from '../components/node-editor/TemplateField.tsx';
 import { PermissionCards, TestConsole } from '../components/ui/FieldPanels.tsx';
-import type { TemplateSuggestionScope } from '../components/node-editor/template-suggestions.ts';
+import {
+  getFetchUrlTemplates,
+  isLocalFetchUrl,
+  type TemplateSuggestionScope,
+} from '../components/node-editor/template-suggestions.ts';
 import {
   BEHAVIOR_TRIGGERS,
   createActionId,
@@ -818,6 +822,11 @@ function FetchFields({
     if (formatted !== null && formatted !== body) onPatchConfig({ body: formatted });
   };
 
+  const urlValue = readString(draft.config.url);
+  const allowPrivate = readString(draft.config.allowPrivateNetwork) === 'true';
+  const showLocalHint = urlValue.trim().length > 0 && isLocalFetchUrl(urlValue) && !allowPrivate;
+  const urlPresets = useMemo(() => getFetchUrlTemplates(), []);
+
   return (
     <div className="act-fetch">
       <div className="plg-field">
@@ -838,13 +847,23 @@ function FetchFields({
           </select>
           <TemplateField
             locale={locale}
-            value={readString(draft.config.url)}
+            value={urlValue}
             onValueChange={(next) => onPatchConfig({ url: next })}
             suggestions={suggestionsFor('url', true)}
             ariaLabel={fieldTitle(properties.url, locale) || 'URL'}
             placeholder={fieldPlaceholder(fieldHints.url) ?? 'https://'}
+            bareWordTrigger={false}
+            urlPresets={urlPresets}
           />
         </div>
+        {showLocalHint && (
+          <p className="act-localhint" role="note">
+            <span>{t(locale, 'behavior.editor.localNetHint')}</span>
+            <button type="button" className="act-preset" onClick={() => onPatchConfig({ allowPrivateNetwork: true })}>
+              {t(locale, 'behavior.editor.enableLocalNet')}
+            </button>
+          </p>
+        )}
       </div>
 
       <div className="act-tabrow">

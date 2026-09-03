@@ -61,7 +61,38 @@
   box-shadow: none;
   min-height: 38px;
 }
+/* The endpoint already paints its own focus ring; the inner template wrap
+   must not paint a second one (double cyan border looked like an error). */
+.act-endpoint .node-editor-template-control-wrap:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
 .act-endpoint .node-editor-template-control:not(textarea) { height: 38px; }
+
+/* Local-network hint under the endpoint. URL presets live in the input's own
+   autocomplete dropdown (see `.tpl-group`), not in a chips row. */
+.act-preset {
+  padding: 3px 10px;
+  border: 1px solid var(--plg-line);
+  border-radius: 999px;
+  background: var(--plg-surface);
+  color: var(--plg-muted);
+  font-family: var(--plg-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.act-preset:hover { border-color: var(--tt-cyan); color: var(--text); }
+.act-localhint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--plg-dim);
+}
 
 /* Tabs: Cuerpo / Cabeceras / Autenticación. */
 .act-tabrow {
@@ -301,11 +332,16 @@
 .codeed-plain { color: #e6edf3; }
 .codeed-ws { color: inherit; }
 .codeed-var {
-  padding: 0 5px;
-  border: 1px solid rgba(139, 92, 246, 0.65);
+  /* No padding/border here: the backdrop must keep the exact metrics of the
+     transparent textarea or cursor and selection drift after the first pill.
+     The outline is painted with an inset shadow, which adds no width. */
+  border: 0;
   border-radius: 5px;
   background: rgba(139, 92, 246, 0.38);
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.65);
   color: #efeaff;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* ---- inline {{ }} highlight: backdrop mirrors the input text ---- */
@@ -333,6 +369,9 @@
   white-space: pre;
   pointer-events: none;
 }
+/* Flex items may shrink by default; a shrinking span would render narrower
+   than the same chars in the input and shift every char after it. */
+.tpl-highlight > span { flex: none; }
 .node-editor-template-field--float .tpl-highlight {
   padding: 20px 12px 6px;
 }
@@ -345,10 +384,12 @@
   padding: 9px 10px;
 }
 .tpl-highlight .tpl-var {
+  /* Same font as the input text: a different family here changes char widths
+     and shifts cursor and selection for everything after the pill. */
   border-radius: 4px;
   background: rgba(37, 244, 238, 0.14);
   color: var(--tt-cyan);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: inherit;
 }
 .tpl-transparent {
   position: relative;
@@ -453,6 +494,14 @@
   padding: 5px 8px 2px;
   color: var(--text-muted);
   font-size: 10px;
+}
+.tpl-group {
+  padding: 6px 8px 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .node-editor-autocomplete-portal > .tpl-suggest {
   width: 100%;

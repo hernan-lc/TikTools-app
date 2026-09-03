@@ -72,7 +72,7 @@ export function CodeEditor({
   );
 
   const token = getToken(value, cursor);
-  const items = useMemo(() => suggestions.map(toItem), [suggestions]);
+  const items = useMemo(() => dedupeItems(suggestions.map(toItem)), [suggestions]);
   const scored = useMemo(() => filterSuggestions(items, token.query, 7), [items, token.query]);
   const visible = scored.map((entry) => ({ item: entry.item, ranges: entry.matchRanges }));
   const showSuggestions = focused && (forcedOpen || token.inside || token.query.length >= 2) && visible.length > 0;
@@ -103,7 +103,9 @@ export function CodeEditor({
   const insertSuggestion = (suggestion: { value: string }): void => {
     const offset = inputRef.current?.selectionStart ?? cursor;
     const current = getToken(value, offset);
-    const start = current.inside ? current.start : offset;
+    // Replace the exact word/`{{ …` span being typed; inserting at the
+    // cursor without replacing duplicated the typed text.
+    const start = current.inside || current.query.length > 0 ? current.start : offset;
     const inserted = `{{ ${suggestion.value} }}`;
     const nextValue = `${value.slice(0, start)}${inserted}${value.slice(offset)}`;
     const nextCursor = start + inserted.length;
@@ -216,7 +218,7 @@ export function CodeEditor({
             ].filter(Boolean).join('\n');
             return (
               <button
-                key={item.value}
+                key={`${item.value}:${index}`}
                 type="button"
                 role="option"
                 aria-selected={index === suggestionIndex}
@@ -255,6 +257,16 @@ function toItem(suggestion: TemplateSuggestion | AutocompleteItem): Autocomplete
     documentation: item.documentation,
     preview: item.preview,
   };
+}
+
+/** Drop duplicate values (first wins) so merged scopes never list a path twice. */
+function dedupeItems<T extends { value: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((entry) => {
+    if (!entry.value || seen.has(entry.value)) return false;
+    seen.add(entry.value);
+    return true;
+  });
 }
 
 function getToken(value: string, cursor: number): { start: number; query: string; inside: boolean } {

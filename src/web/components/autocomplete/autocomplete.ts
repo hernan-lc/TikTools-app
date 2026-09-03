@@ -219,8 +219,10 @@ export type ScoredSuggestion<T extends AutocompleteItem = AutocompleteItem> = {
 
 /**
  * Fuzzy filter used by every template input. Scores prefix matches on the
- * value highest so `event.user` surfaces before a label-only hit. Returns the
- * ranges to `<mark>` in the dropdown (highlight).
+ * value highest so `event.user` surfaces before a label-only hit. Field-name
+ * matches (`unique` → `event.user.uniqueId`) outrank mid-path hits, and the
+ * subsequence fallback only runs on 3+ chars to keep 2-letter words quiet.
+ * Returns the ranges to `<mark>` in the dropdown (highlight).
  */
 export function filterSuggestions<T extends AutocompleteItem = AutocompleteItem>(
   items: T[],
@@ -233,27 +235,39 @@ export function filterSuggestions<T extends AutocompleteItem = AutocompleteItem>
   for (const item of items) {
     const value = item.value.toLowerCase();
     const label = item.label.toLowerCase();
+    const lastSegment = value.split('.').pop() ?? value;
     let score = -1;
     let ranges: Array<{ start: number; end: number }> = [];
     if (value.startsWith(needle)) {
-      score = 100 - value.indexOf(needle);
+      score = 100;
       ranges = [{ start: 0, end: needle.length }];
+    } else if (lastSegment.startsWith(needle)) {
+      const at = value.length - lastSegment.length;
+      score = 80 - Math.min(at, 20);
+      ranges = [{ start: at, end: at + needle.length }];
     } else {
       const at = value.indexOf(needle);
       if (at >= 0) {
-        score = 50 - at;
+        score = 50 - Math.min(at, 40);
         ranges = [{ start: at, end: at + needle.length }];
       } else {
-        const labelAt = label.indexOf(needle);
-        if (labelAt >= 0) {
-          score = 20 - labelAt;
-          ranges = [];
+        const lastAt = lastSegment.indexOf(needle);
+        if (lastAt >= 0) {
+          const atValue = value.length - lastSegment.length + lastAt;
+          score = 45 - Math.min(atValue, 40);
+          ranges = [{ start: atValue, end: atValue + needle.length }];
         } else {
-          // Subsequence fallback (e.g. `euu` → `event.user.uniqueId`).
-          const sub = subsequenceRanges(value, needle);
-          if (sub) {
-            score = 5;
-            ranges = sub;
+          const labelAt = label.indexOf(needle);
+          if (labelAt >= 0) {
+            score = 20 - Math.min(labelAt, 15);
+            ranges = [];
+          } else if (needle.length >= 3) {
+            // Subsequence fallback (e.g. `euu` → `event.user.uniqueId`).
+            const sub = subsequenceRanges(value, needle);
+            if (sub) {
+              score = 5;
+              ranges = sub;
+            }
           }
         }
       }
@@ -275,7 +289,7 @@ function subsequenceRanges(haystack: string, needle: string): Array<{ start: num
   }
   // Too scattered = noise; cap the span.
   const span = (ranges[ranges.length - 1]?.end ?? 0) - (ranges[0]?.start ?? 0);
-  if (span > 40) return null;
+  if (span > 24) return null;
   return ranges;
 }
 

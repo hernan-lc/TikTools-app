@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
-import type { TemplateSuggestion } from './template-suggestions.ts';
+import { applyFetchUrlTemplate, type FetchUrlTemplate, type TemplateSuggestion } from './template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
 import { AutocompletePortal } from './AutocompletePortal.tsx';
@@ -29,7 +29,33 @@ type TemplateFieldProps = {
   template?: boolean;
   templateHint?: string;
   locale?: Locale;
+  /**
+   * When false, the dropdown only opens inside `{{ }}` or via Ctrl+Space.
+   * Used by URL inputs so typing a hostname (e.g. `localhost`) never pops
+   * event-variable suggestions or hijacks Tab.
+   */
+  bareWordTrigger?: boolean;
+  /**
+   * Quick URL targets (e.g. `localhost:3000`) offered at the top of the same
+   * autocomplete dropdown while typing a URL. Picking one swaps only the
+   * origin, keeping the typed path/query. Pass together with
+   * `bareWordTrigger={false}` so bare words match presets, not variables.
+   */
+  urlPresets?: FetchUrlTemplate[];
 };
+
+/** URL preset as an autocomplete row: matched by label or URL, applied raw. */
+function toPresetItem(preset: FetchUrlTemplate): AutocompleteItem & { label: string; value: string; preset: FetchUrlTemplate } {
+  return {
+    value: preset.url,
+    label: preset.label,
+    kind: 'snippet',
+    detail: 'preset',
+    documentation: preset.hint ?? preset.url,
+    preview: preset.label,
+    preset,
+  };
+}
 
 function toItem(suggestion: TemplateFieldSuggestion): AutocompleteItem & { label: string; value: string } {
   const item = suggestion as AutocompleteItem;
@@ -41,6 +67,16 @@ function toItem(suggestion: TemplateFieldSuggestion): AutocompleteItem & { label
     documentation: item.documentation,
     preview: item.preview,
   };
+}
+
+/** Drop duplicate values (first wins) so merged scopes never list a path twice. */
+function dedupeItems<T extends { value: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((entry) => {
+    if (!entry.value || seen.has(entry.value)) return false;
+    seen.add(entry.value);
+    return true;
+  });
 }
 
 /**
@@ -63,6 +99,8 @@ export function TemplateField({
   label,
   hint,
   locale = 'en',
+  bareWordTrigger = true,
+  urlPresets,
 }: TemplateFieldProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -85,16 +123,41 @@ export function TemplateField({
   };
 
   const token = getToken(value, cursor, suggestionMode);
-  const items = useMemo(() => suggestions.map(toItem), [suggestions]);
+  const items = useMemo(() => dedupeItems(suggestions.map(toItem)), [suggestions]);
+  // URL mode: presets live in the same dropdown; bare words match presets
+  // only, variables stay behind `{{ }}` / Ctrl+Space.
+  const urlMode = suggestionMode === 'template' && Boolean(urlPresets && urlPresets.length > 0);
+  const presetItems = useMemo(
+    () => (urlMode ? (urlPresets ?? []).map(toPresetItem) : []),
+    [urlMode, urlPresets],
+  );
+  const scoredPresets = useMemo(
+    () => (urlMode && !token.inside ? filterSuggestions(presetItems, token.query, 8) : []),
+    [urlMode, presetItems, token.inside, token.query],
+  );
   const scored = useMemo(() => filterSuggestions(items, token.query, 7), [items, token.query]);
-  const visible = scored.map((entry) => ({ item: entry.item, ranges: entry.matchRanges }));
-  const wantsOpen = forcedOpen
-    || (suggestionMode === 'path' ? token.query.length >= 1 : token.inside || token.query.length >= 2);
-  const showSuggestions = focused && wantsOpen && visible.length > 0;
+  const presetRows = scoredPresets.map((entry) => ({
+    key: `preset:${entry.item.preset.id}`,
+    preset: entry.item.preset as FetchUrlTemplate,
+    item: entry.item,
+    ranges: entry.matchRanges,
+  }));
+  const variableRows = scored.map((entry) => ({
+    key: `var:${entry.item.value}`,
+    preset: undefined as FetchUrlTemplate | undefined,
+    item: entry.item,
+    ranges: entry.matchRanges,
+  }));
+  const showPresetRows = presetRows.length > 0 && (forcedOpen || token.query.length >= 1);
+  const bareWordHit = suggestionMode === 'path' ? token.query.length >= 1 : bareWordTrigger && token.query.length >= 2;
+  const wantsOpenVars = forcedOpen || token.inside || (!urlMode && bareWordHit);
+  const showVariableRows = wantsOpenVars && variableRows.length > 0;
+  const visible = [...(showPresetRows ? presetRows : []), ...(showVariableRows ? variableRows : [])];
+  const showSuggestions = focused && visible.length > 0;
 
   useEffect(() => {
     setSuggestionIndex(0);
-  }, [token.query, suggestions.length]);
+  }, [token.query, suggestions.length, presetItems.length]);
 
   useEffect(() => {
     if (!showSuggestions) setForcedOpen(false);
@@ -104,10 +167,26 @@ export function TemplateField({
     const element = inputRef.current;
     const offset = element?.selectionStart ?? cursor;
     const current = getToken(value, offset, suggestionMode);
-    const start = suggestionMode === 'path' || current.inside ? current.start : offset;
+    // Replace the exact range being typed: the `{{ …` span when inside
+    // braces, the bare word (`event.us`) when completing outside them.
+    // Inserting at the cursor without replacing duplicated the word.
+    const start = suggestionMode === 'path' || current.inside || current.query.length > 0 ? current.start : offset;
     const inserted = suggestionMode === 'path' ? suggestion.value : `{{ ${suggestion.value} }}`;
     const nextValue = `${value.slice(0, start)}${inserted}${value.slice(offset)}`;
     const nextCursor = start + inserted.length;
+    onValueChange(nextValue);
+    setCursor(nextCursor);
+    setForcedOpen(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
+  /** URL preset pick: swap only the origin, keeping the typed path/query. */
+  const insertPreset = (preset: FetchUrlTemplate): void => {
+    const nextValue = applyFetchUrlTemplate(value, preset.url);
+    const nextCursor = nextValue.length;
     onValueChange(nextValue);
     setCursor(nextCursor);
     setForcedOpen(false);
@@ -136,8 +215,9 @@ export function TemplateField({
       // Enter on multiline without a query inserts a newline; Tab always picks.
       if (event.key === 'Enter' && multiline && !token.inside && !forcedOpen && token.query.length < 2) return;
       event.preventDefault();
-      const selected = visible[suggestionIndex]?.item;
-      if (selected) insertSuggestion(selected);
+      const selected = visible[suggestionIndex];
+      if (selected?.preset) insertPreset(selected.preset);
+      else if (selected) insertSuggestion(selected.item);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       if (forcedOpen) setForcedOpen(false);
@@ -187,17 +267,19 @@ export function TemplateField({
     />
   );
 
+  const presetCount = showPresetRows ? presetRows.length : 0;
   const dropdown = (
     <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
       <div className="tpl-suggest" role="listbox" aria-label={ariaLabel ?? label ?? 'Suggestions'}>
-        {visible.map(({ item, ranges }, index) => (
+        {presetCount > 0 && <div className="tpl-group">{t(locale, 'behavior.editor.urlPresets')}</div>}
+        {visible.map(({ key, preset, item, ranges }, index) => (
           <SuggestionRow
-            key={item.value}
+            key={key}
             item={item}
             ranges={ranges}
             selected={index === suggestionIndex}
             onHover={() => setSuggestionIndex(index)}
-            onPick={() => insertSuggestion(item)}
+            onPick={() => (preset ? insertPreset(preset) : insertSuggestion(item))}
           />
         ))}
         <div className="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
