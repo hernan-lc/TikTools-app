@@ -10,6 +10,7 @@ import type {
   JsonObject,
   JsonValue,
 } from '../types.ts';
+import { sampleDataForType } from '../event-registry.ts';
 
 const MAX_SOURCE_LENGTH = 128 * 1024;
 
@@ -276,20 +277,14 @@ function formatJsonValue(value: JsonValue): string {
   }
 }
 
+/**
+ * Empty-valued payload shaped like the trigger, so completions show every
+ * path even before a live event arrives. Field names come from the generated
+ * event registry (`bun run registry:events`); values are zeroed here because
+ * the language service only needs shapes, not samples.
+ */
 function sampleEventForType(type: AutomationEventType): JsonObject {
-  const data: JsonObject = type === 'tiktok.gift'
-    ? { giftId: '', giftName: '', diamondCount: 0, repeatCount: 0, comboCount: 0, repeatEnd: false, streakable: false }
-    : type === 'tiktok.like'
-      ? { count: 0, total: 0, method: '' }
-      : type === 'tiktok.follow' || type === 'tiktok.share' || type === 'tiktok.social'
-        ? { action: 0, followCount: 0, shareCount: 0, method: '' }
-        : type === 'tiktok.join'
-          ? { memberCount: 0, action: 0, method: '' }
-          : type === 'tiktok.room_stats'
-            ? { viewers: 0, totalUsers: 0, popularity: 0, anonymous: 0, topViewers: [] }
-            : type === 'points.awarded'
-              ? { uniqueId: '', delta: 0, totalPoints: 0, level: 1, currencyName: '', reason: '' }
-              : { comment: '', method: '', isHistory: false };
+  const data = zeroed(sampleDataForType(type));
   return {
     id: '',
     type,
@@ -299,6 +294,23 @@ function sampleEventForType(type: AutomationEventType): JsonObject {
     points: { delta: 0, total: 0, level: 1 },
     data,
   };
+}
+
+function zeroed(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) return [];
+  if (value !== null && typeof value === 'object') {
+    const out: JsonObject = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (entry !== undefined) out[key] = zeroed(entry ?? null);
+    }
+    return out;
+  }
+  switch (typeof value) {
+    case 'string': return '';
+    case 'number': return 0;
+    case 'boolean': return false;
+    default: return value;
+  }
 }
 
 function countLines(value: string): number {

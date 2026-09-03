@@ -75,8 +75,12 @@ describe('workflow editor graph helpers', () => {
   });
 
   test('uses declarative suggestions for each input type', () => {
+    // Scopes filter the generated event registry — nothing is hardcoded.
+    // chat carries no path-like data field, so only the registry's own
+    // path-like field (avatarUrl) is offered; invented paths are gone.
     const soundSuggestions = getTemplateSuggestions('tiktok.chat', 'en', undefined, 'sound-file');
-    expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.data.filePath')).toBe(true);
+    expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.data.filePath')).toBe(false);
+    expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.user.avatarUrl')).toBe(true);
     expect(soundSuggestions.some((suggestion) => suggestion.value === 'event.data.comment')).toBe(false);
 
     const event = {

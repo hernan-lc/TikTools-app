@@ -8,6 +8,7 @@
     "start": "bun run index.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test src",
+    "registry:events": "bun run scripts/generate-event-registry.ts",
     "test:plugin-worker": "bun run src/automation/plugins/worker-smoke.ts",
     "build": "bun run scripts/build.ts",
     "build:plugins": "bun run scripts/build.ts plugins",

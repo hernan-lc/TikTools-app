@@ -7,8 +7,12 @@ import { IconSelect } from '../components/ui/IconSelect.tsx';
 import { findField } from '../../automation/behavior/fields.ts';
 
 import { defaultActionConfig } from '../../automation/behavior/action-config.ts';
+import { sampleEventFor } from '../../automation/behavior/engine.ts';
 import { schemaForAction } from '../components/ui/SchemaForm.tsx';
 import { SchemaForm } from '../components/ui/SchemaForm.tsx';
+import { FieldLabel } from '../components/ui/FieldLabel.tsx';
+import { ConsolePanel, PermissionsPanel } from '../components/ui/FieldPanels.tsx';
+import type { TemplateSuggestionScope } from '../components/node-editor/template-suggestions.ts';
 import {
   BEHAVIOR_TRIGGERS,
   createActionId,
@@ -145,6 +149,16 @@ const COPY = {
   noneYet: { default: "not set", i18key: "behavior.copy.noneYet" },
   alwaysShort: { default: "always", i18key: "behavior.copy.alwaysShort" },
   stepOf: { default: "Step {step} of 3", i18key: "behavior.copy.stepOf" },
+  nameHint: { default: "A short name for your list. The description of the action type lives behind the ⓘ.", i18key: "behavior.copy.nameHint" },
+  backHint: { default: "Back to the actions and events list without saving.", i18key: "behavior.copy.backHint" },
+  saveHint: { default: "Validate and store this action. Events using it pick up the change.", i18key: "behavior.copy.saveHint" },
+  deleteHint: { default: "Remove this action. Events using it will stop running it.", i18key: "behavior.copy.deleteHint" },
+  testHint: { default: "Run once with a sample event. Check the console below for the result.", i18key: "behavior.copy.testHint" },
+  consoleHint: { default: "Output of the last test run. Errors and fetch status land here.", i18key: "behavior.copy.consoleHint" },
+  networkHint: { default: "Hosts this action may call. The URL host becomes the allowlist; templated hosts are refused.", i18key: "behavior.copy.networkHint" },
+  capabilitiesHint: { default: "Engine capabilities this action needs: http.request, audio.play, points.write…", i18key: "behavior.copy.capabilitiesHint" },
+  typeHint: { default: "Where the action comes from and its short tag.", i18key: "behavior.copy.typeHint" },
+  suggestionsHint: { default: "Type {{ to list event variables. ↑ ↓ navigate · Tab insert · Ctrl+Space reopen. Hover shows type and live value.", i18key: "behavior.copy.suggestionsHint" },
 } as const;
 
 type BehaviorCopy = { -readonly [Key in keyof typeof COPY]: string };
@@ -716,13 +730,42 @@ function ActionEditor({
     return merged;
   }, [dynamicFields, actionOptions]);
 
+  // Generic autocomplete context: the registry sample event, so `{{ }}`
+  // works even before the first live event arrives. Any object can be pushed
+  // here — SchemaForm merges it with the trigger scope.
+  const suggestionContext = useMemo(() => ({ event: sampleEventFor('tiktok.gift') }) as unknown as JsonObject, []);
+  const suggestionScopes = useMemo<Partial<Record<string, TemplateSuggestionScope>>>(() => {
+    if (draft.typeId === 'core.fetch') {
+      return { url: 'http-url', body: 'http-data', headers: 'http-data', emitResponseAs: 'identity', uniqueId: 'identity' };
+    }
+    if (draft.typeId === 'core.emit') return { type: 'identity', data: 'http-data' };
+    if (draft.typeId === 'core.points') return { uniqueId: 'identity' };
+    if (draft.typeId === 'core.log') return { message: 'message' };
+    return {};
+  }, [draft.typeId]);
+
   return (
     <div className="plg">
       <div className="plg-topbar">
-        <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={copy.back}>‹</button>
+        <button
+          type="button"
+          className="plg-btn plg-btn--icon"
+          onClick={onCancel}
+          aria-label={copy.back}
+          data-tooltip={copy.backHint}
+          data-tooltip-pos="bottom"
+          data-tooltip-wide=""
+        >
+          ‹
+        </button>
         <div className="plg-topbar__text">
           <h2 className="plg-topbar__title">{draft.name || copy.newAction}</h2>
-          <span className="plg-topbar__subtitle plg-mono">
+          <span
+            className="plg-topbar__subtitle plg-mono"
+            data-tooltip={type ? `${i18nText(locale, type.description)}${copy.typeHint ? ` — ${copy.typeHint}` : ''}` : draft.typeId}
+            data-tooltip-pos="bottom"
+            data-tooltip-wide=""
+          >
             {type ? `${originLabel(type, locale, copy.builtIn)} · ${type.tag}` : draft.typeId}
           </span>
         </div>
@@ -731,6 +774,9 @@ function ActionEditor({
             <button
               type="button"
               className="plg-btn plg-btn--danger plg-btn--sm"
+              data-tooltip={copy.deleteHint}
+              data-tooltip-pos="bottom"
+              data-tooltip-wide=""
               onClick={() => {
                 if (confirm(copy.confirmDeleteAction)) onDelete(draft.id);
               }}
@@ -738,7 +784,14 @@ function ActionEditor({
               {copy.remove}
             </button>
           )}
-          <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => onSave(draft)}>
+          <button
+            type="button"
+            className="plg-btn plg-btn--primary plg-btn--sm"
+            data-tooltip={copy.saveHint}
+            data-tooltip-pos="bottom"
+            data-tooltip-wide=""
+            onClick={() => onSave(draft)}
+          >
             {copy.save}
           </button>
         </div>
@@ -750,16 +803,27 @@ function ActionEditor({
             {error && <div className="plg-alert">{error}</div>}
 
             <div className="plg-field">
-              <div className="plg-label-row">
-                <label className="plg-label">{copy.name}</label>
-                {type && <InfoTip text={i18nText(locale, type.description)} position="right" />}
-              </div>
+              <FieldLabel label={copy.name} hint={type ? i18nText(locale, type.description) : copy.nameHint} />
               <input
                 className="plg-input"
                 value={draft.name}
+                aria-label={copy.name}
+                data-tooltip={copy.nameHint}
+                data-tooltip-pos="right"
+                data-tooltip-wide=""
+                placeholder={type ? i18nText(locale, type.title) : undefined}
                 onInput={(event) => setDraft((current) => ({ ...current, name: (event.currentTarget as HTMLInputElement).value }))}
               />
             </div>
+
+            <p
+              className="plg-note"
+              data-tooltip={copy.suggestionsHint}
+              data-tooltip-pos="bottom"
+              data-tooltip-wide=""
+            >
+              {copy.suggestionsHint}
+            </p>
 
             {form ? (
               <>
@@ -774,46 +838,60 @@ function ActionEditor({
                     </button>
                   </div>
                 )}
-                <SchemaForm locale={locale} schema={form.schema} uiHints={form.uiHints} value={draft.config} fieldOptions={fieldOptions} onChange={(config) => setDraft((current) => ({ ...current, config }))} />
+                <SchemaForm
+                  locale={locale}
+                  schema={form.schema}
+                  uiHints={form.uiHints}
+                  value={draft.config}
+                  fieldOptions={fieldOptions}
+                  suggestionContext={suggestionContext}
+                  suggestionScopes={suggestionScopes}
+                  onChange={(config) => setDraft((current) => ({ ...current, config }))}
+                />
               </>
             ) : <div className="plg-alert">{draft.typeId}</div>}
           </div>
 
           <div className="plg-side">
-            <div className="plg-panel">
-              <div className="plg-panel__head">
-                <span className="plg-section-title">{copy.permissions}</span>
-                <InfoTip text={copy.permissionsHint} position="left" />
-              </div>
-              <div className="plg-kv">
-                <span className="plg-kv__key">network</span>
-                <span className="plg-kv__value">{permissions.network.join(', ') || copy.none}</span>
-              </div>
-              <div className="plg-kv">
-                <span className="plg-kv__key">capabilities</span>
-                <span className="plg-kv__value">{permissions.capabilities.join(', ') || copy.none}</span>
-              </div>
-            </div>
+            <PermissionsPanel
+              title={copy.permissions}
+              hint={copy.permissionsHint}
+              network={permissions.network}
+              capabilities={permissions.capabilities}
+              noneLabel={copy.none}
+              networkHint={copy.networkHint}
+              capabilitiesHint={copy.capabilitiesHint}
+            />
 
-            <button type="button" className="plg-btn plg-btn--block" onClick={() => onTest(draft)}>
+            <button
+              type="button"
+              className="plg-btn plg-btn--block"
+              data-tooltip={copy.testHint}
+              data-tooltip-pos="left"
+              data-tooltip-wide=""
+              onClick={() => onTest(draft)}
+            >
               {copy.test}
             </button>
 
             {testRun && (
-              <div className={`plg-panel ${testRun.status === 'error' ? 'plg-panel--err' : 'plg-panel--ok'}`}>
+              <div
+                className={`plg-panel ${testRun.status === 'error' ? 'plg-panel--err' : 'plg-panel--ok'}`}
+                data-tooltip={testRun.error ?? testRun.summary}
+                data-tooltip-pos="left"
+                data-tooltip-wide=""
+              >
                 <span className="plg-row__name">{testRun.error ?? testRun.summary}</span>
                 <span className="plg-mono">{testRun.durationMs} ms</span>
               </div>
             )}
 
-            <div className="plg-panel">
-              <span className="plg-section-title">{copy.console}</span>
-              <div className="plg-console">
-                {(testRun?.logs.length ? testRun.logs : [copy.consoleEmpty]).map((line, index) => (
-                  <div key={`${index}-${line}`}>{line}</div>
-                ))}
-              </div>
-            </div>
+            <ConsolePanel
+              title={copy.console}
+              hint={copy.consoleHint}
+              lines={testRun?.logs ?? []}
+              emptyLabel={copy.consoleEmpty}
+            />
           </div>
         </div>
       </div>

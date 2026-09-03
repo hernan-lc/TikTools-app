@@ -1,7 +1,14 @@
 import type { AutomationEvent, AutomationEventType, JsonValue } from '../../../automation/types.ts';
+import {
+  allRegistryFields,
+  fieldsForEventType,
+  registryEntryFor,
+  type RegistryField,
+} from '../../../automation/event-registry.ts';
+import { mergeSuggestions, suggestionsFromObject, type AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import type { Locale } from '../../i18n.ts';
 
-export type TemplateSuggestion = {
+export type TemplateSuggestion = AutocompleteItem & {
   value: string;
   label: string;
   preview?: string;
@@ -18,117 +25,21 @@ export type TemplateSuggestionScope =
 
 type ObservedPathMode = 'all' | 'identity' | 'text' | 'path';
 
-type TemplateInputDefinition = {
-  basePaths: readonly string[];
-  observed: ObservedPathMode;
-};
-
-const COMMON_PATHS = [
-  'event.type',
-  'event.user.uniqueId',
-  'event.user.nickname',
-  'event.creator.uniqueId',
-  'event.data',
-  'event.timestamp',
-];
-
-const IDENTITY_PATHS = [
-  'event.user.uniqueId',
-  'event.user.userId',
-  'event.user.nickname',
-  'event.creator.uniqueId',
-  'event.creator.roomId',
-];
-
-const TEXT_PATHS = [
-  'event.user.nickname',
-  'event.creator.uniqueId',
-  'event.data.comment',
-  'event.data.message',
-  'event.data.text',
-  'event.data.giftName',
-  'event.data.action',
-  'event.data.reason',
-  'event.data.currencyName',
-];
-
-const SOUND_FILE_PATHS = [
-  'event.data.filePath',
-  'event.data.soundPath',
-  'event.data.audioPath',
-  'event.data.soundFile',
-  'event.data.audioFile',
-  'event.data.audioUrl',
-];
-
-const HTTP_URL_PATHS = [
-  'event.data.url',
-  'event.data.uri',
-  'event.data.link',
-  'event.data.endpoint',
-  'event.data.apiUrl',
-  'event.data.webhookUrl',
-];
-
 /**
- * Declarative input contracts. A form chooses one scope instead of receiving
- * the entire event catalog. Observed fields are still added, but only when
- * their shape is useful for that input.
+ * Declarative input contracts. A form chooses one scope — a filter over the
+ * event registry — instead of receiving hardcoded path lists. The candidates
+ * always come from `event-registry.json` (generated from the automation
+ * types + TikTok proto schemes) plus whatever the last live event actually
+ * carried. Run `bun run registry:events` after changing any scheme.
  */
-export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, TemplateInputDefinition> = {
-  message: { basePaths: COMMON_PATHS, observed: 'all' },
-  identity: { basePaths: IDENTITY_PATHS, observed: 'identity' },
-  text: { basePaths: TEXT_PATHS, observed: 'text' },
-  'sound-file': { basePaths: SOUND_FILE_PATHS, observed: 'path' },
-  'http-url': { basePaths: HTTP_URL_PATHS, observed: 'path' },
-  'http-data': { basePaths: COMMON_PATHS, observed: 'all' },
-  compare: { basePaths: COMMON_PATHS, observed: 'all' },
-};
-
-const EVENT_PATHS: Partial<Record<AutomationEventType, string[]>> = {
-  'tiktok.chat': ['event.data.comment', 'event.data.method'],
-  'tiktok.gift': ['event.data.giftName', 'event.data.diamondCount', 'event.data.repeatCount', 'event.data.comboCount', 'event.data.giftId'],
-  'tiktok.like': ['event.data.count', 'event.data.total'],
-  'tiktok.follow': ['event.data.followCount'],
-  'tiktok.share': ['event.data.shareCount'],
-  'tiktok.social': ['event.data.action', 'event.data.followCount', 'event.data.shareCount'],
-  'tiktok.join': ['event.data.memberCount', 'event.data.action'],
-  'tiktok.room_stats': ['event.data.viewers', 'event.data.totalUsers', 'event.data.popularity'],
-  'tiktok.connected': ['event.data.uniqueId', 'event.data.roomId'],
-  'tiktok.disconnected': ['event.data.uniqueId', 'event.data.roomId'],
-  'points.awarded': ['event.data.delta', 'event.data.totalPoints', 'event.data.level', 'event.data.currencyName', 'event.data.reason'],
-};
-
-const PATH_LABELS: Record<string, [string, string]> = {
-  'event.type': ['Event type', 'Tipo de evento'],
-  'event.user.uniqueId': ['Viewer username', 'Usuario del espectador'],
-  'event.user.nickname': ['Viewer nickname', 'Apodo del espectador'],
-  'event.creator.uniqueId': ['Creator username', 'Usuario del creador'],
-  'event.data': ['Event data', 'Datos del evento'],
-  'event.timestamp': ['Event time', 'Hora del evento'],
-  'event.data.comment': ['Chat comment', 'Comentario del chat'],
-  'event.data.method': ['Event method', 'Método del evento'],
-  'event.data.giftName': ['Gift name', 'Nombre del regalo'],
-  'event.data.diamondCount': ['Gift diamonds', 'Diamantes del regalo'],
-  'event.data.repeatCount': ['Gift repeats', 'Repeticiones del regalo'],
-  'event.data.comboCount': ['Gift combo', 'Combo del regalo'],
-  'event.data.giftId': ['Gift ID', 'ID del regalo'],
-  'event.data.count': ['Like count', 'Cantidad de Likes'],
-  'event.data.total': ['Total Likes', 'Likes totales'],
-  'event.data.followCount': ['Follow count', 'Seguidores'],
-  'event.data.shareCount': ['Share count', 'Compartidos'],
-  'event.data.action': ['Action code', 'Código de acción'],
-  'event.data.memberCount': ['Viewer count', 'Cantidad de espectadores'],
-  'event.data.viewers': ['Current viewers', 'Espectadores actuales'],
-  'event.data.totalUsers': ['Total viewers', 'Espectadores totales'],
-  'event.data.popularity': ['Popularity', 'Popularidad'],
-  'event.data.uniqueId': ['Connection username', 'Usuario de conexión'],
-  'event.data.roomId': ['Room ID', 'ID de sala'],
-  'event.data.delta': ['Points delta', 'Puntos ganados'],
-  'event.data.totalPoints': ['Total points', 'Puntos totales'],
-  'event.data.level': ['Points level', 'Nivel de puntos'],
-  'event.data.currencyName': ['Currency name', 'Nombre de moneda'],
-  'event.data.reason': ['Points reason', 'Motivo de puntos'],
+export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, { observed: ObservedPathMode }> = {
+  message: { observed: 'all' },
+  identity: { observed: 'identity' },
+  text: { observed: 'text' },
+  'sound-file': { observed: 'path' },
+  'http-url': { observed: 'path' },
+  'http-data': { observed: 'all' },
+  compare: { observed: 'all' },
 };
 
 export function getTemplateSuggestions(
@@ -136,22 +47,81 @@ export function getTemplateSuggestions(
   locale: Locale,
   lastEvent?: AutomationEvent,
   scope: TemplateSuggestionScope = 'message',
+  extraContext?: JsonValue,
 ): TemplateSuggestion[] {
   const definition = TEMPLATE_INPUT_DEFINITIONS[scope];
   const matchingLastEvent = lastEvent && (!eventType || lastEvent.type === eventType) ? lastEvent : undefined;
-  const observedPaths = matchingLastEvent
-    ? flattenJsonPaths(matchingLastEvent, 'event').filter((path) => matchesPathScope(path, readTemplatePath(matchingLastEvent, path), definition.observed))
+  const registryFields = eventType ? fieldsForEventType(eventType) : allRegistryFields();
+  const base: TemplateSuggestion[] = registryFields
+    .filter((field) => matchesPathScope(field.path, undefined, definition.observed))
+    .map((field) => toSuggestion(field, locale, eventType, matchingLastEvent ? readTemplatePath(matchingLastEvent, field.path) : undefined));
+
+  // Existent data: paths the last live event really carried (custom payloads,
+  // plugin emits) that the static registry cannot know about.
+  const observed: TemplateSuggestion[] = matchingLastEvent
+    ? flattenJsonPaths(matchingLastEvent, 'event')
+      .filter((path) => matchesPathScope(path, readTemplatePath(matchingLastEvent, path), definition.observed))
+      .filter((path) => !base.some((entry) => entry.value === path))
+      .map((path) => {
+        const liveValue = readTemplatePath(matchingLastEvent, path);
+        return {
+          value: path,
+          label: humanizePath(path),
+          kind: inferSuggestionKind(liveValue),
+          detail: inferSuggestionKind(liveValue),
+          documentation: `${humanizePath(path)} · ${path}`,
+          preview: formatTemplateValue(liveValue),
+        };
+      })
     : [];
-  const paths = [...new Set([
-    ...definition.basePaths,
-    ...(eventType ? (EVENT_PATHS[eventType] ?? []).filter((path) => matchesPathScope(path, undefined, definition.observed)) : []),
-    ...observedPaths,
-  ])];
-  return paths.map((value) => ({
-    value,
-    label: PATH_LABELS[value]?.[locale === 'es' ? 1 : 0] ?? humanizePath(value),
-    preview: matchingLastEvent ? formatTemplateValue(readTemplatePath(matchingLastEvent, value)) : undefined,
-  }));
+
+  const merged = mergeSuggestions(base, observed);
+  if (extraContext === undefined) return merged as TemplateSuggestion[];
+  // Generic: push any object as extra autocomplete items (custom schema/event).
+  const extra = suggestionsFromObject(extraContext, 'event', { maxItems: 60 });
+  return mergeSuggestions(merged, extra) as TemplateSuggestion[];
+}
+
+function toSuggestion(
+  field: RegistryField,
+  locale: Locale,
+  eventType: AutomationEventType | undefined,
+  liveValue: JsonValue | undefined,
+): TemplateSuggestion {
+  const label = field.label[locale === 'es' ? 'es' : 'en'];
+  const hint = field.hint?.[locale === 'es' ? 'es' : 'en'];
+  const vendor = vendorDetail(eventType, field);
+  return {
+    value: field.path,
+    label,
+    kind: field.kind,
+    detail: field.tsType,
+    documentation: [hint ?? `${label} · ${field.path}`, vendor].filter(Boolean).join('\n'),
+    preview: liveValue === undefined ? undefined : formatTemplateValue(liveValue),
+  };
+}
+
+/** Which proto scheme a registry field derives from, for the hover card. */
+function vendorDetail(eventType: AutomationEventType | undefined, field: RegistryField): string | undefined {
+  if (!eventType || !field.vendorField) return undefined;
+  const entry = registryEntryFor(eventType);
+  if (!entry || entry.vendorInterface === '-') return undefined;
+  const vendorField = entry.vendorFields.find((candidate) => candidate.name === field.vendorField);
+  const tsType = vendorField ? vendorField.tsType : field.tsType;
+  return `proto ${entry.vendorInterface}.${field.vendorField}: ${tsType}`;
+}
+
+function inferSuggestionKind(value: JsonValue | undefined): AutocompleteItem['kind'] {
+  if (value === undefined) return 'unknown';
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  switch (typeof value) {
+    case 'string': return 'string';
+    case 'number': return 'number';
+    case 'boolean': return 'boolean';
+    case 'object': return 'object';
+    default: return 'unknown';
+  }
 }
 
 function matchesPathScope(path: string, value: JsonValue | undefined, mode: ObservedPathMode): boolean {

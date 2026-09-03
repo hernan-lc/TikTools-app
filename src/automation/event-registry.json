@@ -1,0 +1,4131 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/generate-event-registry.ts — do not edit by hand, run `bun run registry:events`",
+  "generatedFrom": [
+    "src/automation/types.ts",
+    "vendor/tiktok-signer/packages/tiktok-live/src/types.ts",
+    "src/automation/behavior/catalog.ts"
+  ],
+  "events": {
+    "tiktok.chat": {
+      "dataInterface": "TikTokChatData",
+      "vendorInterface": "ChatEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.chat",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "comment": "hola desde la prueba",
+          "method": "chat",
+          "msgId": "msg-1",
+          "isHistory": false
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.chat"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "comment": "hola desde la prueba",
+            "method": "chat",
+            "msgId": "msg-1",
+            "isHistory": false
+          }
+        },
+        {
+          "path": "event.data.comment",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Message",
+            "es": "Mensaje"
+          },
+          "i18key": "automation.event.field.event.data.comment.label",
+          "hint": {
+            "en": "The text written in chat.",
+            "es": "El texto escrito en el chat."
+          },
+          "sample": "hola desde la prueba",
+          "vendorField": "comment"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "chat",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.data.isHistory",
+          "tsType": "boolean",
+          "kind": "boolean",
+          "optional": false,
+          "label": {
+            "en": "Is History",
+            "es": "Is History"
+          },
+          "sample": false,
+          "vendorField": "isHistory"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "comment",
+          "tsType": "string",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.gift": {
+      "dataInterface": "TikTokGiftData",
+      "vendorInterface": "GiftEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.gift",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "giftId": "5655",
+          "giftName": "Rosa",
+          "diamondCount": 1,
+          "repeatCount": 1,
+          "comboCount": 1,
+          "groupId": "0",
+          "repeatEnd": true,
+          "streakable": false,
+          "giftIconUrl": "https://example.com/gift.png",
+          "toUser": {
+            "uniqueId": "creador_demo",
+            "nickname": "Creador",
+            "userId": "1",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          }
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.gift"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "giftId": "5655",
+            "giftName": "Rosa",
+            "diamondCount": 1,
+            "repeatCount": 1,
+            "comboCount": 1,
+            "groupId": "0",
+            "repeatEnd": true,
+            "streakable": false,
+            "giftIconUrl": "https://example.com/gift.png",
+            "toUser": {
+              "uniqueId": "creador_demo",
+              "nickname": "Creador",
+              "userId": "1",
+              "avatarUrl": "https://example.com/avatar.jpg"
+            }
+          }
+        },
+        {
+          "path": "event.data.giftId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Gift Id",
+            "es": "Gift Id"
+          },
+          "sample": "5655",
+          "vendorField": "giftId"
+        },
+        {
+          "path": "event.data.giftName",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Gift",
+            "es": "Regalo"
+          },
+          "i18key": "automation.event.field.event.data.giftName.label",
+          "hint": {
+            "en": "The gift name exactly as TikTok sends it.",
+            "es": "El nombre del regalo tal y como lo manda TikTok."
+          },
+          "sample": "Rosa",
+          "vendorField": "giftName"
+        },
+        {
+          "path": "event.data.diamondCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Diamonds",
+            "es": "Diamantes"
+          },
+          "i18key": "automation.event.field.event.data.diamondCount.label",
+          "hint": {
+            "en": "What the gift is worth in diamonds.",
+            "es": "Lo que vale el regalo en diamantes."
+          },
+          "sample": 1,
+          "vendorField": "diamondCount"
+        },
+        {
+          "path": "event.data.repeatCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Repeat count",
+            "es": "Veces seguidas"
+          },
+          "i18key": "automation.event.field.event.data.repeatCount.label",
+          "hint": {
+            "en": "How many times in a row the same gift was sent.",
+            "es": "Cuántas veces seguidas ha mandado el mismo regalo."
+          },
+          "sample": 1,
+          "vendorField": "repeatCount"
+        },
+        {
+          "path": "event.data.comboCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Combo Count",
+            "es": "Combo Count"
+          },
+          "sample": 1,
+          "vendorField": "comboCount"
+        },
+        {
+          "path": "event.data.groupId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Group Id",
+            "es": "Group Id"
+          },
+          "sample": "0",
+          "vendorField": "groupId"
+        },
+        {
+          "path": "event.data.repeatEnd",
+          "tsType": "boolean",
+          "kind": "boolean",
+          "optional": false,
+          "label": {
+            "en": "Streak finished",
+            "es": "Racha terminada"
+          },
+          "i18key": "automation.event.field.event.data.repeatEnd.label",
+          "hint": {
+            "en": "True only on the last hit of a streak: use it to fire once per streak.",
+            "es": "Cierto sólo en el último golpe de una racha: úsalo para disparar una vez por racha."
+          },
+          "sample": true,
+          "vendorField": "repeatEnd"
+        },
+        {
+          "path": "event.data.streakable",
+          "tsType": "boolean",
+          "kind": "boolean",
+          "optional": false,
+          "label": {
+            "en": "Streakable",
+            "es": "Streakable"
+          },
+          "sample": false,
+          "vendorField": "streakable"
+        },
+        {
+          "path": "event.data.giftIconUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Gift Icon Url",
+            "es": "Gift Icon Url"
+          },
+          "sample": "https://example.com/gift.png",
+          "vendorField": "giftIconUrl"
+        },
+        {
+          "path": "event.data.toUser",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "To User",
+            "es": "To User"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "nickname": "Creador",
+            "userId": "1",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "toUser"
+        },
+        {
+          "path": "event.data.toUser.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "1",
+          "vendorField": "toUser.userId"
+        },
+        {
+          "path": "event.data.toUser.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo",
+          "vendorField": "toUser.uniqueId"
+        },
+        {
+          "path": "event.data.toUser.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Nickname",
+            "es": "Nickname"
+          },
+          "sample": "Creador",
+          "vendorField": "toUser.nickname"
+        },
+        {
+          "path": "event.data.toUser.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "toUser.avatarUrl"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "toUser",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "giftId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "giftName",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "diamondCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "repeatCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "comboCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "groupId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "repeatEnd",
+          "tsType": "boolean",
+          "optional": false
+        },
+        {
+          "name": "streakable",
+          "tsType": "boolean",
+          "optional": true
+        },
+        {
+          "name": "giftIconUrl",
+          "tsType": "string",
+          "optional": true
+        }
+      ]
+    },
+    "tiktok.like": {
+      "dataInterface": "TikTokLikeData",
+      "vendorInterface": "LikeEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.like",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "count": 5,
+          "total": 120,
+          "method": "like",
+          "msgId": "msg-1"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.like"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "count": 5,
+            "total": 120,
+            "method": "like",
+            "msgId": "msg-1"
+          }
+        },
+        {
+          "path": "event.data.count",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Likes at once",
+            "es": "Likes de golpe"
+          },
+          "i18key": "automation.event.field.event.data.count.label",
+          "hint": {
+            "en": "How many likes this event carries.",
+            "es": "Cuántos likes trae este evento."
+          },
+          "sample": 5,
+          "vendorField": "count"
+        },
+        {
+          "path": "event.data.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Total likes",
+            "es": "Likes totales"
+          },
+          "i18key": "automation.event.field.event.data.total.label",
+          "hint": {
+            "en": "Likes accumulated in the live.",
+            "es": "Likes acumulados del directo."
+          },
+          "sample": 120,
+          "vendorField": "total"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "like",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "count",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "total",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.follow": {
+      "dataInterface": "TikTokSocialData",
+      "vendorInterface": "SocialEvent",
+      "note": "SocialEvent with action = SOCIAL_ACTION.follow (1)",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.follow",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "action": 1,
+          "followCount": 3,
+          "shareCount": 0,
+          "method": "social",
+          "msgId": "msg-1"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.follow"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "action": 1,
+            "followCount": 3,
+            "shareCount": 0,
+            "method": "social",
+            "msgId": "msg-1"
+          }
+        },
+        {
+          "path": "event.data.action",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Action",
+            "es": "Action"
+          },
+          "sample": 1,
+          "vendorField": "action"
+        },
+        {
+          "path": "event.data.followCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Follow Count",
+            "es": "Follow Count"
+          },
+          "sample": 3,
+          "vendorField": "followCount"
+        },
+        {
+          "path": "event.data.shareCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Share Count",
+            "es": "Share Count"
+          },
+          "sample": 0,
+          "vendorField": "shareCount"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "social",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "action",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "followCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "shareCount",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.share": {
+      "dataInterface": "TikTokSocialData",
+      "vendorInterface": "SocialEvent",
+      "note": "SocialEvent with action = SOCIAL_ACTION.share (3)",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.share",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "action": 3,
+          "followCount": 0,
+          "shareCount": 2,
+          "method": "social",
+          "msgId": "msg-1"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.share"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "action": 3,
+            "followCount": 0,
+            "shareCount": 2,
+            "method": "social",
+            "msgId": "msg-1"
+          }
+        },
+        {
+          "path": "event.data.action",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Action",
+            "es": "Action"
+          },
+          "sample": 3,
+          "vendorField": "action"
+        },
+        {
+          "path": "event.data.followCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Follow Count",
+            "es": "Follow Count"
+          },
+          "sample": 0,
+          "vendorField": "followCount"
+        },
+        {
+          "path": "event.data.shareCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Share Count",
+            "es": "Share Count"
+          },
+          "sample": 2,
+          "vendorField": "shareCount"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "social",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "action",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "followCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "shareCount",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.join": {
+      "dataInterface": "TikTokMemberData",
+      "vendorInterface": "MemberEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.join",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "memberCount": 1,
+          "action": 0,
+          "method": "member",
+          "msgId": "msg-1"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.join"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "memberCount": 1,
+            "action": 0,
+            "method": "member",
+            "msgId": "msg-1"
+          }
+        },
+        {
+          "path": "event.data.memberCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Member Count",
+            "es": "Member Count"
+          },
+          "sample": 1,
+          "vendorField": "memberCount"
+        },
+        {
+          "path": "event.data.action",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Action",
+            "es": "Action"
+          },
+          "sample": 0,
+          "vendorField": "action"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "member",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "memberCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "action",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.social": {
+      "dataInterface": "TikTokSocialData",
+      "vendorInterface": "SocialEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.social",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "action": 0,
+          "followCount": 0,
+          "shareCount": 0,
+          "method": "social",
+          "msgId": "msg-1"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.social"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "action": 0,
+            "followCount": 0,
+            "shareCount": 0,
+            "method": "social",
+            "msgId": "msg-1"
+          }
+        },
+        {
+          "path": "event.data.action",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Action",
+            "es": "Action"
+          },
+          "sample": 0,
+          "vendorField": "action"
+        },
+        {
+          "path": "event.data.followCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Follow Count",
+            "es": "Follow Count"
+          },
+          "sample": 0,
+          "vendorField": "followCount"
+        },
+        {
+          "path": "event.data.shareCount",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Share Count",
+            "es": "Share Count"
+          },
+          "sample": 0,
+          "vendorField": "shareCount"
+        },
+        {
+          "path": "event.data.method",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Method",
+            "es": "Method"
+          },
+          "sample": "social",
+          "vendorField": "method"
+        },
+        {
+          "path": "event.data.msgId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Msg Id",
+            "es": "Msg Id"
+          },
+          "sample": "msg-1",
+          "vendorField": "msgId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "user",
+          "tsType": "EventUser",
+          "optional": false
+        },
+        {
+          "name": "action",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "followCount",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "shareCount",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.room_stats": {
+      "dataInterface": "TikTokRoomStatsData",
+      "vendorInterface": "RoomUserEvent",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.room_stats",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "data": {
+          "viewers": 12,
+          "totalUsers": 100,
+          "popularity": 50,
+          "anonymous": 0,
+          "topViewers": [
+            {
+              "rank": 1,
+              "score": 100,
+              "delta": 5,
+              "user": {
+                "uniqueId": "usuario_demo",
+                "nickname": "Usuario Demo",
+                "userId": "0",
+                "avatarUrl": "https://example.com/avatar.jpg"
+              }
+            }
+          ]
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.room_stats"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "viewers": 12,
+            "totalUsers": 100,
+            "popularity": 50,
+            "anonymous": 0,
+            "topViewers": [
+              {
+                "rank": 1,
+                "score": 100,
+                "delta": 5,
+                "user": {
+                  "uniqueId": "usuario_demo",
+                  "nickname": "Usuario Demo",
+                  "userId": "0",
+                  "avatarUrl": "https://example.com/avatar.jpg"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "path": "event.data.viewers",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Viewers",
+            "es": "Espectadores"
+          },
+          "i18key": "automation.event.field.event.data.viewers.label",
+          "hint": {
+            "en": "How many people are watching right now.",
+            "es": "Cuánta gente está viendo ahora mismo."
+          },
+          "sample": 12,
+          "vendorField": "viewers"
+        },
+        {
+          "path": "event.data.totalUsers",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Total Users",
+            "es": "Total Users"
+          },
+          "sample": 100,
+          "vendorField": "totalUsers"
+        },
+        {
+          "path": "event.data.popularity",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Popularity",
+            "es": "Popularity"
+          },
+          "sample": 50,
+          "vendorField": "popularity"
+        },
+        {
+          "path": "event.data.anonymous",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Anonymous",
+            "es": "Anonymous"
+          },
+          "sample": 0,
+          "vendorField": "anonymous"
+        },
+        {
+          "path": "event.data.topViewers",
+          "tsType": "JsonArray",
+          "kind": "array",
+          "optional": false,
+          "label": {
+            "en": "Top Viewers",
+            "es": "Top Viewers"
+          },
+          "sample": [
+            {
+              "rank": 1,
+              "score": 100,
+              "delta": 5,
+              "user": {
+                "uniqueId": "usuario_demo",
+                "nickname": "Usuario Demo",
+                "userId": "0",
+                "avatarUrl": "https://example.com/avatar.jpg"
+              }
+            }
+          ],
+          "vendorField": "topViewers"
+        },
+        {
+          "path": "event.data.topViewers.0.rank",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Rank",
+            "es": "Rank"
+          },
+          "sample": 1,
+          "vendorField": "topViewers.0.rank"
+        },
+        {
+          "path": "event.data.topViewers.0.score",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Score",
+            "es": "Score"
+          },
+          "sample": 100,
+          "vendorField": "topViewers.0.score"
+        },
+        {
+          "path": "event.data.topViewers.0.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 5,
+          "vendorField": "topViewers.0.delta"
+        },
+        {
+          "path": "event.data.topViewers.0.user",
+          "tsType": "EventUser",
+          "kind": "object",
+          "optional": false,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "topViewers.0.user"
+        },
+        {
+          "path": "event.data.topViewers.0.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "topViewers.0.user.userId"
+        },
+        {
+          "path": "event.data.topViewers.0.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "usuario_demo",
+          "vendorField": "topViewers.0.user.uniqueId"
+        },
+        {
+          "path": "event.data.topViewers.0.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Nickname",
+            "es": "Nickname"
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "topViewers.0.user.nickname"
+        },
+        {
+          "path": "event.data.topViewers.0.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "topViewers.0.user.avatarUrl"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "viewers",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "popularity",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "totalUser",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "anonymous",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "topViewers",
+          "tsType": "TopViewer[]",
+          "optional": false
+        },
+        {
+          "name": "rankedViewers",
+          "tsType": "TopViewer[]",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.connected": {
+      "dataInterface": "ConnectionData",
+      "vendorInterface": "ClientState",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.connected",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "data": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.connected"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.data.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo",
+          "vendorField": "uniqueId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000",
+          "vendorField": "roomId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "uniqueId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "connected",
+          "tsType": "boolean",
+          "optional": false
+        },
+        {
+          "name": "roomInfo",
+          "tsType": "RoomInfo | null",
+          "optional": false
+        },
+        {
+          "name": "giftCount",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "tiktok.disconnected": {
+      "dataInterface": "ConnectionData",
+      "vendorInterface": "ClientState",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "tiktok.disconnected",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "data": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "tiktok.disconnected"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.data.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo",
+          "vendorField": "uniqueId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000",
+          "vendorField": "roomId"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": [
+        {
+          "name": "uniqueId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "connected",
+          "tsType": "boolean",
+          "optional": false
+        },
+        {
+          "name": "roomInfo",
+          "tsType": "RoomInfo | null",
+          "optional": false
+        },
+        {
+          "name": "giftCount",
+          "tsType": "number",
+          "optional": false
+        }
+      ]
+    },
+    "points.awarded": {
+      "dataInterface": "PointsAwardedData",
+      "vendorInterface": "-",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "points.awarded",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "uniqueId": "usuario_demo",
+          "delta": 10,
+          "totalPoints": 120,
+          "level": 2,
+          "currencyName": "Points",
+          "reason": "chat"
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "points.awarded"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "delta": 10,
+            "totalPoints": 120,
+            "level": 2,
+            "currencyName": "Points",
+            "reason": "chat"
+          }
+        },
+        {
+          "path": "event.data.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "usuario_demo",
+          "vendorField": "uniqueId"
+        },
+        {
+          "path": "event.data.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Points added",
+            "es": "Puntos sumados"
+          },
+          "i18key": "automation.event.field.event.data.delta.label",
+          "hint": {
+            "en": "What went up or down in this operation.",
+            "es": "Lo que ha subido o bajado en esta operación."
+          },
+          "sample": 10,
+          "vendorField": "delta"
+        },
+        {
+          "path": "event.data.totalPoints",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Total points",
+            "es": "Puntos totales"
+          },
+          "i18key": "automation.event.field.event.data.totalPoints.label",
+          "hint": {
+            "en": "The viewer's balance after the change.",
+            "es": "El saldo del usuario después de sumar."
+          },
+          "sample": 120,
+          "vendorField": "totalPoints"
+        },
+        {
+          "path": "event.data.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Level",
+            "es": "Nivel"
+          },
+          "i18key": "automation.event.field.event.data.level.label",
+          "hint": {
+            "en": "The level reached with those points.",
+            "es": "El nivel alcanzado con esos puntos."
+          },
+          "sample": 2,
+          "vendorField": "level"
+        },
+        {
+          "path": "event.data.currencyName",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Currency Name",
+            "es": "Currency Name"
+          },
+          "sample": "Points",
+          "vendorField": "currencyName"
+        },
+        {
+          "path": "event.data.reason",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Reason",
+            "es": "Motivo"
+          },
+          "i18key": "automation.event.field.event.data.reason.label",
+          "hint": {
+            "en": "Why the points were given: chat, gift…",
+            "es": "Por qué se han dado los puntos: chat, gift…"
+          },
+          "sample": "chat",
+          "vendorField": "reason"
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": []
+    },
+    "plugin.emit": {
+      "dataInterface": "-",
+      "vendorInterface": "-",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "plugin.emit",
+        "timestamp": 0,
+        "connectionId": "conn-demo",
+        "creator": {
+          "uniqueId": "creador_demo",
+          "roomId": "0000000000"
+        },
+        "user": {
+          "uniqueId": "usuario_demo",
+          "nickname": "Usuario Demo",
+          "userId": "0",
+          "avatarUrl": "https://example.com/avatar.jpg"
+        },
+        "data": {
+          "emitType": "overlay.alert",
+          "depth": 0,
+          "payload": {}
+        },
+        "points": {
+          "delta": 10,
+          "total": 120,
+          "level": 2
+        },
+        "sourceEventId": "sample-event-source"
+      },
+      "fields": [
+        {
+          "path": "event.type",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Type",
+            "es": "Type"
+          },
+          "sample": "plugin.emit"
+        },
+        {
+          "path": "event.user",
+          "tsType": "AutomationUser",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "User",
+            "es": "User"
+          },
+          "sample": {
+            "uniqueId": "usuario_demo",
+            "nickname": "Usuario Demo",
+            "userId": "0",
+            "avatarUrl": "https://example.com/avatar.jpg"
+          },
+          "vendorField": "user"
+        },
+        {
+          "path": "event.user.userId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "User Id",
+            "es": "User Id"
+          },
+          "sample": "0",
+          "vendorField": "user.userId"
+        },
+        {
+          "path": "event.user.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Viewer",
+            "es": "Usuario"
+          },
+          "i18key": "automation.event.field.event.user.uniqueId.label",
+          "hint": {
+            "en": "The @ of whoever triggers the event.",
+            "es": "El @ de quien dispara el evento."
+          },
+          "sample": "usuario_demo",
+          "vendorField": "user.uniqueId"
+        },
+        {
+          "path": "event.user.nickname",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Display name",
+            "es": "Nombre visible"
+          },
+          "i18key": "automation.event.field.event.user.nickname.label",
+          "hint": {
+            "en": "The name TikTok shows, which can change.",
+            "es": "El nombre que muestra TikTok, que puede cambiar."
+          },
+          "sample": "Usuario Demo",
+          "vendorField": "user.nickname"
+        },
+        {
+          "path": "event.user.avatarUrl",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Avatar Url",
+            "es": "Avatar Url"
+          },
+          "sample": "https://example.com/avatar.jpg",
+          "vendorField": "user.avatarUrl"
+        },
+        {
+          "path": "event.creator",
+          "tsType": "AutomationCreator",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Creator",
+            "es": "Creator"
+          },
+          "sample": {
+            "uniqueId": "creador_demo",
+            "roomId": "0000000000"
+          }
+        },
+        {
+          "path": "event.creator.uniqueId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Unique Id",
+            "es": "Unique Id"
+          },
+          "sample": "creador_demo"
+        },
+        {
+          "path": "event.creator.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "sample": "0000000000"
+        },
+        {
+          "path": "event.data",
+          "tsType": "object",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Data",
+            "es": "Data"
+          },
+          "sample": {
+            "emitType": "overlay.alert",
+            "depth": 0,
+            "payload": {}
+          }
+        },
+        {
+          "path": "event.data.emitType",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Emitted type",
+            "es": "Tipo emitido"
+          },
+          "i18key": "automation.event.field.event.data.emitType.label",
+          "hint": {
+            "en": "The name the action or plugin emitted.",
+            "es": "El nombre que emitió la acción o el plugin."
+          },
+          "sample": "overlay.alert"
+        },
+        {
+          "path": "event.data.depth",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Depth",
+            "es": "Depth"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.data.payload",
+          "tsType": "JsonValue",
+          "kind": "unknown",
+          "optional": false,
+          "label": {
+            "en": "Payload",
+            "es": "Payload"
+          },
+          "sample": {}
+        },
+        {
+          "path": "event.timestamp",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Timestamp",
+            "es": "Timestamp"
+          },
+          "sample": 0
+        },
+        {
+          "path": "event.id",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Id",
+            "es": "Id"
+          },
+          "sample": "sample-event"
+        },
+        {
+          "path": "event.connectionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Connection Id",
+            "es": "Connection Id"
+          },
+          "sample": "conn-demo"
+        },
+        {
+          "path": "event.points",
+          "tsType": "AutomationPoints",
+          "kind": "object",
+          "optional": true,
+          "label": {
+            "en": "Points",
+            "es": "Points"
+          },
+          "sample": {
+            "delta": 10,
+            "total": 120,
+            "level": 2
+          }
+        },
+        {
+          "path": "event.points.delta",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Delta",
+            "es": "Delta"
+          },
+          "sample": 10
+        },
+        {
+          "path": "event.points.total",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Total",
+            "es": "Total"
+          },
+          "sample": 120
+        },
+        {
+          "path": "event.points.level",
+          "tsType": "number",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Level",
+            "es": "Level"
+          },
+          "sample": 2
+        },
+        {
+          "path": "event.sourceEventId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Source Event Id",
+            "es": "Source Event Id"
+          },
+          "sample": "sample-event-source"
+        }
+      ],
+      "vendorFields": []
+    }
+  }
+}

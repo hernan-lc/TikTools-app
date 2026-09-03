@@ -1,5 +1,6 @@
 import type { AutomationCapabilities } from '../capabilities.ts';
 import type { AutomationEvent, AutomationEventType, JsonValue } from '../types.ts';
+import { sampleEventForType } from '../event-registry.ts';
 import { ActionRegistry } from './action-registry.ts';
 import { createBuiltInActionRegistry } from './builtins.ts';
 import { resolveActionConfig } from './action-config.ts';
@@ -157,20 +158,13 @@ export function matchesFilter(filter: EventFilter, event: AutomationEvent): bool
   }
 }
 
+/**
+ * Sample event for tests and dry runs. Shapes and values come from the
+ * generated event registry (`bun run registry:events`), not from a
+ * hardcoded switch — update the schemes and the samples follow.
+ */
 export function sampleEventFor(type: AutomationEventType): AutomationEvent {
-  const base: AutomationEvent = {
-    id: 'sample-event', type, timestamp: Date.now(),
-    user: { uniqueId: 'usuario_demo', nickname: 'Usuario Demo', userId: '0' },
-    creator: { uniqueId: 'creador_demo', roomId: '0000000000' }, data: {},
-  };
-  switch (type) {
-    case 'tiktok.gift': return { ...base, data: { giftId: '5655', giftName: 'Rosa', diamondCount: 1, repeatCount: 1, comboCount: 1, groupId: '0', repeatEnd: true, streakable: false } };
-    case 'tiktok.chat': return { ...base, data: { comment: 'hola desde la prueba', method: 'chat', isHistory: false } };
-    case 'tiktok.like': return { ...base, data: { count: 5, total: 120, method: 'like' } };
-    case 'points.awarded': return { ...base, data: { uniqueId: 'usuario_demo', delta: 10, totalPoints: 120, level: 2, currencyName: 'Points', reason: 'chat' } };
-    case 'plugin.emit': return { ...base, data: { emitType: 'overlay.alert', depth: 0, payload: {} } };
-    default: return base;
-  }
+  return sampleEventForType(type);
 }
 
 function readString(value: JsonValue | undefined): string {
