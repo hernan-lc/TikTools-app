@@ -168,6 +168,57 @@
 .ui-stat__value{ font-size:20px; font-weight:800; letter-spacing:-0.02em; }
 .ui-stat__label{ font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; }
 
+/* ---- Floating-label (MUI-style minimalist) ----
+   Label lives INSIDE the control when empty, floats to the top border
+   on focus / filled. Hints live behind ⓘ only — never as paragraphs. */
+.ui-float { position:relative; display:flex; flex-direction:column; width:100%; }
+.ui-float__control {
+  position:relative; display:flex; align-items:stretch;
+  width:100%; min-height:48px; border-radius:9px;
+  background:var(--input-bg); border:1px solid var(--line);
+  transition:border-color .15s, box-shadow .15s;
+}
+.ui-float__control:focus-within { border-color:var(--line-focus); box-shadow:0 0 0 3px rgba(37,244,238,0.13); }
+.ui-float.has-error .ui-float__control { border-color:rgba(239,71,111,0.45); }
+.ui-float.is-disabled { opacity:0.45; pointer-events:none; }
+.ui-float__control input, .ui-float__control select, .ui-float__control textarea {
+  flex:1; min-width:0; border:none; outline:none; background:transparent;
+  color:var(--text); font-size:13px; padding:20px 12px 6px;
+}
+.ui-float__control textarea { padding-top:22px; min-height:88px; resize:vertical; line-height:1.5; }
+.ui-float__control select { padding-right:28px; appearance:none; cursor:pointer; height:48px; }
+.ui-float__label {
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  display:inline-flex; align-items:center; gap:4px; max-width:calc(100% - 20px);
+  font-size:13px; font-weight:400; color:var(--text-muted);
+  pointer-events:none; transition:all .15s ease; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}
+.ui-float__control--textarea .ui-float__label { top:24px; }
+.ui-float__control:focus-within .ui-float__label,
+.ui-float.is-filled .ui-float__label {
+  top:0; transform:translateY(-50%) scale(0.82); transform-origin:left top;
+  background:var(--panel-elevated, var(--panel-solid, var(--input-bg)));
+  padding:0 5px; border-radius:4px; color:var(--text-secondary); font-weight:600;
+  pointer-events:auto; max-width:calc(100% - 8px);
+}
+.ui-float__control:focus-within .ui-float__label { color:var(--tt-cyan); }
+.ui-float__label .ui-infotip { pointer-events:auto; width:14px; height:14px; }
+.ui-float__badge {
+  align-self:center; margin-right:8px; padding:1px 6px; border-radius:5px;
+  border:1px solid rgba(37,244,238,0.35); background:rgba(37,244,238,0.08);
+  color:var(--tt-cyan); font-family:ui-monospace,monospace; font-size:10px; font-weight:700;
+  cursor:help; flex-shrink:0;
+}
+.ui-float__prefix { align-self:center; padding-left:12px; color:var(--tt-pink); font-weight:700; font-size:14px; }
+.ui-float__control:has(.ui-float__prefix) input { padding-left:6px; }
+.ui-float__control:has(.ui-float__prefix) .ui-float__label { left:30px; }
+.ui-float__suffix { align-self:center; padding-right:10px; font-size:12px; color:var(--text-muted); white-space:nowrap; }
+.ui-float__clear { position:absolute; right:8px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:50%; background:transparent; border:none; color:var(--text-muted); cursor:pointer; }
+.ui-float__arrow { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none; font-size:10px; }
+.ui-float__error { font-size:11px; color:var(--tt-danger); font-weight:600; margin-top:4px; }
+.ui-float__tokens { font-size:11px; color:var(--text-muted); margin-top:4px; display:flex; justify-content:space-between; gap:8px; }
+
 /* ---- Mobile ---- */
 @media (max-width: 640px) {
   .ui-page { padding:12px; gap:12px; }

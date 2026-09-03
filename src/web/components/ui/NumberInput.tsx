@@ -1,4 +1,5 @@
 import { useRef, useImperativeHandle, forwardRef } from 'preact/compat';
+import { InfoTip } from './InfoTip.tsx';
 
 export type NumberInputHandle = {
   getValue: () => number;
@@ -17,6 +18,10 @@ type NumberInputProps = {
   id?: string;
   suffix?: string;
   placeholder?: string;
+  /** MUI-style floating label. */
+  label?: string;
+  /** Tooltip-only explanation (ⓘ). */
+  hint?: string;
 };
 
 function clamp(v: number, min?: number, max?: number): number {
@@ -33,7 +38,7 @@ function toFixedStep(v: number, step?: number): number {
 }
 
 export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(function NumberInput(
-  { value, onValueChange, min, max, step = 1, disabled, error, id, suffix, placeholder },
+  { value, onValueChange, min, max, step = 1, disabled, error, id, suffix, placeholder, label, hint },
   ref,
 ) {
   const innerRef = useRef<HTMLInputElement>(null);
@@ -56,6 +61,38 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
     const next = clamp(toFixedStep(value + dir * step, step), min, max);
     onValueChange(next);
   };
+
+  if (label) {
+    return (
+      <div className={`ui-float is-filled ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+        <div className="ui-float__control">
+          <input
+            ref={innerRef}
+            id={id}
+            type="number"
+            value={String(value)}
+            min={min}
+            max={max}
+            step={step}
+            disabled={disabled}
+            placeholder=" "
+            aria-invalid={Boolean(error)}
+            aria-label={label}
+            onInput={handleInput}
+          />
+          <label className="ui-float__label" htmlFor={id}>
+            {label}
+            {hint ? <InfoTip text={hint} position="right" /> : null}
+          </label>
+          <div className="ui-number__steppers" aria-hidden>
+            <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(1)}>▲</button>
+            <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(-1)}>▼</button>
+          </div>
+          {suffix ? <span className="ui-float__suffix">{suffix}</span> : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`ui-number ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>

@@ -662,9 +662,43 @@
   .plg-table__actions { justify-content: flex-end; }
 }
 
-/* ---- form density: a minimal form with the explanations behind an icon ---- */
+/* ---- form density: a minimal form with the explanations behind an icon ----
+   MUI-style floating labels: label inside when empty, floats to top on focus/filled. */
 .plg-form__main { max-width: 720px; }
 .plg-form__schema { display: flex; flex-direction: column; gap: 14px; }
+.plg-float { position: relative; display: flex; flex-direction: column; width: 100%; }
+.plg-float__control {
+  position: relative; display: flex; align-items: stretch;
+  width: 100%; min-height: 48px; border: 1px solid var(--plg-line); border-radius: 8px;
+  background: var(--plg-field); transition: border-color 0.15s;
+}
+.plg-float__control:focus-within { border-color: var(--plg-accent); }
+.plg-float__control input, .plg-float__control select, .plg-float__control textarea {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  color: var(--plg-text); font-size: 13px; padding: 20px 12px 6px;
+}
+.plg-float__control textarea { padding-top: 22px; min-height: 88px; resize: vertical; line-height: 1.6; font-family: var(--plg-mono); font-size: 12.5px; }
+.plg-float__control select { height: 48px; padding-right: 28px; appearance: none; cursor: pointer; }
+.plg-float__label {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 5px; max-width: calc(100% - 20px);
+  font-size: 13px; font-weight: 400; color: var(--plg-dim);
+  pointer-events: none; transition: all .15s ease; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.plg-float__control--textarea .plg-float__label { top: 24px; }
+.plg-float__control:focus-within .plg-float__label, .plg-float.is-filled .plg-float__label {
+  top: 0; transform: translateY(-50%) scale(0.82); transform-origin: left top;
+  background: var(--plg-surface); padding: 0 5px; border-radius: 4px;
+  color: var(--plg-muted); font-weight: 600; pointer-events: auto;
+}
+.plg-float__arrow { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--plg-dim); pointer-events: none; font-size: 10px; }
+.plg-float__badge {
+  align-self: center; margin-right: 8px; padding: 1px 6px; border-radius: 5px;
+  border: 1px solid rgba(37,244,238,0.35); background: rgba(37,244,238,0.08);
+  color: var(--tt-cyan, #25f4ee); font-family: var(--plg-mono); font-size: 10px; font-weight: 700;
+  cursor: help; flex-shrink: 0;
+}
 .plg-label-row { display: flex; align-items: center; gap: 6px; }
 .plg-switch-row { display: flex; align-items: center; gap: 10px; }
 .plg-switch-row .plg-label { cursor: pointer; }

@@ -4,6 +4,7 @@ import type { TemplateSuggestion } from './template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
 import { AutocompletePortal } from './AutocompletePortal.tsx';
+import { InfoTip } from '../ui/InfoTip.tsx';
 
 /** Anything list-like works: TemplateSuggestion is an AutocompleteItem. */
 export type TemplateFieldSuggestion = TemplateSuggestion | AutocompleteItem;
@@ -19,6 +20,13 @@ type TemplateFieldProps = {
   ariaLabel?: string;
   /** Ctrl/Cmd+Space always reopens; Escape closes. */
   hintText?: string;
+  /** MUI-style floating label. When set, label lives inside until focus/filled. */
+  label?: string;
+  /** Tooltip-only explanation (ⓘ) attached to the floating label. */
+  hint?: string;
+  /** Show the `{{ }}` badge inside the control. */
+  template?: boolean;
+  templateHint?: string;
 };
 
 function toItem(suggestion: TemplateFieldSuggestion): AutocompleteItem & { label: string; value: string } {
@@ -52,6 +60,10 @@ export function TemplateField({
   rows = 4,
   ariaLabel,
   hintText,
+  label,
+  hint,
+  template,
+  templateHint,
 }: TemplateFieldProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -150,7 +162,7 @@ export function TemplateField({
       className="node-editor-template-control node-editor-template-control--textarea"
       value={value}
       rows={rows}
-      placeholder={placeholder}
+      placeholder={label ? ' ' : placeholder}
       {...shared}
     />
   ) : (
@@ -159,10 +171,74 @@ export function TemplateField({
       className="node-editor-template-control"
       type="text"
       value={value}
-      placeholder={placeholder}
+      placeholder={label ? ' ' : placeholder}
       {...shared}
     />
   );
+
+  if (label) {
+    const filled = value.trim().length > 0;
+    return (
+      <div ref={fieldRef} className={`node-editor-template-field node-editor-template-field--float ${filled ? 'is-filled' : ''} ${multiline ? 'is-multiline' : ''}`}>
+        <div className="node-editor-template-control-wrap">
+          {control}
+          <label className="node-editor-float-label">
+            <span className="node-editor-float-label__text">{label}</span>
+            {hint ? <InfoTip text={hint} position="right" /> : null}
+          </label>
+          {template ? (
+            <span
+              className="node-editor-float-badge"
+              data-tooltip={templateHint ?? 'Accepts {{ event.* }}'}
+              data-tooltip-pos="left"
+              data-tooltip-wide=""
+            >
+              {'{{ }}'}
+            </span>
+          ) : null}
+        </div>
+        <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
+          <div className="node-editor-template-suggestions node-editor-template-suggestions--rich" role="listbox" aria-label={ariaLabel ?? label ?? 'Suggestions'}>
+            <div className="node-editor-template-suggestions__list">
+              {visible.map(({ item, ranges }, index) => (
+                <SuggestionRow
+                  key={item.value}
+                  item={item}
+                  ranges={ranges}
+                  selected={index === suggestionIndex}
+                  onHover={() => setSuggestionIndex(index)}
+                  onPick={() => insertSuggestion(item)}
+                />
+              ))}
+            </div>
+            {activeEntry ? (
+              <div className="node-editor-template-suggestions__detail" role="note">
+                <code className="node-editor-template-suggestions__detail-path">{activeEntry.item.value}</code>
+                <div className="node-editor-template-suggestions__detail-meta">
+                  {activeEntry.item.detail ?? activeEntry.item.kind ? (
+                    <span className="node-editor-template-suggestions__type">{activeEntry.item.detail ?? activeEntry.item.kind}</span>
+                  ) : null}
+                  {activeEntry.item.preview ? (
+                    <span className="node-editor-template-suggestions__preview" title={activeEntry.item.preview}>
+                      = {activeEntry.item.preview}
+                    </span>
+                  ) : null}
+                </div>
+                {activeEntry.item.documentation ? (
+                  <span className="node-editor-template-suggestions__doc">{activeEntry.item.documentation}</span>
+                ) : null}
+                {!activeEntry.item.documentation && !activeEntry.item.preview ? (
+                  <span className="node-editor-template-suggestions__doc node-editor-template-suggestions__doc--muted">
+                    {hintText ?? 'Tab ↵ · ↑ ↓'}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </AutocompletePortal>
+      </div>
+    );
+  }
 
   return (
     <div ref={fieldRef} className="node-editor-template-field">

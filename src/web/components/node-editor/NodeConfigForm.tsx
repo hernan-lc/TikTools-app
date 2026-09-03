@@ -10,7 +10,6 @@ import type {
   NodeDefinition,
   WorkflowNode,
 } from '../../../automation/types.ts';
-import { FormField } from '../ui/FormField.tsx';
 import { TextInput } from '../ui/TextInput.tsx';
 import { NumberInput } from '../ui/NumberInput.tsx';
 import { Select } from '../ui/Select.tsx';
@@ -35,7 +34,6 @@ type NodeConfigFormProps = {
 };
 
 export function NodeConfigForm({ locale, node, definition, analysis, eventType, lastEvent, onChange, onAnalyzeScript }: NodeConfigFormProps) {
-  const ui = formLabels(locale);
   const update = (key: string, value: JsonValue): void => onChange({ ...node.config, [key]: value });
   const config = node.config;
   const templateValues = (scope: TemplateSuggestionScope = 'message') => getTemplateSuggestions(eventType, locale, lastEvent, scope);
@@ -48,56 +46,50 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'trigger.event':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.eventType} hint={ui.eventTypeHint}>
-            <Select
-              value={asString(config.eventType, 'tiktok.chat')}
-              options={WORKFLOW_EVENT_CHOICES.map((choice) => ({ value: choice.value, label: i18nText(locale, choice.label) }))}
-              onValueChange={(value) => update('eventType', value)}
-            />
-          </FormField>
+          <Select
+            label={t(locale, 'nodeEventType')}
+            hint={t(locale, 'nodeEventTypeHint')}
+            value={asString(config.eventType, 'tiktok.chat')}
+            options={WORKFLOW_EVENT_CHOICES.map((choice) => ({ value: choice.value, label: i18nText(locale, choice.label) }))}
+            onValueChange={(value) => update('eventType', value)}
+          />
         </div>
       );
     case 'condition.compare':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.valuePath} hint={ui.valuePathHint}>
-            <TemplateField
-              value={asString(config.leftPath)}
-              onValueChange={(value) => update('leftPath', value)}
-              suggestions={templateValues('compare')}
-              suggestionMode="path"
-              placeholder="event.data.diamondCount"
-            />
-          </FormField>
-          <FormField label={ui.operator}>
-            <Select
-              value={asString(config.operator, 'equals')}
-              options={[
-                ['equals', ui.equals],
-                ['not-equals', ui.notEquals],
-                ['greater-than', ui.greaterThan],
-                ['greater-or-equal', ui.greaterOrEqual],
-                ['less-than', ui.lessThan],
-                ['less-or-equal', ui.lessOrEqual],
-                ['contains', ui.contains],
-                ['starts-with', ui.startsWith],
-                ['truthy', ui.truthy],
-                ['falsy', ui.falsy],
-              ].map(([value, label]) => ({ value: value ?? '', label: label ?? '' }))}
-              onValueChange={(value) => update('operator', value)}
-            />
-          </FormField>
-          <FormField label={ui.compareWith} hint={ui.compareWithHint}>
-            <TextInput value={formatValue(config.right)} onValueChange={(value) => update('right', parseValue(value))} placeholder="100" />
-          </FormField>
+          <TemplateField
+            label={t(locale, 'nodeValuePath')}
+            hint={t(locale, 'nodeValuePathHint')}
+            value={asString(config.leftPath)}
+            onValueChange={(value) => update('leftPath', value)}
+            suggestions={templateValues('compare')}
+            suggestionMode="path"
+          />
+          <Select
+            label={t(locale, 'nodeOperator')}
+            value={asString(config.operator, 'equals')}
+            options={[
+              ['equals', t(locale, 'nodeEquals')],
+              ['not-equals', t(locale, 'nodeNotEquals')],
+              ['greater-than', t(locale, 'nodeGreaterThan')],
+              ['greater-or-equal', t(locale, 'nodeGreaterOrEqual')],
+              ['less-than', t(locale, 'nodeLessThan')],
+              ['less-or-equal', t(locale, 'nodeLessOrEqual')],
+              ['contains', t(locale, 'nodeContains')],
+              ['starts-with', t(locale, 'nodeStartsWith')],
+              ['truthy', t(locale, 'nodeTruthy')],
+              ['falsy', t(locale, 'nodeFalsy')],
+            ].map(([value, label]) => ({ value: value ?? '', label: label ?? '' }))}
+            onValueChange={(value) => update('operator', value)}
+          />
+          <TextInput label={t(locale, 'nodeCompareWith')} hint={t(locale, 'nodeCompareWithHint')} value={formatValue(config.right)} onValueChange={(value) => update('right', parseValue(value))} />
         </div>
       );
     case 'transform.template':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.template} hint={ui.templateHint}>
-            <TemplateField value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
-          </FormField>
+          <TemplateField label={t(locale, 'nodeTemplate')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
     case 'transform.script':
@@ -105,28 +97,20 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'control.delay':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.delay} hint={ui.delayHint}>
-            <NumberInput value={asNumber(config.delayMs)} min={0} max={3_600_000} step={100} suffix="ms" onValueChange={(value) => update('delayMs', value)} />
-          </FormField>
+          <NumberInput label={t(locale, 'nodeDelay')} hint={t(locale, 'nodeDelayHint')} value={asNumber(config.delayMs)} min={0} max={3_600_000} step={100} suffix="ms" onValueChange={(value) => update('delayMs', value)} />
         </div>
       );
     case 'control.cooldown':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.duration} hint={ui.cooldownHint}>
-            <NumberInput value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
-          </FormField>
-          <FormField label={ui.cooldownKey}>
-            <TemplateField value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} placeholder="{{ event.user.uniqueId }}" />
-          </FormField>
+          <NumberInput label={t(locale, 'nodeDuration')} hint={t(locale, 'nodeCooldownHint')} value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
+          <TemplateField label={t(locale, 'nodeCooldownKey')} value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} />
         </div>
       );
     case 'action.log':
       return (
         <div className="node-editor-form-stack">
-        <FormField label={ui.message} hint={ui.templateHint}>
-            <TemplateField value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
-          </FormField>
+          <TemplateField label={t(locale, 'nodeMessage')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
     case 'action.http':
@@ -134,43 +118,25 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'action.play-sound':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.filePath} hint={ui.filePathHint}>
-            <TemplateField value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} placeholder="assets/sounds/alert.wav" />
-          </FormField>
-          <FormField label={ui.volume}>
-            <NumberInput value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
-          </FormField>
-          <FormField label={ui.overlap}>
-            <Select value={asString(config.overlap, 'allow')} options={[{ value: 'allow', label: ui.allowOverlap }, { value: 'restart', label: ui.restartOverlap }, { value: 'drop', label: ui.dropOverlap }]} onValueChange={(value) => update('overlap', value)} />
-          </FormField>
+          <TemplateField label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} />
+          <NumberInput label={t(locale, 'nodeVolume')} value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
+          <Select label={t(locale, 'nodeOverlap')} value={asString(config.overlap, 'allow')} options={[{ value: 'allow', label: t(locale, 'nodeAllowOverlap') }, { value: 'restart', label: t(locale, 'nodeRestartOverlap') }, { value: 'drop', label: t(locale, 'nodeDropOverlap') }]} onValueChange={(value) => update('overlap', value)} />
         </div>
       );
     case 'action.tts':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.text} hint={ui.templateHint}>
-            <TemplateField value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
-          </FormField>
-          <FormField label={ui.voice}>
-            <TextInput value={asString(config.voice, 'M1')} onValueChange={(value) => update('voice', value)} placeholder="M1" />
-          </FormField>
-          <FormField label={ui.language}>
-            <Select value={asString(config.lang, 'en')} options={[{ value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]} onValueChange={(value) => update('lang', value)} />
-          </FormField>
-          <FormField label={ui.audioFormat}>
-            <Select value={asString(config.format, 'wav')} options={[{ value: 'wav', label: 'WAV' }, { value: 'ogg', label: 'OGG' }]} onValueChange={(value) => update('format', value)} />
-          </FormField>
+          <TemplateField label={t(locale, 'nodeText')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
+          <TextInput label={t(locale, 'nodeVoice')} value={asString(config.voice, 'M1')} onValueChange={(value) => update('voice', value)} />
+          <Select label={t(locale, 'nodeLanguage')} value={asString(config.lang, 'en')} options={[{ value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]} onValueChange={(value) => update('lang', value)} />
+          <Select label={t(locale, 'nodeAudioFormat')} value={asString(config.format, 'wav')} options={[{ value: 'wav', label: 'WAV' }, { value: 'ogg', label: 'OGG' }]} onValueChange={(value) => update('format', value)} />
         </div>
       );
     case 'action.adjust-points':
       return (
         <div className="node-editor-form-stack">
-          <FormField label={ui.viewer} hint={ui.viewerHint}>
-            <TemplateField value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} placeholder="{{ event.user.uniqueId }}" />
-          </FormField>
-          <FormField label={ui.delta}>
-            <NumberInput value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
-          </FormField>
+          <TemplateField label={t(locale, 'nodeViewer')} hint={t(locale, 'nodeViewerHint')} value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} />
+          <NumberInput label={t(locale, 'nodeDelta')} value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
         </div>
       );
     default:
@@ -241,54 +207,62 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
         <span>{t(locale, 'scriptEditor')}</span>
         <small>{lastEvent ? `${t(locale, 'lastEventContext')}: ${lastEvent.type}` : t(locale, 'noLastEventContext')}</small>
       </div>
-      <FormField label={t(locale, 'scriptEditor')} hint={t(locale, 'scriptEditorHint')}>
-        <div ref={completionAnchorRef} className="node-editor-script-editor">
-          <textarea
-            ref={textareaRef}
-            className="node-editor-form-textarea node-editor-form-textarea--code"
-            value={source}
-            rows={12}
-            spellcheck={false}
-            onFocus={() => setCompletionOpen(true)}
-            onKeyDown={handleCompletionKeyDown}
-            onInput={(event) => {
-              const target = event.currentTarget;
-              change(target.value, target.selectionStart ?? target.value.length);
-            }}
-            onKeyUp={(event) => {
-              if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Tab' || event.key === 'Enter' || event.key === 'Escape') return;
-              setCursor(event.currentTarget.selectionStart ?? source.length);
-              onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
-            }}
-            onClick={(event) => {
-              setCursor(event.currentTarget.selectionStart ?? source.length);
-              onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
-            }}
-          />
-          <AutocompletePortal anchorRef={completionAnchorRef} cursorRef={textareaRef} cursorOffset={cursor} open={completionOpen && visibleCompletions.length > 0}>
-            <div className="node-editor-code-completions" role="listbox">
-              {visibleCompletions.map((completion, index) => (
-                <button
-                  key={`${completion.kind}:${completion.label}`}
-                  type="button"
-                  role="option"
-                  aria-selected={index === completionIndex}
-                  className={index === completionIndex ? 'is-selected' : ''}
-                  title={completion.documentation ?? completion.detail ?? completion.label}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setCompletionIndex(index)}
-                  onClick={() => applyCompletion(completion)}
-                >
-                  <strong>{completion.label}</strong>
-                  <span>{completion.detail ?? completion.kind}</span>
-                  {completion.valueSource === 'live-event' && completion.value !== undefined ? <code>{formatEditorValue(completion.value)}</code> : null}
-                </button>
-              ))}
-              <small>↑ ↓ {locale === 'es' ? 'navegar' : 'navigate'} · Tab {locale === 'es' ? 'insertar' : 'insert'}</small>
-            </div>
-          </AutocompletePortal>
+      <div className={`plg-float ${source.trim().length > 0 ? 'is-filled' : ''}`}>
+        <div className="plg-float__control plg-float__control--textarea">
+          <div ref={completionAnchorRef} className="node-editor-script-editor" style={{ flex: 1, display: 'flex' }}>
+            <textarea
+              ref={textareaRef}
+              className="node-editor-form-textarea node-editor-form-textarea--code"
+              style={{ border: 'none', background: 'transparent', flex: 1 }}
+              value={source}
+              rows={12}
+              spellcheck={false}
+              placeholder=" "
+              aria-label={t(locale, 'scriptEditor')}
+              onFocus={() => setCompletionOpen(true)}
+              onKeyDown={handleCompletionKeyDown}
+              onInput={(event) => {
+                const target = event.currentTarget;
+                change(target.value, target.selectionStart ?? target.value.length);
+              }}
+              onKeyUp={(event) => {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Tab' || event.key === 'Enter' || event.key === 'Escape') return;
+                setCursor(event.currentTarget.selectionStart ?? source.length);
+                onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+              }}
+              onClick={(event) => {
+                setCursor(event.currentTarget.selectionStart ?? source.length);
+                onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+              }}
+            />
+            <AutocompletePortal anchorRef={completionAnchorRef} cursorRef={textareaRef} cursorOffset={cursor} open={completionOpen && visibleCompletions.length > 0}>
+              <div className="node-editor-code-completions" role="listbox">
+                {visibleCompletions.map((completion, index) => (
+                  <button
+                    key={`${completion.kind}:${completion.label}`}
+                    type="button"
+                    role="option"
+                    aria-selected={index === completionIndex}
+                    className={index === completionIndex ? 'is-selected' : ''}
+                    title={completion.documentation ?? completion.detail ?? completion.label}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setCompletionIndex(index)}
+                    onClick={() => applyCompletion(completion)}
+                  >
+                    <strong>{completion.label}</strong>
+                    <span>{completion.detail ?? completion.kind}</span>
+                    {completion.valueSource === 'live-event' && completion.value !== undefined ? <code>{formatEditorValue(completion.value)}</code> : null}
+                  </button>
+                ))}
+                <small>↑ ↓ {t(locale, 'navigate')} · Tab {t(locale, 'insertAction')}</small>
+              </div>
+            </AutocompletePortal>
+          </div>
+          <label className="plg-float__label">
+            {t(locale, 'scriptEditor')}
+          </label>
         </div>
-      </FormField>
+      </div>
       {analysis?.diagnostics.length ? (
         <div className="node-editor-diagnostics" role="status">
           {analysis.diagnostics.map((diagnostic, index) => <div key={`${diagnostic.line}:${diagnostic.column}:${index}`} className="node-editor-diagnostic"><span>{diagnostic.line}:{diagnostic.column}</span> {diagnostic.message}</div>)}
@@ -310,41 +284,25 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
 }
 
 function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { locale: Locale; eventType?: AutomationEventType; lastEvent?: AutomationEvent; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
-  const ui = formLabels(locale);
   const templateValues = (scope: TemplateSuggestionScope) => getTemplateSuggestions(eventType, locale, lastEvent, scope);
   return (
     <div className="node-editor-form-stack">
-      <FormField label={ui.method}>
-        <Select value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
-      </FormField>
-      <FormField label={ui.url} hint={ui.templateHint}>
-        <TemplateField value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} placeholder="https://api.example.com/..." />
-      </FormField>
-      <FormField label={ui.requestBody}>
-        <TemplateField value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} placeholder="Optional request body" />
-      </FormField>
-      <FormField label={ui.headers} hint={ui.headersHint}>
-        <TemplateField value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} placeholder="Authorization: Bearer {{ event.data.token }}" />
-      </FormField>
-      <FormField label={ui.timeout}>
-        <NumberInput value={asNumber(config.timeoutMs, 10000)} min={100} max={120000} step={100} suffix="ms" onValueChange={(value) => onChange('timeoutMs', value)} />
-      </FormField>
-      <FormField label={ui.responseType}>
-        <Select value={asString(config.responseType, 'auto')} options={[{ value: 'auto', label: 'Auto' }, { value: 'json', label: 'JSON' }, { value: 'text', label: 'Text' }, { value: 'bytes', label: 'Bytes' }]} onValueChange={(value) => onChange('responseType', value)} />
-      </FormField>
-      <FormField label={ui.redirect}>
-        <Select value={asString(config.redirect, 'error')} options={[{ value: 'error', label: ui.blockRedirects }, { value: 'follow', label: ui.followRedirects }]} onValueChange={(value) => onChange('redirect', value)} />
-      </FormField>
-      <Checkbox checked={config.allowPrivateNetwork === true} onCheckedChange={(value) => onChange('allowPrivateNetwork', value)} label={ui.allowPrivateNetwork} />
+      <Select label={t(locale, 'nodeMethod')} value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
+      <TemplateField label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} />
+      <TemplateField label={t(locale, 'nodeRequestBody')} value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} />
+      <TemplateField label={t(locale, 'nodeHeaders')} hint={t(locale, 'nodeHeadersHint')} value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} />
+      <NumberInput label={t(locale, 'nodeTimeout')} value={asNumber(config.timeoutMs, 10000)} min={100} max={120000} step={100} suffix="ms" onValueChange={(value) => onChange('timeoutMs', value)} />
+      <Select label={t(locale, 'nodeResponseType')} value={asString(config.responseType, 'auto')} options={[{ value: 'auto', label: 'Auto' }, { value: 'json', label: 'JSON' }, { value: 'text', label: 'Text' }, { value: 'bytes', label: 'Bytes' }]} onValueChange={(value) => onChange('responseType', value)} />
+      <Select label={t(locale, 'nodeRedirect')} value={asString(config.redirect, 'error')} options={[{ value: 'error', label: t(locale, 'nodeBlockRedirects') }, { value: 'follow', label: t(locale, 'nodeFollowRedirects') }]} onValueChange={(value) => onChange('redirect', value)} />
+      <Checkbox checked={config.allowPrivateNetwork === true} onCheckedChange={(value) => onChange('allowPrivateNetwork', value)} label={t(locale, 'nodeAllowPrivateNetwork')} />
     </div>
   );
 }
 
 function GenericConfigForm({ locale, node, definition, onChange }: { locale: Locale; node: WorkflowNode; definition?: NodeDefinition; onChange: (config: JsonObject) => void }) {
-  const ui = formLabels(locale);
-  if (!definition || !isJsonObject(definition.configSchema)) return <p className="node-editor-form-empty">{ui.noForm}</p>;
+  if (!definition || !isJsonObject(definition.configSchema)) return <GenericConfigFormNoForm locale={locale} />;
   const properties = definition.configSchema.properties;
-  if (!properties || typeof properties !== 'object' || Array.isArray(properties) || Object.keys(properties).length === 0) return <p className="node-editor-form-empty">{ui.noForm}</p>;
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties) || Object.keys(properties).length === 0) return <GenericConfigFormNoForm locale={locale} />;
   return <SchemaForm locale={locale} schema={definition.configSchema} value={node.config} onChange={onChange} />;
 }
 
@@ -396,13 +354,6 @@ function isJsonObject(value: JsonValue | undefined): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function formLabels(locale: Locale) {
-  if (locale === 'es') {
-    return {
-      eventType: 'Evento que activa el flujo', eventTypeHint: 'El flujo comenzará cuando ocurra este evento.', valuePath: 'Valor del evento', valuePathHint: 'Ejemplo: event.data.diamondCount', operator: 'Operador', equals: 'Es igual a', notEquals: 'No es igual a', greaterThan: 'Es mayor que', greaterOrEqual: 'Es mayor o igual que', lessThan: 'Es menor que', lessOrEqual: 'Es menor o igual que', contains: 'Contiene', startsWith: 'Comienza con', truthy: 'Es verdadero', falsy: 'Es falso', compareWith: 'Comparar con', compareWithHint: 'Los números se guardan como números automáticamente.', template: 'Texto o plantilla', templateHint: 'Puedes usar valores como {{ event.user.uniqueId }}.', delay: 'Esperar', delayHint: 'Tiempo que se espera antes del siguiente paso.', duration: 'Duración', cooldownHint: 'El mismo usuario no podrá repetir el flujo durante este tiempo.', cooldownKey: 'Clave del cooldown', message: 'Mensaje', filePath: 'Archivo de sonido', filePathHint: 'Ruta local del archivo de audio.', volume: 'Volumen', overlap: 'Si ya está sonando', allowOverlap: 'Permitir mezcla', restartOverlap: 'Reiniciar sonido', dropOverlap: 'Ignorar nuevo sonido', text: 'Texto', voice: 'Voz', language: 'Idioma', audioFormat: 'Formato de audio', viewer: 'Usuario', viewerHint: 'Usa {{ event.user.uniqueId }} para el usuario del evento.', delta: 'Puntos a ajustar', method: 'Método', url: 'URL', requestBody: 'Cuerpo de la petición', headers: 'Cabeceras', headersHint: 'Una cabecera por línea: Nombre: valor', timeout: 'Tiempo máximo', responseType: 'Respuesta', redirect: 'Redirecciones', blockRedirects: 'Bloquear redirecciones', followRedirects: 'Seguir redirecciones', allowPrivateNetwork: 'Permitir red local', noForm: 'Este nodo no tiene opciones configurables.',
-    };
-  }
-  return {
-    eventType: 'Trigger event', eventTypeHint: 'The workflow starts when this event occurs.', valuePath: 'Event value', valuePathHint: 'Example: event.data.diamondCount', operator: 'Operator', equals: 'Equals', notEquals: 'Does not equal', greaterThan: 'Greater than', greaterOrEqual: 'Greater than or equal', lessThan: 'Less than', lessOrEqual: 'Less than or equal', contains: 'Contains', startsWith: 'Starts with', truthy: 'Is true', falsy: 'Is false', compareWith: 'Compare with', compareWithHint: 'Numbers are stored as numbers automatically.', template: 'Text or template', templateHint: 'You can use values such as {{ event.user.uniqueId }}.', delay: 'Wait', delayHint: 'Time to wait before the next step.', duration: 'Duration', cooldownHint: 'The same user cannot repeat the flow during this time.', cooldownKey: 'Cooldown key', message: 'Message', filePath: 'Sound file', filePathHint: 'Local audio file path.', volume: 'Volume', overlap: 'If already playing', allowOverlap: 'Allow overlap', restartOverlap: 'Restart sound', dropOverlap: 'Drop new sound', text: 'Text', voice: 'Voice', language: 'Language', audioFormat: 'Audio format', viewer: 'Viewer', viewerHint: 'Use {{ event.user.uniqueId }} for the event viewer.', delta: 'Points delta', method: 'Method', url: 'URL', requestBody: 'Request body', headers: 'Headers', headersHint: 'One header per line: Name: value', timeout: 'Timeout', responseType: 'Response', redirect: 'Redirects', blockRedirects: 'Block redirects', followRedirects: 'Follow redirects', allowPrivateNetwork: 'Allow local network', noForm: 'This node has no configurable options.',
-  };
+function GenericConfigFormNoForm({ locale }: { locale: Locale }) {
+  return <p className="node-editor-form-empty">{t(locale, 'nodeNoForm')}</p>;
 }

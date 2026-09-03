@@ -4,7 +4,6 @@ import { useState } from 'preact/hooks';
 import { IconDice, IconRadio, IconUsers } from '../components/icons.tsx';
 import { Alert, Badge, Card, Chip, ChipGroup, EmptyState } from '../components/ui/Card.tsx';
 import { Button } from '../components/ui/Button.tsx';
-import { FormField } from '../components/ui/FormField.tsx';
 import { TextInput } from '../components/ui/TextInput.tsx';
 import { Page } from '../components/ui/Page.tsx';
 import { t, type Locale } from '../i18n.ts';
@@ -50,31 +49,29 @@ export function ConnectView({
     <Page narrow>
       <Card title={t(locale, 'connectToLive')} subtitle={t(locale, 'setupLead')} icon={<IconRadio />}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {isLive ? <Alert variant="info">{t(locale, 'live')} — {locale === 'es' ? 'Desconecta para cambiar de creador.' : 'Disconnect to change creator.'}</Alert> : null}
-          <FormField label={t(locale, 'creatorHandle')} hint={t(locale, 'leadingAtOptional')} required htmlFor="connect-creator">
-            <TextInput
-              id="connect-creator"
-              value={uniqueId}
-              onValueChange={onUniqueIdChange}
-              prefix="@"
-              placeholder="creator_handle"
-              required
-              disabled={isLive || isBusy}
-              onEnter={onConnect}
-            />
-          </FormField>
+          {isLive ? <Alert variant="info">{t(locale, 'live')} — {t(locale, 'disconnectToChangeCreator')}</Alert> : null}
+          <TextInput
+            id="connect-creator"
+            value={uniqueId}
+            onValueChange={onUniqueIdChange}
+            label={t(locale, 'creatorHandle')}
+            hint={t(locale, 'leadingAtOptional')}
+            prefix="@"
+            required
+            disabled={isLive || isBusy}
+            onEnter={onConnect}
+          />
 
           {showCookie ? (
-            <FormField label={`${t(locale, 'authenticatedCookie')} (${t(locale, 'optional')})`} htmlFor="connect-cookie">
-              <TextInput
-                id="connect-cookie"
-                type="password"
-                value={cookie}
-                onValueChange={onCookieChange}
-                placeholder="sessionid=..."
-                disabled={isLive || isBusy}
-              />
-            </FormField>
+            <TextInput
+              id="connect-cookie"
+              type="password"
+              value={cookie}
+              onValueChange={onCookieChange}
+              label={`${t(locale, 'authenticatedCookie')} ${t(locale, 'optional')}`}
+              hint={t(locale, 'guestCookieHint')}
+              disabled={isLive || isBusy}
+            />
           ) : (
             <div style={{ marginBottom: 4 }}>
               <Button variant="soft" size="sm" onClick={() => setShowCookie(true)} disabled={isLive || isBusy}>

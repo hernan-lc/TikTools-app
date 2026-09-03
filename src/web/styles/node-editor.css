@@ -486,6 +486,32 @@
   gap: 5px;
 }
 
+/* MUI-style floating label for template inputs: label inside when empty. */
+.node-editor-template-field--float .node-editor-template-control-wrap { position: relative; }
+.node-editor-template-field--float .node-editor-template-control:not(textarea) { height: 48px; padding: 20px 12px 6px; }
+.node-editor-template-field--float .node-editor-template-control--textarea { padding: 22px 12px 8px; }
+.node-editor-float-label {
+  position: absolute; left: 10px; top: 24px; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 4px; max-width: calc(100% - 60px);
+  font-size: 13px; color: var(--text-muted); pointer-events: none;
+  transition: all .15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.node-editor-template-field--float.is-multiline .node-editor-float-label { top: 24px; }
+.node-editor-template-field--float .node-editor-template-control-wrap:focus-within .node-editor-float-label,
+.node-editor-template-field--float.is-filled .node-editor-float-label {
+  top: 0; transform: translateY(-50%) scale(0.82); transform-origin: left top;
+  background: var(--panel-solid, var(--panel)); padding: 0 5px; border-radius: 4px;
+  color: var(--text-secondary); font-weight: 600; pointer-events: auto;
+}
+.node-editor-template-field--float .node-editor-template-control-wrap:focus-within .node-editor-float-label { color: var(--tt-cyan); }
+.node-editor-float-badge {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  padding: 1px 6px; border: 1px solid rgba(37,244,238,0.35); border-radius: 5px;
+  background: rgba(37,244,238,0.08); color: var(--tt-cyan);
+  font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; cursor: help;
+}
+.node-editor-template-field--float.is-multiline .node-editor-float-badge { top: 24px; transform: translateY(-50%); }
+
 .node-editor-template-control-wrap {
   display: flex;
   width: 100%;

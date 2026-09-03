@@ -161,7 +161,7 @@ function nodeSummary(node: WorkflowNode, definition: NodeDefinition | undefined,
     case 'trigger.event': return eventLabel(String(config.eventType ?? '*'), locale);
     case 'condition.compare': return `${String(config.leftPath ?? 'event.data')}  ${operatorLabel(String(config.operator ?? 'equals'))}  ${String(config.right ?? '')}`;
     case 'transform.template': return String(config.template ?? '');
-    case 'transform.script': return locale === 'es' ? 'Transforma los datos con JavaScript seguro' : 'Transforms data with sandboxed JavaScript';
+    case 'transform.script': return t(locale, 'nodeTransformScriptSummary');
     case 'control.delay': return `${String(config.delayMs ?? 0)} ms`;
     case 'control.cooldown': return `${String(config.durationMs ?? 0)} ms · ${String(config.key ?? '')}`;
     case 'action.log': return String(config.message ?? '');
@@ -190,18 +190,7 @@ function operatorLabel(value: string): string {
 }
 
 function eventLabel(value: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    'tiktok.chat': ['Chat message', 'Mensaje de chat'],
-    'tiktok.gift': ['Gift received', 'Regalo recibido'],
-    'tiktok.like': ['Likes', 'Likes'],
-    'tiktok.follow': ['New follower', 'Nuevo seguidor'],
-    'tiktok.share': ['Live shared', 'LIVE compartido'],
-    'tiktok.join': ['Viewer joined', 'Espectador entra'],
-    'tiktok.social': ['Social action', 'Acción social'],
-    'tiktok.room_stats': ['Room statistics', 'Estadísticas de sala'],
-    'tiktok.connected': ['LIVE connected', 'LIVE conectado'],
-    'tiktok.disconnected': ['LIVE disconnected', 'LIVE desconectado'],
-    'points.awarded': ['Points awarded', 'Puntos otorgados'],
-  };
-  return labels[value]?.[locale === 'es' ? 1 : 0] ?? value;
+  const key = `workflow.event.${value}`;
+  const translated = t(locale, key);
+  return translated !== key ? translated : value;
 }

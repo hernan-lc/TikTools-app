@@ -190,17 +190,15 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
       <SplitLayout
         left={
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {isLive ? <Alert variant="info">LIVE {t(locale, 'live')} — {locale === 'es' ? 'Configuración bloqueada en directo. Desconecta para editar.' : 'Config locked while LIVE. Disconnect to edit.'}</Alert> : null}
+            {isLive ? <Alert variant="info">LIVE {t(locale, 'live')} — {t(locale, 'configLockedLive')}</Alert> : null}
             <Card title={t(locale, 'pointsSystem')} icon={<IconCoins />}>
-              <FormField label={t(locale, 'currencyName')} htmlFor="tf-currency-name">
-                <TextInput
-                  id="tf-currency-name"
-                  value={localConfig.currencyName}
-                  onValueChange={(v) => setLocalConfig({ ...localConfig, currencyName: v })}
-                  placeholder={t(locale, 'currencyNamePlaceholder')}
-                  disabled={isLive}
-                />
-              </FormField>
+              <TextInput
+                id="tf-currency-name"
+                value={localConfig.currencyName}
+                onValueChange={(v) => setLocalConfig({ ...localConfig, currencyName: v })}
+                label={t(locale, 'currencyName')}
+                disabled={isLive}
+              />
 
               <FieldRow label={t(locale, 'pointsPerCoin')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

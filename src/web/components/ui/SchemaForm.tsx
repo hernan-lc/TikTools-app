@@ -6,7 +6,7 @@ import { TemplateField } from '../node-editor/TemplateField.tsx';
 import { getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestionScope } from '../node-editor/template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { mergeSuggestions, suggestionsFromObject } from '../autocomplete/autocomplete.ts';
-import { FieldLabel, TemplateTokensLine } from './FieldLabel.tsx';
+import { TemplateTokensLine } from './FieldLabel.tsx';
 import { AdvancedSection } from './FieldPanels.tsx';
 import { InfoTip } from './InfoTip.tsx';
 import { i18nText, t, type Locale } from '../../i18n.ts';
@@ -106,9 +106,7 @@ export function SchemaForm({
       {advanced.length > 0 && (
         <AdvancedSection
           title={t(locale, 'advancedOptions')}
-          hint={locale === 'es'
-            ? 'Headers, timeout, evento de respuesta y red local. No hace falta tocarlo para un webhook normal.'
-            : 'Headers, timeout, response event and local network. Not needed for a plain webhook.'}
+          hint={t(locale, 'advancedHttpHint')}
           count={advanced.length}
         >
           {advanced.map(([key, field]) => (
@@ -150,7 +148,6 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   const label = localized(schema.title, locale) || name;
   const description = typeof schema.description === 'string' ? schema.description : localized(schema.description as JsonValue, locale);
   const hintText = localized(hint?.hint, locale) || description;
-  const placeholder = typeof hint?.placeholder === 'string' ? hint.placeholder : typeof schema.example === 'string' ? schema.example : undefined;
   const kind = typeof hint?.kind === 'string' ? hint.kind : schema.format === 'code' ? 'code' : schema.type;
   const template = hint?.template === true;
   const displayValue = toDisplayValue(value, schema.type);
@@ -175,7 +172,6 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
           <label className="plg-label" onClick={() => onChange(!checked)}>{label}</label>
           {hintText ? <InfoTip text={hintText} position="right" /> : null}
         </div>
-        {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
       </div>
     );
   }
@@ -186,7 +182,6 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
         locale={locale}
         label={label}
         hintText={hintText}
-        placeholder={placeholder}
         entries={value && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : {}}
         suggestions={templateSuggestions}
         onChange={onChange}
@@ -222,8 +217,6 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
     if (hasAutocomplete && schema.type !== 'array' && kind !== 'code') {
       return (
         <div className="plg-field">
-          <FieldLabel label={label} hint={hintText} example={placeholder} template={template} />
-          {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
           <TemplateField
             value={schema.format === 'json' && typeof value === 'string' ? value : displayValue}
             onValueChange={onChange}
@@ -231,32 +224,42 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
             multiline
             rows={6}
             ariaLabel={label}
-            placeholder={placeholder}
+            label={label}
+            hint={hintText || undefined}
+            template={template}
           />
           {template ? <TemplateTokensLine value={displayValue} /> : null}
         </div>
       );
     }
     const text = schema.type === 'array' ? formatJson(value) : schema.format === 'json' && typeof value === 'string' ? value : displayValue;
+    const filled = text.trim().length > 0;
     return (
       <div className="plg-field">
-        <FieldLabel label={label} hint={hintText} example={placeholder} template={template} />
-        {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
-        <textarea
-          className={`plg-textarea${kind === 'code' ? ' plg-textarea--code' : ''}`}
-          rows={kind === 'code' ? 16 : 6}
-          spellcheck={false}
-          value={text}
-          placeholder={placeholder}
-          aria-label={label}
-          data-tooltip={hintText || undefined}
-          onInput={(event) => {
-            const next = event.currentTarget.value;
-            if (schema.type === 'array') {
-              try { onChange(JSON.parse(next) as JsonValue); } catch { onChange(next); }
-            } else onChange(next);
-          }}
-        />
+        <div className={`plg-float ${filled ? 'is-filled' : ''}`}>
+          <div className="plg-float__control plg-float__control--textarea">
+            <textarea
+              rows={kind === 'code' ? 16 : 6}
+              spellcheck={false}
+              value={text}
+              placeholder=" "
+              aria-label={label}
+              onInput={(event) => {
+                const next = event.currentTarget.value;
+                if (schema.type === 'array') {
+                  try { onChange(JSON.parse(next) as JsonValue); } catch { onChange(next); }
+                } else onChange(next);
+              }}
+            />
+            <label className="plg-float__label">
+              {label}
+              {hintText ? <InfoTip text={hintText} position="right" /> : null}
+            </label>
+            {template ? (
+              <span className="plg-float__badge" data-tooltip={hintText || 'Accepts {{ }}'} data-tooltip-pos="left" data-tooltip-wide="">{'{{ }}'}</span>
+            ) : null}
+          </div>
+        </div>
         {template ? <TemplateTokensLine value={displayValue} /> : null}
       </div>
     );
@@ -265,22 +268,24 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   if (kind === 'number' || schema.type === 'number' || schema.type === 'integer') {
     return (
       <div className="plg-field">
-        <FieldLabel label={label} hint={hintText} example={placeholder} />
-        <input
-          className="plg-input plg-input--mono"
-          type="number"
-          value={displayValue}
-          placeholder={placeholder}
-          aria-label={label}
-          data-tooltip={hintText || undefined}
-          data-tooltip-pos="right"
-          data-tooltip-wide={hintText ? '' : undefined}
-          onInput={(event) => {
-            const next = event.currentTarget.value;
-            onChange(next === '' ? '' : Number(next));
-          }}
-        />
-        {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
+        <div className="plg-float is-filled">
+          <div className="plg-float__control">
+            <input
+              type="number"
+              value={displayValue}
+              placeholder=" "
+              aria-label={label}
+              onInput={(event) => {
+                const next = event.currentTarget.value;
+                onChange(next === '' ? '' : Number(next));
+              }}
+            />
+            <label className="plg-float__label">
+              {label}
+              {hintText ? <InfoTip text={hintText} position="right" /> : null}
+            </label>
+          </div>
+        </div>
       </div>
     );
   }
@@ -289,14 +294,14 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   if (hasAutocomplete) {
     return (
       <div className="plg-field">
-        <FieldLabel label={label} hint={hintText} example={placeholder} template={template} />
-        {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
         <TemplateField
           value={displayValue}
           onValueChange={onChange}
           suggestions={templateSuggestions}
-          placeholder={placeholder}
           ariaLabel={label}
+          label={label}
+          hint={hintText || undefined}
+          template={template}
         />
         {template ? <TemplateTokensLine value={displayValue} /> : null}
       </div>
@@ -305,28 +310,29 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
 
   return (
     <div className="plg-field">
-      <FieldLabel label={label} hint={hintText} example={placeholder} />
-      <input
-        className="plg-input"
-        type="text"
-        value={displayValue}
-        placeholder={placeholder}
-        aria-label={label}
-        data-tooltip={hintText || undefined}
-        data-tooltip-pos="right"
-        data-tooltip-wide={hintText ? '' : undefined}
-        onInput={(event) => onChange(event.currentTarget.value)}
-      />
-      {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
+      <div className={`plg-float ${displayValue.trim().length > 0 ? 'is-filled' : ''}`}>
+        <div className="plg-float__control">
+          <input
+            type="text"
+            value={displayValue}
+            placeholder=" "
+            aria-label={label}
+            onInput={(event) => onChange(event.currentTarget.value)}
+          />
+          <label className="plg-float__label">
+            {label}
+            {hintText ? <InfoTip text={hintText} position="right" /> : null}
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
 
-/** Select with tooltips on the label and on every option (`title`). */
+/** Select with floating label + tooltips on every option (`title`). */
 function SelectField({
   label,
   hintText,
-  template,
   value,
   options,
   onChange,
@@ -338,22 +344,29 @@ function SelectField({
   options: Array<{ value: string; label: string; hint?: string }>;
   onChange: (value: JsonValue) => void;
 }) {
+  const filled = value.trim().length > 0;
   return (
     <div className="plg-field">
-      <FieldLabel label={label} hint={hintText} template={template} />
-      {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
-      <select
-        className="plg-select"
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} title={option.hint ?? option.label}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <div className={`plg-float ${filled ? 'is-filled' : ''}`}>
+        <div className="plg-float__control">
+          <select
+            value={value}
+            aria-label={label}
+            onChange={(event) => onChange(event.currentTarget.value)}
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value} title={option.hint ?? option.label}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <label className="plg-float__label">
+            {label}
+            {hintText ? <InfoTip text={hintText} position="right" /> : null}
+          </label>
+          <span className="plg-float__arrow" aria-hidden>▾</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -363,7 +376,6 @@ function KeyValueEditor({
   locale,
   label,
   hintText,
-  placeholder,
   entries,
   suggestions,
   onChange,
@@ -376,17 +388,23 @@ function KeyValueEditor({
   suggestions: TemplateSuggestion[];
   onChange: (value: JsonValue) => void;
 }) {
-  const removeLabel = locale === 'es' ? 'Quitar cabecera' : 'Remove header';
-  const keyLabel = locale === 'es' ? 'Nombre de la cabecera' : 'Header name';
-  const valueLabel = locale === 'es' ? 'Valor (acepta {{ }})' : 'Value (supports {{ }})';
+  const removeLabel = t(locale, 'removeHeader');
+  const keyLabel = t(locale, 'headerNameLabel');
+  const valueLabel = t(locale, 'headerValueLabel');
   return (
     <div className="plg-field">
-      <FieldLabel
-        label={label}
-        hint={hintText || (locale === 'es' ? 'Una por línea conceptual: nombre y valor. El valor acepta {{ }}.' : 'One header per row: name and value. Values accept {{ }}.')}
-        template
-      />
-      {hintText ? <span className="plg-field-hint">{hintText}</span> : null}
+      <div className="plg-label-row">
+        <label className="plg-label">{label}</label>
+        <InfoTip text={hintText || t(locale, 'headersDefaultHint')} position="right" />
+        <span
+          className="plg-template-badge"
+          data-tooltip={t(locale, 'headersDefaultHint')}
+          data-tooltip-pos="right"
+          data-tooltip-wide=""
+        >
+          {'{{ }}'}
+        </span>
+      </div>
       {Object.entries(entries).map(([key, entry]) => (
         <div className="plg-kv-row" key={key}>
           <input
@@ -408,7 +426,7 @@ function KeyValueEditor({
               onValueChange={(next) => onChange({ ...entries, [key]: next })}
               suggestions={suggestions}
               ariaLabel={valueLabel}
-              placeholder={placeholder ?? 'application/json'}
+              label={valueLabel}
             />
           </span>
           <button
@@ -430,7 +448,7 @@ function KeyValueEditor({
       <button
         type="button"
         className="plg-btn plg-btn--sm"
-        data-tooltip={locale === 'es' ? 'Añade una cabecera más' : 'Add another header'}
+        data-tooltip={t(locale, 'addHeaderTooltip')}
         data-tooltip-pos="bottom"
         onClick={() => onChange({ ...entries, [`field-${Object.keys(entries).length + 1}`]: '' })}
       >

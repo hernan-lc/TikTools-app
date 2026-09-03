@@ -1263,7 +1263,7 @@ function createEvent(locale: Locale): LiveEvent {
   return {
     schemaVersion: 1,
     id: createEventId(),
-    name: locale === 'es' ? 'Evento nuevo' : 'New event',
+    name: t(locale, 'newEventDefault'),
     enabled: false,
     trigger: 'tiktok.gift',
     filters: [],
@@ -1322,7 +1322,7 @@ function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale): s
     if (items.length === 0) return '—';
     if (items.length === 1) return items[0] as string;
     const last = items[items.length - 1] as string;
-    return `${items.slice(0, -1).join(', ')} ${locale === 'es' ? 'y' : 'and'} ${last}`;
+    return `${items.slice(0, -1).join(', ')} ${t(locale, 'andWord')} ${last}`;
   };
 
   if (locale === 'es') {
@@ -1338,7 +1338,7 @@ function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale): s
 
 function relativeTime(timestamp: number, locale: Locale): string {
   const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
-  if (seconds < 5) return locale === 'es' ? 'ahora' : 'now';
+  if (seconds < 5) return t(locale, 'nowWord');
   if (seconds < 60) return `${seconds} s`;
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
