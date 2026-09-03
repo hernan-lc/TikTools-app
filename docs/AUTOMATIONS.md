@@ -35,9 +35,9 @@ Action types come from two places, and the difference is the point:
   are always available and cannot be uninstalled: `core.fetch`, `core.emit`,
   `core.points`, `core.delay`, `core.log`, `core.code`.
 - **Plugin** types arrive with a plugin, and one plugin may expose several. The
-  provider packages are `audio.miniaudio` (the optional `miniaudio_node` binary)
-  and `tts.sonicboom` (the SonicBoom child process); they register generic
-  audio/TTS providers used by `audio.play`, `audio.stop`, and `tts.speak`.
+  provider package is `audio.miniaudio` (the optional `miniaudio_node` binary);
+  it registers a generic
+  audio provider used by `audio.play` and `audio.stop`.
   Installing or disabling a plugin is what makes its action types appear or
   stop running —
   the engine refuses an action whose plugin is not ready.
@@ -174,25 +174,18 @@ return event.data.diamondCount >= inputs.minimum
 
 It does not expose `require`, filesystem, network, process, or native modules. Scripts return JSON values; privileged work belongs in HTTP, audio, TTS, points, or future capability nodes. The VM is an in-process execution helper for the built-in trusted node; downloaded plugins use the worker process described below.
 
-## Audio and TTS
+## Audio
 
-The host exposes only the provider registries through the generic AppPlugin
+The host exposes only the provider registry through the generic AppPlugin
 runtime. The MiniAudio package keeps the N-API wrapper and platform binary
-inside its own directory; the SonicBoom package owns its child process and
-localhost HTTP details:
+inside its own directory:
 
 ```text
-Text to Speech node
-       |
-       v
-SonicBoom /api/tts -> temporary WAV file
-       |
-       v
 Play Sound node -> audio provider registry -> MiniAudio plugin -> N-API
 ```
 
-This keeps the workflow node contract stable while allowing another audio or
-TTS provider to replace either package.
+This keeps the workflow node contract stable while allowing another audio
+provider to replace the package.
 
 ## Plugin boundary
 

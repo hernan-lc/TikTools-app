@@ -1218,8 +1218,6 @@ function describeAction(action: LiveAction): string {
       return readString(action.config.message);
     case 'audio.play':
       return readString(action.config.file);
-    case 'tts.speak':
-      return readString(action.config.text);
     default:
       return action.typeId;
   }

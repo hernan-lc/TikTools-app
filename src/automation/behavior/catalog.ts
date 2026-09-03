@@ -195,34 +195,6 @@ const RAW_PLUGIN_ACTION_TYPES: ActionTypeDefinition[] = [
     requiredCapabilities: ['audio.play'],
     fields: [],
   },
-  {
-    id: 'tts.speak',
-    title: { default: "Read out loud", i18key: "automation.action.tts.speak.title" },
-    description: { default: "Synthesizes the text and plays it.", i18key: "automation.action.tts.speak.description" },
-    tag: 'voz',
-    source: { kind: 'plugin', pluginId: 'tts.sonicboom' },
-    requiredCapabilities: ['tts.synthesize'],
-    fields: [
-      {
-        key: 'text',
-        label: { default: "Text", i18key: "automation.action.tts.speak.field.text.label" },
-        kind: 'text',
-        value: '{{ event.user.nickname }} dice {{ event.data.comment }}',
-        template: true,
-      },
-      { key: 'voice', label: { default: "Voice", i18key: "automation.action.tts.speak.field.voice.label" }, kind: 'text', value: 'M1', advanced: true },
-      { key: 'lang', label: { default: "Language", i18key: "automation.action.tts.speak.field.lang.label" }, kind: 'text', value: 'es', advanced: true },
-    ],
-    // The voice list is fetched from the active TTS provider on demand;
-    // without options the editor keeps the legacy free-text input.
-    uiHints: {
-      fields: {
-        text: { kind: 'text', template: true },
-        voice: { kind: 'text', advanced: true, optionsFrom: 'tts.voices' },
-        lang: { kind: 'text', advanced: true },
-      },
-    },
-  },
 ];
 
 const RAW_PLUGIN_DESCRIPTORS: Array<Omit<PluginDescriptor, 'name'> & { name: string }> = [
@@ -234,15 +206,6 @@ const RAW_PLUGIN_DESCRIPTORS: Array<Omit<PluginDescriptor, 'name'> & { name: str
     dependency: { default: "miniaudio_node · per-platform plugin", i18key: "plugin.audio.miniaudio.dependency" },
     permissions: ['filesystem.read', 'audio.output'],
     actionTypeIds: ['audio.play', 'audio.stop'],
-  },
-  {
-    id: 'tts.sonicboom',
-    name: 'SonicBoom TTS',
-    version: '1.0.0',
-    description: { default: "Speech synthesis in a local process.", i18key: "plugin.tts.sonicboom.description" },
-    dependency: { default: "child process · HTTP on localhost", i18key: "plugin.tts.sonicboom.dependency" },
-    permissions: ['tts.output', 'process.spawn', 'network.local', 'filesystem.write'],
-    actionTypeIds: ['tts.speak'],
   },
 ];
 
@@ -292,15 +255,8 @@ export const BUILTIN_TRANSLATION_CATALOG: TranslationCatalog = {
     "automation.action.audio.play.field.overlap.option.drop": "Drop",
     "automation.action.audio.stop.title": "Stop sound",
     "automation.action.audio.stop.description": "Stops everything currently playing.",
-    "automation.action.tts.speak.title": "Read out loud",
-    "automation.action.tts.speak.description": "Synthesizes the text and plays it.",
-    "automation.action.tts.speak.field.text.label": "Text",
-    "automation.action.tts.speak.field.voice.label": "Voice",
-    "automation.action.tts.speak.field.lang.label": "Language",
     "plugin.audio.miniaudio.description": "Plays local files without going through the browser.",
     "plugin.audio.miniaudio.dependency": "miniaudio_node · per-platform plugin",
-    "plugin.tts.sonicboom.description": "Speech synthesis in a local process.",
-    "plugin.tts.sonicboom.dependency": "child process · HTTP on localhost",
     "automation.event.field.event.user.uniqueId.label": "Viewer",
     "automation.event.field.event.user.uniqueId.hint": "The @ of whoever triggers the event.",
     "automation.event.field.event.user.nickname.label": "Display name",
@@ -376,15 +332,8 @@ export const BUILTIN_TRANSLATION_CATALOG: TranslationCatalog = {
     "automation.action.audio.play.field.overlap.option.drop": "Descartar",
     "automation.action.audio.stop.title": "Detener sonido",
     "automation.action.audio.stop.description": "Corta todo lo que esté sonando.",
-    "automation.action.tts.speak.title": "Leer en voz alta",
-    "automation.action.tts.speak.description": "Sintetiza el texto y lo reproduce.",
-    "automation.action.tts.speak.field.text.label": "Texto",
-    "automation.action.tts.speak.field.voice.label": "Voz",
-    "automation.action.tts.speak.field.lang.label": "Idioma",
     "plugin.audio.miniaudio.description": "Reproduce archivos locales sin pasar por el navegador.",
     "plugin.audio.miniaudio.dependency": "miniaudio_node · plugin por plataforma",
-    "plugin.tts.sonicboom.description": "Síntesis de voz en un proceso local.",
-    "plugin.tts.sonicboom.dependency": "proceso hijo · HTTP en localhost",
     "automation.event.field.event.user.uniqueId.label": "Usuario",
     "automation.event.field.event.user.uniqueId.hint": "El @ de quien dispara el evento.",
     "automation.event.field.event.user.nickname.label": "Nombre visible",

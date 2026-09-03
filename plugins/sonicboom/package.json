@@ -1,9 +1,0 @@
-{
-  "name": "@tiktools/plugin-sonicboom",
-  "private": true,
-  "type": "module",
-  "version": "1.0.0",
-  "scripts": {
-    "build": "bun build src/plugin.ts --outfile dist/plugin.js --target bun"
-  }
-}

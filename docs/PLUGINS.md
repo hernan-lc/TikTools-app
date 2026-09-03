@@ -5,10 +5,10 @@ TikTools has two plugin boundaries:
 - `src/automation/plugins/` is the existing worker-backed automation extension
   contract for workflow nodes and behavior actions.
 - `src/plugins/` is the host-level AppPlugin contract for providers such as
-  audio and TTS.
+  audio.
 
-The provider contract is generic. The application consumes an audio or TTS
-provider from a registry and never imports `miniaudio_node`, SonicBoom, or
+The provider contract is generic. The application consumes an audio
+provider from a registry and never imports `miniaudio_node` or
 another provider-specific library.
 
 ## Runtime
@@ -32,24 +32,17 @@ rebuilt into platform-specific releases:
 
 ```text
 plugins/
-├── miniaudio/
-│   ├── plugin.json
-│   ├── package.json
-│   ├── dist/plugin.js
-│   ├── native/miniaudio_node/
-│   ├── locales/
-│   └── assets/
-└── sonicboom/
+└── miniaudio/
     ├── plugin.json
     ├── package.json
     ├── dist/plugin.js
+    ├── native/miniaudio_node/
     ├── locales/
     └── assets/
 ```
 
 The MiniAudio N-API wrapper is private to `plugins/miniaudio`. Rust remains
-behind N-API; no additional C ABI is introduced. SonicBoom owns its child
-process and HTTP details inside `plugins/sonicboom`.
+behind N-API; no additional C ABI is introduced.
 
 ## Installation
 
@@ -121,14 +114,13 @@ stores the values in the plugin's own `settings.json`:
 Only `string`, `number`, `integer`, and `boolean` properties are allowed (up
 to 32 keys, 16 KB total). The host keeps undeclared keys out and coerces each
 value to its declared type; the plugin reads them through the usual
-`ctx.storage.get()` calls, so changes apply without a restart. SonicBoom
-uses this for its host/port settings.
+`ctx.storage.get()` calls, so changes apply without a restart.
 
 ## Dynamic action options
 
 An action type can mark a field with `"optionsFrom": "<source>"` in its
-`uiHints` (for example `tts.speak` voice uses `tts.voices`). The behavior
+`uiHints`. The behavior
 editor asks the host for the current list when the editor opens and offers a
 refresh button; when the list is empty the field stays a free-text input.
-Sources are resolved host-side (currently `tts.voices` from the active TTS
+Sources are resolved host-side (for example `tts.voices` from the active TTS
 provider), so no plugin code runs in the editor.

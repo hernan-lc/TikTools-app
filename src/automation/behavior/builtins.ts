@@ -44,8 +44,6 @@ async function executeBuiltIn(context: ActionExecutionContext): Promise<{ summar
       if (typeof stopAll === 'function') stopAll.call(audio);
       return { summary: 'audio detenido' };
     }
-    case 'tts.speak':
-      return { summary: await speakAction(action.config, event, capabilities, log) };
     default:
       throw new Error(`El tipo de acción ${action.typeId} no tiene implementación.`);
   }
@@ -114,20 +112,6 @@ async function audioPlay(config: JsonObject, event: AutomationEvent, capabilitie
   await audio.playFile(file, { volume: Number.isFinite(volume) && volume > 0 ? volume : undefined, overlap });
   log(`audio · ${file}`);
   return file.split('/').pop() ?? file;
-}
-
-async function speakAction(config: JsonObject, event: AutomationEvent, capabilities: AutomationCapabilities, log: ActionExecutionContext['log']): Promise<string> {
-  const tts = capabilities.tts;
-  if (!tts) throw new Error('La capacidad de voz no está disponible.');
-  const text = renderTemplate(readString(config.text), event).trim();
-  if (!text) return 'sin texto';
-  const result = await tts.synthesize(text, { voice: readString(config.voice) || 'M1', lang: readString(config.lang) || 'es', format: 'wav' });
-  const path = typeof result.path === 'string' ? result.path : '';
-  if (path && capabilities.audio) {
-    await capabilities.audio.playFile(path, { overlap: 'allow' });
-    log(`tts → ${path}`);
-  }
-  return text.slice(0, 60);
 }
 
 async function codeAction(actionId: string, config: JsonObject, event: AutomationEvent, capabilities: AutomationCapabilities, log: ActionExecutionContext['log'], publish: ActionExecutionContext['publish']): Promise<string> {

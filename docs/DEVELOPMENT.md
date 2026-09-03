@@ -22,7 +22,7 @@ The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` imp
 | `bun run typecheck` | Run strict TypeScript checking without emitting files. |
 | `bun run test` | Run tests under `src`. |
 | `bun run test:plugin-worker` | Run the plugin worker smoke test. |
-| `bun run build:plugins` | Build the checked-in MiniAudio and SonicBoom AppPlugin entries. |
+| `bun run build:plugins` | Build the checked-in MiniAudio AppPlugin entry. |
 | `bun run package:plugin <dir> [file.plugin]` | Package a prebuilt plugin directory with checksums. |
 | `bun run install:plugin <file.plugin> [--replace]` | Manually install a validated prebuilt plugin archive. |
 | `bun run smoke:compiled` | Launch the built EXE with a fixture plugin and verify app-data paths. |
@@ -91,7 +91,7 @@ A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest decl
 Provider AppPlugins use the separate `schemaVersion: 1` manifest contract in
 `src/plugins/` and are loaded with dynamic `import()`. Use that contract for
 audio/TTS/native providers; do not add provider-specific imports to the host.
-The MiniAudio and SonicBoom package fixtures live under `plugins/` and their
+The MiniAudio package fixture lives under `plugins/` and its
 native dependencies are packaged with the plugin rather than the root
 `package.json`. See [App plugins](PLUGINS.md).
 

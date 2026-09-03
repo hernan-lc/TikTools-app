@@ -99,10 +99,6 @@ Check all of the following:
 
 Read terminal messages prefixed with `[automation-plugins]` or `[plugins]` during development, or `TikTools.log` in the compiled app. A sandbox automation plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path. Trusted provider plugins are reviewed dynamic imports; use a separate process for truly untrusted native code.
 
-## Text-to-speech is unavailable
-
-SonicBoom is an optional external integration, not part of `TikTools.exe`. If it is not installed or ready, the TTS action reports an unavailable-provider error and the rest of the app continues to work. Its process is launched with a hidden Windows window. Check `TikTools.log` for the provider error and confirm the configured SonicBoom command and health endpoint.
-
 ## UI changes are not visible
 
 Restart the app after changing frontend files if the WebView did not reload. If CSS appears stale, confirm that the imported stylesheet is under `src/web/styles.css` and that the relevant file is included in its import list.

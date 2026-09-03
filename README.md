@@ -29,7 +29,7 @@ The root README is the index for the project documentation. Start with the artic
 | [Development Guide](docs/DEVELOPMENT.md) | Work on the codebase, run checks, and build a host bundle. |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnose connection, native dependency, data, or plugin issues. |
 | [Automations](docs/AUTOMATIONS.md) | Build behavior rules, workflows, scripts, and plugins. |
-| [App plugins](docs/PLUGINS.md) | Build and install dynamic provider plugins such as MiniAudio and SonicBoom. |
+| [App plugins](docs/PLUGINS.md) | Build and install dynamic provider plugins such as MiniAudio. |
 | [UI Kit Usage](docs/UI_KIT_USAGE.md) | Use the shared Preact components and UI conventions. |
 
 ## Quick start
@@ -138,8 +138,6 @@ The databases are:
 - `data/tiktok-points.db` stores point rules, viewer totals, point transactions, creator history, app state, and the cached gift catalog.
 - `data/tiktok-automation.db` stores workflows, behavior actions and events, and plugin state.
 
-SonicBoom text-to-speech remains an optional external integration. TikTools itself works without SonicBoom; if it is unavailable, the TTS action reports an error and does not open a visible terminal. Generated audio is written under the app `temp` directory.
-
 Authenticated Cookie headers are sensitive credentials. Do not log, commit, paste, or share them. Use the app only with rooms and accounts you are authorized to monitor, and follow TikTok’s terms and applicable policies.
 
 ## Architecture at a glance
@@ -159,9 +157,9 @@ The native host owns the TikTok client, persistence, automation runtime, and pri
 
 Sandbox plugins run in a separate `TikTools --plugin-worker` process in a compiled release, or in `bun index.ts --plugin-worker ...` during development. The worker keeps the token-authenticated localhost IPC, VM loop limit, source and message size limits, manifest permissions, and capability broker.
 
-Audio and TTS providers are AppPlugins loaded with Bun `import()`. Their native
+Audio providers are AppPlugins loaded with Bun `import()`. Their native
 dependencies stay inside the plugin package, and the root host has no direct
-MiniAudio or SonicBoom import.
+MiniAudio import.
 
 ## Contributing
 

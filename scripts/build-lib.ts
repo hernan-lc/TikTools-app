@@ -18,7 +18,6 @@ export const hostOutputDirectory = resolve(
 
 const pluginPackages = [
   ['plugins/miniaudio/src/plugin.ts', 'plugins/miniaudio/dist/plugin.js'],
-  ['plugins/sonicboom/src/plugin.ts', 'plugins/sonicboom/dist/plugin.js'],
 ] as const;
 
 function formatDuration(ms: number): string {

@@ -5,8 +5,8 @@ import { isAppPluginManifest } from './manifest.ts';
 function baseManifest(): Record<string, unknown> {
   return {
     schemaVersion: 1,
-    id: 'tts.sonicboom',
-    name: 'SonicBoom',
+    id: 'dev.example.settings',
+    name: 'Example',
     version: '1.0.0',
     main: './dist/plugin.js',
     host: { api: '^1.0.0' },
@@ -29,7 +29,7 @@ test('manifest accepts a small settings schema', () => {
       type: 'object',
       properties: {
         host: { type: 'string', title: 'Host', default: '127.0.0.1' },
-        port: { type: 'integer', title: { default: 'Port', i18key: 'tts.sonicboom.settings.port.label' }, default: 3000 },
+        port: { type: 'integer', title: { default: 'Port', i18key: 'dev.example.settings.port.label' }, default: 3000 },
       },
     },
   }))).toBe(true);

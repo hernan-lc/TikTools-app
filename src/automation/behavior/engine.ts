@@ -99,7 +99,7 @@ export class BehaviorEngine {
       if (!implementation) throw new Error(`El tipo de acción ${action.typeId} ya no existe.`);
       if (implementation.definition.source.kind === 'plugin' && this.#pluginReady.get(implementation.definition.source.pluginId) !== true) {
         const pluginId = implementation.definition.source.pluginId;
-        const legacyId = pluginId === 'audio.miniaudio' ? 'audio-native' : pluginId === 'tts.sonicboom' ? 'sonicboom-tts' : undefined;
+        const legacyId = pluginId === 'audio.miniaudio' ? 'audio-native' : undefined;
         const label = legacyId ? `${pluginId} (${legacyId})` : pluginId;
         throw new Error(`El plugin ${label} no está instalado o está desactivado.`);
       }
