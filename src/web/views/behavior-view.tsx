@@ -68,101 +68,6 @@ type Screen =
   | { kind: 'action'; action: LiveAction; isNew: boolean }
   | { kind: 'event'; event: LiveEvent; isNew: boolean };
 
-const COPY = {
-  title: { default: "Behavior", i18key: "behavior.copy.title" },
-  lead: { default: "What can happen on top, when it happens below. One action is reused by several events.", i18key: "behavior.copy.lead" },
-  actions: { default: "Actions", i18key: "behavior.copy.actions" },
-  events: { default: "Events", i18key: "behavior.copy.events" },
-  newAction: { default: "New action", i18key: "behavior.copy.newAction" },
-  newEvent: { default: "New event", i18key: "behavior.copy.newEvent" },
-  searchAction: { default: "Search action", i18key: "behavior.copy.searchAction" },
-  searchEvent: { default: "Search event", i18key: "behavior.copy.searchEvent" },
-  sortBy: { default: "Sort", i18key: "behavior.copy.sortBy" },
-  sortName: { default: "Name A-Z", i18key: "behavior.copy.sortName" },
-  sortNameDesc: { default: "Name Z-A", i18key: "behavior.copy.sortNameDesc" },
-  sortActive: { default: "Active first", i18key: "behavior.copy.sortActive" },
-  sortInactive: { default: "Inactive first", i18key: "behavior.copy.sortInactive" },
-  colActive: { default: "Active", i18key: "behavior.copy.colActive" },
-  colName: { default: "Name", i18key: "behavior.copy.colName" },
-  colOrigin: { default: "Source", i18key: "behavior.copy.colOrigin" },
-  colDoes: { default: "What it does", i18key: "behavior.copy.colDoes" },
-  colLast: { default: "Last run", i18key: "behavior.copy.colLast" },
-  colTrigger: { default: "Trigger", i18key: "behavior.copy.colTrigger" },
-  colFilters: { default: "Conditions", i18key: "behavior.copy.colFilters" },
-  colActions: { default: "Actions", i18key: "behavior.copy.colActions" },
-  builtIn: { default: "Built-in", i18key: "behavior.copy.builtIn" },
-  noActions: { default: "No actions yet. Start with a built-in one: call a URL, emit an event, give points.", i18key: "behavior.copy.noActions" },
-  noEvents: { default: "No events yet. An event decides when your actions run.", i18key: "behavior.copy.noEvents" },
-  noRuns: { default: "No runs", i18key: "behavior.copy.noRuns" },
-  paused: { default: "Paused", i18key: "behavior.copy.paused" },
-  always: { default: "always", i18key: "behavior.copy.always" },
-  runs: { default: "Recent runs", i18key: "behavior.copy.runs" },
-  runsEmpty: { default: "No runs yet.", i18key: "behavior.copy.runsEmpty" },
-  pickTitle: { default: "Pick an action type", i18key: "behavior.copy.pickTitle" },
-  pickLead: { default: "Built-in ones depend on nothing. The rest come from an installed plugin.", i18key: "behavior.copy.pickLead" },
-  builtInGroup: { default: "Built-in", i18key: "behavior.copy.builtInGroup" },
-  builtInNote: { default: "always available · no dependencies", i18key: "behavior.copy.builtInNote" },
-  pluginNote: { default: "plugin", i18key: "behavior.copy.pluginNote" },
-  explore: { default: "Browse plugins", i18key: "behavior.copy.explore" },
-  missingTitle: { default: "Missing an action?", i18key: "behavior.copy.missingTitle" },
-  missingDesc: { default: "Anything needing a dependency — audio, voice, OBS — arrives by installing a plugin. Each one may add several.", i18key: "behavior.copy.missingDesc" },
-  back: { default: "Back", i18key: "behavior.copy.back" },
-  save: { default: "Save", i18key: "behavior.copy.save" },
-  remove: { default: "Delete", i18key: "behavior.copy.remove" },
-  edit: { default: "Edit", i18key: "behavior.copy.edit" },
-  test: { default: "Run test", i18key: "behavior.copy.test" },
-  name: { default: "Name", i18key: "behavior.copy.name" },
-  permissions: { default: "Permissions", i18key: "behavior.copy.permissions" },
-  permissionsHint: { default: "Derived from what you fill in; the engine refuses any destination outside the list.", i18key: "behavior.copy.permissionsHint" },
-  none: { default: "none", i18key: "behavior.copy.none" },
-  console: { default: "Console", i18key: "behavior.copy.console" },
-  consoleEmpty: { default: "Waiting for a run…", i18key: "behavior.copy.consoleEmpty" },
-  stepWhen: { default: "When", i18key: "behavior.copy.stepWhen" },
-  stepFilters: { default: "Only if…", i18key: "behavior.copy.stepFilters" },
-  stepFiltersHint: { default: "optional · all must pass", i18key: "behavior.copy.stepFiltersHint" },
-  stepDo: { default: "What it does", i18key: "behavior.copy.stepDo" },
-  trigger: { default: "Event", i18key: "behavior.copy.trigger" },
-  addFilter: { default: "+ Add condition", i18key: "behavior.copy.addFilter" },
-  orHint: { default: "Need an \"or\"? Use \"is one of\" inside the condition.", i18key: "behavior.copy.orHint" },
-  noFilters: { default: "No conditions: the event always fires.", i18key: "behavior.copy.noFilters" },
-  field: { default: "Field", i18key: "behavior.copy.field" },
-  operator: { default: "Comparison", i18key: "behavior.copy.operator" },
-  value: { default: "Value", i18key: "behavior.copy.value" },
-  addValue: { default: "Add value", i18key: "behavior.copy.addValue" },
-  runMode: { default: "Run only one, at random", i18key: "behavior.copy.runMode" },
-  cooldown: { default: "Cooldown", i18key: "behavior.copy.cooldown" },
-  cooldownScope: { default: "Scope", i18key: "behavior.copy.cooldownScope" },
-  perUser: { default: "per viewer", i18key: "behavior.copy.perUser" },
-  global: { default: "global", i18key: "behavior.copy.global" },
-  noCooldown: { default: "no cooldown", i18key: "behavior.copy.noCooldown" },
-  pickActions: { default: "Tick the actions it runs", i18key: "behavior.copy.pickActions" },
-  noActionsYet: { default: "Create an action first.", i18key: "behavior.copy.noActionsYet" },
-  confirmDeleteAction: { default: "Delete this action? Events using it will stop running it.", i18key: "behavior.copy.confirmDeleteAction" },
-  confirmDeleteEvent: { default: "Delete this event?", i18key: "behavior.copy.confirmDeleteEvent" },
-  pluginMissing: { default: "plugin not installed", i18key: "behavior.copy.pluginMissing" },
-  advanced: { default: "Advanced options", i18key: "behavior.copy.advanced" },
-  refreshOptions: { default: "Refresh options", i18key: "behavior.copy.refreshOptions" },
-  addEntry: { default: "Add", i18key: "behavior.copy.addEntry" },
-  next: { default: "Continue", i18key: "behavior.copy.next" },
-  previous: { default: "Back", i18key: "behavior.copy.previous" },
-  finish: { default: "Save event", i18key: "behavior.copy.finish" },
-  noneYet: { default: "not set", i18key: "behavior.copy.noneYet" },
-  alwaysShort: { default: "always", i18key: "behavior.copy.alwaysShort" },
-  stepOf: { default: "Step {step} of 3", i18key: "behavior.copy.stepOf" },
-  nameHint: { default: "A short name for your list. The description of the action type lives behind the ⓘ.", i18key: "behavior.copy.nameHint" },
-  backHint: { default: "Back to the actions and events list without saving.", i18key: "behavior.copy.backHint" },
-  saveHint: { default: "Validate and store this action. Events using it pick up the change.", i18key: "behavior.copy.saveHint" },
-  deleteHint: { default: "Remove this action. Events using it will stop running it.", i18key: "behavior.copy.deleteHint" },
-  testHint: { default: "Run once with a sample event. Check the console below for the result.", i18key: "behavior.copy.testHint" },
-  consoleHint: { default: "Output of the last test run. Errors and fetch status land here.", i18key: "behavior.copy.consoleHint" },
-  networkHint: { default: "Hosts this action may call. The URL host becomes the allowlist; templated hosts are refused.", i18key: "behavior.copy.networkHint" },
-  capabilitiesHint: { default: "Engine capabilities this action needs: http.request, audio.play, points.write…", i18key: "behavior.copy.capabilitiesHint" },
-  typeHint: { default: "Where the action comes from and its short tag.", i18key: "behavior.copy.typeHint" },
-  suggestionsHint: { default: "Type {{ to list event variables. ↑ ↓ navigate · Tab insert · Ctrl+Space reopen. Hover shows type and live value.", i18key: "behavior.copy.suggestionsHint" },
-} as const;
-
-type BehaviorCopy = { -readonly [Key in keyof typeof COPY]: string };
-
 /** Fields whose select options come from the host on demand (`optionsFrom` in uiHints). */
 function fieldsWithOptions(uiHints?: JsonObject): Array<{ key: string; source: string }> {
   if (!uiHints || typeof uiHints !== 'object' || Array.isArray(uiHints)) return [];
@@ -176,12 +81,6 @@ function fieldsWithOptions(uiHints?: JsonObject): Array<{ key: string; source: s
     }
   }
   return result;
-}
-
-function copyFor(locale: Locale): BehaviorCopy {
-  const copy = {} as BehaviorCopy;
-  for (const [key, value] of Object.entries(COPY)) copy[key as keyof typeof COPY] = i18nText(locale, value);
-  return copy;
 }
 
 const TRIGGER_LABELS: Record<AutomationEventType, I18nText> = {
@@ -203,7 +102,6 @@ const COOLDOWN_CHOICES = [0, 3_000, 5_000, 10_000, 30_000, 60_000];
 
 export function BehaviorView(props: BehaviorViewProps) {
   const { locale, snapshot, runs, testRuns, error } = props;
-  const copy = copyFor(locale);
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
   const [actionQuery, setActionQuery] = useState('');
   const [eventQuery, setEventQuery] = useState('');
@@ -310,8 +208,8 @@ export function BehaviorView(props: BehaviorViewProps) {
     <div className="plg">
       <div className="plg-topbar">
         <div className="plg-topbar__text">
-          <h2 className="plg-topbar__title">{copy.title}</h2>
-          <span className="plg-topbar__subtitle">{copy.lead}</span>
+          <h2 className="plg-topbar__title">{t(locale, 'behavior.copy.title')}</h2>
+          <span className="plg-topbar__subtitle">{t(locale, 'behavior.copy.lead')}</span>
         </div>
       </div>
 
@@ -322,7 +220,7 @@ export function BehaviorView(props: BehaviorViewProps) {
           <div className="plg-section">
             <div className="plg-section__head">
               <div className="plg-section__title">
-                <h3>{copy.actions}</h3>
+                <h3>{t(locale, 'behavior.copy.actions')}</h3>
                 <span className="plg-section__count">{snapshot.actions.length}</span>
               </div>
               <div className="plg-section__tools">
@@ -330,12 +228,12 @@ export function BehaviorView(props: BehaviorViewProps) {
                   className="plg-input"
                   type="search"
                   value={actionQuery}
-                  placeholder={copy.searchAction}
+                  placeholder={t(locale, 'behavior.copy.searchAction')}
                   onInput={(event) => setActionQuery((event.currentTarget as HTMLInputElement).value)}
                 />
                 <SortControl locale={locale} value={actionSort} onChange={setActionSort} />
                 <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => setScreen({ kind: 'picker' })}>
-                  {copy.newAction}
+                  {t(locale, 'behavior.copy.newAction')}
                 </button>
               </div>
             </div>
@@ -343,15 +241,15 @@ export function BehaviorView(props: BehaviorViewProps) {
             <div className="plg-table plg-table--actions">
               <div className="plg-table__head">
                 <SortHeader
-                  label={copy.colActive}
+                  label={t(locale, 'behavior.copy.colActive')}
                   sort={actionSort}
                   onSort={setActionSort}
                   by="enabled"
                 />
-                <SortHeader label={copy.colName} sort={actionSort} onSort={setActionSort} by="name" />
-                <span>{copy.colOrigin}</span>
-                <span>{copy.colDoes}</span>
-                <span>{copy.colLast}</span>
+                <SortHeader label={t(locale, 'behavior.copy.colName')} sort={actionSort} onSort={setActionSort} by="name" />
+                <span>{t(locale, 'behavior.copy.colOrigin')}</span>
+                <span>{t(locale, 'behavior.copy.colDoes')}</span>
+                <span>{t(locale, 'behavior.copy.colLast')}</span>
                 <span />
               </div>
 
@@ -382,8 +280,8 @@ export function BehaviorView(props: BehaviorViewProps) {
                     </button>
                     <span className="plg-table__meta">
                       <span className="plg-table__origin">
-                        {type ? originLabel(type, locale, copy.builtIn) : '—'}
-                        {!usable && ` · ${copy.pluginMissing}`}
+                        {type ? originLabel(type, locale, t(locale, 'behavior.copy.builtIn')) : '—'}
+                        {!usable && ` · ${t(locale, 'behavior.copy.pluginMissing')}`}
                       </span>
                       <span className="plg-pill plg-pill--mono">{type?.tag ?? '—'}</span>
                     </span>
@@ -391,17 +289,17 @@ export function BehaviorView(props: BehaviorViewProps) {
                     <span className={`plg-table__status${!action.enabled ? '' : failing ? ' is-err' : lastRun ? ' is-ok' : ''}`}>
                       <span className={`plg-dot${!action.enabled ? '' : failing ? ' is-err' : lastRun ? ' is-ok' : ''}`} />
                       {!action.enabled
-                        ? copy.paused
+                        ? t(locale, 'behavior.copy.paused')
                         : lastRun
                           ? `${lastRun.error ?? lastRun.summary} · ${relativeTime(lastRun.at, locale)}`
-                          : copy.noRuns}
+                          : t(locale, 'behavior.copy.noRuns')}
                     </span>
                     <span className="plg-table__actions">
                       <button
                         type="button"
                         className="plg-iconbtn"
-                        aria-label={copy.edit}
-                        data-tooltip={copy.edit}
+                        aria-label={t(locale, 'behavior.copy.edit')}
+                        data-tooltip={t(locale, 'behavior.copy.edit')}
                         data-tooltip-pos="left"
                         onClick={() => setScreen({ kind: 'action', action, isNew: false })}
                       >
@@ -410,11 +308,11 @@ export function BehaviorView(props: BehaviorViewProps) {
                       <button
                         type="button"
                         className="plg-iconbtn is-danger"
-                        aria-label={copy.remove}
-                        data-tooltip={copy.remove}
+                        aria-label={t(locale, 'behavior.copy.remove')}
+                        data-tooltip={t(locale, 'behavior.copy.remove')}
                         data-tooltip-pos="left"
                         onClick={() => {
-                          if (confirm(copy.confirmDeleteAction)) props.onDeleteAction(action.id);
+                          if (confirm(t(locale, 'behavior.copy.confirmDeleteAction'))) props.onDeleteAction(action.id);
                         }}
                       >
                         <IconTrash />
@@ -426,9 +324,9 @@ export function BehaviorView(props: BehaviorViewProps) {
 
               {visibleActions.length === 0 && (
                 <div className="plg-empty">
-                  <span className="plg-empty__desc">{copy.noActions}</span>
+                  <span className="plg-empty__desc">{t(locale, 'behavior.copy.noActions')}</span>
                   <button type="button" className="plg-btn plg-btn--primary" onClick={() => setScreen({ kind: 'picker' })}>
-                    {copy.newAction}
+                    {t(locale, 'behavior.copy.newAction')}
                   </button>
                 </div>
               )}
@@ -438,7 +336,7 @@ export function BehaviorView(props: BehaviorViewProps) {
           <div className="plg-section">
             <div className="plg-section__head">
               <div className="plg-section__title">
-                <h3>{copy.events}</h3>
+                <h3>{t(locale, 'behavior.copy.events')}</h3>
                 <span className="plg-section__count">{snapshot.events.length}</span>
               </div>
               <div className="plg-section__tools">
@@ -446,7 +344,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                   className="plg-input"
                   type="search"
                   value={eventQuery}
-                  placeholder={copy.searchEvent}
+                  placeholder={t(locale, 'behavior.copy.searchEvent')}
                   onInput={(event) => setEventQuery((event.currentTarget as HTMLInputElement).value)}
                 />
                 <SortControl locale={locale} value={eventSort} onChange={setEventSort} />
@@ -455,18 +353,18 @@ export function BehaviorView(props: BehaviorViewProps) {
                   className="plg-btn plg-btn--primary plg-btn--sm"
                   onClick={() => setScreen({ kind: 'event', event: createEvent(locale), isNew: true })}
                 >
-                  {copy.newEvent}
+                  {t(locale, 'behavior.copy.newEvent')}
                 </button>
               </div>
             </div>
 
             <div className="plg-table plg-table--events">
               <div className="plg-table__head">
-                <SortHeader label={copy.colActive} sort={eventSort} onSort={setEventSort} by="enabled" />
-                <SortHeader label={copy.colName} sort={eventSort} onSort={setEventSort} by="name" />
-                <span>{copy.colTrigger}</span>
-                <span>{copy.colFilters}</span>
-                <span>{copy.colActions}</span>
+                <SortHeader label={t(locale, 'behavior.copy.colActive')} sort={eventSort} onSort={setEventSort} by="enabled" />
+                <SortHeader label={t(locale, 'behavior.copy.colName')} sort={eventSort} onSort={setEventSort} by="name" />
+                <span>{t(locale, 'behavior.copy.colTrigger')}</span>
+                <span>{t(locale, 'behavior.copy.colFilters')}</span>
+                <span>{t(locale, 'behavior.copy.colActions')}</span>
                 <span />
               </div>
 
@@ -489,7 +387,7 @@ export function BehaviorView(props: BehaviorViewProps) {
                   </button>
                   <span className="plg-table__origin">{i18nText(locale, TRIGGER_LABELS[event.trigger])}</span>
                   <span className="plg-table__chips">
-                    {event.filters.length === 0 && <span className="plg-pill">{copy.always}</span>}
+                    {event.filters.length === 0 && <span className="plg-pill">{t(locale, 'behavior.copy.always')}</span>}
                     {event.filters.map((filter, index) => (
                       <span className="plg-pill plg-pill--mono" key={`${filter.path}-${index}`}>
                         {describeFilter(filter, locale, event.trigger)}
@@ -507,8 +405,8 @@ export function BehaviorView(props: BehaviorViewProps) {
                     <button
                       type="button"
                       className="plg-iconbtn"
-                      aria-label={copy.edit}
-                      data-tooltip={copy.edit}
+                      aria-label={t(locale, 'behavior.copy.edit')}
+                      data-tooltip={t(locale, 'behavior.copy.edit')}
                       data-tooltip-pos="left"
                       onClick={() => setScreen({ kind: 'event', event, isNew: false })}
                     >
@@ -517,11 +415,11 @@ export function BehaviorView(props: BehaviorViewProps) {
                     <button
                       type="button"
                       className="plg-iconbtn is-danger"
-                      aria-label={copy.remove}
-                      data-tooltip={copy.remove}
+                      aria-label={t(locale, 'behavior.copy.remove')}
+                      data-tooltip={t(locale, 'behavior.copy.remove')}
                       data-tooltip-pos="left"
                       onClick={() => {
-                        if (confirm(copy.confirmDeleteEvent)) props.onDeleteEvent(event.id);
+                        if (confirm(t(locale, 'behavior.copy.confirmDeleteEvent'))) props.onDeleteEvent(event.id);
                       }}
                     >
                       <IconTrash />
@@ -532,13 +430,13 @@ export function BehaviorView(props: BehaviorViewProps) {
 
               {visibleEvents.length === 0 && (
                 <div className="plg-empty">
-                  <span className="plg-empty__desc">{copy.noEvents}</span>
+                  <span className="plg-empty__desc">{t(locale, 'behavior.copy.noEvents')}</span>
                   <button
                     type="button"
                     className="plg-btn plg-btn--primary"
                     onClick={() => setScreen({ kind: 'event', event: createEvent(locale), isNew: true })}
                   >
-                    {copy.newEvent}
+                    {t(locale, 'behavior.copy.newEvent')}
                   </button>
                 </div>
               )}
@@ -548,10 +446,10 @@ export function BehaviorView(props: BehaviorViewProps) {
 
         <aside className="plg-body__aside">
           <div className="plg-toolbar">
-            <span className="plg-section-title">{copy.runs}</span>
+            <span className="plg-section-title">{t(locale, 'behavior.copy.runs')}</span>
           </div>
           <div className="plg-runs">
-            {runs.length === 0 && <p className="plg-note">{copy.runsEmpty}</p>}
+            {runs.length === 0 && <p className="plg-note">{t(locale, 'behavior.copy.runsEmpty')}</p>}
             {runs.slice(0, 20).map((run) => (
               <div className="plg-run" key={run.id}>
                 <span className={`plg-dot${run.status === 'ok' ? ' is-ok' : run.status === 'error' ? ' is-err' : ''}`} />
@@ -584,7 +482,6 @@ function ActionPicker({
   onCancel: () => void;
   onOpenPlugins: () => void;
 }) {
-  const copy = copyFor(locale);
   const [query, setQuery] = useState('');
   const matches = (type: ActionTypeDefinition): boolean =>
     !query.trim() || i18nText(locale, type.title).toLowerCase().includes(query.trim().toLowerCase());
@@ -594,13 +491,13 @@ function ActionPicker({
   return (
     <div className="plg">
       <div className="plg-topbar">
-        <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={copy.back}>‹</button>
+        <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={t(locale, 'behavior.copy.back')}>‹</button>
         <div className="plg-topbar__text">
-          <h2 className="plg-topbar__title">{copy.pickTitle}</h2>
-          <span className="plg-topbar__subtitle">{copy.pickLead}</span>
+          <h2 className="plg-topbar__title">{t(locale, 'behavior.copy.pickTitle')}</h2>
+          <span className="plg-topbar__subtitle">{t(locale, 'behavior.copy.pickLead')}</span>
         </div>
         <div className="plg-topbar__actions">
-          <button type="button" className="plg-btn plg-btn--sm" onClick={onOpenPlugins}>{copy.explore}</button>
+          <button type="button" className="plg-btn plg-btn--sm" onClick={onOpenPlugins}>{t(locale, 'behavior.copy.explore')}</button>
         </div>
       </div>
 
@@ -609,7 +506,7 @@ function ActionPicker({
           className="plg-input"
           type="search"
           value={query}
-          placeholder={copy.searchAction}
+          placeholder={t(locale, 'behavior.copy.searchAction')}
           onInput={(event) => setQuery((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
@@ -617,8 +514,8 @@ function ActionPicker({
       <div className="plg-scroll">
         <div className="plg-section">
           <div className="plg-group-head">
-            <span className="plg-section-title">{copy.builtInGroup}</span>
-            <span className="plg-group-note">{copy.builtInNote}</span>
+            <span className="plg-section-title">{t(locale, 'behavior.copy.builtInGroup')}</span>
+            <span className="plg-group-note">{t(locale, 'behavior.copy.builtInNote')}</span>
           </div>
           <div className="plg-cards">
             {actionTypes.filter((type) => type.source.kind === 'builtin').filter(matches).map((type) => (
@@ -634,7 +531,7 @@ function ActionPicker({
             <div className="plg-section" key={plugin.descriptor.id}>
               <div className="plg-group-head">
                 <span className="plg-section-title">{i18nText(locale, plugin.descriptor.name)}</span>
-                <span className="plg-pill">{copy.pluginNote}</span>
+                <span className="plg-pill">{t(locale, 'behavior.copy.pluginNote')}</span>
                 <span className="plg-group-note">
                   {i18nText(locale, plugin.descriptor.dependency)} · {types.length}
                 </span>
@@ -651,11 +548,11 @@ function ActionPicker({
         <div className="plg-section">
           <div className="plg-advanced">
             <div className="plg-field">
-              <span className="plg-action-card__title">{copy.missingTitle}</span>
-              <span className="plg-action-card__desc">{copy.missingDesc}</span>
+              <span className="plg-action-card__title">{t(locale, 'behavior.copy.missingTitle')}</span>
+              <span className="plg-action-card__desc">{t(locale, 'behavior.copy.missingDesc')}</span>
             </div>
             <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={onOpenPlugins}>
-              {copy.explore}
+              {t(locale, 'behavior.copy.explore')}
             </button>
           </div>
         </div>
@@ -711,7 +608,6 @@ function ActionEditor({
   onDelete: (id: string) => void;
   onTest: (action: LiveAction, trigger?: AutomationEventType) => void;
 }) {
-  const copy = copyFor(locale);
   const [draft, setDraft] = useState<LiveAction>(action);
   const type = actionTypes.find((entry) => entry.id === draft.typeId);
   const permissions = deriveActionPermissions(draft);
@@ -751,22 +647,22 @@ function ActionEditor({
           type="button"
           className="plg-btn plg-btn--icon"
           onClick={onCancel}
-          aria-label={copy.back}
-          data-tooltip={copy.backHint}
+          aria-label={t(locale, 'behavior.copy.back')}
+          data-tooltip={t(locale, 'behavior.copy.backHint')}
           data-tooltip-pos="bottom"
           data-tooltip-wide=""
         >
           ‹
         </button>
         <div className="plg-topbar__text">
-          <h2 className="plg-topbar__title">{draft.name || copy.newAction}</h2>
+          <h2 className="plg-topbar__title">{draft.name || t(locale, 'behavior.copy.newAction')}</h2>
           <span
             className="plg-topbar__subtitle plg-mono"
-            data-tooltip={type ? `${i18nText(locale, type.description)}${copy.typeHint ? ` — ${copy.typeHint}` : ''}` : draft.typeId}
+            data-tooltip={type ? `${i18nText(locale, type.description)}${t(locale, 'behavior.copy.typeHint') ? ` — ${t(locale, 'behavior.copy.typeHint')}` : ''}` : draft.typeId}
             data-tooltip-pos="bottom"
             data-tooltip-wide=""
           >
-            {type ? `${originLabel(type, locale, copy.builtIn)} · ${type.tag}` : draft.typeId}
+            {type ? `${originLabel(type, locale, t(locale, 'behavior.copy.builtIn'))} · ${type.tag}` : draft.typeId}
           </span>
         </div>
         <div className="plg-topbar__actions">
@@ -774,25 +670,25 @@ function ActionEditor({
             <button
               type="button"
               className="plg-btn plg-btn--danger plg-btn--sm"
-              data-tooltip={copy.deleteHint}
+              data-tooltip={t(locale, 'behavior.copy.deleteHint')}
               data-tooltip-pos="bottom"
               data-tooltip-wide=""
               onClick={() => {
-                if (confirm(copy.confirmDeleteAction)) onDelete(draft.id);
+                if (confirm(t(locale, 'behavior.copy.confirmDeleteAction'))) onDelete(draft.id);
               }}
             >
-              {copy.remove}
+              {t(locale, 'behavior.copy.remove')}
             </button>
           )}
           <button
             type="button"
             className="plg-btn plg-btn--primary plg-btn--sm"
-            data-tooltip={copy.saveHint}
+            data-tooltip={t(locale, 'behavior.copy.saveHint')}
             data-tooltip-pos="bottom"
             data-tooltip-wide=""
             onClick={() => onSave(draft)}
           >
-            {copy.save}
+            {t(locale, 'behavior.copy.save')}
           </button>
         </div>
       </div>
@@ -803,27 +699,18 @@ function ActionEditor({
             {error && <div className="plg-alert">{error}</div>}
 
             <div className="plg-field">
-              <FieldLabel label={copy.name} hint={type ? i18nText(locale, type.description) : copy.nameHint} />
+              <FieldLabel label={t(locale, 'behavior.copy.name')} hint={type ? i18nText(locale, type.description) : t(locale, 'behavior.copy.nameHint')} />
               <input
                 className="plg-input"
                 value={draft.name}
-                aria-label={copy.name}
-                data-tooltip={copy.nameHint}
+                aria-label={t(locale, 'behavior.copy.name')}
+                data-tooltip={t(locale, 'behavior.copy.nameHint')}
                 data-tooltip-pos="right"
                 data-tooltip-wide=""
                 placeholder={type ? i18nText(locale, type.title) : undefined}
                 onInput={(event) => setDraft((current) => ({ ...current, name: (event.currentTarget as HTMLInputElement).value }))}
               />
             </div>
-
-            <p
-              className="plg-note"
-              data-tooltip={copy.suggestionsHint}
-              data-tooltip-pos="bottom"
-              data-tooltip-wide=""
-            >
-              {copy.suggestionsHint}
-            </p>
 
             {form ? (
               <>
@@ -834,7 +721,7 @@ function ActionEditor({
                       className="plg-btn plg-btn--sm"
                       onClick={() => { for (const field of dynamicFields) onGetActionOptions(field.source); }}
                     >
-                      {copy.refreshOptions}
+                      {t(locale, 'behavior.copy.refreshOptions')}
                     </button>
                   </div>
                 )}
@@ -854,24 +741,24 @@ function ActionEditor({
 
           <div className="plg-side">
             <PermissionsPanel
-              title={copy.permissions}
-              hint={copy.permissionsHint}
+              title={t(locale, 'behavior.copy.permissions')}
+              hint={t(locale, 'behavior.copy.permissionsHint')}
               network={permissions.network}
               capabilities={permissions.capabilities}
-              noneLabel={copy.none}
-              networkHint={copy.networkHint}
-              capabilitiesHint={copy.capabilitiesHint}
+              noneLabel={t(locale, 'behavior.copy.none')}
+              networkHint={t(locale, 'behavior.copy.networkHint')}
+              capabilitiesHint={t(locale, 'behavior.copy.capabilitiesHint')}
             />
 
             <button
               type="button"
               className="plg-btn plg-btn--block"
-              data-tooltip={copy.testHint}
+              data-tooltip={t(locale, 'behavior.copy.testHint')}
               data-tooltip-pos="left"
               data-tooltip-wide=""
               onClick={() => onTest(draft)}
             >
-              {copy.test}
+              {t(locale, 'behavior.copy.test')}
             </button>
 
             {testRun && (
@@ -887,10 +774,10 @@ function ActionEditor({
             )}
 
             <ConsolePanel
-              title={copy.console}
-              hint={copy.consoleHint}
+              title={t(locale, 'behavior.copy.console')}
+              hint={t(locale, 'behavior.copy.consoleHint')}
               lines={testRun?.logs ?? []}
-              emptyLabel={copy.consoleEmpty}
+              emptyLabel={t(locale, 'behavior.copy.consoleEmpty')}
             />
           </div>
         </div>
@@ -926,7 +813,6 @@ function EventEditor({
   onDelete: (id: string) => void;
   onTest: (event: LiveEvent) => void;
 }) {
-  const copy = copyFor(locale);
   const [draft, setDraft] = useState<LiveEvent>(event);
   const [step, setStep] = useState(1);
 
@@ -936,23 +822,23 @@ function EventEditor({
     .filter((name): name is string => Boolean(name));
 
   const steps = [
-    { number: 1, label: copy.stepWhen, sub: i18nText(locale, TRIGGER_LABELS[draft.trigger]) },
+    { number: 1, label: t(locale, 'behavior.copy.stepWhen'), sub: i18nText(locale, TRIGGER_LABELS[draft.trigger]) },
     {
       number: 2,
-      label: copy.stepFilters,
+      label: t(locale, 'behavior.copy.stepFilters'),
       sub: draft.filters.length === 0
-        ? copy.alwaysShort
+        ? t(locale, 'behavior.copy.alwaysShort')
         : draft.filters.map((filter) => describeFilter(filter, locale, draft.trigger)).join(' · '),
     },
-    { number: 3, label: copy.stepDo, sub: chosenNames.length === 0 ? copy.noneYet : chosenNames.join(' · ') },
+    { number: 3, label: t(locale, 'behavior.copy.stepDo'), sub: chosenNames.length === 0 ? t(locale, 'behavior.copy.noneYet') : chosenNames.join(' · ') },
   ];
 
   return (
     <div className="plg">
       <div className="plg-topbar">
-        <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={copy.back}>‹</button>
+        <button type="button" className="plg-btn plg-btn--icon" onClick={onCancel} aria-label={t(locale, 'behavior.copy.back')}>‹</button>
         <div className="plg-topbar__text">
-          <h2 className="plg-topbar__title">{draft.name || copy.newEvent}</h2>
+          <h2 className="plg-topbar__title">{draft.name || t(locale, 'behavior.copy.newEvent')}</h2>
           <span className="plg-topbar__subtitle plg-mono">{t(locale, 'behavior.copy.stepOf', { step })} · {draft.trigger}</span>
         </div>
         <div className="plg-topbar__actions">
@@ -961,14 +847,14 @@ function EventEditor({
               type="button"
               className="plg-btn plg-btn--danger plg-btn--sm"
               onClick={() => {
-                if (confirm(copy.confirmDeleteEvent)) onDelete(draft.id);
+                if (confirm(t(locale, 'behavior.copy.confirmDeleteEvent'))) onDelete(draft.id);
               }}
             >
-              {copy.remove}
+              {t(locale, 'behavior.copy.remove')}
             </button>
           )}
           <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => onSave(draft)}>
-            {copy.save}
+            {t(locale, 'behavior.copy.save')}
           </button>
         </div>
       </div>
@@ -1001,7 +887,7 @@ function EventEditor({
               <div className="plg-step__body">
                 <div className="plg-inline">
                   <div className="plg-field">
-                    <label className="plg-label">{copy.trigger}</label>
+                    <label className="plg-label">{t(locale, 'behavior.copy.trigger')}</label>
                     <select
                       className="plg-select"
                       value={draft.trigger}
@@ -1013,7 +899,7 @@ function EventEditor({
                     </select>
                   </div>
                   <div className="plg-field">
-                    <label className="plg-label">{copy.name}</label>
+                    <label className="plg-label">{t(locale, 'behavior.copy.name')}</label>
                     <input
                       className="plg-input"
                       value={draft.name}
@@ -1027,8 +913,8 @@ function EventEditor({
             {step === 2 && (
               <div className="plg-step__body">
                 <div className="plg-label-row">
-                  <span className="plg-label">{copy.stepFiltersHint}</span>
-                  <InfoTip text={copy.orHint} position="right" />
+                  <span className="plg-label">{t(locale, 'behavior.copy.stepFiltersHint')}</span>
+                  <InfoTip text={t(locale, 'behavior.copy.orHint')} position="right" />
                 </div>
 
                 <ConditionTable
@@ -1044,7 +930,7 @@ function EventEditor({
 
             {step === 3 && (
               <div className="plg-step__body">
-                <span className="plg-label">{copy.pickActions}</span>
+                <span className="plg-label">{t(locale, 'behavior.copy.pickActions')}</span>
                 <div className="plg-chips" style="flex-wrap: wrap;">
                   {actions.map((action) => {
                     const active = draft.actionIds.includes(action.id);
@@ -1063,7 +949,7 @@ function EventEditor({
                       </button>
                     );
                   })}
-                  {actions.length === 0 && <span className="plg-note">{copy.noActionsYet}</span>}
+                  {actions.length === 0 && <span className="plg-note">{t(locale, 'behavior.copy.noActionsYet')}</span>}
                 </div>
 
                 {draft.actionIds.length > 1 && (
@@ -1071,7 +957,7 @@ function EventEditor({
                     <button
                       type="button"
                       className={`plg-switch${draft.runMode === 'random' ? ' is-on' : ''}`}
-                      aria-label={copy.runMode}
+                      aria-label={t(locale, 'behavior.copy.runMode')}
                       onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
                     >
                       <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
@@ -1080,28 +966,28 @@ function EventEditor({
                       className="plg-label"
                       onClick={() => update({ runMode: draft.runMode === 'random' ? 'all' : 'random' })}
                     >
-                      {copy.runMode}
+                      {t(locale, 'behavior.copy.runMode')}
                     </label>
                   </div>
                 )}
 
                 <div className="plg-inline">
                   <div className="plg-field">
-                    <label className="plg-label">{copy.cooldown}</label>
+                    <label className="plg-label">{t(locale, 'behavior.copy.cooldown')}</label>
                     <select
                       className="plg-select"
                       value={String(draft.cooldownMs)}
                       onChange={(node) => update({ cooldownMs: Number((node.currentTarget as HTMLSelectElement).value) })}
                     >
                       {COOLDOWN_CHOICES.map((ms) => (
-                        <option key={ms} value={String(ms)}>{ms === 0 ? copy.noCooldown : `${ms / 1000} s`}</option>
+                        <option key={ms} value={String(ms)}>{ms === 0 ? t(locale, 'behavior.copy.noCooldown') : `${ms / 1000} s`}</option>
                       ))}
                     </select>
                   </div>
                   {draft.cooldownMs > 0 && (
                   <div className="plg-field">
                     <div className="plg-label-row">
-                      <label className="plg-label">{copy.cooldownScope}</label>
+                      <label className="plg-label">{t(locale, 'behavior.copy.cooldownScope')}</label>
                       <InfoTip
                         text={locale === 'es'
                           ? 'Por usuario: la espera cuenta para cada espectador. Global: una sola espera para todos.'
@@ -1114,8 +1000,8 @@ function EventEditor({
                       value={draft.cooldownScope}
                       onChange={(node) => update({ cooldownScope: (node.currentTarget as HTMLSelectElement).value === 'global' ? 'global' : 'user' })}
                     >
-                      <option value="user">{copy.perUser}</option>
-                      <option value="global">{copy.global}</option>
+                      <option value="user">{t(locale, 'behavior.copy.perUser')}</option>
+                      <option value="global">{t(locale, 'behavior.copy.global')}</option>
                     </select>
                   </div>
                   )}
@@ -1130,7 +1016,7 @@ function EventEditor({
                 disabled={step === 1}
                 onClick={() => setStep((current) => Math.max(1, current - 1))}
               >
-                {copy.previous}
+                {t(locale, 'behavior.copy.previous')}
               </button>
               <span className="plg-nav__spacer" />
               {step < 3 ? (
@@ -1139,11 +1025,11 @@ function EventEditor({
                   className="plg-btn plg-btn--primary plg-btn--sm"
                   onClick={() => setStep((current) => Math.min(3, current + 1))}
                 >
-                  {copy.next}
+                  {t(locale, 'behavior.copy.next')}
                 </button>
               ) : (
                 <button type="button" className="plg-btn plg-btn--primary plg-btn--sm" onClick={() => onSave(draft)}>
-                  {copy.finish}
+                  {t(locale, 'behavior.copy.finish')}
                 </button>
               )}
             </div>
@@ -1151,7 +1037,7 @@ function EventEditor({
 
           <div className="plg-side">
             <button type="button" className="plg-btn plg-btn--block" onClick={() => onTest(draft)}>
-              {copy.test}
+              {t(locale, 'behavior.copy.test')}
             </button>
             {testRuns.map((run) => (
               <div className={`plg-panel ${run.status === 'error' ? 'plg-panel--err' : 'plg-panel--ok'}`} key={run.id}>
@@ -1207,18 +1093,17 @@ function SortControl({
   value: SortMode;
   onChange: (sort: SortMode) => void;
 }) {
-  const copy = copyFor(locale);
   return (
     <IconSelect
       className="plg-sort"
-      ariaLabel={copy.sortBy}
+      ariaLabel={t(locale, 'behavior.copy.sortBy')}
       value={value}
       onChange={(next) => onChange(next as SortMode)}
       options={[
-        { value: 'name', label: copy.sortName, icon: <SortGlyph direction="up" /> },
-        { value: 'name-desc', label: copy.sortNameDesc, icon: <SortGlyph direction="down" /> },
-        { value: 'enabled', label: copy.sortActive, icon: <SortGlyph direction="dot" /> },
-        { value: 'disabled', label: copy.sortInactive, icon: <SortGlyph direction="dot-off" /> },
+        { value: 'name', label: t(locale, 'behavior.copy.sortName'), icon: <SortGlyph direction="up" /> },
+        { value: 'name-desc', label: t(locale, 'behavior.copy.sortNameDesc'), icon: <SortGlyph direction="down" /> },
+        { value: 'enabled', label: t(locale, 'behavior.copy.sortActive'), icon: <SortGlyph direction="dot" /> },
+        { value: 'disabled', label: t(locale, 'behavior.copy.sortInactive'), icon: <SortGlyph direction="dot-off" /> },
       ]}
     />
   );

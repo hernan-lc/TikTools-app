@@ -58,7 +58,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'condition.compare':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField
+          <TemplateField locale={locale}
             label={t(locale, 'nodeValuePath')}
             hint={t(locale, 'nodeValuePathHint')}
             value={asString(config.leftPath)}
@@ -89,7 +89,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'transform.template':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField label={t(locale, 'nodeTemplate')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
+          <TemplateField locale={locale} label={t(locale, 'nodeTemplate')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
     case 'transform.script':
@@ -104,13 +104,13 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return (
         <div className="node-editor-form-stack">
           <NumberInput label={t(locale, 'nodeDuration')} hint={t(locale, 'nodeCooldownHint')} value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
-          <TemplateField label={t(locale, 'nodeCooldownKey')} value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} />
+          <TemplateField locale={locale} label={t(locale, 'nodeCooldownKey')} value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} />
         </div>
       );
     case 'action.log':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField label={t(locale, 'nodeMessage')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
+          <TemplateField locale={locale} label={t(locale, 'nodeMessage')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
     case 'action.http':
@@ -118,7 +118,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'action.play-sound':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} />
+          <TemplateField locale={locale} label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} />
           <NumberInput label={t(locale, 'nodeVolume')} value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
           <Select label={t(locale, 'nodeOverlap')} value={asString(config.overlap, 'allow')} options={[{ value: 'allow', label: t(locale, 'nodeAllowOverlap') }, { value: 'restart', label: t(locale, 'nodeRestartOverlap') }, { value: 'drop', label: t(locale, 'nodeDropOverlap') }]} onValueChange={(value) => update('overlap', value)} />
         </div>
@@ -126,7 +126,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'action.tts':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField label={t(locale, 'nodeText')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
+          <TemplateField locale={locale} label={t(locale, 'nodeText')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
           <TextInput label={t(locale, 'nodeVoice')} value={asString(config.voice, 'M1')} onValueChange={(value) => update('voice', value)} />
           <Select label={t(locale, 'nodeLanguage')} value={asString(config.lang, 'en')} options={[{ value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]} onValueChange={(value) => update('lang', value)} />
           <Select label={t(locale, 'nodeAudioFormat')} value={asString(config.format, 'wav')} options={[{ value: 'wav', label: 'WAV' }, { value: 'ogg', label: 'OGG' }]} onValueChange={(value) => update('format', value)} />
@@ -135,7 +135,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'action.adjust-points':
       return (
         <div className="node-editor-form-stack">
-          <TemplateField label={t(locale, 'nodeViewer')} hint={t(locale, 'nodeViewerHint')} value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} />
+          <TemplateField locale={locale} label={t(locale, 'nodeViewer')} hint={t(locale, 'nodeViewerHint')} value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} />
           <NumberInput label={t(locale, 'nodeDelta')} value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
         </div>
       );
@@ -288,9 +288,9 @@ function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { lo
   return (
     <div className="node-editor-form-stack">
       <Select label={t(locale, 'nodeMethod')} value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
-      <TemplateField label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} />
-      <TemplateField label={t(locale, 'nodeRequestBody')} value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} />
-      <TemplateField label={t(locale, 'nodeHeaders')} hint={t(locale, 'nodeHeadersHint')} value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} />
+      <TemplateField locale={locale} label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.url)} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} />
+      <TemplateField locale={locale} label={t(locale, 'nodeRequestBody')} value={asString(config.body)} onValueChange={(value) => onChange('body', value)} suggestions={templateValues('http-data')} multiline rows={4} />
+      <TemplateField locale={locale} label={t(locale, 'nodeHeaders')} hint={t(locale, 'nodeHeadersHint')} value={headersToText(config.headers)} onValueChange={(value) => onChange('headers', parseHeaders(value))} suggestions={templateValues('http-data')} multiline rows={4} />
       <NumberInput label={t(locale, 'nodeTimeout')} value={asNumber(config.timeoutMs, 10000)} min={100} max={120000} step={100} suffix="ms" onValueChange={(value) => onChange('timeoutMs', value)} />
       <Select label={t(locale, 'nodeResponseType')} value={asString(config.responseType, 'auto')} options={[{ value: 'auto', label: 'Auto' }, { value: 'json', label: 'JSON' }, { value: 'text', label: 'Text' }, { value: 'bytes', label: 'Bytes' }]} onValueChange={(value) => onChange('responseType', value)} />
       <Select label={t(locale, 'nodeRedirect')} value={asString(config.redirect, 'error')} options={[{ value: 'error', label: t(locale, 'nodeBlockRedirects') }, { value: 'follow', label: t(locale, 'nodeFollowRedirects') }]} onValueChange={(value) => onChange('redirect', value)} />

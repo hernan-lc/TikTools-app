@@ -16,10 +16,11 @@ type FieldLabelProps = {
 
 /**
  * One label row for every form field: the text, an ⓘ tooltip when there is
- * something to explain, and a `{{ }}` badge when the field is templated.
+ * something to explain, and an optional inline example. Template variables
+ * (`{{ event.* }}`) are highlighted inline in the input itself — no badges.
  * Keeps the form short — explanations live behind icons, not paragraphs.
  */
-export function FieldLabel({ label, hint, example, template, templateHint, labelHint, htmlFor }: FieldLabelProps) {
+export function FieldLabel({ label, hint, example, labelHint, htmlFor }: FieldLabelProps) {
   const tooltip = hint ?? labelHint;
   return (
     <div className="plg-label-row">
@@ -27,17 +28,6 @@ export function FieldLabel({ label, hint, example, template, templateHint, label
         {label}
       </label>
       {tooltip ? <InfoTip text={tooltip} position="right" /> : null}
-      {template ? (
-        <span
-          className="plg-template-badge"
-          data-tooltip={templateHint ?? 'Accepts {{ event.* }} placeholders. Type {{ to see suggestions.'}
-          data-tooltip-pos="right"
-          data-tooltip-wide=""
-          aria-label={templateHint ?? 'Supports templates'}
-        >
-          {'{{ }}'}
-        </span>
-      ) : null}
       {example ? <span className="plg-field-example">{example}</span> : null}
     </div>
   );
@@ -60,24 +50,9 @@ export function extractTemplateTokens(value: string): string[] {
   return out;
 }
 
-/** Small line under template inputs: which placeholders were detected. */
-export function TemplateTokensLine({ value, onInsert }: { value: string; onInsert?: () => void }) {
-  const tokens = extractTemplateTokens(value);
-  if (tokens.length === 0) return null;
-  return (
-    <div className="plg-template-tokens" role="note">
-      <span
-        data-tooltip={`Renders with: ${tokens.join(', ')}`}
-        data-tooltip-pos="bottom"
-        data-tooltip-wide=""
-      >
-        {tokens.length === 1 ? `Uses ${tokens[0]}` : `Uses ${tokens.length} variables`}
-      </span>
-      {onInsert ? (
-        <button type="button" className="plg-template-tokens__add" onClick={onInsert}>
-          + variable
-        </button>
-      ) : null}
-    </div>
-  );
+/** Kept for compatibility: variables are highlighted inline now, so no line is rendered. */
+export function TemplateTokensLine({ value: _value, onInsert: _onInsert }: { value: string; onInsert?: () => void }) {
+  void _value;
+  void _onInsert;
+  return null;
 }

@@ -34,7 +34,7 @@ type TextInputProps = {
 };
 
 export const TextInput = forwardRef<TextInputHandle, TextInputProps>(function TextInput(
-  { value, onValueChange, placeholder, label, hint, template, templateHint, prefix, suffix, disabled, error, id, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter },
+  { value, onValueChange, placeholder, label, hint, prefix, suffix, disabled, error, id, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter },
   ref,
 ) {
   const innerRef = useRef<HTMLInputElement>(null);
@@ -84,11 +84,8 @@ export const TextInput = forwardRef<TextInputHandle, TextInputProps>(function Te
             {label}{required ? ' *' : ''}
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
-          {template ? (
-            <span className="ui-float__badge" data-tooltip={templateHint ?? 'Accepts {{ event.* }}'} data-tooltip-pos="left" data-tooltip-wide="">{'{{ }}'}</span>
-          ) : null}
           {clearable && value ? (
-            <button type="button" className="ui-float__clear" style={{ right: template ? 52 : suffix ? 44 : 8 }} onClick={() => onValueChange('')} aria-label="Clear">×</button>
+            <button type="button" className="ui-float__clear" style={{ right: suffix ? 44 : 8 }} onClick={() => onValueChange('')} aria-label="Clear">×</button>
           ) : null}
           {suffix ? <span className="ui-float__suffix">{suffix}</span> : null}
         </div>

@@ -6,7 +6,6 @@ import { TemplateField } from '../node-editor/TemplateField.tsx';
 import { getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestionScope } from '../node-editor/template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { mergeSuggestions, suggestionsFromObject } from '../autocomplete/autocomplete.ts';
-import { TemplateTokensLine } from './FieldLabel.tsx';
 import { AdvancedSection } from './FieldPanels.tsx';
 import { InfoTip } from './InfoTip.tsx';
 import { i18nText, t, type Locale } from '../../i18n.ts';
@@ -218,6 +217,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
       return (
         <div className="plg-field">
           <TemplateField
+            locale={locale}
             value={schema.format === 'json' && typeof value === 'string' ? value : displayValue}
             onValueChange={onChange}
             suggestions={templateSuggestions}
@@ -226,9 +226,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
             ariaLabel={label}
             label={label}
             hint={hintText || undefined}
-            template={template}
           />
-          {template ? <TemplateTokensLine value={displayValue} /> : null}
         </div>
       );
     }
@@ -255,12 +253,8 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
               {label}
               {hintText ? <InfoTip text={hintText} position="right" /> : null}
             </label>
-            {template ? (
-              <span className="plg-float__badge" data-tooltip={hintText || 'Accepts {{ }}'} data-tooltip-pos="left" data-tooltip-wide="">{'{{ }}'}</span>
-            ) : null}
           </div>
         </div>
-        {template ? <TemplateTokensLine value={displayValue} /> : null}
       </div>
     );
   }
@@ -295,15 +289,14 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
     return (
       <div className="plg-field">
         <TemplateField
+          locale={locale}
           value={displayValue}
           onValueChange={onChange}
           suggestions={templateSuggestions}
           ariaLabel={label}
           label={label}
           hint={hintText || undefined}
-          template={template}
         />
-        {template ? <TemplateTokensLine value={displayValue} /> : null}
       </div>
     );
   }
@@ -396,14 +389,6 @@ function KeyValueEditor({
       <div className="plg-label-row">
         <label className="plg-label">{label}</label>
         <InfoTip text={hintText || t(locale, 'headersDefaultHint')} position="right" />
-        <span
-          className="plg-template-badge"
-          data-tooltip={t(locale, 'headersDefaultHint')}
-          data-tooltip-pos="right"
-          data-tooltip-wide=""
-        >
-          {'{{ }}'}
-        </span>
       </div>
       {Object.entries(entries).map(([key, entry]) => (
         <div className="plg-kv-row" key={key}>
@@ -422,6 +407,7 @@ function KeyValueEditor({
           />
           <span className="plg-kv-row__value">
             <TemplateField
+              locale={locale}
               value={String(entry ?? '')}
               onValueChange={(next) => onChange({ ...entries, [key]: next })}
               suggestions={suggestions}

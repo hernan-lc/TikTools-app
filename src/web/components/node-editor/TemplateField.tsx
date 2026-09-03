@@ -5,6 +5,7 @@ import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
 import { AutocompletePortal } from './AutocompletePortal.tsx';
 import { InfoTip } from '../ui/InfoTip.tsx';
+import { t, type Locale } from '../../i18n.ts';
 
 /** Anything list-like works: TemplateSuggestion is an AutocompleteItem. */
 export type TemplateFieldSuggestion = TemplateSuggestion | AutocompleteItem;
@@ -18,15 +19,16 @@ type TemplateFieldProps = {
   multiline?: boolean;
   rows?: number;
   ariaLabel?: string;
-  /** Ctrl/Cmd+Space always reopens; Escape closes. */
+  /** Kept for compatibility; no longer rendered (see dropdown footer). */
   hintText?: string;
   /** MUI-style floating label. When set, label lives inside until focus/filled. */
   label?: string;
   /** Tooltip-only explanation (ⓘ) attached to the floating label. */
   hint?: string;
-  /** Show the `{{ }}` badge inside the control. */
+  /** Kept for compatibility; the `{{ }}` badge was removed in favor of inline highlight. */
   template?: boolean;
   templateHint?: string;
+  locale?: Locale;
 };
 
 function toItem(suggestion: TemplateFieldSuggestion): AutocompleteItem & { label: string; value: string } {
@@ -42,13 +44,12 @@ function toItem(suggestion: TemplateFieldSuggestion): AutocompleteItem & { label
 }
 
 /**
- * Small, dependency-free template editor. It keeps the stored value as the
- * runtime expects (`{{ event.data.comment }}`) while letting users insert
- * valid paths instead of memorising the event shape.
+ * Small, dependency-free template editor. The stored value stays the runtime
+ * format (`{{ event.data.comment }}`); `{{ … }}` spans render in cyan behind
+ * the text so variables read as variables everywhere.
  *
- * Generic: push any object/schema via `suggestions` (see `autocomplete.ts`).
- * Matches highlight with `<mark>`; hovering (or keyboard-moving) shows the
- * value/type in the detail pane.
+ * Autocomplete is deliberately quiet: it opens only while typing inside
+ * `{{ }}`, while typing a variable-like word (2+ chars), or via Ctrl+Space.
  */
 export function TemplateField({
   value,
@@ -59,11 +60,9 @@ export function TemplateField({
   multiline = false,
   rows = 4,
   ariaLabel,
-  hintText,
   label,
   hint,
-  template,
-  templateHint,
+  locale = 'en',
 }: TemplateFieldProps) {
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -76,12 +75,22 @@ export function TemplateField({
     setCursor(event.currentTarget.selectionStart ?? event.currentTarget.value.length);
   };
 
+  const syncHighlightScroll = (event: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    const target = event.currentTarget;
+    const backdrop = target.parentElement?.querySelector<HTMLElement>(':scope > .tpl-highlight');
+    if (backdrop) {
+      backdrop.scrollTop = target.scrollTop;
+      backdrop.scrollLeft = target.scrollLeft;
+    }
+  };
+
   const token = getToken(value, cursor, suggestionMode);
   const items = useMemo(() => suggestions.map(toItem), [suggestions]);
-  const scored = useMemo(() => filterSuggestions(items, token.query, 10), [items, token.query]);
+  const scored = useMemo(() => filterSuggestions(items, token.query, 7), [items, token.query]);
   const visible = scored.map((entry) => ({ item: entry.item, ranges: entry.matchRanges }));
-  const showSuggestions = (focused || forcedOpen) && (token.active || forcedOpen) && visible.length > 0;
-  const activeEntry = visible[Math.min(suggestionIndex, Math.max(0, visible.length - 1))];
+  const wantsOpen = forcedOpen
+    || (suggestionMode === 'path' ? token.query.length >= 1 : token.inside || token.query.length >= 2);
+  const showSuggestions = focused && wantsOpen && visible.length > 0;
 
   useEffect(() => {
     setSuggestionIndex(0);
@@ -95,8 +104,7 @@ export function TemplateField({
     const element = inputRef.current;
     const offset = element?.selectionStart ?? cursor;
     const current = getToken(value, offset, suggestionMode);
-    const openToken = suggestionMode === 'template' && current.start < offset;
-    const start = suggestionMode === 'path' || openToken ? current.start : offset;
+    const start = suggestionMode === 'path' || current.inside ? current.start : offset;
     const inserted = suggestionMode === 'path' ? suggestion.value : `{{ ${suggestion.value} }}`;
     const nextValue = `${value.slice(0, start)}${inserted}${value.slice(offset)}`;
     const nextCursor = start + inserted.length;
@@ -125,8 +133,8 @@ export function TemplateField({
       event.preventDefault();
       setSuggestionIndex((current) => (current - 1 + visible.length) % visible.length);
     } else if (event.key === 'Tab' || event.key === 'Enter') {
-      // Enter on multiline without an open token inserts a newline; Tab always picks.
-      if (event.key === 'Enter' && multiline && !token.active && !forcedOpen) return;
+      // Enter on multiline without a query inserts a newline; Tab always picks.
+      if (event.key === 'Enter' && multiline && !token.inside && !forcedOpen && token.query.length < 2) return;
       event.preventDefault();
       const selected = visible[suggestionIndex]?.item;
       if (selected) insertSuggestion(selected);
@@ -154,12 +162,15 @@ export function TemplateField({
     onKeyUp: updateCursor,
     onSelect: updateCursor,
     onClick: updateCursor,
+    onScroll: syncHighlightScroll,
   } as const;
+
+  const highlight = useMemo(() => renderHighlight(value), [value]);
 
   const control = multiline ? (
     <textarea
       ref={(element) => { inputRef.current = element; }}
-      className="node-editor-template-control node-editor-template-control--textarea"
+      className="node-editor-template-control node-editor-template-control--textarea tpl-transparent"
       value={value}
       rows={rows}
       placeholder={label ? ' ' : placeholder}
@@ -168,7 +179,7 @@ export function TemplateField({
   ) : (
     <input
       ref={(element) => { inputRef.current = element; }}
-      className="node-editor-template-control"
+      className="node-editor-template-control tpl-transparent"
       type="text"
       value={value}
       placeholder={label ? ' ' : placeholder}
@@ -176,114 +187,64 @@ export function TemplateField({
     />
   );
 
+  const dropdown = (
+    <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
+      <div className="tpl-suggest" role="listbox" aria-label={ariaLabel ?? label ?? 'Suggestions'}>
+        {visible.map(({ item, ranges }, index) => (
+          <SuggestionRow
+            key={item.value}
+            item={item}
+            ranges={ranges}
+            selected={index === suggestionIndex}
+            onHover={() => setSuggestionIndex(index)}
+            onPick={() => insertSuggestion(item)}
+          />
+        ))}
+        <div className="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
+      </div>
+    </AutocompletePortal>
+  );
+
   if (label) {
     const filled = value.trim().length > 0;
     return (
       <div ref={fieldRef} className={`node-editor-template-field node-editor-template-field--float ${filled ? 'is-filled' : ''} ${multiline ? 'is-multiline' : ''}`}>
         <div className="node-editor-template-control-wrap">
-          {control}
+          <div className={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
+            <div className="tpl-highlight" aria-hidden="true">{highlight}</div>
+            {control}
+          </div>
           <label className="node-editor-float-label">
             <span className="node-editor-float-label__text">{label}</span>
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
-          {template ? (
-            <span
-              className="node-editor-float-badge"
-              data-tooltip={templateHint ?? 'Accepts {{ event.* }}'}
-              data-tooltip-pos="left"
-              data-tooltip-wide=""
-            >
-              {'{{ }}'}
-            </span>
-          ) : null}
         </div>
-        <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
-          <div className="node-editor-template-suggestions node-editor-template-suggestions--rich" role="listbox" aria-label={ariaLabel ?? label ?? 'Suggestions'}>
-            <div className="node-editor-template-suggestions__list">
-              {visible.map(({ item, ranges }, index) => (
-                <SuggestionRow
-                  key={item.value}
-                  item={item}
-                  ranges={ranges}
-                  selected={index === suggestionIndex}
-                  onHover={() => setSuggestionIndex(index)}
-                  onPick={() => insertSuggestion(item)}
-                />
-              ))}
-            </div>
-            {activeEntry ? (
-              <div className="node-editor-template-suggestions__detail" role="note">
-                <code className="node-editor-template-suggestions__detail-path">{activeEntry.item.value}</code>
-                <div className="node-editor-template-suggestions__detail-meta">
-                  {activeEntry.item.detail ?? activeEntry.item.kind ? (
-                    <span className="node-editor-template-suggestions__type">{activeEntry.item.detail ?? activeEntry.item.kind}</span>
-                  ) : null}
-                  {activeEntry.item.preview ? (
-                    <span className="node-editor-template-suggestions__preview" title={activeEntry.item.preview}>
-                      = {activeEntry.item.preview}
-                    </span>
-                  ) : null}
-                </div>
-                {activeEntry.item.documentation ? (
-                  <span className="node-editor-template-suggestions__doc">{activeEntry.item.documentation}</span>
-                ) : null}
-                {!activeEntry.item.documentation && !activeEntry.item.preview ? (
-                  <span className="node-editor-template-suggestions__doc node-editor-template-suggestions__doc--muted">
-                    {hintText ?? 'Tab ↵ · ↑ ↓'}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </AutocompletePortal>
+        {dropdown}
       </div>
     );
   }
 
   return (
     <div ref={fieldRef} className="node-editor-template-field">
-      <div className="node-editor-template-control-wrap">{control}</div>
-      <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
-        <div className="node-editor-template-suggestions node-editor-template-suggestions--rich" role="listbox" aria-label={ariaLabel ?? 'Suggestions'}>
-          <div className="node-editor-template-suggestions__list">
-            {visible.map(({ item, ranges }, index) => (
-              <SuggestionRow
-                key={item.value}
-                item={item}
-                ranges={ranges}
-                selected={index === suggestionIndex}
-                onHover={() => setSuggestionIndex(index)}
-                onPick={() => insertSuggestion(item)}
-              />
-            ))}
-          </div>
-          {activeEntry ? (
-            <div className="node-editor-template-suggestions__detail" role="note">
-              <code className="node-editor-template-suggestions__detail-path">{activeEntry.item.value}</code>
-              <div className="node-editor-template-suggestions__detail-meta">
-                {activeEntry.item.detail ?? activeEntry.item.kind ? (
-                  <span className="node-editor-template-suggestions__type">{activeEntry.item.detail ?? activeEntry.item.kind}</span>
-                ) : null}
-                {activeEntry.item.preview ? (
-                  <span className="node-editor-template-suggestions__preview" title={activeEntry.item.preview}>
-                    = {activeEntry.item.preview}
-                  </span>
-                ) : null}
-              </div>
-              {activeEntry.item.documentation ? (
-                <span className="node-editor-template-suggestions__doc">{activeEntry.item.documentation}</span>
-              ) : null}
-              {!activeEntry.item.documentation && !activeEntry.item.preview ? (
-                <span className="node-editor-template-suggestions__doc node-editor-template-suggestions__doc--muted">
-                  {hintText ?? 'Tab ↵ to insert · ↑ ↓ to navigate'}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+      <div className="node-editor-template-control-wrap">
+        <div className={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
+          <div className="tpl-highlight" aria-hidden="true">{highlight}</div>
+          {control}
         </div>
-      </AutocompletePortal>
+      </div>
+      {dropdown}
     </div>
   );
+}
+
+/** Inline `{{ … }}` highlight, including the unclosed `{{ …` state while typing. */
+function renderHighlight(value: string): JSX.Element[] | string {
+  if (!value) return '';
+  const parts = value.split(/(\{\{\s*[^}{]*\}?\}?)/g);
+  return parts.map((part, index) => {
+    if (index % 2 === 1) return <span key={index} className="tpl-var">{part || '{{'}</span>;
+    return <span key={index}>{part}</span>;
+  });
 }
 
 function SuggestionRow({
@@ -299,9 +260,6 @@ function SuggestionRow({
   onHover: () => void;
   onPick: () => void;
 }) {
-  const labelSegments = highlightSegments(item.label, []);
-  // Highlight against the value; if the query matched the label only, fall
-  // back to plain label (ranges target the value string).
   const valueSegments = highlightSegments(item.value, ranges);
   const hoverTitle = [
     item.value,
@@ -316,39 +274,39 @@ function SuggestionRow({
       aria-selected={selected}
       className={selected ? 'is-selected' : ''}
       title={hoverTitle || item.value}
-      data-tooltip={hoverTitle || undefined}
-      data-tooltip-pos="right"
-      data-tooltip-wide=""
       onMouseDown={(event) => event.preventDefault()}
       onMouseEnter={onHover}
       onFocus={onHover}
       onClick={onPick}
     >
-      <span className="node-editor-template-suggestions__label">
-        {labelSegments.map((segment, index) => (
-          segment.highlight ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>
-        ))}
-        {item.detail ?? item.kind ? <em className="node-editor-template-suggestions__kind">{item.detail ?? item.kind}</em> : null}
-      </span>
-      <code>
+      <i className={`tpl-dot tpl-dot--${item.kind ?? 'unknown'}`} aria-hidden="true" />
+      <code className="tpl-path">
         {valueSegments.map((segment, index) => (
           segment.highlight ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>
         ))}
       </code>
-      {item.preview ? <small>{item.preview}</small> : null}
+      {item.detail ?? item.kind ? <span className="tpl-kind">{item.detail ?? item.kind}</span> : null}
+      {item.preview ? <span className="tpl-preview" title={item.preview}>{item.preview}</span> : null}
     </button>
   );
 }
 
-function getToken(value: string, cursor: number, mode: 'template' | 'path'): { start: number; query: string; active: boolean } {
+type Token = { start: number; query: string; inside: boolean };
+
+function getToken(value: string, cursor: number, mode: 'template' | 'path'): Token {
   const before = value.slice(0, cursor);
   if (mode === 'template') {
     const start = before.lastIndexOf('{{');
-    if (start < 0 || before.slice(start).includes('}}')) return { start: cursor, query: '', active: value.length === 0 };
-    return { start, query: before.slice(start + 2).trim(), active: true };
+    if (start >= 0 && !before.slice(start).includes('}}')) {
+      return { start, query: before.slice(start + 2).trim(), inside: true };
+    }
+    // Outside braces: track the word being typed so `event.us` still suggests.
+    const match = before.match(/[A-Za-z0-9_$.]*$/);
+    const word = match?.[0] ?? '';
+    return { start: cursor - word.length, query: word, inside: false };
   }
 
   const match = before.match(/[A-Za-z0-9_$.]*$/);
   const text = match?.[0] ?? '';
-  return { start: cursor - text.length, query: text, active: true };
+  return { start: cursor - text.length, query: text, inside: true };
 }
