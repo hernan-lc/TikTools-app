@@ -3,9 +3,8 @@ import type { AutomationEvent, AutomationEventType, JsonObject } from './types.t
 
 /**
  * Runtime loader for the generated event registry
- * (`src/automation/event-registry.json`, produced by
- * `scripts/generate-event-registry.ts` from the canonical TypeScript schemes
- * + TikTok proto types + translation catalog).
+ * (`src/automation/event-registry.json`, checked in from the Rust live-event
+ * boundary and the shared automation schemas).
  *
  * This module is UI-agnostic on purpose: `src/automation` never imports from
  * `src/web`. It exposes registry fields (path, TS type, kind, labels, live
@@ -26,10 +25,10 @@ export interface RegistryField {
   label: { en: string; es: string };
   hint?: { en: string; es: string };
   sample?: unknown;
-  vendorField?: string;
+  sourceField?: string;
 }
 
-export interface RegistryVendorField {
+export interface RegistrySourceField {
   name: string;
   tsType: string;
   optional: boolean;
@@ -37,11 +36,11 @@ export interface RegistryVendorField {
 
 export interface RegistryEventEntry {
   dataInterface: string;
-  vendorInterface: string;
+  sourceInterface: string;
   note?: string;
   sampleEvent: AutomationEvent;
   fields: RegistryField[];
-  vendorFields: RegistryVendorField[];
+  sourceFields: RegistrySourceField[];
 }
 
 interface RegistryFile {

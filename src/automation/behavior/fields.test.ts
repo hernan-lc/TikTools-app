@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 
 import { fieldsForTrigger, findField, operatorsFor } from './fields.ts';
-import { matchesFilter, sampleEventFor } from './engine.ts';
+import { matchesFilter } from './filters.ts';
+import { sampleEventFor } from './samples.ts';
 
 describe('condition fields', () => {
   test('every field a trigger offers resolves against that trigger sample event', () => {

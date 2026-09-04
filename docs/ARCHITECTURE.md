@@ -1,122 +1,134 @@
 # Architecture
 
-TikTools is a native host wrapped around a local Preact application. The host owns external I/O, persistence, and privileged capabilities; the WebView owns presentation and user interaction.
+TikTools is a thin native host. Winit owns the window event loop, Wry owns the
+WebView, and `tray-icon` owns the tray. The application core is independent of
+all three.
 
-## Process shape
+```text
+Preact WebView
+    │ window.ipc.postMessage(JSON)
+    ▼
+Wry IPC handler
+    ▼
+IpcRouter ── Tokio ── AppCore
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+      LiveService   Points/SQLite   PluginManager
+          │              │              │
+          ▼              ▼        native/process/WASM
+    tiktok-signer   host services
+```
 
-~~~text
-index.ts
-  |
-  v
-src/main.ts
-  +--> src/server.ts ----> src/web/index.html + Preact/CSS
-  +--> webview-napi -----> embedded WebView window
-  +--> src/tray.ts -------> system-tray icon
-  +--> src/live-controller.ts
-                              +--> TikTok client
-                              +--> SQLite databases
-                              +--> automation bus and runtimes
-~~~
+## Workspace boundaries
 
-The server binds to an ephemeral localhost port. The native window loads the bundled WebView page from that server and communicates with the host through the WebView IPC bridge.
+```text
+tiktools-desktop
+  ├── winit + wry + tray-icon
+  └── tiktools-core
+        ├── tiktools-plugin-api
+        ├── tiktools-plugin-loader
+        └── tiktools-tiktok
+```
 
-## Runtime responsibilities
+`tiktools-core` has no GUI dependency. Its services communicate outward with
+`HostEmitter`, a small trait that carries serialized `HostMessage` values. The
+desktop implementation sends those messages to the UI thread through
+`EventLoopProxy`; only that thread calls `WebView::evaluate_script`.
 
-### Native host
+## Desktop lifecycle
 
-- `src/main.ts` creates the runtime, window, WebView, tray, close guard, and shutdown sequence.
-- `src/live-controller.ts` owns connection generations, guest/authenticated session setup, reconnect handling, event conversion, points, behavior, workflows, and host-to-page messages.
-- `src/server.ts` serves the frontend entry point.
-- `src/tray.ts` manages show and quit commands.
-- `src/bridge.ts` parses and validates untrusted page messages before they reach the host.
+`crates/tiktools-desktop/src/app.rs` implements `ApplicationHandler`. It creates
+the Winit window and Wry WebView on the event-loop thread, dispatches incoming
+IPC to Tokio, and queues outbound host messages until the WebView exists. Close
+hides the window; the tray exposes Show and Quit. Quit first asks `AppCore` to
+disconnect live transport and stop plugins, then exits the event loop.
 
-### Frontend
+The WebView loads one of two sources:
 
-- `src/web/app.tsx` owns UI state and routes events to the active view.
-- `src/web/views/` contains the Feed, Connect, Points, Analytics, Behavior, Plugins, and Settings screens.
-- `src/web/components/ui/` contains shared controls such as cards, fields, buttons, tables, and modals.
-- `src/web/styles/` contains tokens, layout rules, component styles, and view-specific styles.
+- Development: `TIKTOOLS_DEV_URL` or `TIKTOOLS_FRONTEND_URL`.
+- Release: `tiktools://app/index.html`, served from `dist/web` or the executable
+  directory by Wry's custom protocol.
 
-The frontend never calls the TikTok client or SQLite directly. It sends JSON messages through `window.ipc.postMessage`.
+The asset handler canonicalizes paths and rejects traversal and symlink escapes.
 
-## Message flow
+## IPC contract
 
-~~~text
-User interaction
-      |
-      v
-Preact view -> window.ipc.postMessage(JSON)
-      |
-      v
-src/bridge.ts -> parsePageMessage()
-      |
-      v
-LiveController.handlePageMessage()
-      |
-      +--> TikTok client
-      +--> SQLite
-      +--> automation services
-      |
-      v
-send(HostMessage) -> WebView -> app state update
-~~~
+`src/shared/messages.ts` remains the frontend compatibility specification.
+Rust mirrors it in `crates/tiktools-core/src/ipc/messages.rs`. The router accepts
+bounded JSON, validates the message discriminator and fields, then forwards a
+typed `PageMessage` to `AppCore`. Business services never receive a WebView
+handle.
 
-The bridge accepts only known message types and validates their fields. Workflow graphs, behavior actions, and behavior events receive additional schema validation before persistence or execution.
+The bridge is deliberately plain JSON:
 
-## Live event flow
+```text
+PageMessage → IpcRouter → AppCore → HostMessage → EventLoopProxy → WebView
+```
 
-~~~text
-TikTok LiveEvent
-      |
-      v
-src/live-events.ts
-      |
-      +--> display-oriented UiEvent -> Feed
-      |
-      +--> normalized AutomationEvent -> AutomationEventBus
-                                             |
-                                             +--> BehaviorEngine
-                                             +--> WorkflowRuntime
-                                             +--> points capability
-~~~
+## Event and live flow
 
-The raw event is normalized once for automation while the feed receives a display-oriented projection. The latest normalized automation event is kept in memory for editor previews and is not written to SQLite.
+`tiktools-tiktok` wraps the pinned Rust signer/discovery/WebSocket crates and
+exports stable TikTools event values. It does not expose generated protobuf
+objects to the core. The core:
+
+1. resolves a creator through discovery, optionally bootstrapping an anonymous
+   session;
+2. creates the embedded signer backend and reconnecting WebSocket;
+3. normalizes decoded chat, gift, like, member, social, and room-stat events;
+4. updates points and SQLite;
+5. emits the existing UI event shape and a JSON automation event.
+
+The event registry in `src/automation/event-registry.json` is the editor-side
+shape contract for those native events. Its tests ensure every advertised path
+exists in its sample payload.
 
 ## Persistence
 
-There are two separate SQLite databases, both created relative to the current working directory:
+`rusqlite` owns the existing database names and table layout:
 
-- `data/tiktok-points.db`: points configuration, viewers, point transactions, creator history, app state, and cached gift catalog.
-- `data/tiktok-automation.db`: saved workflow graphs, behavior actions, behavior events, and plugin state.
+```text
+data/tiktok-points.db       points, viewers, creators, app state, gifts
+data/tiktok-automation.db   workflows, behavior records, plugin state
+```
 
-The WebView uses local storage for non-sensitive preferences. Session cookies are intentionally not persisted.
+On startup, a checkout-local `data/` database is copied to the platform app-data
+directory only when its destination is absent. Existing destination files are
+never overwritten. JSON payloads remain JSON so existing workflow and behavior
+records stay readable while their execution is moved into Rust.
 
-## Automation and app-plugin boundaries
+## Automations
 
-The automation layer is split into:
+Rust owns workflow/behavior persistence, native event publication, built-in
+action metadata, and bounded script execution. The editor remains Preact and
+uses JSON descriptors supplied by the host. `napi-vm` receives only JSON values
+(`event`, `inputs`, and `data`) and has no Node, filesystem, network, or WebView
+objects.
 
-- `src/automation/event-bus.ts`: normalized event publication.
-- `src/automation/behavior/`: current action/event behavior engine and schema.
-- `src/automation/runtime.ts`: saved graph execution.
-- `src/automation/nodes/`: built-in workflow node implementations.
-- `src/automation/services/`: HTTP, VM, and language services; provider-backed audio/TTS adapters live in `src/plugins/`.
-- `src/automation/plugins/`: plugin discovery, manifests, worker host, protocol, and capability broker.
-- `src/plugins/`: generic AppPlugin API, dynamic-import runtime, provider registries, scoped storage/i18n/UI APIs, and `.plugin` installation.
+The capability broker is explicit. HTTP, audio, TTS, points, storage, and
+native integrations are host capabilities rather than framework permissions.
 
-Built-in actions run in the host. Sandbox automation handlers execute in a separate worker through JSON messages. Provider plugins are loaded through Bun `import()` and register generic audio/TTS providers; the host never imports provider-native libraries directly. The capability broker and AppPlugin context check declared permissions before plugin code receives host capabilities.
+## Plugins
 
-The worker boundary improves isolation and limits access, but it is not an operating-system security sandbox. Treat downloaded plugins as code that requires review.
+Plugin API and runtime are separate:
 
-## Shutdown
+```text
+versioned manifest/protocol/permissions
+                 │
+       ┌─────────┼─────────┐
+       ▼         ▼         ▼
+    native     process     WASM
+   libloading  framed IO  optional
+```
 
-A window close request hides the window. A tray quit or process signal performs an orderly shutdown:
+Plugin directories are scanned at runtime in built-in, user, and development
+override order. No plugin id is compiled into TikTools. Native libraries expose
+only a small serialized-message C ABI and stay loaded until shutdown. Process
+plugins are standalone executables using length-prefixed JSON over stdio.
 
-1. Stop the live connection.
-2. Cancel active workflows.
-3. Stop audio and TTS providers.
-4. Stop plugin workers and app plugins.
-5. Clear VM sessions and language-service state.
-6. Close the native window and local server.
-7. Exit the runtime.
+## Platform code
 
-See [Development Guide](DEVELOPMENT.md) for the safest places to make changes.
+Winit/Wry platform details are isolated under
+`crates/tiktools-desktop/src/platform.rs`. Linux uses the GTK integration
+required by WebKitGTK. The core, plugin API/loader, and TikTok crates do not
+contain desktop conditionals.

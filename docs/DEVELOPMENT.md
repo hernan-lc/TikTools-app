@@ -1,124 +1,137 @@
 # Development Guide
 
-This article is for contributors working on the TypeScript host, Preact frontend, automation runtime, or native integration.
+TikTools has two intentionally separate edit loops: Bun builds/tests the
+Preact frontend, and Cargo builds/tests the Rust host. The desktop integration
+is only needed when changing Winit, Wry, the tray, or the final IPC bridge.
 
-## Install and verify
+## Fast checks
 
-~~~bash
-git submodule update --init --recursive
-bun install
+```bash
+cargo check -p tiktools-core
+cargo test -p tiktools-core
+cargo check -p tiktools-plugin-api
+cargo check -p tiktools-tiktok
 bun run typecheck
 bun run test
-bun run test:plugin-worker
-~~~
+```
 
-The project uses Bun’s module and bundling behavior. Keep `.ts` and `.tsx` import extensions consistent with the existing source.
+The core checks do not compile Winit, Wry, GTK, or tray integration. The
+workspace feature graph keeps the optional native plugin, persistence, HTTP,
+TikTok, and WASM boundaries explicit.
 
-## Command reference
+## Desktop loop
 
-| Command | Purpose |
-| --- | --- |
-| `bun run start` | Start the native desktop app. |
-| `bun run typecheck` | Run strict TypeScript checking without emitting files. |
-| `bun run test` | Run tests under `src`. |
-| `bun run test:plugin-worker` | Run the plugin worker smoke test. |
-| `bun run build:plugins` | Build the checked-in MiniAudio AppPlugin entry. |
-| `bun run package:plugin <dir> [file.plugin]` | Package a prebuilt plugin directory with checksums. |
-| `bun run install:plugin <file.plugin> [--replace]` | Manually install a validated prebuilt plugin archive. |
-| `bun run smoke:compiled` | Launch the built EXE with a fixture plugin and verify app-data paths. |
-| `bun run smoke:compiled-worker` | Execute nodes and a capability through the compiled worker process. |
-| `bun run smoke:compiled-integration` | Execute a compiled worker through the real host and capability broker. |
-| `bun run build:host` | Build a development host bundle in `dist/`. |
-| `bun run build:binary` | Build the standalone GUI binary at `dist/TikTools-<platform>-<arch>`. |
-| `bun run verify:binary` | Build the host and binary, then run all compiled smoke tests. |
+```bash
+bun run build:web
+cargo check -p tiktools-desktop
+cargo run -p tiktools-desktop
+```
 
-Use `bun test path/to/file.test.ts` when you need to focus on one test file.
+For live frontend changes:
+
+```bash
+bun run serve:web
+TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+```
+
+Release builds use the custom `tiktools://app` protocol:
+
+```bash
+bun run build:web
+cargo build -p tiktools-desktop --release
+```
 
 ## Source ownership
 
-Choose the narrowest layer that owns the behavior:
+- `crates/tiktools-desktop`: UI-thread lifecycle, Wry IPC callback, custom
+  asset protocol, tray, and platform event-loop setup.
+- `crates/tiktools-core`: typed IPC, service graph, event bus, points,
+  persistence orchestration, automation, and capability policy.
+- `crates/tiktools-tiktok`: native discovery, signing, WebSocket reconnects,
+  decode, and stable event values.
+- `crates/tiktools-plugin-api`: manifest, protocol, capability names, and C ABI.
+- `crates/tiktools-plugin-loader`: runtime scanning, validation, installation,
+  dynamic native libraries, process plugins, and the optional WASM boundary.
+- `src/web`: Preact presentation only.
+- `src/automation`: editor contracts and the native event registry consumed by
+  the Preact UI.
 
-- Native lifecycle: `src/main.ts`, `src/server.ts`, `src/tray.ts`.
-- TikTok connection and host messages: `src/live-controller.ts`, `src/live-events.ts`, `src/bridge.ts`.
-- Wire types: `src/shared/messages.ts`.
-- Persistence: `src/db/points-db.ts`, `src/db/automation-db.ts`.
-- Automation behavior: `src/automation/behavior/`.
-- Graph runtime and built-ins: `src/automation/runtime.ts`, `src/automation/nodes/`.
-- Plugin security and lifecycle: `src/automation/plugins/`.
-- Frontend state: `src/web/app.tsx`.
-- Frontend screens: `src/web/views/`.
-- Reusable controls: `src/web/components/ui/`.
-- CSS tokens and layout: `src/web/styles/`.
+Keep Wry/Winit types out of core services. Use `HostEmitter` for outbound UI
+messages and `EventLoopProxy` for UI-thread work. Never put database handles,
+VM values, native TikTok objects, or plugin instances into an automation JSON
+event.
 
-Keep host-only concerns out of the WebView. If a new capability needs network, filesystem, audio, TTS, points, or native access, expose a typed host capability and validate it at the bridge or capability boundary.
+## Adding an IPC message
 
-## Frontend conventions
+1. Add the discriminated union member to `src/shared/messages.ts`.
+2. Mirror it in `crates/tiktools-core/src/ipc/messages.rs`.
+3. Validate bounded input in both the frontend boundary and Rust parser.
+4. Route it in `AppCore::handle_page_message`.
+5. Add the matching `HostMessage` and update the Preact state handler.
+6. Test serialization and invalid-input rejection.
 
-- Prefer controlled components with `value` and `onValueChange`.
-- Reuse components from `src/web/components/ui/` before adding a one-off control.
-- Keep layout constraints explicit in flex and grid containers; use `min-width: 0` and `min-height: 0` where a child must be allowed to shrink.
-- Keep host translations in `src/web/i18n.ts`. Declarative metadata uses
-  `{ default, i18key }`; plugin locale files are flat key/value JSON maps
-  declared by `manifest.i18n` and loaded into the behavior snapshot.
-- Keep theme tokens in `src/web/styles/variables.css`.
-- Use the existing CSS import order in `src/web/styles.css`.
-
-See [UI Kit Usage](UI_KIT_USAGE.md) for component APIs and examples.
-
-## Adding a WebView message
-
-1. Add the page-to-host or host-to-page type in `src/shared/messages.ts`.
-2. Parse and validate the page message in `src/bridge.ts`.
-3. Handle it in `LiveController.handlePageMessage()`.
-4. Send a typed host response where needed.
-5. Update the frontend state and view.
-6. Add a focused test for validation or behavior where practical.
-
-Do not pass arbitrary page objects into host services. Treat every WebView message as untrusted input.
+The Rust parser is authoritative at runtime. The TypeScript contract stays in
+the repository so the existing Preact build remains compatible.
 
 ## Adding an automation action
 
-For the current Behavior UI, add the action type and schema in `src/automation/behavior/`, then update its catalog, localized labels, engine execution, and tests. If it needs a host capability, declare that dependency and enforce it through the capability layer.
+Host action descriptors belong in the Rust catalog and are sent as JSON in the
+behavior snapshot. The Preact editor renders their field metadata; it must not
+execute host behavior. An action implementation should:
 
-New behavior actions should register through `ActionRegistry`. Their configuration is a bounded JSON Schema object with optional UI hints (`kind`, `template`, `advanced`, `showIf`, and localized labels). Use `{ default, i18key }` for labels, titles, and descriptions; the default is the fallback and the key is resolved from the host or plugin key/value catalog. The WebView renders this descriptor through `SchemaForm`; plugins do not ship Preact or DOM code. Built-in actions use the same registry and execution contract as sandbox actions. Existing behavior records with action schema version 1 are normalized to version 2 on read/save; records for missing plugins remain visible but unavailable.
+- validate its JSON configuration;
+- request a named capability through the core broker;
+- keep network/filesystem access outside the WebView;
+- emit JSON-safe results and logs;
+- include a Rust unit test.
 
-For graph nodes, add the node definition and implementation in `src/automation/nodes/builtins.ts`, then add configuration and suggestions in `src/web/components/node-editor/` as appropriate. Saved workflow graphs must remain JSON-safe and pass graph validation.
+Plugin actions are declared in a runtime manifest under `actionTypes`; no
+plugin id is added to Rust source.
 
-## Adding a plugin
+## Adding workflow nodes
 
-A plugin is discovered from `plugins/<directory>/plugin.json`. Its manifest declares an id, version, execution mode, permissions, and optional locale files such as `{ "i18n": { "en": "i18n/en.json", "es": "i18n/es.json" } }`. Locale files are flat key/value JSON maps and should namespace keys with the plugin id. Downloaded plugins should use `executionMode: "sandbox"` and the worker SDK path described in [Automations](AUTOMATIONS.md). A sandbox entry may register both nodes and actions; actions are described with JSON Schema and execute in the worker through the capability broker.
+Workflow node definitions are JSON-safe data returned by
+`get-automation-nodes`. Saved graphs must remain schema version 1 until a
+deliberate migration is introduced. New nodes need stable type/version values,
+validated ports, bounded configuration, and a migration-compatible execution
+implementation in core.
 
-Provider AppPlugins use the separate `schemaVersion: 1` manifest contract in
-`src/plugins/` and are loaded with dynamic `import()`. Use that contract for
-audio/TTS/native providers; do not add provider-specific imports to the host.
-The MiniAudio package fixture lives under `plugins/` and its
-native dependencies are packaged with the plugin rather than the root
-`package.json`. See [App plugins](PLUGINS.md).
+## Plugin development
 
-Trusted plugins are host code and should only be used for reviewed, bundled integrations. A worker process is a crash/isolation boundary, not a full security sandbox.
+Use `tiktools-plugin-api` as the small SDK. Native plugins export
+`tiktools_plugin_init` and pass serialized bytes through the C ABI. Do not pass
+Rust `String`, `Vec`, trait objects, or futures across that boundary. Process
+plugins are standalone executables speaking length-prefixed JSON on stdin and
+stdout. JavaScript source files are not silently executed by the desktop host.
 
-Sandbox workers are launched as `bun index.ts --plugin-worker --port ... --token ...` during development. In a compiled build, `PluginWorkerHost` uses `process.execPath`, so the child is `TikTools.exe --plugin-worker ...`. The worker does not import or initialize the WebView, tray, or GUI host; it only loads the VM and authenticated localhost protocol. Both launch paths use hidden child-process windows on Windows.
+Install a package after compilation:
 
-## Testing and build output
+```bash
+cargo run -p tiktools-desktop -- --install-plugin ./my-plugin.plugin
+```
 
-Run the full local check before handoff:
+The installer validates manifest schema, checksums, package-relative paths,
+symlinks, and atomic replacement before the next runtime scan.
 
-~~~bash
+## Paths and databases
+
+Use `AppPaths::from_environment` rather than `current_dir` for runtime data.
+The supported overrides are `TIKTOOLS_HOME`, `TIKTOOLS_DATA_DIR`,
+`TIKTOOLS_PLUGINS_DIR`, `TIKTOOLS_PLUGIN_DATA_DIR`, `TIKTOOLS_LOG_DIR`,
+`TIKTOOLS_TEMP_DIR`, and `TIKTOOLS_WEB_ROOT`.
+
+Do not rename or recreate the existing SQLite tables as part of ordinary
+feature work. Add fixtures when a persisted record format changes, and never
+overwrite a user's destination database during path migration.
+
+## Verification before commit
+
+```bash
+cargo fmt --all -- --check
+cargo test --workspace
+cargo check -p tiktools-desktop
 bun run typecheck
 bun run test
-bun run test:plugin-worker
-bun run build:host
-bun run build:binary
-bun run smoke:compiled
-bun run smoke:compiled-worker
-bun run smoke:compiled-integration
-~~~
-
-The executable-only release gate can be run with `bun run verify:binary`. It
-builds the host and standalone binary before running all compiled smoke tests.
-
-The build writes generated output to `dist/`; do not edit it by hand. `build:binary` cleans the output directory before producing the binary, so stale worker sidecars cannot be mistaken for release dependencies. The compiled executable statically bundles the frontend and verifies the native N-API modules at runtime when the GUI, databases, tray, and worker features are exercised.
-
-Writable runtime paths are resolved by `src/platform/app-paths.ts`. On Windows they default to `%LOCALAPPDATA%/TikTools/`, not `process.cwd()`. On first startup after this path change, each missing new database is copied from its matching `./data/<name>.db` legacy file without overwriting an existing new database; the migration is logged. Fatal startup errors, plugin worker failures, native warnings, and provider errors are written to `%LOCALAPPDATA%/TikTools/logs/TikTools.log`; credentials and worker tokens are redacted. The log rotates to `TikTools.log.1` at 5 MiB.
-
-For UI changes, run the app and inspect both a normal desktop window and a narrow/resized window. Check scrolling, empty states, disabled controls, light/dark themes, and English/Spanish labels.
+bun run build:web
+git diff --check
+```

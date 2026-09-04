@@ -1,3 +1,0 @@
-[submodule "vendor/tiktok-signer"]
-	path = vendor/tiktok-signer
-	url = https://github.com/nglmercer/tiktok-signer.git

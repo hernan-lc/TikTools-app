@@ -28,9 +28,8 @@ type ObservedPathMode = 'all' | 'identity' | 'text' | 'path';
 /**
  * Declarative input contracts. A form chooses one scope — a filter over the
  * event registry — instead of receiving hardcoded path lists. The candidates
- * always come from `event-registry.json` (generated from the automation
- * types + TikTok proto schemes) plus whatever the last live event actually
- * carried. Run `bun run registry:events` after changing any scheme.
+ * always come from `event-registry.json` (the native Rust event boundary) plus
+ * whatever the last live event actually carried.
  */
 export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, { observed: ObservedPathMode }> = {
   message: { observed: 'all' },
@@ -93,25 +92,25 @@ function toSuggestion(
 ): TemplateSuggestion {
   const label = field.label[locale === 'es' ? 'es' : 'en'];
   const hint = field.hint?.[locale === 'es' ? 'es' : 'en'];
-  const vendor = vendorDetail(eventType, field);
+  const source = sourceDetail(eventType, field);
   return {
     value: field.path,
     label,
     kind: field.kind,
     detail: field.tsType,
-    documentation: [hint ?? `${label} · ${field.path}`, vendor].filter(Boolean).join('\n'),
+    documentation: [hint ?? `${label} · ${field.path}`, source].filter(Boolean).join('\n'),
     preview: liveValue === undefined ? undefined : formatTemplateValue(liveValue),
   };
 }
 
-/** Which proto scheme a registry field derives from, for the hover card. */
-function vendorDetail(eventType: AutomationEventType | undefined, field: RegistryField): string | undefined {
-  if (!eventType || !field.vendorField) return undefined;
+/** Which native event field a registry entry derives from, for the hover card. */
+function sourceDetail(eventType: AutomationEventType | undefined, field: RegistryField): string | undefined {
+  if (!eventType || !field.sourceField) return undefined;
   const entry = registryEntryFor(eventType);
-  if (!entry || entry.vendorInterface === '-') return undefined;
-  const vendorField = entry.vendorFields.find((candidate) => candidate.name === field.vendorField);
-  const tsType = vendorField ? vendorField.tsType : field.tsType;
-  return `proto ${entry.vendorInterface}.${field.vendorField}: ${tsType}`;
+  if (!entry || entry.sourceInterface === '-') return undefined;
+  const sourceField = entry.sourceFields.find((candidate) => candidate.name === field.sourceField);
+  const tsType = sourceField ? sourceField.tsType : field.tsType;
+  return `native ${entry.sourceInterface}.${field.sourceField}: ${tsType}`;
 }
 
 function inferSuggestionKind(value: JsonValue | undefined): AutocompleteItem['kind'] {

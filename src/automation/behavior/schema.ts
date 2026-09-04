@@ -1,8 +1,6 @@
 import type { AutomationEventType, JsonObject, JsonValue } from '../types.ts';
-import { findActionType } from './catalog.ts';
-import type { ActionRegistry } from './action-registry.ts';
-import { normalizeActionConfig } from './action-config.ts';
 import type {
+  ActionTypeDefinition,
   EventFilter,
   FilterOperator,
   LiveAction,
@@ -39,24 +37,6 @@ const OPERATORS: FilterOperator[] = [
 
 const MAX_TEXT = 4_096;
 const MAX_CODE = 20_000;
-
-export function normalizeAction(value: unknown, registry?: ActionRegistry): LiveAction {
-  const raw = record(value, 'action');
-  const id = identifier(raw.id, 'action.id');
-  const typeId = text(raw.typeId, 'action.typeId');
-  const type = registry?.getDefinition(typeId) ?? findActionType(typeId);
-  if (!type) throw new Error(`Unknown action type: ${typeId}`);
-  const config = normalizeActionConfig(type, raw.config);
-
-  return {
-    schemaVersion: 2,
-    id,
-    name: text(raw.name, 'action.name').slice(0, 120),
-    typeId,
-    enabled: raw.enabled !== false,
-    config,
-  };
-}
 
 /** Bridge-only normalization for action ids that may belong to an unloaded plugin. */
 export function normalizeUnresolvedAction(value: unknown): LiveAction {
@@ -130,8 +110,7 @@ function normalizeFilter(value: unknown): EventFilter | null {
  * Permissions are computed from the saved action, never typed by hand, so the
  * editor shows exactly what the engine will allow.
  */
-export function deriveActionPermissions(action: LiveAction): { network: string[]; capabilities: string[]; localNetwork: boolean } {
-  const type = findActionType(action.typeId);
+export function deriveActionPermissions(action: LiveAction, type?: ActionTypeDefinition): { network: string[]; capabilities: string[]; localNetwork: boolean } {
   const capabilities = type ? [...type.requiredCapabilities] : [];
   const network: string[] = [];
   let localNetwork = false;

@@ -1,163 +1,110 @@
 # Getting Started
 
-This guide takes a fresh checkout to a running TikTools desktop window.
-
 ## Requirements
 
-- [Bun](https://bun.sh/).
-- Git with submodule support.
-- A platform supported by `webview-napi` and `tray-icon-node`.
-- The native build/runtime libraries required by those packages on your operating system.
+- Rust 1.86 or newer with Cargo.
+- Bun for the frontend build and development server.
+- A system WebView supported by Wry:
+  - Windows: WebView2.
+  - Linux: GTK and WebKitGTK development/runtime packages.
+  - macOS: the system WebKit framework.
+- Git.
 
-TikTools uses a native WebView window and a system-tray icon. It is not a browser-only application.
+On Debian/Ubuntu, install the GTK/WebKitGTK development packages provided by
+your distribution before building the desktop crate. Package names vary with
+the distribution release; if Cargo reports a missing GTK or WebKit library,
+install its `-dev` package and retry.
 
-## Install
+## Install and run
 
-Clone the repository, enter it, initialize the TikTok client submodule, and install dependencies:
-
-~~~bash
-git clone https://github.com/nglmercer/TikTools-app.git
-cd TikTools-app
-git submodule update --init --recursive
+```bash
 bun install
-~~~
-
-If the repository was downloaded as an archive instead of cloned with Git, make sure `vendor/tiktok-signer/` is present before starting the app.
-
-## Linux packages
-
-On Debian or Ubuntu, the WebView and tray packages generally need:
-
-~~~bash
-sudo apt-get install libwebkit2gtk-4.0-dev libappindicator3-dev libsoup2.4-dev
-~~~
-
-Package names vary by distribution. If the native package reports a missing library, install the development package that provides that library and run the command again.
-
-## Verify the checkout
-
-~~~bash
 bun run typecheck
 bun run test
-bun run test:plugin-worker
-~~~
-
-The test script is scoped to the application tests under `src`. This avoids discovering tests in the vendored signer package that depend on generated files.
-
-## Launch
-
-~~~bash
 bun run start
-~~~
+```
 
-The host starts a Bun server on port `0`, allowing the operating system to choose a free local port. It then loads that URL in the embedded WebView. There is no separate frontend server to start.
+The `start` script builds the Preact assets into `dist/web`, then runs
+`tiktools-desktop`. The Rust host reads those assets through the
+`tiktools://app/index.html` custom protocol and does not start a production
+localhost server.
 
-The default window is resizable and opens at 900 × 680 pixels. Closing the window hides it in the tray; choose **Show live chat** from the tray menu to restore it.
+For UI-only iteration:
 
-## Standalone executable
+```bash
+bun run serve:web
+TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+```
 
-Build the release executable for the machine you are on with:
+The development URL bypasses the custom protocol while retaining the same Wry
+IPC bridge.
 
-~~~bash
-bun run build:binary
-~~~
+## First connection
 
-The result is `dist/TikTools-<platform>-<arch>`, with an `.exe` extension on
-Windows. Pass targets to cross-compile, or build the whole matrix:
+1. Enter a TikTok creator handle; the leading `@` is optional.
+2. Leave Cookie empty for anonymous discovery, or enter an authenticated
+   Cookie request header when the room requires it.
+3. Connect directly or choose the first room returned by live discovery.
+4. Use Feed, Points, Analytics, Automations, Plugins, and Settings.
 
-~~~bash
-bun run build:binary windows-x64 linux-arm64
-bun run build:binary:all   # windows-x64, windows-arm64, linux-x64, linux-arm64
-~~~
+Cookies stay in memory. Do not paste them into source files, issue reports, or
+logs.
 
-Bun downloads the runtime for each target and embeds the native addon that
-matches it, so a Linux machine can produce the Windows executable. The macOS
-targets (`darwin-x64`, `darwin-arm64`) build only when named explicitly and are
-left out of `build:binary:all`, because `tray-icon-node` publishes no macOS binary;
-they fail at tray startup until it does. The
-`smoke:compiled*` gates only run the host build, so verify a cross-compiled
-release on that platform (a CI runner matrix is the usual way) before shipping.
+## Rust commands
 
-Each executable contains the Bun runtime and bundled Preact frontend, and starts
-sandbox plugins by launching itself with `--plugin-worker`. Bun and Node.js are
-not required on the target machine. The system WebView is: WebView2 on Windows,
-WebKitGTK (`webkit2gtk-4.1`) on Linux, WKWebView on macOS. On Windows the build
-also carries the icon and version resources and uses the GUI subsystem, so no
-console window is shown.
+```bash
+cargo check -p tiktools-core
+cargo test -p tiktools-core
+cargo check -p tiktools-desktop
+cargo test --workspace
+cargo build -p tiktools-desktop --release
+```
 
-Test it from a different working directory before distributing it:
+The core-only commands avoid desktop dependencies. `cargo test --workspace`
+also exercises SQLite, plugin manifest/ABI, native event normalization, the
+bounded `napi-vm` adapter, and the Wry asset handler.
 
-~~~bash
-cd "$TMPDIR" && /path/to/TikTools-app/dist/TikTools-linux-x64
-~~~
+## Frontend commands
 
-The window should open without console flashes. The release directory does not
-need `plugin-worker.cjs` or a separate Node.js installation.
+```bash
+bun run build:web
+bun run serve:web
+bun run typecheck
+bun run test
+```
 
-## First launch
-
-1. Select English or Spanish and choose a theme.
-2. Enter a creator handle, with or without `@`.
-3. Leave the Cookie field empty for anonymous guest bootstrap, or paste an authenticated Cookie request header.
-4. Connect to the creator or choose automatic live selection.
-5. Open [User Guide](USER_GUIDE.md) for the dashboard workflow.
-
-The creator handle, recent handles, language, and theme are saved in WebView local storage. Cookies are held in memory only.
-
-## Optional host bundle
-
-To produce a distributable host bundle:
-
-~~~bash
-bun run build:host
-~~~
-
-The output is written to `dist/host/` as a development bundle. The plugin worker is imported from the TypeScript entry point and is not copied as a `plugin-worker.cjs` sidecar. A development bundle still assumes Bun and the native dependencies are available; use `build:binary` for the standalone executable.
-
-Set a different output directory when needed:
-
-~~~bash
-TIKTOOLS_HOST_OUTDIR=/path/to/output bun run build:host
-~~~
-
-PowerShell:
-
-~~~powershell
-$env:TIKTOOLS_HOST_OUTDIR = "C:\path\to\output"
-bun run build:host
-~~~
-
-## Development WebView tools
-
-DevTools are disabled by default. Enable them for a local debugging session:
-
-~~~powershell
-$env:TIKTOK_LIVE_DEVTOOLS = "1"
-bun run start
-~~~
-
-On POSIX shells:
-
-~~~bash
-TIKTOK_LIVE_DEVTOOLS=1 bun run start
-~~~
-
-Do not enable DevTools in a build shared with users if the window can expose sensitive session data.
+The frontend is still Preact. Its JSON message types live in
+`src/shared/messages.ts`; no Rust UI rewrite is required.
 
 ## Runtime data
 
-On Windows, the first run creates `%LOCALAPPDATA%/TikTools/` with these directories:
+The host uses platform app-data locations:
 
-- `data/` for SQLite databases.
-- `plugins/` for sandbox plugin packages.
-- `logs/` for `TikTools.log`.
-- `temp/` for generated automation audio.
+```text
+Windows  %LOCALAPPDATA%/TikTools/
+Linux    ~/.local/share/TikTools/
+macOS    ~/Library/Application Support/TikTools/
+```
 
-The databases are:
+Subdirectories are `data/`, `plugins/`, `plugin-data/`, `logs/`, and `temp/`.
+For development or tests, set `TIKTOOLS_HOME` or the more specific path
+overrides documented in the [Development Guide](DEVELOPMENT.md).
 
-- `data/tiktok-points.db`
-- `data/tiktok-automation.db`
+If a checkout contains `data/tiktok-points.db` or
+`data/tiktok-automation.db`, the Rust host copies it to the platform data
+directory only when the destination does not exist. The original files are
+not deleted or modified by that copy.
 
-The location is independent of the current working directory. Set `TIKTOOLS_HOME` to relocate the complete tree, or set `TIKTOOLS_DATA_DIR`, `TIKTOOLS_PLUGINS_DIR`, `TIKTOOLS_LOG_DIR`, or `TIKTOOLS_TEMP_DIR` separately for development and tests.
+## Installing a plugin
 
-Back up the directory before manually changing or removing runtime data. See [Troubleshooting](TROUBLESHOOTING.md) before repairing a database.
+Build or obtain a validated `.plugin` package, then install it after the app
+binary exists:
+
+```bash
+cargo run -p tiktools-desktop -- --install-plugin ./my-plugin.plugin
+```
+
+The package must contain a schema-version-2 `plugin.json`. The installer
+rejects path traversal, unsafe symlinks, invalid checksums, incompatible
+protocol/ABI versions, and entries outside the package. Restart the app after
+replacing a native library; native hot-unloading is intentionally unsupported.

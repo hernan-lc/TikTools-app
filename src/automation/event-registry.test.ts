@@ -9,7 +9,8 @@ import {
   sampleEventForType,
 } from './event-registry.ts';
 import { fieldsForTrigger } from './behavior/fields.ts';
-import { matchesFilter, sampleEventFor } from './behavior/engine.ts';
+import { matchesFilter } from './behavior/filters.ts';
+import { sampleEventFor } from './behavior/samples.ts';
 import type { AutomationEventType, JsonValue } from './types.ts';
 
 const ALL_TYPES: AutomationEventType[] = [
@@ -78,7 +79,7 @@ describe('event registry', () => {
     for (const type of ['tiktok.chat', 'tiktok.gift', 'tiktok.like', 'tiktok.join', 'tiktok.social', 'tiktok.room_stats'] as const) {
       const fields = fieldsForEventType(type);
       expect(fields.length).toBeGreaterThan(5);
-      expect(fields.some((field) => field.vendorField)).toBe(true);
+      expect(fields.some((field) => field.sourceField)).toBe(true);
     }
   });
 

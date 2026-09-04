@@ -8,10 +8,9 @@ import type { FilterOperator, Localized } from './types.ts';
  * it holds — which in turn decides the operators on offer and the editor used
  * for the value (a gift picker, a viewer picker, a number, a switch).
  *
- * Field candidates come from `event-registry.json` (generated from the
- * automation types + TikTok proto schemes via `bun run registry:events`) —
- * never from hardcoded per-trigger lists. What is presentation-only stays
- * here: which picker a path opens (`kind`) and its glyph (`icon`).
+ * Field candidates come from the checked-in native event registry — never
+ * from hardcoded per-trigger lists. What is presentation-only stays here:
+ * which picker a path opens (`kind`) and its glyph (`icon`).
  */
 export type FieldIcon = 'gift' | 'gem' | 'user' | 'star' | 'repeat' | 'text' | 'hash' | 'clock';
 

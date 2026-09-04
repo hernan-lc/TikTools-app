@@ -10,8 +10,6 @@ export interface JsonObject {
 }
 export type JsonArray = JsonValue[];
 
-import type { AutomationCapabilities } from './capabilities.ts';
-
 export type AutomationEventType =
   | 'tiktok.chat'
   | 'tiktok.gift'
@@ -188,45 +186,6 @@ export interface WorkflowGraph {
   enabled: boolean;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-}
-
-export interface NodeExecutionContext {
-  runId: string;
-  workflowId: string;
-  node: WorkflowNode;
-  event: AutomationEvent;
-  inputs: Record<string, JsonValue | undefined>;
-  state: WorkflowState;
-  signal: AbortSignal;
-  capabilities: AutomationCapabilities;
-  log(message: string, metadata?: JsonObject): void;
-}
-
-export interface WorkflowState {
-  get(key: string): JsonValue | undefined;
-  set(key: string, value: JsonValue): void;
-  delete(key: string): void;
-}
-
-export interface NodeExecutionResult {
-  outputs?: Record<string, JsonValue>;
-  next?: string[];
-}
-
-export interface NodeImplementation {
-  definition: NodeDefinition;
-  matchesTrigger?(node: WorkflowNode, event: AutomationEvent): boolean;
-  execute(context: NodeExecutionContext): NodeExecutionResult | Promise<NodeExecutionResult>;
-}
-
-export interface ExecutionLogEntry {
-  runId: string;
-  workflowId: string;
-  nodeId?: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
-  message: string;
-  timestamp: number;
-  metadata?: JsonObject;
 }
 
 export interface AutomationScriptDiagnostic {

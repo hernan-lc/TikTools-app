@@ -1,0 +1,23 @@
+[package]
+name = "tiktools-plugin-loader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Runtime discovery and loading for TikTools plugins"
+
+[features]
+default = ["native-plugins", "plugin-install"]
+native-plugins = ["dep:libloading"]
+wasm-plugins = []
+plugin-install = ["dep:sha2", "dep:zip"]
+
+[dependencies]
+tiktools-plugin-api = { path = "../tiktools-plugin-api" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+libloading = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }

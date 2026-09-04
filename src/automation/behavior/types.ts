@@ -77,7 +77,7 @@ export interface ActionTypeDefinition {
   /** Short machine-ish label shown on the card: fetch, emit, audio… */
   tag: string;
   source: ActionSource;
-  /** Legacy field metadata. New actions should use configSchema and uiHints. */
+  /** Optional field descriptors for small runtimes that do not need JSON Schema. */
   fields?: ActionField[];
   /** JSON Schema subset used by the host-owned configuration renderer. */
   configSchema?: JsonObject;
@@ -159,7 +159,7 @@ export interface PluginStatus {
   unavailableReason?: string;
 }
 
-export type RunStatus = 'ok' | 'error' | 'skipped';
+export type RunStatus = 'ok' | 'error';
 
 export interface BehaviorRun {
   id: string;

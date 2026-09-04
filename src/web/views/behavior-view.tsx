@@ -7,7 +7,7 @@ import { IconSelect } from '../components/ui/IconSelect.tsx';
 import { findField } from '../../automation/behavior/fields.ts';
 
 import { defaultActionConfig } from '../../automation/behavior/action-config.ts';
-import { sampleEventFor } from '../../automation/behavior/engine.ts';
+import { sampleEventFor } from '../../automation/behavior/samples.ts';
 import { schemaForAction, useFieldSuggestions } from '../components/ui/SchemaForm.tsx';
 import { SchemaForm } from '../components/ui/SchemaForm.tsx';
 import { CodeEditor, formatJsonText } from '../components/ui/CodeEditor.tsx';
@@ -616,7 +616,7 @@ function ActionEditor({
 }) {
   const [draft, setDraft] = useState<LiveAction>(action);
   const type = actionTypes.find((entry) => entry.id === draft.typeId);
-  const permissions = deriveActionPermissions(draft);
+  const permissions = deriveActionPermissions(draft, type);
   const testRun = testRuns.find((run) => run.actionId === draft.id) ?? testRuns[0];
   const form = type ? schemaForAction(type) : undefined;
   const dynamicFields = useMemo(() => fieldsWithOptions(form?.uiHints), [form?.uiHints]);

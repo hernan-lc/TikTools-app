@@ -5,7 +5,7 @@ import { renderJsonTemplate, renderTemplate } from './templates.ts';
 const MAX_TEXT = 4_096;
 const MAX_CODE = 20_000;
 
-/** Converts the original field catalog into the JSON contract used by new UI code. */
+/** Converts compact field descriptors into the JSON contract used by the UI. */
 export function schemaForActionType(type: ActionTypeDefinition): JsonObject {
   if (type.configSchema) return type.configSchema;
   const properties: JsonObject = {};

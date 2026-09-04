@@ -2,6 +2,7 @@ node_modules
 dist
 out
 .plugin-staging
+target/
 !plugins/**/dist/
 !plugins/**/dist/**
 .DS_Store

@@ -19,7 +19,7 @@ export type SchemaFormProps = {
   uiHints?: JsonObject;
   value: JsonObject;
   onChange: (value: JsonObject) => void;
-  /** Legacy: a ready-made list. New code can use suggestionContext/scopes. */
+  /** Additional suggestions merged with the host-provided context. */
   templateSuggestions?: TemplateSuggestion[];
   /** Any object pushed as autocomplete (live event, custom schema sample…). */
   suggestionContext?: JsonValue | AutomationEvent;
@@ -161,8 +161,8 @@ export function SchemaForm({
 
 export function schemaForAction(type: ActionTypeDefinition): { schema: JsonObject; uiHints?: JsonObject } {
   return {
-    schema: type.configSchema ?? legacySchema(type),
-    uiHints: type.uiHints ?? legacyHints(type),
+    schema: type.configSchema ?? schemaFromFields(type),
+    uiHints: type.uiHints ?? hintsFromFields(type),
   };
 }
 
@@ -537,13 +537,13 @@ function formatJson(value: JsonValue | undefined): string {
   try { return JSON.stringify(value, null, 2) ?? ''; } catch { return ''; }
 }
 
-function legacySchema(type: ActionTypeDefinition): JsonObject {
+function schemaFromFields(type: ActionTypeDefinition): JsonObject {
   const properties: JsonObject = {};
   for (const field of type.fields ?? []) properties[field.key] = { type: field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string', title: field.label, default: field.value };
   return { type: 'object', properties };
 }
 
-function legacyHints(type: ActionTypeDefinition): JsonObject {
+function hintsFromFields(type: ActionTypeDefinition): JsonObject {
   const fields: JsonObject = {};
   for (const field of type.fields ?? []) fields[field.key] = { kind: field.kind, placeholder: field.placeholder, template: field.template, advanced: field.advanced, hint: field.hint, showIf: field.showIf, options: field.options } as unknown as JsonValue;
   return { fields };

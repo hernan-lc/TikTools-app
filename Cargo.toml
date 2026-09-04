@@ -1,0 +1,38 @@
+[workspace]
+members = [
+    "crates/tiktools-desktop",
+    "crates/tiktools-core",
+    "crates/tiktools-plugin-api",
+    "crates/tiktools-plugin-loader",
+    "crates/tiktools-tiktok",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.86"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tokio = { version = "1.48", features = ["rt-multi-thread", "sync", "macros", "time", "net", "io-util", "fs"] }
+rusqlite = { version = "0.40", default-features = false }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
+libloading = "0.9"
+sha2 = "0.10"
+zip = { version = "4.2", default-features = false, features = ["deflate"] }
+napi-vm = { git = "https://github.com/nglmercer/napi-vm", rev = "8a2848d16c5b5039fc1d46cb8979d5897eb5b4d0", default-features = false }
+
+# The checked-in JavaScript/Bun package was only a compatibility implementation. The desktop
+# host consumes the Rust crates directly from the upstream workspace at a pinned revision.
+ttl-sign-core = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }
+ttl-live-discovery = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }
+ttl-live-events = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }
+ttl-live-ws = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }
+ttl-sign-headless = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }
+ttl-sign-embedded = { git = "https://github.com/nglmercer/tiktok-signer", rev = "f2a2b97e35aa208cb2d13ebebc975f332bcf1331" }

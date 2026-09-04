@@ -1,129 +1,123 @@
 # Troubleshooting
 
-## The app does not start
+## The Rust host does not start
 
-Check the basic setup first:
+Build the frontend first:
 
-~~~bash
-git submodule update --init --recursive
-bun install
+```bash
+bun run build:web
+cargo run -p tiktools-desktop
+```
+
+If the host says that `index.html` is missing, set `TIKTOOLS_WEB_ROOT` to the
+directory containing `dist/web/index.html`, or set `TIKTOOLS_DEV_URL` to a
+running frontend server.
+
+## Linux WebView errors
+
+Wry uses the system GTK/WebKitGTK stack on Linux. Install the development and
+runtime packages supplied by your distribution, then run:
+
+```bash
+cargo check -p tiktools-desktop
+cargo run -p tiktools-desktop
+```
+
+Platform-specific setup belongs in `crates/tiktools-desktop/src/platform.rs`;
+the core does not require GTK.
+
+## The page loads but does not respond
+
+The Preact app expects the Wry bridge `window.ipc.postMessage`. A normal
+browser tab or an arbitrary HTTP server does not provide that bridge. Use the
+Rust desktop host and inspect DevTools in a debug build. The raw message flow
+is:
+
+```text
+window.ipc.postMessage → Wry → IpcRouter → AppCore → WebView
+```
+
+Invalid or oversized messages are rejected by the Rust parser and logged at
+debug/warn level.
+
+## TikTok connection errors
+
+The native client needs a valid creator handle and a network path to TikTok.
+Anonymous discovery may be rate-limited; retry later or supply an authenticated
+Cookie request header. Cookies are held in memory and are not written to
+SQLite or logs.
+
+For signing failures, provide a compatible `webmssdk.js` bundle with
+`TIKTOOLS_TIKTOK_SIGNING_BUNDLE`, or allow the native client to use its configured
+cache/download path. The Rust client uses the pinned `tiktok-signer` crates
+directly and does not require a JavaScript/Bun host process.
+
+## Database or missing data
+
+Rust uses platform app-data paths. Check the resolved overrides:
+
+```text
+TIKTOOLS_HOME
+TIKTOOLS_DATA_DIR
+TIKTOOLS_PLUGINS_DIR
+TIKTOOLS_PLUGIN_DATA_DIR
+TIKTOOLS_LOG_DIR
+TIKTOOLS_TEMP_DIR
+```
+
+A checkout-local `data/tiktok-points.db` or `data/tiktok-automation.db` is
+copied only when the corresponding platform destination does not exist. The
+source is not deleted, and an existing destination is never overwritten.
+
+If SQLite reports a schema error, back up both database files before changing
+anything and run:
+
+```bash
+cargo test -p tiktools-core --features persistence
+```
+
+The Rust schema intentionally preserves the existing table names and JSON
+payload columns.
+
+## Plugin is not listed
+
+Check the runtime plugin directories and make sure each package contains
+`plugin.json` with:
+
+```text
+schemaVersion: 2
+runtime: native | process | wasm
+entry: package-relative file
+protocolVersion: 1
+```
+
+The host rejects invalid IDs, path traversal, incompatible versions, platform
+mismatches, missing entries, and JavaScript source entries declared as process
+plugins. Scan order is built-in, user, then development override.
+
+## Native plugin failed to load
+
+Native plugins are trusted in-process libraries. Confirm that the library
+matches the current OS/architecture and exports `tiktools_plugin_init`. Its
+manifest ABI version must match the host. A native library remains loaded for
+the process lifetime; restart TikTools after replacing it.
+
+Use a process plugin when a crash or incompatible native dependency should be
+contained outside the application.
+
+## Automation script errors
+
+Scripts run in `napi-vm` with bounded source/result sizes and a loop budget.
+They receive JSON `event`, `inputs`, and `data` values only. Node APIs,
+filesystem, network, process spawning, and WebView handles are unavailable.
+Move privileged work into a declared host action or plugin capability.
+
+## Useful checks
+
+```bash
 bun run typecheck
-~~~
-
-Confirm that `vendor/tiktok-signer/` contains the upstream package files. If the error mentions a native module or missing shared library, install the platform dependency required by `webview-napi` or `tray-icon-node`. Linux package guidance is in [Getting Started](GETTING_STARTED.md).
-
-For development, run from a terminal so the host log remains visible:
-
-~~~bash
-bun run start
-~~~
-
-The compiled Windows executable intentionally has no console. Check `%LOCALAPPDATA%/TikTools/logs/TikTools.log` for startup failures, WebView or native-module errors, plugin worker failures, and provider errors. Cookie headers, credentials, and worker handshake tokens are redacted from this file.
-
-## The window opens but the page is blank
-
-Enable WebView DevTools for a local session:
-
-~~~powershell
-$env:TIKTOK_LIVE_DEVTOOLS = "1"
-bun run start
-~~~
-
-Then inspect the browser console for frontend import, CSS, or runtime errors. Also check that the local Bun server started before the native WebView was created.
-
-If the page loads but the host bridge does not respond, confirm that the app is running inside the native WebView. The frontend expects `window.ipc.postMessage`; a normal browser tab will not have the same host bridge.
-
-## The tray icon is missing
-
-The app catches tray initialization failures and continues with the WebView. In development, check the terminal; in a compiled Windows build, check `TikTools.log`. Install the native tray prerequisites for the operating system, then restart.
-
-Closing the window should hide it. If the process must be stopped during development, use the terminal interrupt or the tray **Quit** action.
-
-## Connection fails in guest mode
-
-Guest bootstrap depends on the upstream discovery and session services. It can fail because of rate limits, temporary upstream changes, no matching live room, or a rejected anonymous WebSocket handshake.
-
-Try the following:
-
-1. Confirm the creator is live.
-2. Remove the leading `@` and try again.
-3. Retry after a short delay.
-4. Use an authenticated Cookie header for a room that requires it.
-5. Check the terminal error and the in-app connection error separately; they may describe different phases.
-
-Do not repeatedly retry a rate-limited guest request.
-
-## Connection fails with a Cookie header
-
-Make sure the value is the complete Cookie request header, for example:
-
-~~~text
-sessionid=...; other_cookie=...
-~~~
-
-Do not include browser export formatting or quote the entire value unless the browser provides it that way. Never share the value in logs or bug reports. If authentication stops working, obtain a fresh authorized session rather than committing a workaround.
-
-## Points or automations appear to reset
-
-The app stores durable data under `%LOCALAPPDATA%/TikTools/` on Windows, independent of the current working directory. A custom `TIKTOOLS_HOME` or `TIKTOOLS_DATA_DIR` can intentionally change this location.
-
-Check:
-
-~~~powershell
-Get-Location
-Get-ChildItem "$env:LOCALAPPDATA\TikTools\data"
-~~~
-
-POSIX:
-
-~~~bash
-pwd
-ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/TikTools/data"
-~~~
-
-Stop the app before moving or replacing a database. Back up the app `data/` directory first. The points and automation databases are separate, so a problem in one does not necessarily affect the other.
-
-## A plugin is unavailable
-
-Check all of the following:
-
-- The automation plugin is under `plugins/<directory>/plugin.json`, or the
-  provider AppPlugin is installed under the app-data plugin directory.
-- Automation manifests use supported `manifestVersion` and `apiVersion` values;
-  provider manifests use `schemaVersion: 1` and a compatible `host.api` range.
-- The plugin id, version, execution mode, and permissions are valid.
-- The plugin declares every capability and network/files permission it needs.
-- The plugin is installed and enabled in the Plugins tab.
-- The plugin's precompiled native dependency is available for the current
-  platform/architecture; installation never compiles it.
-
-Read terminal messages prefixed with `[automation-plugins]` or `[plugins]` during development, or `TikTools.log` in the compiled app. A sandbox automation plugin cannot use arbitrary Node modules, filesystem access, network access, or native modules outside its declared capability path. Trusted provider plugins are reviewed dynamic imports; use a separate process for truly untrusted native code.
-
-## UI changes are not visible
-
-Restart the app after changing frontend files if the WebView did not reload. If CSS appears stale, confirm that the imported stylesheet is under `src/web/styles.css` and that the relevant file is included in its import list.
-
-For responsive issues, inspect the nearest scroll container and check for missing `min-width: 0`, `min-height: 0`, or unintended nested overflow. See [Development Guide](DEVELOPMENT.md).
-
-## Tests fail in vendored code
-
-Use the project script:
-
-~~~bash
 bun run test
-~~~
-
-A bare `bun test` can discover the vendored signer tests. Those tests may expect generated `vendor/tiktok-signer/.../dist` files that are intentionally not checked in.
-
-## Reporting a bug
-
-Include:
-
-- Operating system and Bun version.
-- The command used to start the app.
-- Whether guest or authenticated mode was used, without including credentials.
-- The terminal error and the in-app error text.
-- The active tab and the smallest reproducible steps.
-- Whether the issue survives a clean checkout and a fresh `data/` backup.
-
-Redact Cookie headers, usernames if sensitive, room identifiers, and personal viewer data.
+cargo test --workspace
+cargo check -p tiktools-desktop
+git diff --check
+```

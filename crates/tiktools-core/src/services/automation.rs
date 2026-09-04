@@ -1,0 +1,348 @@
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Mutex, RwLock,
+    },
+};
+
+use serde_json::Value;
+
+use super::ScriptService;
+
+/// Automation orchestration boundary. The workflow persistence and event
+/// routing stay in `AppCore`; script evaluation is isolated here so it can be
+/// tested without a desktop object or a plugin runtime.
+pub struct AutomationService {
+    script: ScriptService,
+    actions: RwLock<BTreeMap<String, Value>>,
+    events: RwLock<BTreeMap<String, Value>>,
+    cooldowns: Mutex<BTreeMap<String, u64>>,
+    runs: Mutex<Vec<Value>>,
+    sequence: AtomicU64,
+}
+
+impl Default for AutomationService {
+    fn default() -> Self {
+        Self {
+            script: ScriptService::default(),
+            actions: RwLock::new(BTreeMap::new()),
+            events: RwLock::new(BTreeMap::new()),
+            cooldowns: Mutex::new(BTreeMap::new()),
+            runs: Mutex::new(Vec::new()),
+            sequence: AtomicU64::new(0),
+        }
+    }
+}
+
+impl AutomationService {
+    pub fn replace_snapshot(&self, snapshot: &Value) {
+        let actions = records_by_id(snapshot.get("actions"));
+        let events = records_by_id(snapshot.get("events"));
+        *self.actions.write().expect("automation actions poisoned") = actions;
+        *self.events.write().expect("automation events poisoned") = events;
+    }
+
+    pub fn upsert_action(&self, action: Value) {
+        if let Some(id) = action.get("id").and_then(Value::as_str) {
+            self.actions
+                .write()
+                .expect("automation actions poisoned")
+                .insert(id.to_owned(), action);
+        }
+    }
+
+    pub fn remove_action(&self, id: &str) {
+        self.actions
+            .write()
+            .expect("automation actions poisoned")
+            .remove(id);
+    }
+
+    pub fn upsert_event(&self, event: Value) {
+        if let Some(id) = event.get("id").and_then(Value::as_str) {
+            self.events
+                .write()
+                .expect("automation events poisoned")
+                .insert(id.to_owned(), event);
+        }
+    }
+
+    pub fn remove_event(&self, id: &str) {
+        self.events
+            .write()
+            .expect("automation events poisoned")
+            .remove(id);
+        self.cooldowns
+            .lock()
+            .expect("automation cooldowns poisoned")
+            .retain(|key, _| !key.starts_with(&format!("{}:", id)));
+    }
+
+    pub fn matching_events(&self, event: &Value) -> Vec<Value> {
+        let event_type = event.get("type").and_then(Value::as_str);
+        self.events
+            .read()
+            .expect("automation events poisoned")
+            .values()
+            .filter(|record| {
+                record.get("enabled").and_then(Value::as_bool) == Some(true)
+                    && record.get("trigger").and_then(Value::as_str) == event_type
+                    && event_record_matches(record, event)
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn event_record_matches(&self, record: &Value, event: &Value) -> bool {
+        event_record_matches(record, event)
+    }
+
+    pub fn claim_event(&self, record: &Value, event: &Value, now: u64) -> bool {
+        if !event_record_matches(record, event) {
+            return false;
+        }
+        let cooldown_ms = record
+            .get("cooldownMs")
+            .and_then(number_u64)
+            .unwrap_or_default();
+        if cooldown_ms == 0 {
+            return true;
+        }
+        let id = record.get("id").and_then(Value::as_str).unwrap_or("event");
+        let scope = if record.get("cooldownScope").and_then(Value::as_str) == Some("global") {
+            "global".to_owned()
+        } else {
+            event
+                .get("user")
+                .and_then(|user| user.get("uniqueId"))
+                .and_then(Value::as_str)
+                .unwrap_or("anonymous")
+                .to_owned()
+        };
+        let key = format!("{}:{}", id, scope);
+        let mut cooldowns = self
+            .cooldowns
+            .lock()
+            .expect("automation cooldowns poisoned");
+        if cooldowns
+            .get(&key)
+            .is_some_and(|previous| now.saturating_sub(*previous) < cooldown_ms)
+        {
+            return false;
+        }
+        cooldowns.insert(key, now);
+        true
+    }
+
+    pub fn actions_for_event(&self, record: &Value) -> Vec<Value> {
+        let ids = record
+            .get("actionIds")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .collect::<Vec<_>>();
+        let actions = self.actions.read().expect("automation actions poisoned");
+        let mut selected = ids
+            .into_iter()
+            .filter_map(|id| actions.get(id))
+            .filter(|action| action.get("enabled").and_then(Value::as_bool) != Some(false))
+            .cloned()
+            .collect::<Vec<_>>();
+        if record.get("runMode").and_then(Value::as_str) == Some("random") && selected.len() > 1 {
+            let index = (self.sequence.fetch_add(1, Ordering::AcqRel) as usize) % selected.len();
+            selected = vec![selected.swap_remove(index)];
+        }
+        selected
+    }
+
+    pub fn next_run_id(&self, prefix: &str, at: u64) -> String {
+        format!(
+            "{}-{}-{}",
+            prefix,
+            self.sequence.fetch_add(1, Ordering::AcqRel) + 1,
+            at
+        )
+    }
+
+    pub fn record_run(&self, run: Value) -> Vec<Value> {
+        let mut runs = self.runs.lock().expect("automation runs poisoned");
+        runs.insert(0, run);
+        runs.truncate(60);
+        runs.clone()
+    }
+
+    pub fn recent_runs(&self) -> Vec<Value> {
+        self.runs.lock().expect("automation runs poisoned").clone()
+    }
+
+    pub fn clear_runs(&self) {
+        self.runs.lock().expect("automation runs poisoned").clear();
+    }
+
+    pub fn emit_depth(event: &Value) -> u64 {
+        if event.get("type").and_then(Value::as_str) != Some("plugin.emit") {
+            return 0;
+        }
+        event
+            .get("data")
+            .and_then(|data| data.get("depth"))
+            .and_then(number_u64)
+            .unwrap_or_default()
+    }
+
+    pub fn evaluate_script(
+        &self,
+        source: &str,
+        event: &Value,
+        inputs: &Value,
+    ) -> Result<Value, String> {
+        self.script.evaluate(source, event, inputs)
+    }
+
+    pub fn validate_script(&self, source: &str) -> Result<(), String> {
+        self.script.validate(source)
+    }
+}
+
+fn records_by_id(value: Option<&Value>) -> BTreeMap<String, Value> {
+    value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|value| {
+            value
+                .get("id")
+                .and_then(Value::as_str)
+                .map(|id| (id.to_owned(), value.clone()))
+        })
+        .collect()
+}
+
+fn event_record_matches(record: &Value, event: &Value) -> bool {
+    let Some(filters) = record.get("filters").and_then(Value::as_array) else {
+        return true;
+    };
+    filters.iter().all(|filter| matches_filter(filter, event))
+}
+
+fn matches_filter(filter: &Value, event: &Value) -> bool {
+    let path = filter
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let raw = read_event_path(event, path);
+    let left = raw.map(value_to_string).unwrap_or_default();
+    let right = filter
+        .get("value")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let left_number = left.parse::<f64>().ok();
+    let right_number = right.parse::<f64>().ok();
+    let numeric = left_number.is_some() && right_number.is_some() && !right.trim().is_empty();
+    match filter
+        .get("operator")
+        .and_then(Value::as_str)
+        .unwrap_or("eq")
+    {
+        "gte" => numeric && left_number >= right_number,
+        "gt" => numeric && left_number > right_number,
+        "lte" => numeric && left_number <= right_number,
+        "lt" => numeric && left_number < right_number,
+        "eq" => numeric
+            .then(|| left_number == right_number)
+            .unwrap_or_else(|| left == right),
+        "neq" => numeric
+            .then(|| left_number != right_number)
+            .unwrap_or_else(|| left != right),
+        "contains" => left
+            .to_ascii_lowercase()
+            .contains(&right.to_ascii_lowercase()),
+        "starts-with" => left
+            .to_ascii_lowercase()
+            .starts_with(&right.to_ascii_lowercase()),
+        "in" => filter
+            .get("values")
+            .and_then(Value::as_array)
+            .is_some_and(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .any(|value| value.trim().eq_ignore_ascii_case(left.trim()))
+            }),
+        "is-true" => raw == Some(&Value::Bool(true)) || left == "true" || left == "1",
+        "is-false" => {
+            raw == Some(&Value::Bool(false)) || left == "false" || left == "0" || left.is_empty()
+        }
+        _ => false,
+    }
+}
+
+fn read_event_path<'a>(event: &'a Value, path: &str) -> Option<&'a Value> {
+    let path = path
+        .trim()
+        .trim_start_matches("{{")
+        .trim_end_matches("}}")
+        .trim();
+    let path = path.strip_prefix("event.").unwrap_or(path);
+    let path = path.strip_prefix("event").unwrap_or(path);
+    let mut current = event;
+    for part in path.trim_matches('.').split('.') {
+        if part.is_empty() {
+            continue;
+        }
+        current = current.get(part)?;
+    }
+    Some(current)
+}
+
+fn value_to_string(value: &Value) -> String {
+    match value {
+        Value::Null => String::new(),
+        Value::Bool(value) => value.to_string(),
+        Value::Number(value) => value.to_string(),
+        Value::String(value) => value.clone(),
+        Value::Array(_) | Value::Object(_) => serde_json::to_string(value).unwrap_or_default(),
+    }
+}
+
+fn number_u64(value: &Value) -> Option<u64> {
+    value
+        .as_u64()
+        .or_else(|| {
+            value
+                .as_f64()
+                .filter(|value| value.is_finite() && *value >= 0.0)
+                .map(|value| value as u64)
+        })
+        .or_else(|| value.as_str()?.parse().ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn matches_filters_and_enforces_user_cooldowns() {
+        let service = AutomationService::default();
+        service.replace_snapshot(&json!({
+            "actions": [{"id":"action","enabled":true}],
+            "events": [{
+                "id":"event","enabled":true,"trigger":"tiktok.chat",
+                "filters":[{"path":"event.data.comment","operator":"contains","value":"hello"}],
+                "cooldownMs":1000,"cooldownScope":"user","actionIds":["action"]
+            }]
+        }));
+        let event = json!({"type":"tiktok.chat","user":{"uniqueId":"alice"},"data":{"comment":"Hello there"}});
+        let record = service
+            .matching_events(&event)
+            .pop()
+            .expect("event should match");
+        assert!(service.claim_event(&record, &event, 100));
+        assert!(!service.claim_event(&record, &event, 500));
+        assert!(service.claim_event(&record, &event, 1_100));
+        assert_eq!(service.actions_for_event(&record).len(), 1);
+    }
+}

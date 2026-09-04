@@ -29,6 +29,5 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["index.ts", "src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts"],
-  "exclude": ["vendor/tiktok-signer/examples", "vendor/tiktok-signer/test"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/build-web.ts", "scripts/serve-web.ts"]
 }

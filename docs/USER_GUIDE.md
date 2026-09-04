@@ -64,7 +64,9 @@ See [Automations](AUTOMATIONS.md) for the event model, templates, script actions
 
 Plugins add optional action types and dependencies. Built-in actions are always available. Plugin actions appear only when their plugin is installed, enabled, and its dependency is available.
 
-Downloaded plugins use the worker-backed sandbox path. Review a plugin manifest and its permissions before enabling it.
+Review a runtime plugin manifest and its permissions before enabling it. Native
+plugins are trusted in-process code; process and WASM plugins provide stronger
+crash/isolation boundaries.
 
 ### Settings
 
@@ -72,7 +74,7 @@ Settings controls the interface language and dark/light theme. Preferences are s
 
 ## Tray behavior
 
-Closing the native window hides it instead of shutting down the process. Use the tray menu to show the window again or quit. A normal quit stops the live client, automation workers, audio, TTS, and the local server.
+Closing the native window hides it instead of shutting down the process. Use the tray menu to show the window again or quit. A normal quit stops the live client, automation, and running plugins.
 
 ## What persists
 
@@ -83,4 +85,3 @@ Closing the native window hides it instead of shutting down the process. Use the
 | Workflows, behavior actions/events, plugin state | `data/tiktok-automation.db` | Across launches |
 | Live feed, telemetry, run history, last event snapshot | Application memory | Current process/session |
 | Session Cookie header | Application memory | Current connection/session only |
-
