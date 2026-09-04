@@ -7,8 +7,8 @@ type PublicVueProps<Props extends VueProps> = Omit<Props, 'children'> & {
 };
 
 /**
- * Keeps the existing TSX component surface small while giving every component
- * a real Vue setup boundary. Props are declared at runtime so updates remain
+ * Keeps the shared Vue render-function surface small while giving every
+ * component a real Vue setup boundary. Props are declared at runtime so updates remain
  * reactive, and the default slot is exposed as the familiar `children` value
  * used by the UI primitives.
  */

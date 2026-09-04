@@ -27,7 +27,7 @@ bun run typecheck
 bun run test
 ```
 
-Use `.ts`/`.tsx` import extensions consistently. Keep host-only operations out
+Use `.ts`/`.vue` import extensions consistently. Keep host-only operations out
 of the WebView.
 
 ## Rust checks

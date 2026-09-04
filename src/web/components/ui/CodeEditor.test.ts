@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { formatJsonText, tokenizeJson } from './CodeEditor.tsx';
+import { formatJsonText, tokenizeJson } from './code-editor-logic.ts';
 
 test('formatJsonText pretty-prints valid JSON', () => {
   expect(formatJsonText('{"b":2,"a":1}')).toBe('{\n  "b": 2,\n  "a": 1\n}');

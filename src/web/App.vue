@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
-import { AnalyticsView } from './views/analytics-view.tsx';
-import { BehaviorView } from './views/behavior-view.tsx';
-import { ConnectView } from './views/connect-view.tsx';
-import { FeedView } from './views/feed-view.tsx';
-import { PluginsView } from './views/plugins-view.tsx';
-import { PointsView } from './views/points-view.tsx';
-import { SettingsView } from './views/settings-view.tsx';
-import { NavigationRail } from './components/nav-rail.tsx';
-import { TopNav } from './components/top-nav.tsx';
+import { AnalyticsView } from './views/analytics-view.vue';
+import { BehaviorView } from './views/behavior-view.vue';
+import { ConnectView } from './views/connect-view.vue';
+import { FeedView } from './views/feed-view.vue';
+import { PluginsView } from './views/plugins-view.vue';
+import { PointsView } from './views/points-view.vue';
+import { SettingsView } from './views/settings-view.vue';
+import { NavigationRail } from './components/nav-rail.vue';
+import { TopNav } from './components/top-nav.vue';
 import { useAppController } from './composables/useAppController.ts';
 
 const app = reactive(useAppController());
 </script>
-
 <template>
   <div class="app-shell">
     <TopNav

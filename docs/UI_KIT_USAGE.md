@@ -7,21 +7,21 @@ Already imported in `src/web/styles.css` via `ui.css`. No new deps.
 
 ## Primitives
 
-```tsx
-import { FormField, FieldRow } from './components/ui/FormField.tsx';
-import { TextInput, SearchInput } from './components/ui/TextInput.tsx';
-import { NumberInput } from './components/ui/NumberInput.tsx';
-import { Select } from './components/ui/Select.tsx';
-import { Checkbox, Switch } from './components/ui/Checkbox.tsx';
-import { Card, Badge, Alert, EmptyState, Chip, ChipGroup } from './components/ui/Card.tsx';
-import { Button } from './components/ui/Button.tsx';
-import { DataTable, type Column } from './components/ui/Table.tsx';
-import { Page, PageHeader, SplitLayout, StatCard, StatGrid } from './components/ui/Page.tsx';
+```vue
+import { FormField, FieldRow } from './components/ui/FormField.vue';
+import { TextInput, SearchInput } from './components/ui/TextInput.vue';
+import { NumberInput } from './components/ui/NumberInput.vue';
+import { Select } from './components/ui/Select.vue';
+import { Checkbox, Switch } from './components/ui/Checkbox.vue';
+import { Card, Badge, Alert, EmptyState, Chip, ChipGroup } from './components/ui/Card.vue';
+import { Button } from './components/ui/Button.vue';
+import { DataTable, type Column } from './components/ui/Table.vue';
+import { Page, PageHeader, SplitLayout, StatCard, StatGrid } from './components/ui/Page.vue';
 ```
 
 ## Form — same `value/onValueChange` everywhere
 
-```tsx
+```vue
 // Text (prefix @)
 const userRef = useRef<TextInputHandle>(null);
 <TextInput value={user} onValueChange={setUser} prefix="@" placeholder="handle" error={err} />
@@ -54,7 +54,7 @@ userRef.current?.clear()
 
 ## Card / Page
 
-```tsx
+```vue
 <Page narrow>
   <Card title="Conectar a TikTok LIVE" subtitle="..." icon={<IconRadio />}>
     ...
@@ -74,7 +74,7 @@ userRef.current?.clear()
 
 ## Table — one component for leaderboard + analytics ranking
 
-```tsx
+```vue
 const cols: Column<ViewerRecord>[] = [
   { key:'rank', header:'Puesto', width:'48px', render:(_r,i)=> <RankBadge rank={i+1}/> },
   { key:'viewer', header:'Espectador', render:(r)=> <span>@{r.uniqueId}</span> },
@@ -94,7 +94,7 @@ const cols: Column<ViewerRecord>[] = [
 
 ## Button
 
-```tsx
+```vue
 <Button variant="primary" block>Conectar al LIVE</Button>
 <Button variant="soft" size="sm">+ Cookie</Button>
 <Button variant="cyan" icon={<IconDice/>} iconOnly tooltip="Pick Random LIVE" />

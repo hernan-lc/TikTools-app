@@ -73,8 +73,9 @@ bun run typecheck
 bun run test
 ```
 
-The frontend uses Vue with Vue JSX components where a direct component
-conversion is useful. Its JSON message types live in
+The frontend uses Vue single-file components. Interactive render functions
+continue to use Vue's JSX transform where that keeps behavior localized. Its
+JSON message types live in
 `src/shared/messages.ts`; no Rust UI rewrite is required.
 
 ## Runtime data
