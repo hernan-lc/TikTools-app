@@ -31,6 +31,10 @@ core.play_audio(
 selection contains the canonical directory path and name without copying the
 folder.
 
+The audio picker accepts AAC, FLAC, M4A, MP3, OGA/OGG, Opus, WAV, WebM, and
+MP4 containers. MP4 is treated as audio here: playback uses the container's
+audio track and does not copy or play its video track.
+
 ## Frontend API
 
 The Vue controller exposes the same request as a callback API:

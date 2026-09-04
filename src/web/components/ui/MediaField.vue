@@ -6,7 +6,7 @@ import type { JsonValue } from '../../../automation/types.ts';
 import { TextInput } from './TextInput.vue';
 import { t, type Locale } from '../../i18n.ts';
 
-const AUDIO_EXTENSIONS = ['aac', 'flac', 'm4a', 'mp3', 'oga', 'ogg', 'opus', 'wav', 'webm'];
+const AUDIO_EXTENSIONS = ['aac', 'flac', 'm4a', 'mp3', 'mp4', 'oga', 'ogg', 'opus', 'wav', 'webm'];
 
 type MediaFieldProps = {
   locale: Locale;

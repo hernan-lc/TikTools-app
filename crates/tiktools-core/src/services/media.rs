@@ -19,7 +19,7 @@ use tiktools_plugin_api::{
 };
 
 pub const AUDIO_EXTENSIONS: &[&str] = &[
-    "aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "webm",
+    "aac", "flac", "m4a", "mp3", "mp4", "oga", "ogg", "opus", "wav", "webm",
 ];
 pub const MAX_AUDIO_FILE_BYTES: u64 = 1_073_741_824;
 
@@ -321,6 +321,7 @@ fn mime_type(kind: MediaKind, extension: &str) -> Option<&'static str> {
         "aac" => "audio/aac",
         "flac" => "audio/flac",
         "m4a" => "audio/mp4",
+        "mp4" => "audio/mp4",
         "mp3" => "audio/mpeg",
         "oga" | "ogg" => "audio/ogg",
         "opus" => "audio/opus",
@@ -389,6 +390,19 @@ mod tests {
         let validated = validate_audio_file_ref(&minimal, &root).unwrap();
         assert_eq!(validated.kind, Some(MediaKind::Audio));
         assert_eq!(validated.extension, "mp3");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn accepts_mp4_as_an_audio_container_reference() {
+        let root = fixture_root();
+        let path = root.join("alert.MP4");
+        fs::write(&path, b"mp4 audio container").unwrap();
+
+        let reference = media_file_ref(&path, MediaKind::Audio).unwrap();
+
+        assert_eq!(reference.extension, "mp4");
+        assert_eq!(reference.mime_type.as_deref(), Some("audio/mp4"));
         let _ = fs::remove_dir_all(root);
     }
 

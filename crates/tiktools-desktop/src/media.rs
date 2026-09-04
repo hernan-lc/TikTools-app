@@ -12,7 +12,8 @@ use std::{
 use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
 use tiktools_core::{MediaHost, MediaHostError, MediaHostFuture};
 use tiktools_plugin_api::{
-    AudioOverlap, AudioPlayOptions, AudioPlaybackResult, MediaPickerMode, MediaPickerOptions,
+    AudioOverlap, AudioPlayOptions, AudioPlaybackResult, MediaKind, MediaPickerMode,
+    MediaPickerOptions,
 };
 
 #[derive(Default)]
@@ -65,7 +66,13 @@ fn pick_media(options: MediaPickerOptions) -> Result<Option<PathBuf>, MediaHostE
         dialog = dialog.set_directory(directory);
     }
     if !options.extensions.is_empty() {
-        dialog = dialog.add_filter("Supported media", &options.extensions);
+        let filter_name = match options.kind {
+            MediaKind::Audio => "Audio files",
+            MediaKind::Video => "Video files",
+            MediaKind::Image => "Image files",
+            MediaKind::Other => "Supported files",
+        };
+        dialog = dialog.add_filter(filter_name, &options.extensions);
     }
     let selected = match options.mode {
         MediaPickerMode::File => dialog.pick_file(),
