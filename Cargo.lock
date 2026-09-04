@@ -3763,6 +3763,7 @@ version = "0.1.0"
 dependencies = [
  "gtk",
  "percent-encoding",
+ "rustls",
  "serde_json",
  "tiktools-core",
  "tokio",
@@ -3803,10 +3804,12 @@ name = "tiktools-tiktok"
 version = "0.1.0"
 dependencies = [
  "reqwest 0.13.4",
+ "rustls",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
+ "tracing",
  "ttl-live-discovery",
  "ttl-live-events",
  "ttl-live-ws",

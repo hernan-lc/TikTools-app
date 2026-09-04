@@ -20,7 +20,7 @@ use std::{
 };
 
 #[cfg(feature = "native-tiktok")]
-use std::sync::atomic::AtomicBool;
+use std::{sync::atomic::AtomicBool, time::Duration};
 
 use serde_json::{json, Value};
 use tiktools_plugin_loader::{plugin_roots, PluginManager};
@@ -542,14 +542,24 @@ impl AppCore {
         }
         let mut receiver = self.live.subscribe();
         let core = Arc::clone(self);
+        tracing::info!("native TikTok event pump started");
         tokio::spawn(async move {
             loop {
                 match receiver.recv().await {
-                    Ok(event) => core.handle_native_event(event).await,
+                    Ok(event) => {
+                        tracing::debug!(
+                            kind = client_event_kind(&event),
+                            "native TikTok event received"
+                        );
+                        core.handle_native_event(event).await;
+                    }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
                         tracing::warn!(count, "native TikTok event receiver lagged")
                     }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        tracing::warn!("native TikTok event stream closed");
+                        break;
+                    }
                 }
             }
         });
@@ -635,8 +645,8 @@ impl AppCore {
     #[cfg(feature = "native-tiktok")]
     async fn handle_native_event(self: &Arc<Self>, event: ClientEvent) {
         match event {
-            ClientEvent::Connected(info) => self.handle_connected(info),
-            ClientEvent::Event(event) => self.handle_live_event(event),
+            ClientEvent::Connected(info) => self.handle_connected(info).await,
+            ClientEvent::Event(event) => self.handle_live_event(event).await,
             ClientEvent::Reconnecting { attempt, delay_ms } => {
                 self.emit(HostMessage::Reconnecting { attempt, delay_ms });
             }
@@ -659,7 +669,7 @@ impl AppCore {
     }
 
     #[cfg(feature = "native-tiktok")]
-    fn handle_connected(self: &Arc<Self>, info: tiktools_tiktok::ConnectionInfo) {
+    async fn handle_connected(self: &Arc<Self>, info: tiktools_tiktok::ConnectionInfo) {
         let sequence = self.connection_sequence.fetch_add(1, Ordering::AcqRel) + 1;
         let context = LiveContext {
             unique_id: info.unique_id.clone(),
@@ -670,71 +680,6 @@ impl AppCore {
             .connection_context
             .write()
             .expect("connection context lock poisoned") = Some(context.clone());
-
-        let creator = {
-            #[cfg(feature = "persistence")]
-            {
-                match self.db.save_creator(
-                    &info.unique_id,
-                    Some(&info.room_id),
-                    Some(&info.nickname),
-                    info.avatar_url.as_deref(),
-                    Some(&info.title),
-                    Some(&info.unique_id),
-                ) {
-                    Ok(creator) => creator,
-                    Err(error) => {
-                        tracing::warn!(%error, "could not persist connected creator");
-                        creator_value(&info)
-                    }
-                }
-            }
-            #[cfg(not(feature = "persistence"))]
-            {
-                creator_value(&info)
-            }
-        };
-
-        self.emit(HostMessage::Connection {
-            status: ipc::messages::ConnectionStatus::Connected,
-            unique_id: Some(info.unique_id.clone()),
-            title: Some(info.title.clone()).filter(|value| !value.is_empty()),
-            room_id: Some(info.room_id.clone()),
-            avatar_url: info.avatar_url.clone(),
-        });
-        self.emit(HostMessage::CreatorState {
-            creator: Some(creator),
-        });
-        #[cfg(feature = "persistence")]
-        {
-            self.emit(HostMessage::RecentCreators {
-                creators: self.db.load_recent_creators(10).unwrap_or_else(|error| {
-                    tracing::warn!(%error, "could not load recent creators");
-                    Vec::new()
-                }),
-            });
-            self.emit(HostMessage::AppState {
-                state: self
-                    .db
-                    .load_app_state()
-                    .ok()
-                    .map(|values| {
-                        values
-                            .into_iter()
-                            .filter_map(|(key, value)| {
-                                value.as_str().map(|value| (key, value.to_owned()))
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-            });
-        }
-        self.emit(HostMessage::PointsConfig {
-            config: self.points.config(),
-        });
-        self.emit(HostMessage::Leaderboard {
-            viewers: self.points.leaderboard(Some(50)),
-        });
 
         let gifts = info
             .gifts
@@ -748,10 +693,104 @@ impl AppCore {
                 })
             })
             .collect::<Vec<_>>();
+
         #[cfg(feature = "persistence")]
-        if let Err(error) = self.db.save_gift_catalog(&gifts) {
-            tracing::warn!(%error, "could not persist TikTok gift catalog");
-        }
+        let (creator, recent_creators, app_state) = {
+            let database = Arc::clone(&self.db);
+            let info_for_db = info.clone();
+            let gifts_for_db = gifts.clone();
+            match tokio::time::timeout(
+                Duration::from_secs(2),
+                tokio::task::spawn_blocking(move || {
+                    let creator = match database.save_creator(
+                        &info_for_db.unique_id,
+                        Some(&info_for_db.room_id),
+                        Some(&info_for_db.nickname),
+                        info_for_db.avatar_url.as_deref(),
+                        Some(&info_for_db.title),
+                        Some(&info_for_db.unique_id),
+                    ) {
+                        Ok(creator) => creator,
+                        Err(error) => {
+                            tracing::warn!(%error, "could not persist connected creator");
+                            creator_value(&info_for_db)
+                        }
+                    };
+                    let recent_creators =
+                        database.load_recent_creators(10).unwrap_or_else(|error| {
+                            tracing::warn!(%error, "could not load recent creators");
+                            Vec::new()
+                        });
+                    let app_state = database
+                        .load_app_state()
+                        .ok()
+                        .map(|values| {
+                            values
+                                .into_iter()
+                                .filter_map(|(key, value)| {
+                                    value.as_str().map(|value| (key, value.to_owned()))
+                                })
+                                .collect::<std::collections::BTreeMap<_, _>>()
+                        })
+                        .unwrap_or_default();
+                    if let Err(error) = database.save_gift_catalog(&gifts_for_db) {
+                        tracing::warn!(%error, "could not persist TikTok gift catalog");
+                    }
+                    (creator, recent_creators, app_state)
+                }),
+            )
+            .await
+            {
+                Ok(Ok(values)) => values,
+                Ok(Err(error)) => {
+                    tracing::error!(%error, "connection persistence worker failed");
+                    (
+                        creator_value(&info),
+                        Vec::new(),
+                        std::collections::BTreeMap::new(),
+                    )
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        "connection persistence exceeded 2 seconds; continuing live event delivery"
+                    );
+                    (
+                        creator_value(&info),
+                        Vec::new(),
+                        std::collections::BTreeMap::new(),
+                    )
+                }
+            }
+        };
+
+        #[cfg(not(feature = "persistence"))]
+        let (creator, recent_creators, app_state) = (
+            creator_value(&info),
+            Vec::new(),
+            std::collections::BTreeMap::new(),
+        );
+
+        self.emit(HostMessage::Connection {
+            status: ipc::messages::ConnectionStatus::Connected,
+            unique_id: Some(info.unique_id.clone()),
+            title: Some(info.title.clone()).filter(|value| !value.is_empty()),
+            room_id: Some(info.room_id.clone()),
+            avatar_url: info.avatar_url.clone(),
+        });
+        self.emit(HostMessage::CreatorState {
+            creator: Some(creator),
+        });
+        self.emit(HostMessage::RecentCreators {
+            creators: recent_creators,
+        });
+        self.emit(HostMessage::AppState { state: app_state });
+        self.emit(HostMessage::PointsConfig {
+            config: self.points.config(),
+        });
+        self.emit(HostMessage::Leaderboard {
+            viewers: self.points.leaderboard(Some(50)),
+        });
+
         self.emit(HostMessage::GiftCatalog { gifts });
 
         self.queue_automation_event(self.make_automation_event(
@@ -762,7 +801,7 @@ impl AppCore {
     }
 
     #[cfg(feature = "native-tiktok")]
-    fn handle_live_event(self: &Arc<Self>, event: NativeLiveEvent) {
+    async fn handle_live_event(self: &Arc<Self>, event: NativeLiveEvent) {
         let automation_event = self.normalize_native_event(&event);
         let Some((mut ui_event, action, options, reason)) = self.ui_event_and_points(&event) else {
             if let Some(event) = automation_event {
@@ -789,15 +828,32 @@ impl AppCore {
                 ..
             }
         );
-        let point_award = should_award
-            .then(|| {
-                self.points.award_points(
-                    ui_event["author"].as_str().unwrap_or("viewer"),
-                    action,
-                    options,
-                )
-            })
-            .flatten();
+        let point_award = if should_award {
+            let unique_id = ui_event["author"].as_str().unwrap_or("viewer").to_owned();
+            let points = Arc::clone(&self.points);
+            match tokio::time::timeout(
+                Duration::from_secs(2),
+                tokio::task::spawn_blocking(move || {
+                    points.award_points(&unique_id, action, options)
+                }),
+            )
+            .await
+            {
+                Ok(Ok(award)) => award,
+                Ok(Err(error)) => {
+                    tracing::error!(%error, "points worker failed while handling TikTok event");
+                    None
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        "points persistence exceeded 2 seconds; continuing live event delivery"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
         if let Some(award) = point_award.as_ref() {
             if let Some(object) = ui_event.as_object_mut() {
                 object.insert("points".to_owned(), json!(award.total_points));
@@ -2321,6 +2377,17 @@ fn native_user(event: &NativeLiveEvent) -> Option<&tiktools_tiktok::events::Even
 }
 
 #[cfg(feature = "native-tiktok")]
+fn client_event_kind(event: &ClientEvent) -> &'static str {
+    match event {
+        ClientEvent::Connected(_) => "connected",
+        ClientEvent::Event(_) => "live-event",
+        ClientEvent::Reconnecting { .. } => "reconnecting",
+        ClientEvent::Disconnected { .. } => "disconnected",
+        ClientEvent::Error { .. } => "error",
+    }
+}
+
+#[cfg(feature = "native-tiktok")]
 fn user_value(user: &tiktools_tiktok::events::EventUser) -> serde_json::Value {
     json!({
         "userId": user.user_id,
@@ -2415,5 +2482,37 @@ mod tests {
             .expect("test emitter poisoned")
             .iter()
             .any(|message| matches!(message, HostMessage::BehaviorRuns { .. })));
+    }
+
+    #[cfg(feature = "native-tiktok")]
+    #[tokio::test]
+    async fn native_live_event_reaches_the_host_message_boundary() {
+        let emitter = Arc::new(RecordingEmitter::default());
+        let core = Arc::new(AppCore::new(emitter.clone()));
+        core.handle_native_event(ClientEvent::Event(NativeLiveEvent::Chat {
+            user: tiktools_tiktok::events::EventUser {
+                user_id: Some("42".to_owned()),
+                unique_id: "alice".to_owned(),
+                nickname: "Alice".to_owned(),
+                sec_uid: String::new(),
+            },
+            comment: "hello".to_owned(),
+            method: "WebcastChatMessage".to_owned(),
+            msg_id: 1,
+            is_history: false,
+        }))
+        .await;
+
+        let messages = emitter.messages.lock().expect("test emitter poisoned");
+        assert!(messages.iter().any(|message| {
+            matches!(
+                message,
+                HostMessage::LiveEvent { event }
+                    if event.get("kind").and_then(Value::as_str) == Some("chat")
+            )
+        }));
+        assert!(messages
+            .iter()
+            .any(|message| matches!(message, HostMessage::Leaderboard { .. })));
     }
 }

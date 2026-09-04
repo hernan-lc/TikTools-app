@@ -55,6 +55,7 @@ declare global {
   interface Window {
     ipc?: { postMessage: (message: string) => void };
     __webview_on_message__?: (message: string) => void;
+    __tiktools_host_message_queue__?: string[];
   }
 }
 
@@ -330,6 +331,9 @@ function App() {
     };
 
     window.__webview_on_message__ = receive;
+    const pending = window.__tiktools_host_message_queue__ ?? [];
+    window.__tiktools_host_message_queue__ = [];
+    pending.forEach(receive);
     return () => {
       if (window.__webview_on_message__ === receive) window.__webview_on_message__ = undefined;
     };

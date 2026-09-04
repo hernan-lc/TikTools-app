@@ -25,6 +25,7 @@ impl IpcRouter {
 
     pub async fn dispatch(&self, raw: &str) -> Result<(), IpcError> {
         let message = PageMessage::parse(raw)?;
+        tracing::debug!(message = %message, "WebView IPC message received");
         self.core.handle_page_message(message).await;
         Ok(())
     }

@@ -2,8 +2,14 @@
 //! maintenance. Platform conditionals stay here instead of spreading through
 //! the core or IPC layers.
 
-use winit::{event_loop::EventLoopBuilder, window::Window};
+use winit::{
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoopBuilder},
+    window::Window,
+};
 use wry::{WebView, WebViewBuilder};
+
+#[cfg(target_os = "linux")]
+use std::time::{Duration, Instant};
 
 pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
@@ -55,6 +61,21 @@ pub fn pump() {
     while gtk::events_pending() {
         gtk::main_iteration_do(false);
     }
+}
+
+pub fn prepare_for_wait(event_loop: &ActiveEventLoop) {
+    #[cfg(target_os = "linux")]
+    {
+        // GTK/libappindicator has no source attached to Winit's event loop.
+        // Wake periodically so menu callbacks are dispatched even while no
+        // window/X11 event is pending. This keeps the UI responsive without
+        // switching the whole desktop loop to a busy Poll cycle.
+        event_loop.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + Duration::from_millis(50),
+        ));
+    }
+    #[cfg(not(target_os = "linux"))]
+    event_loop.set_control_flow(ControlFlow::Wait);
 }
 
 pub fn build_webview(builder: WebViewBuilder<'_>, window: &Window) -> wry::Result<WebView> {

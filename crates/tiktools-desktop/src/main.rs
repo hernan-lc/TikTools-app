@@ -5,6 +5,12 @@ mod tray;
 mod webview;
 
 fn main() {
+    // rustls 0.23 cannot choose a provider when multiple TLS stacks are unified
+    // by the workspace. Install the provider before any async client is created.
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+
     tracing_subscriber::fmt()
         .with_target(false)
         .with_env_filter(

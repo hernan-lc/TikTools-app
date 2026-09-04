@@ -10,7 +10,7 @@ use winit::{
     window::{Window, WindowId},
 };
 use wry::{
-    dpi::{LogicalPosition, LogicalSize as WryLogicalSize},
+    dpi::{PhysicalPosition as WryPhysicalPosition, PhysicalSize as WryPhysicalSize},
     Rect, WebView, WebViewBuilder,
 };
 
@@ -155,6 +155,19 @@ impl DesktopApp {
                 });
             });
 
+        // Wry's Linux/X11 child-window path converts logical default bounds
+        // using the X11 screen millimeter dimensions. Some XWayland/KDE
+        // sessions report those dimensions as zero, which produces an invalid
+        // scale factor before the WebView is even attached. The window resize
+        // event already gives us physical pixels, so keep this boundary
+        // physical and avoid that conversion entirely.
+        let initial_size = window.inner_size();
+        builder = builder.with_bounds(Rect {
+            position: WryPhysicalPosition::new(0, 0).into(),
+            size: WryPhysicalSize::new(initial_size.width.max(1), initial_size.height.max(1))
+                .into(),
+        });
+
         if let Some(assets) = self.frontend.asset_server() {
             builder = builder.with_custom_protocol("tiktools".to_owned(), move |_id, request| {
                 assets.respond(request)
@@ -166,10 +179,12 @@ impl DesktopApp {
 
         self.window = Some(window);
         self.webview = Some(webview);
-        match TrayController::create(self.proxy.clone()) {
-            Ok(tray) => self.tray = Some(tray),
-            Err(error) => {
-                tracing::warn!(%error, "system tray is unavailable; window remains usable")
+        if self.tray.is_none() {
+            match TrayController::create(self.proxy.clone()) {
+                Ok(tray) => self.tray = Some(tray),
+                Err(error) => {
+                    tracing::warn!(%error, "system tray is unavailable; window remains usable")
+                }
             }
         }
         self.flush_host_messages();
@@ -194,8 +209,9 @@ impl DesktopApp {
                 return;
             }
         };
+        tracing::debug!(bytes = message.len(), "delivering host message to WebView");
         let script = format!(
-            "if (typeof window.__webview_on_message__ === 'function') {{ window.__webview_on_message__({argument}); }}"
+            "if (typeof window.__webview_on_message__ === 'function') {{ window.__webview_on_message__({argument}); }} else {{ const queue = window.__tiktools_host_message_queue__ || (window.__tiktools_host_message_queue__ = []); if (queue.length < 512) queue.push({argument}); }}"
         );
         if let Err(error) = webview.evaluate_script(&script) {
             if !self.shutting_down {
@@ -205,16 +221,26 @@ impl DesktopApp {
     }
 
     fn resize_webview(&self, size: PhysicalSize<u32>) {
-        let (Some(window), Some(webview)) = (self.window.as_ref(), self.webview.as_ref()) else {
+        let Some(webview) = self.webview.as_ref() else {
             return;
         };
-        let logical = size.to_logical::<f64>(window.scale_factor());
         let bounds = Rect {
-            position: LogicalPosition::new(0.0, 0.0).into(),
-            size: WryLogicalSize::new(logical.width, logical.height).into(),
+            position: WryPhysicalPosition::new(0, 0).into(),
+            size: WryPhysicalSize::new(size.width.max(1), size.height.max(1)).into(),
         };
         if let Err(error) = webview.set_bounds(bounds) {
             tracing::debug!(%error, "could not resize WebView");
+        }
+    }
+
+    fn set_window_visible(&self, visible: bool) {
+        if let Some(webview) = self.webview.as_ref() {
+            if let Err(error) = webview.set_visible(visible) {
+                tracing::debug!(%error, visible, "could not change WebView visibility");
+            }
+        }
+        if let Some(window) = self.window.as_ref() {
+            window.set_visible(visible);
         }
     }
 
@@ -266,11 +292,15 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
         }
         match event {
             WindowEvent::CloseRequested => {
-                if let Some(window) = self.window.as_ref() {
-                    window.set_visible(false);
-                }
+                tracing::debug!("window close requested; hiding TikTools in the tray");
+                self.set_window_visible(false);
             }
             WindowEvent::Resized(size) => self.resize_webview(size),
+            WindowEvent::Destroyed => {
+                tracing::debug!("window was destroyed; tray restore will recreate it");
+                self.webview.take();
+                self.window.take();
+            }
             _ => {}
         }
     }
@@ -281,15 +311,19 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
                 self.emit_to_webview(message)
             }
             DesktopEvent::Command(DesktopCommand::ShowWindow) => {
+                if self.window.is_none() {
+                    if let Err(error) = self.create_window(event_loop) {
+                        tracing::error!(%error, "could not recreate TikTools window from tray");
+                        return;
+                    }
+                }
+                self.set_window_visible(true);
                 if let Some(window) = self.window.as_ref() {
-                    window.set_visible(true);
                     window.focus_window();
                 }
             }
             DesktopEvent::Command(DesktopCommand::HideWindow) => {
-                if let Some(window) = self.window.as_ref() {
-                    window.set_visible(false);
-                }
+                self.set_window_visible(false);
             }
             DesktopEvent::Command(DesktopCommand::Quit) => self.shutdown(event_loop),
             DesktopEvent::Command(DesktopCommand::ShutdownComplete) => {
@@ -298,7 +332,8 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         platform::pump();
+        platform::prepare_for_wait(event_loop);
     }
 }

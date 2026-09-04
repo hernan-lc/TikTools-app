@@ -1,7 +1,9 @@
 use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem},
-    Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
+    Icon, TrayIcon, TrayIconBuilder,
 };
+#[cfg(not(target_os = "linux"))]
+use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use winit::event_loop::EventLoopProxy;
 
 use crate::event::{DesktopCommand, DesktopEvent};
@@ -25,26 +27,32 @@ impl TrayController {
             .with_tooltip("TikTools")
             .with_menu(Box::new(menu))
             .build()?;
-        let tray_id = icon.id().clone();
 
-        let click_proxy = proxy.clone();
-        TrayIconEvent::set_event_handler(Some(move |event| {
-            if let TrayIconEvent::Click {
-                id,
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                if id == tray_id {
-                    let _ =
-                        click_proxy.send_event(DesktopEvent::Command(DesktopCommand::ShowWindow));
+        // The AppIndicator backend used by tray-icon on Linux does not emit
+        // TrayIconEvent click notifications. Keep the native click handler on
+        // platforms that support it and use the menu event for Linux.
+        #[cfg(not(target_os = "linux"))]
+        {
+            let tray_id = icon.id().clone();
+            let click_proxy = proxy.clone();
+            TrayIconEvent::set_event_handler(Some(move |event| {
+                if let TrayIconEvent::Click {
+                    id,
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    if id == tray_id {
+                        send_command(&click_proxy, DesktopCommand::ShowWindow, "tray click");
+                    }
                 }
-            }
-        }));
+            }));
+        }
 
         let menu_proxy = proxy;
         MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+            tracing::debug!(id = ?event.id(), "system tray menu event");
             let command = if event.id() == &show_id {
                 Some(DesktopCommand::ShowWindow)
             } else if event.id() == &quit_id {
@@ -53,11 +61,21 @@ impl TrayController {
                 None
             };
             if let Some(command) = command {
-                let _ = menu_proxy.send_event(DesktopEvent::Command(command));
+                send_command(&menu_proxy, command, "tray menu");
             }
         }));
 
         Ok(Self { _icon: icon })
+    }
+}
+
+fn send_command(
+    proxy: &EventLoopProxy<DesktopEvent>,
+    command: DesktopCommand,
+    source: &'static str,
+) {
+    if let Err(error) = proxy.send_event(DesktopEvent::Command(command)) {
+        tracing::debug!(%error, source, "could not forward system tray command");
     }
 }
 

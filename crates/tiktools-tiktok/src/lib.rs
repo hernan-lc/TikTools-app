@@ -166,6 +166,7 @@ struct ActiveConnection {
 
 impl NativeTikTokClient {
     pub fn new(config: NativeTikTokConfig) -> Self {
+        ensure_tls_provider();
         let (events, _) = broadcast::channel(512);
         Self {
             config,
@@ -186,7 +187,9 @@ impl NativeTikTokClient {
         self.disconnect_native().await?;
 
         let unique_id = clean_unique_id(&request.unique_id).ok_or(TikTokError::InvalidCreator)?;
+        tracing::info!(creator = %unique_id, requested_room = ?request.room_id, "starting native TikTok connection");
         let cookies = resolve_session(&request.session_cookie).await?;
+        tracing::debug!(creator = %unique_id, "TikTok session resolved");
         let preset = default_preset();
         let discovery = ttl_live_discovery::DiscoveryClient::new(&preset)
             .map_err(|error| TikTokError::Discovery(error.to_string()))?
@@ -227,13 +230,16 @@ impl NativeTikTokClient {
             .map(ToOwned::to_owned)
             .or_else(|| lookup.as_ref().map(|room| room.room_id.clone()))
             .ok_or_else(|| TikTokError::Discovery("TikTok did not return a room id".to_owned()))?;
+        tracing::info!(creator = %unique_id, room_id = %room_id, "TikTok room resolved");
 
         // Metadata and gifts are useful but should not make a valid socket
         // unavailable when one of TikTok's JSON endpoints is temporarily
         // refused. The stream itself remains the source of live events.
         let room_info = discovery.room_info(&room_id).await.ok();
         let gifts = discovery.gift_list(&room_id).await.unwrap_or_default();
+        tracing::debug!(room_id = %room_id, gifts = gifts.len(), "TikTok room metadata loaded");
         let bundle = load_signing_bundle(&self.config).await?;
+        tracing::debug!(room_id = %room_id, "TikTok signing bundle loaded");
         let profile = ttl_sign_embedded::Profile {
             user_agent: Some(preset.user_agent()),
             cookie: Some(cookies.to_cookie_string()),
@@ -258,6 +264,7 @@ impl NativeTikTokClient {
         )
         .await
         .map_err(|error| TikTokError::Transport(error.to_string()))?;
+        tracing::info!(room_id = %room_id, "TikTok live WebSocket connected");
 
         let info = ConnectionInfo {
             unique_id: room_info
@@ -301,7 +308,13 @@ impl NativeTikTokClient {
             let mut active = self.active.lock().await;
             *active = Some(ActiveConnection { stop });
         }
-        let _ = self.events.send(ClientEvent::Connected(info.clone()));
+        if self
+            .events
+            .send(ClientEvent::Connected(info.clone()))
+            .is_err()
+        {
+            tracing::warn!("native TikTok connection has no event consumers");
+        }
         let event_sender = self.events.clone();
         let gifts = info.gifts.clone();
         let generation_counter = Arc::clone(&self.generation);
@@ -421,6 +434,7 @@ async fn run_connection(
     connection_generation: u64,
     gifts: Vec<GiftInfo>,
 ) {
+    tracing::debug!(connection_generation, "TikTok live event task started");
     let gifts = gifts
         .into_iter()
         .map(|gift| (gift.id.clone(), gift))
@@ -429,18 +443,30 @@ async fn run_connection(
         tokio::select! {
             _ = &mut stop => {
                 connection.close().await;
+                tracing::debug!(connection_generation, "TikTok live event task stopped");
                 return;
             }
             message = connection.next_message() => match message {
-                Some(Ok(message)) => match ttl_live_events::decode_batch(&message.payload) {
+                Some(Ok(message)) => {
+                    tracing::debug!(
+                        log_id = message.log_id,
+                        bytes = message.payload.len(),
+                        "TikTok live frame received"
+                    );
+                    match ttl_live_events::decode_batch(&message.payload) {
                     Ok(batch) => {
+                        tracing::debug!(events = batch.events.len(), "TikTok live frame decoded");
                         for decoded in batch.events {
                             if generation.load(Ordering::Acquire) != connection_generation {
                                 let _ = connection.close().await;
+                                tracing::debug!(connection_generation, "discarding stale TikTok live connection");
                                 return;
                             }
+                            tracing::debug!(method = %decoded.raw.method, "TikTok live event decoded");
                             let event = events::from_decoded(decoded, &gifts);
-                            let _ = event_sender.send(ClientEvent::Event(event));
+                            if event_sender.send(ClientEvent::Event(event)).is_err() {
+                                tracing::debug!("TikTok live event has no consumers");
+                            }
                         }
                     }
                     Err(error) => {
@@ -449,17 +475,20 @@ async fn run_connection(
                             message: format!("could not decode TikTok event batch: {error}"),
                         });
                     }
-                },
+                    }
+                }
                 Some(Err(error)) => {
                     let _ = event_sender.send(ClientEvent::Error {
                         phase: ErrorPhase::Live,
                         message: error.to_string(),
                     });
                     let _ = event_sender.send(ClientEvent::Disconnected { reason: error.to_string() });
+                    tracing::warn!(%error, connection_generation, "TikTok live event task ended after a transport error");
                     return;
                 }
                 None => {
                     let _ = event_sender.send(ClientEvent::Disconnected { reason: "TikTok closed the live stream".to_owned() });
+                    tracing::info!(connection_generation, "TikTok live event task ended because the stream closed");
                     return;
                 }
             }
@@ -481,6 +510,7 @@ async fn resolve_session(raw: &str) -> Result<ttl_sign_core::CookieJar, TikTokEr
 async fn bootstrap_guest_session() -> Result<ttl_sign_core::CookieJar, TikTokError> {
     let response = reqwest::Client::builder()
         .user_agent(default_preset().user_agent())
+        .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| TikTokError::Discovery(error.to_string()))?
         .get("https://www.tiktok.com/live")
@@ -521,7 +551,14 @@ async fn load_signing_bundle(config: &NativeTikTokConfig) -> Result<String, TikT
             return read_bundle(path).await;
         }
     }
-    let response = reqwest::get(&config.bundle_url)
+    let client = reqwest::Client::builder()
+        .user_agent(default_preset().user_agent())
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| TikTokError::Bundle(error.to_string()))?;
+    let response = client
+        .get(&config.bundle_url)
+        .send()
         .await
         .map_err(|error| TikTokError::Bundle(error.to_string()))?;
     if !response.status().is_success() {
@@ -565,6 +602,15 @@ async fn read_bundle(path: &Path) -> Result<String, TikTokError> {
         .await
         .map_err(|error| TikTokError::Bundle(error.to_string()))?
         .map_err(|error| TikTokError::Bundle(format!("{display}: {error}")))
+}
+
+fn ensure_tls_provider() {
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        // reqwest and tokio-tungstenite can enable different rustls providers
+        // through Cargo feature unification. Selecting ring here keeps the
+        // library safe when it is embedded without the desktop binary.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
 }
 
 fn gift_info(gift: ttl_sign_core::Gift) -> GiftInfo {
