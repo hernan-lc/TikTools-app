@@ -5,6 +5,7 @@ import { EventCard } from '../components/event-card.vue';
 import { IconArrowDown, IconChat, IconDot, IconGift, IconHeart, IconPause, IconSparkles, IconTrash, IconUsers } from '../components/icons.vue';
 import { Button } from '../components/ui/Button.vue';
 import { SearchInput } from '../components/ui/TextInput.vue';
+import { defineVueComponent } from '../vue/component.ts';
 import { t, type Locale } from '../i18n.ts';
 import type { DisplayEvent, EventFilter, TopViewerPayload, ViewerRecord } from '../types.ts';
 import { TopViewersRibbon } from '../components/top-viewers.vue';
@@ -26,7 +27,7 @@ type FeedViewProps = {
   streamContainerRef: (el: Element | null) => void;
 };
 
-export function FeedView({
+function renderFeedView({
   locale,
   events,
   leaderboard = [],
@@ -75,6 +76,8 @@ export function FeedView({
               class={`filter-icon-btn ${filter === btn.key ? 'active' : ''}`}
               data-tooltip={btn.tooltip}
               data-tooltip-pos="bottom"
+              aria-label={btn.tooltip}
+              aria-pressed={filter === btn.key}
               onClick={() => onFilterChange(btn.key)}
             >
               {btn.icon}
@@ -129,6 +132,26 @@ export function FeedView({
     </main>
   );
 }
+
+export const FeedView = defineVueComponent<FeedViewProps>(
+  [
+    'locale',
+    'events',
+    'leaderboard',
+    'topViewers',
+    'liveViewers',
+    'filter',
+    'searchQuery',
+    'autoScroll',
+    'unreadCount',
+    'onFilterChange',
+    'onSearchChange',
+    'onToggleAutoScroll',
+    'onClearFeed',
+    'streamContainerRef',
+  ],
+  (props) => () => renderFeedView(props),
+);
 
 export default FeedView;
 </script>

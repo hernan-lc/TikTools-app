@@ -3,6 +3,7 @@ import { IconSettings } from '../components/icons.vue';
 import { Card } from '../components/ui/Card.vue';
 import { Select } from '../components/ui/Select.vue';
 import { Page } from '../components/ui/Page.vue';
+import { defineVueComponent } from '../vue/component.ts';
 import { t, type Locale } from '../i18n.ts';
 import type { Theme } from '../preferences.ts';
 
@@ -13,7 +14,7 @@ type SettingsViewProps = {
   onThemeChange: (t: Theme) => void;
 };
 
-export function SettingsView({ locale, theme, onLocaleChange, onThemeChange }: SettingsViewProps) {
+function renderSettingsView({ locale, theme, onLocaleChange, onThemeChange }: SettingsViewProps) {
   return (
     <Page narrow>
       <Card title={t(locale, 'preferences')} subtitle={t(locale, 'preferencesLead')} icon={<IconSettings />}>
@@ -42,6 +43,11 @@ export function SettingsView({ locale, theme, onLocaleChange, onThemeChange }: S
     </Page>
   );
 }
+
+export const SettingsView = defineVueComponent<SettingsViewProps>(
+  ['locale', 'theme', 'onLocaleChange', 'onThemeChange'],
+  (props) => () => renderSettingsView(props),
+);
 
 export default SettingsView;
 </script>

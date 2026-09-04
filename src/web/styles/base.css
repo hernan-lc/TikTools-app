@@ -51,3 +51,38 @@ button, input, select, textarea {
   font: inherit;
   color: inherit;
 }
+
+/* Keep editing affordances visible in every desktop WebView. Some system
+   WebViews otherwise fall back to an automatic cursor/caret for transparent
+   controls, which makes focused fields look non-interactive. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea {
+  cursor: text;
+  caret-color: var(--text);
+}
+
+select {
+  cursor: pointer;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--line-focus) !important;
+  outline-offset: 1px;
+}
+
+/* Keep a visible focus ring even in WebViews that do not apply
+   :focus-visible for mouse-activated form controls. */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--line-focus) !important;
+  outline-offset: 1px;
+}

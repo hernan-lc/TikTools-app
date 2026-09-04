@@ -7,8 +7,8 @@ import { FeedView } from './views/feed-view.vue';
 import { PluginsView } from './views/plugins-view.vue';
 import { PointsView } from './views/points-view.vue';
 import { SettingsView } from './views/settings-view.vue';
-import { NavigationRail } from './components/nav-rail.vue';
-import { TopNav } from './components/top-nav.vue';
+import NavigationRail from './components/nav-rail.vue';
+import TopNav from './components/top-nav.vue';
 import { useAppController } from './composables/useAppController.ts';
 
 const app = reactive(useAppController());

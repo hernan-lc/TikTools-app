@@ -3,6 +3,7 @@ import { IconBarChart, IconChat, IconGift, IconHeart, IconTrophy, IconUsers } fr
 import { Badge, Card, EmptyState } from '../components/ui/Card.vue';
 import { Page, PageHeader, StatCard, StatGrid } from '../components/ui/Page.vue';
 import { DataTable, type Column } from '../components/ui/Table.vue';
+import { defineVueComponent } from '../vue/component.ts';
 import { t, type Locale } from '../i18n.ts';
 import type { DisplayEvent, StreamTelemetry } from '../types.ts';
 
@@ -14,7 +15,7 @@ type AnalyticsViewProps = {
 
 type TopRow = { user: string; count: number };
 
-export function AnalyticsView({ locale, telemetry, events }: AnalyticsViewProps) {
+function renderAnalyticsView({ locale, telemetry, events }: AnalyticsViewProps) {
   const authorCounts = new Map<string, number>();
   events.forEach((ev) => {
     authorCounts.set(ev.author, (authorCounts.get(ev.author) ?? 0) + 1);
@@ -77,6 +78,11 @@ export function AnalyticsView({ locale, telemetry, events }: AnalyticsViewProps)
     </Page>
   );
 }
+
+export const AnalyticsView = defineVueComponent<AnalyticsViewProps>(
+  ['locale', 'telemetry', 'events'],
+  (props) => () => renderAnalyticsView(props),
+);
 
 export default AnalyticsView;
 </script>
