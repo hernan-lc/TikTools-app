@@ -1,5 +1,6 @@
 mod app;
 mod event;
+mod media;
 mod platform;
 mod tray;
 mod webview;

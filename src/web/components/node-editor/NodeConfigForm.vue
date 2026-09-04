@@ -23,6 +23,8 @@ import { WORKFLOW_EVENT_CHOICES } from './WorkflowWizardModal.vue';
 import { asNumber, asString } from './graph.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 import { SchemaForm } from '../ui/SchemaForm.vue';
+import { MediaField } from '../ui/MediaField.vue';
+import type { OpenMediaPicker } from '../../../shared/messages.ts';
 
 type NodeConfigFormProps = {
   locale: Locale;
@@ -33,15 +35,16 @@ type NodeConfigFormProps = {
   lastEvent?: AutomationEvent;
   onChange: (config: JsonObject) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
-export function NodeConfigForm({ locale, node, definition, analysis, eventType, lastEvent, onChange, onAnalyzeScript }: NodeConfigFormProps) {
+export function NodeConfigForm({ locale, node, definition, analysis, eventType, lastEvent, onChange, onAnalyzeScript, onOpenMediaPicker }: NodeConfigFormProps) {
   const update = (key: string, value: JsonValue): void => onChange({ ...node.config, [key]: value });
   const config = node.config;
   const templateValues = (scope: TemplateSuggestionScope = 'message') => getTemplateSuggestions(eventType, locale, lastEvent, scope);
 
   if (!definition) {
-    return <GenericConfigForm locale={locale} node={node} onChange={onChange} />;
+    return <GenericConfigForm locale={locale} node={node} onChange={onChange} onOpenMediaPicker={onOpenMediaPicker} />;
   }
 
   switch (node.type) {
@@ -120,7 +123,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
     case 'action.play-sound':
       return (
         <div class="node-editor-form-stack">
-          <TemplateField locale={locale} label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} />
+          <MediaField locale={locale} label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={config.filePath} onValueChange={(value) => update('filePath', value)} onOpenMediaPicker={onOpenMediaPicker} name="filePath" />
           <NumberInput label={t(locale, 'nodeVolume')} value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
           <Select label={t(locale, 'nodeOverlap')} value={asString(config.overlap, 'allow')} options={[{ value: 'allow', label: t(locale, 'nodeAllowOverlap') }, { value: 'restart', label: t(locale, 'nodeRestartOverlap') }, { value: 'drop', label: t(locale, 'nodeDropOverlap') }]} onValueChange={(value) => update('overlap', value)} />
         </div>
@@ -142,12 +145,12 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
         </div>
       );
     default:
-      return <GenericConfigForm locale={locale} node={node} definition={definition} onChange={onChange} />;
+      return <GenericConfigForm locale={locale} node={node} definition={definition} onChange={onChange} onOpenMediaPicker={onOpenMediaPicker} />;
   }
 }
 
 const ScriptConfigForm = defineVueComponent<NodeConfigFormProps>(
-  ['locale', 'node', 'analysis', 'eventType', 'lastEvent', 'onChange', 'onAnalyzeScript'],
+  ['locale', 'node', 'analysis', 'eventType', 'lastEvent', 'onChange', 'onAnalyzeScript', 'onOpenMediaPicker'],
   (props) => {
   const source = computed(() => asString(props.node.config.source));
   const cursor = ref(source.value.length);
@@ -317,11 +320,11 @@ function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { lo
   );
 }
 
-function GenericConfigForm({ locale, node, definition, onChange }: { locale: Locale; node: WorkflowNode; definition?: NodeDefinition; onChange: (config: JsonObject) => void }) {
+function GenericConfigForm({ locale, node, definition, onChange, onOpenMediaPicker }: { locale: Locale; node: WorkflowNode; definition?: NodeDefinition; onChange: (config: JsonObject) => void; onOpenMediaPicker?: OpenMediaPicker }) {
   if (!definition || !isJsonObject(definition.configSchema)) return <GenericConfigFormNoForm locale={locale} />;
   const properties = definition.configSchema.properties;
   if (!properties || typeof properties !== 'object' || Array.isArray(properties) || Object.keys(properties).length === 0) return <GenericConfigFormNoForm locale={locale} />;
-  return <SchemaForm locale={locale} schema={definition.configSchema} value={node.config} onChange={onChange} />;
+  return <SchemaForm locale={locale} schema={definition.configSchema} value={node.config} onChange={onChange} onOpenMediaPicker={onOpenMediaPicker} />;
 }
 
 function formatValue(value: JsonValue | undefined): string {

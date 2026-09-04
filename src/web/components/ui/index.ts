@@ -9,5 +9,6 @@ export * from './Page.vue';
 export * from './Button.vue';
 export * from './Modal.vue';
 export * from './SchemaForm.vue';
+export * from './MediaField.vue';
 export * from './SchemaModal.vue';
 export * from './control-events.ts';

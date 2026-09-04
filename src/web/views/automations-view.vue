@@ -29,6 +29,7 @@ import {
   removeNodeFromGraph,
 } from '../components/node-editor/index.ts';
 import { t, type Locale } from '../i18n.ts';
+import type { OpenMediaPicker } from '../../shared/messages.ts';
 
 type AutomationsViewProps = {
   locale: Locale;
@@ -43,6 +44,7 @@ type AutomationsViewProps = {
   onDelete: (id: string) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
 type PendingWorkflowAction =
@@ -54,7 +56,7 @@ type WorkflowConfirmState =
   | { kind: 'delete'; id: string; name: string };
 
 export const AutomationsView = defineVueComponent<AutomationsViewProps>(
-  ['locale', 'workflows', 'nodes', 'error', 'scriptAnalysis', 'lastEvent', 'lastEventCapturedAt', 'onRefresh', 'onSave', 'onDelete', 'onSetEnabled', 'onAnalyzeScript'],
+  ['locale', 'workflows', 'nodes', 'error', 'scriptAnalysis', 'lastEvent', 'lastEventCapturedAt', 'onRefresh', 'onSave', 'onDelete', 'onSetEnabled', 'onAnalyzeScript', 'onOpenMediaPicker'],
   (props) => {
   const initialRecord = props.workflows[0];
   const initialGraph = initialRecord ? prepareGraph(initialRecord.graph, props.nodes) : null;
@@ -369,6 +371,7 @@ export const AutomationsView = defineVueComponent<AutomationsViewProps>(
             configuringNodeId.value = null;
           }}
           onAnalyzeScript={props.onAnalyzeScript}
+          onOpenMediaPicker={props.onOpenMediaPicker}
           onClose={() => { configuringNodeId.value = null; }}
         />
       ) : null}

@@ -1,6 +1,14 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 
-import type { ActionOptionItem, GiftCatalogEntry, HostMessage, PageMessage, PluginSettingValues } from '../../shared/messages.ts';
+import type {
+  ActionOptionItem,
+  GiftCatalogEntry,
+  HostMessage,
+  MediaPickerOptions,
+  MediaSelectionHandler,
+  PageMessage,
+  PluginSettingValues,
+} from '../../shared/messages.ts';
 import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
 import type { BehaviorRun, BehaviorSnapshot, LiveAction, LiveEvent } from '../../automation/behavior/types.ts';
 import {
@@ -97,6 +105,8 @@ export function useAppController() {
   const behaviorError = ref('');
   const pluginSettings = ref<Record<string, PluginSettingsState>>({});
   const actionOptions = ref<Record<string, ActionOptionItem[]>>({});
+  const mediaSelectionHandlers = new Map<string, MediaSelectionHandler>();
+  let mediaRequestSequence = 0;
 
   const telemetry = ref<StreamTelemetry>({ chats: 0, gifts: 0, likes: 0, members: 0 });
   const autoScroll = ref(true);
@@ -215,6 +225,14 @@ export function useAppController() {
       ].slice(-300);
     }
 
+    if (message.type === 'media-selected') {
+      const handler = mediaSelectionHandlers.get(message.requestId);
+      if (handler) {
+        mediaSelectionHandlers.delete(message.requestId);
+        handler(message.selection ?? null, message.error);
+      }
+    }
+
     if (message.type === 'creator-state') {
       activeCreatorRecord.value = message.creator;
       if (message.creator?.uniqueId) {
@@ -291,6 +309,7 @@ export function useAppController() {
 
   onUnmounted(() => {
     if (window.__webview_on_message__ === receive) window.__webview_on_message__ = undefined;
+    mediaSelectionHandlers.clear();
   });
 
   const handleConnect = (userToConnect?: string): void => {
@@ -378,6 +397,26 @@ export function useAppController() {
   const handleSavePluginSettings = (id: string, values: PluginSettingValues): void => { clearBehaviorError(); send({ type: 'save-plugin-settings', id, values }); };
   const handleGetActionOptions = (source: string): void => send({ type: 'get-action-options', source });
 
+  const openMediaPicker = (options: MediaPickerOptions, onSelected: MediaSelectionHandler): void => {
+    const requestId = `media-${Date.now()}-${++mediaRequestSequence}`;
+    mediaSelectionHandlers.set(requestId, onSelected);
+    if (!window.ipc) {
+      mediaSelectionHandlers.delete(requestId);
+      onSelected(null, 'Native media picker is unavailable in this preview.');
+      return;
+    }
+    const message: PageMessage = {
+      type: 'open-media-picker',
+      requestId,
+      mode: options.mode ?? 'file',
+      kind: options.kind ?? 'audio',
+      ...(options.title ? { title: options.title } : {}),
+      ...(options.initialDirectory ? { initialDirectory: options.initialDirectory } : {}),
+      ...(options.extensions?.length ? { extensions: options.extensions.slice(0, 32) } : {}),
+    };
+    send(message);
+  };
+
   const setActiveTab = (value: AppTab): void => { activeTab.value = value; };
   const setUniqueId = (value: string): void => { uniqueId.value = value; };
   const setCookie = (value: string): void => { cookie.value = value; };
@@ -453,6 +492,7 @@ export function useAppController() {
     handleGetPluginSettings,
     handleSavePluginSettings,
     handleGetActionOptions,
+    openMediaPicker,
     handleAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType): void => {
       send({ type: 'analyze-automation-script', nodeId, source, offset, eventType });
     },

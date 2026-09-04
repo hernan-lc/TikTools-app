@@ -161,6 +161,7 @@ export function readString(value: JsonValue | undefined): string {
   if (value === undefined || value === null) return '';
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (!Array.isArray(value) && typeof value.path === 'string') return value.path;
   return JSON.stringify(value);
 }
 

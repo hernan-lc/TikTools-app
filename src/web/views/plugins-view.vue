@@ -4,7 +4,7 @@ import { defineVueComponent } from '../vue/component.ts';
 
 import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
 import type { JsonObject } from '../../automation/types.ts';
-import type { PluginSettingValues } from '../../shared/messages.ts';
+import type { OpenMediaPicker, PluginSettingValues } from '../../shared/messages.ts';
 import type { PluginSettingsState } from '../types.ts';
 import { SchemaForm } from '../components/ui/SchemaForm.vue';
 import { i18nText, t, type Locale } from '../i18n.ts';
@@ -20,6 +20,7 @@ type PluginsViewProps = {
   settings: Record<string, PluginSettingsState>;
   onGetSettings: (id: string) => void;
   onSaveSettings: (id: string, values: PluginSettingValues) => void;
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
 function pluginCopy(locale: Locale) {
@@ -47,7 +48,7 @@ function pluginCopy(locale: Locale) {
 }
 
 export const PluginsView = defineVueComponent<PluginsViewProps>(
-  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings'],
+  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker'],
   (props) => {
   const tab = ref<'installed' | 'store'>('installed');
 
@@ -178,6 +179,7 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
                     state={props.settings[plugin.descriptor.id]}
                     onGetSettings={props.onGetSettings}
                     onSaveSettings={props.onSaveSettings}
+                    onOpenMediaPicker={props.onOpenMediaPicker}
                   />
                 )}
               </div>
@@ -208,10 +210,11 @@ type PluginSettingsFormProps = {
   state?: PluginSettingsState;
   onGetSettings: (id: string) => void;
   onSaveSettings: (id: string, values: PluginSettingValues) => void;
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
 const PluginSettingsForm = defineVueComponent<PluginSettingsFormProps>(
-  ['locale', 'pluginId', 'plugin', 'state', 'onGetSettings', 'onSaveSettings'],
+  ['locale', 'pluginId', 'plugin', 'state', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker'],
   (props) => {
   const open = ref(false);
   const draft = ref<JsonObject | null>(null);
@@ -241,6 +244,7 @@ const PluginSettingsForm = defineVueComponent<PluginSettingsFormProps>(
             uiHints={state.uiHints}
             value={draft.value ?? state.values}
             onChange={(value) => { draft.value = value; }}
+            onOpenMediaPicker={props.onOpenMediaPicker}
           />
           <div class="plg-row">
             <button

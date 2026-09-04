@@ -1,5 +1,7 @@
 use super::*;
 
+use tiktools_plugin_api::MediaPickerOptions;
+
 impl AppCore {
     pub async fn handle_page_message(self: &Arc<Self>, message: PageMessage) {
         self.events.publish(AppEvent::Ui(message.clone()));
@@ -25,6 +27,31 @@ impl AppCore {
             PageMessage::PickLive { session_cookie } => {
                 self.start_live_event_pump();
                 self.pick_live(&session_cookie).await;
+            }
+            PageMessage::OpenMediaPicker {
+                request_id,
+                mode,
+                kind,
+                title,
+                initial_directory,
+                extensions,
+            } => {
+                let options = MediaPickerOptions {
+                    mode,
+                    kind,
+                    title,
+                    initial_directory,
+                    extensions,
+                };
+                let (selection, error) = match self.open_media_picker(options).await {
+                    Ok(selection) => (selection, None),
+                    Err(error) => (None, Some(error.to_string())),
+                };
+                self.emit(HostMessage::MediaSelected {
+                    request_id,
+                    selection,
+                    error,
+                });
             }
             PageMessage::GetPointsConfig => {
                 self.emit(HostMessage::PointsConfig {

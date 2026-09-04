@@ -221,6 +221,16 @@
 .ui-float__error { font-size:11px; color:var(--tt-danger); font-weight:600; margin-top:4px; }
 .ui-float__tokens { font-size:11px; color:var(--text-muted); margin-top:4px; display:flex; justify-content:space-between; gap:8px; }
 
+/* ---- Native media reference field ---- */
+.ui-media-field { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; }
+.ui-media-field__input { min-width:0; }
+.ui-media-field__browse { align-self:start; min-height:38px; margin-top:5px; white-space:nowrap; }
+.ui-media-field__error { grid-column:1 / -1; color:var(--tt-danger); font-size:11px; line-height:1.4; }
+@media (max-width:640px) {
+  .ui-media-field { grid-template-columns:minmax(0,1fr); }
+  .ui-media-field__browse { margin-top:0; width:100%; }
+}
+
 /* ---- Mobile ---- */
 @media (max-width: 640px) {
   .ui-page { padding:12px; gap:12px; }

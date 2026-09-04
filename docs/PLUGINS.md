@@ -26,7 +26,7 @@ The manifest is versioned and explicit:
   "protocolVersion": 1,
   "abiVersion": 1,
   "permissions": ["audio.output"],
-  "capabilities": ["audio"],
+  "capabilities": ["audio.play"],
   "actionTypes": []
 }
 ```
@@ -53,7 +53,10 @@ Process plugins are standalone executables. The host launches the declared
 entry and exchanges length-prefixed JSON on stdin/stdout. A process crash is
 contained at the process boundary. The host does not interpret or silently
 launch JavaScript source files; a JavaScript plugin must be packaged as its own
-executable or be migrated to the native/WASM protocol.
+executable or use the bounded `napi-vm` automation surface.
+
+The example at `examples/audio-process-plugin` demonstrates a complete process
+plugin. It returns a `playAudio` intent; it does not open the file itself.
 
 ### WASM
 
@@ -68,15 +71,43 @@ Manifests may declare capabilities and permissions:
 
 ```json
 {
-  "permissions": ["http", "audio", "points.read", "points.write"],
-  "capabilities": ["http.request", "audio.output"]
+  "permissions": ["http", "audio.output", "points.read", "points.write"],
+  "capabilities": ["http.request", "audio.play"]
 }
 ```
 
-The core capability broker is the policy boundary for process/WASM plugins.
-Native plugins are trusted and their manifest is documentation plus a limit on
-which host APIs the application exposes. A declaration is never a sandbox for
-in-process native code.
+The core capability broker is the policy boundary for capabilities requested
+through the host protocol. Native libraries and process executables are still
+trusted code with the user's OS permissions; a manifest declaration is never
+an OS sandbox for code that can call the operating system directly. Use the
+WASM runtime with explicit WASI/host imports for genuinely untrusted code.
+
+## Media and audio
+
+`media.pick` is the public host API for selecting an existing file or
+directory. It returns a JSON `MediaSelection` containing a canonical path and
+metadata. `audio.play` accepts a `MediaFileRef`, validates it again immediately
+before playback, and streams the original file. TikTools does not copy media
+bytes into app data or a plugin directory.
+
+Process, WASM, and `napi-vm` code uses a serializable intent instead of a native
+audio handle:
+
+```json
+{
+  "summary": "requested host audio playback",
+  "playAudio": {
+    "fileRef": {"path": "/music/alert.wav"},
+    "volume": 0.8,
+    "overlap": "restart"
+  }
+}
+```
+
+The host accepts that intent only from a plugin declaring both
+`audio.play` and `audio.output`. It canonicalizes the path, restricts it to
+supported audio types, checks the size, and then hands it to the native audio
+provider. No plugin receives file bytes or a native file descriptor.
 
 ## Actions and settings
 

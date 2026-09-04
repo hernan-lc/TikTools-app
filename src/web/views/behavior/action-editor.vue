@@ -24,7 +24,7 @@ import type {
   LiveAction,
 } from '../../../automation/behavior/types.ts';
 import type { AutomationEventType, JsonObject } from '../../../automation/types.ts';
-import type { ActionOptionItem } from '../../../shared/messages.ts';
+import type { ActionOptionItem, OpenMediaPicker } from '../../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
 type ActionEditorProps = {
@@ -36,6 +36,7 @@ type ActionEditorProps = {
   testRuns: BehaviorRun[];
   actionOptions: Record<string, ActionOptionItem[]>;
   onGetActionOptions: (source: string) => void;
+  onOpenMediaPicker: OpenMediaPicker;
   onCancel: () => void;
   onSave: (action: LiveAction) => void;
   onDelete: (id: string) => void;
@@ -43,7 +44,7 @@ type ActionEditorProps = {
 };
 
 export const ActionEditor = defineVueComponent<ActionEditorProps>(
-  ['locale', 'action', 'actionTypes', 'isNew', 'error', 'testRuns', 'actionOptions', 'onGetActionOptions', 'onCancel', 'onSave', 'onDelete', 'onTest'],
+  ['locale', 'action', 'actionTypes', 'isNew', 'error', 'testRuns', 'actionOptions', 'onGetActionOptions', 'onOpenMediaPicker', 'onCancel', 'onSave', 'onDelete', 'onTest'],
   (props) => {
   const draft = ref<LiveAction>(props.action);
   watch(() => props.action, (action) => { draft.value = action; });
@@ -178,6 +179,7 @@ export const ActionEditor = defineVueComponent<ActionEditorProps>(
                     form={formValue}
                     suggestionsFor={suggestionsFor}
                     suggestionContext={suggestionContext}
+                    onOpenMediaPicker={props.onOpenMediaPicker}
                     onPatchConfig={(patch) => { draft.value = { ...draft.value, config: { ...draft.value.config, ...patch } }; }}
                   />
                 ) : (
@@ -189,6 +191,7 @@ export const ActionEditor = defineVueComponent<ActionEditorProps>(
                     fieldOptions={fieldOptions.value}
                     suggestionContext={suggestionContext}
                     suggestionScopes={suggestionScopes.value}
+                    onOpenMediaPicker={props.onOpenMediaPicker}
                     onChange={(config) => { draft.value = { ...draft.value, config }; }}
                   />
                 )}
@@ -225,11 +228,12 @@ type FetchFieldsProps = {
   form: { schema: JsonObject; uiHints?: JsonObject };
   suggestionsFor: (name: string, template: boolean) => Array<{ value: string; label: string }>;
   suggestionContext: JsonObject;
+  onOpenMediaPicker?: OpenMediaPicker;
   onPatchConfig: (patch: JsonObject) => void;
 };
 
 const FetchFields = defineVueComponent<FetchFieldsProps>(
-  ['locale', 'draft', 'form', 'suggestionsFor', 'suggestionContext', 'onPatchConfig'],
+  ['locale', 'draft', 'form', 'suggestionsFor', 'suggestionContext', 'onOpenMediaPicker', 'onPatchConfig'],
   (props) => {
   const tab = ref<'body' | 'headers' | 'auth'>('body');
 
@@ -374,6 +378,7 @@ const FetchFields = defineVueComponent<FetchFieldsProps>(
             value={draft.config}
             suggestionContext={suggestionContext}
             suggestionScopes={{ headers: 'http-data' }}
+            onOpenMediaPicker={props.onOpenMediaPicker}
             onChange={(config) => onPatchConfig({ headers: config.headers ?? {} })}
           />
         </div>
@@ -395,6 +400,7 @@ const FetchFields = defineVueComponent<FetchFieldsProps>(
               schema={advancedForm.schema}
               uiHints={advancedForm.uiHints}
               value={draft.config}
+              onOpenMediaPicker={props.onOpenMediaPicker}
               onChange={(config) => onPatchConfig(config)}
             />
           </div>

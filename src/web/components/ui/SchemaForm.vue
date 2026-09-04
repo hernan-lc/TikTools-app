@@ -13,6 +13,8 @@ import { AdvancedSection } from './FieldPanels.vue';
 import { CodeEditor, formatJsonText } from './CodeEditor.vue';
 import { InfoTip } from './InfoTip.vue';
 import { i18nText, t, type Locale } from '../../i18n.ts';
+import { MediaField } from './MediaField.vue';
+import type { OpenMediaPicker } from '../../../shared/messages.ts';
 
 export type FieldOption = { value: string; label: string };
 
@@ -33,6 +35,8 @@ export type SchemaFormProps = {
   lastEvent?: AutomationEvent;
   /** Dynamic per-field options fetched on demand (voices, devices, …). */
   fieldOptions?: Record<string, FieldOption[]>;
+  /** Opens a host-owned native media dialog and returns a path reference. */
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
 export type SchemaFormHandle = {
@@ -110,6 +114,7 @@ export const SchemaForm = defineVueComponent<SchemaFormProps>(
     'eventType',
     'lastEvent',
     'fieldOptions',
+    'onOpenMediaPicker',
   ],
   (props, context) => {
   const formRef = ref<HTMLDivElement | null>(null);
@@ -151,6 +156,7 @@ export const SchemaForm = defineVueComponent<SchemaFormProps>(
           onChange={(next) => update(key, next)}
           templateSuggestions={suggestionsFor(key, (hints[key]?.template as boolean) === true)}
           fieldOptions={fieldOptions[key]}
+          onOpenMediaPicker={props.onOpenMediaPicker}
         />
       ))}
       {advanced.length > 0 && (
@@ -170,6 +176,7 @@ export const SchemaForm = defineVueComponent<SchemaFormProps>(
               onChange={(next) => update(key, next)}
               templateSuggestions={suggestionsFor(key, (hints[key]?.template as boolean) === true)}
               fieldOptions={fieldOptions[key]}
+              onOpenMediaPicker={props.onOpenMediaPicker}
             />
           ))}
         </AdvancedSection>
@@ -204,7 +211,7 @@ function formSchemaFromJsonSchema(schema: JsonObject): FormSchema {
   return Object.fromEntries(entries) as FormSchema;
 }
 
-function SchemaField({ locale, name, schema, hint, value, onChange, templateSuggestions, fieldOptions }: {
+function SchemaField({ locale, name, schema, hint, value, onChange, templateSuggestions, fieldOptions, onOpenMediaPicker }: {
   locale: Locale;
   name: string;
   schema: JsonObject;
@@ -213,6 +220,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   onChange: (value: JsonValue) => void;
   templateSuggestions: TemplateSuggestion[];
   fieldOptions?: FieldOption[];
+  onOpenMediaPicker?: OpenMediaPicker;
 }) {
   const label = localized(schema.title, locale) || name;
   const description = typeof schema.description === 'string' ? schema.description : localized(schema.description as JsonValue, locale);
@@ -221,6 +229,23 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   const template = hint?.template === true;
   const displayValue = toDisplayValue(value, schema.type);
   const hasAutocomplete = template || templateSuggestions.length > 0;
+
+  if (kind === 'media') {
+    return (
+      <MediaField
+        locale={locale}
+        name={name}
+        label={label}
+        hint={hintText || undefined}
+        value={value}
+        onValueChange={onChange}
+        onOpenMediaPicker={onOpenMediaPicker}
+        mode={hint?.mode === 'directory' ? 'directory' : 'file'}
+        kind={hint?.mediaKind === 'video' || hint?.mediaKind === 'image' || hint?.mediaKind === 'other' ? hint.mediaKind : 'audio'}
+        extensions={Array.isArray(hint?.extensions) ? hint.extensions.filter((entry): entry is string => typeof entry === 'string') : undefined}
+      />
+    );
+  }
 
   if (kind === 'boolean' || schema.type === 'boolean') {
     const checked = value === true || value === 'true';

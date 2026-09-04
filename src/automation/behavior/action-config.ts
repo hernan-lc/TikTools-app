@@ -86,6 +86,8 @@ export function normalizeActionConfig(type: ActionTypeDefinition, value: unknown
             : fallback;
       } else if (field.kind === 'boolean') {
         result[field.key] = typeof entry === 'boolean' ? entry : typeof entry === 'string' ? entry === 'true' : fallback;
+      } else if (field.kind === 'media') {
+        result[field.key] = mediaValue(entry, fallback);
       } else {
         result[field.key] = typeof entry === 'string' ? entry.slice(0, limit) : fallback;
       }
@@ -190,6 +192,17 @@ function stringMap(value: unknown): JsonObject {
     entries[key.trim().slice(0, 120)] = typeof entry === 'string' ? entry.slice(0, MAX_TEXT) : String(entry ?? '');
   }
   return entries;
+}
+
+function mediaValue(value: unknown, fallback: JsonValue): JsonValue {
+  if (typeof value === 'string') return value.slice(0, MAX_TEXT);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return fallback;
+  const path = (value as Record<string, unknown>).path;
+  if (typeof path !== 'string' || path.trim() === '') return fallback;
+  // Preserve the host-provided metadata when available, but keep the same
+  // bounded JSON shape used by every other action field. The Rust host still
+  // rebuilds and validates metadata immediately before playback.
+  return limitJsonValue(value, {});
 }
 
 function isJsonObject(value: unknown): value is JsonObject {

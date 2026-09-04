@@ -26,7 +26,7 @@ import type {
   LiveEvent,
 } from '../../automation/behavior/types.ts';
 import type { AutomationEventType } from '../../automation/types.ts';
-import type { ActionOptionItem, GiftCatalogEntry, ViewerRecord } from '../../shared/messages.ts';
+import type { ActionOptionItem, GiftCatalogEntry, OpenMediaPicker, ViewerRecord } from '../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
@@ -47,6 +47,7 @@ type BehaviorViewProps = {
   onSetEventEnabled: (id: string, enabled: boolean) => void;
   onTestEvent: (event: LiveEvent) => void;
   onOpenPlugins: () => void;
+  onOpenMediaPicker: OpenMediaPicker;
   /** On-demand option lists keyed by options source. */
   actionOptions: Record<string, ActionOptionItem[]>;
   onGetActionOptions: (source: string) => void;
@@ -76,6 +77,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
     'onSetEventEnabled',
     'onTestEvent',
     'onOpenPlugins',
+    'onOpenMediaPicker',
     'actionOptions',
     'onGetActionOptions',
   ],
@@ -130,6 +132,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
         testRuns={testRuns}
         actionOptions={props.actionOptions}
         onGetActionOptions={props.onGetActionOptions}
+        onOpenMediaPicker={props.onOpenMediaPicker}
         onCancel={() => { screen.value = { kind: 'list' }; }}
         onSave={(action) => {
           props.onSaveAction(action);

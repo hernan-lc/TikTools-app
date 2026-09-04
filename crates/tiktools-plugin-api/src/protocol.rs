@@ -7,6 +7,9 @@ use serde_json::Value;
 use thiserror::Error;
 
 pub const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
+pub const METHOD_CALL: &str = "call";
+pub const METHOD_CAPABILITY_REQUEST: &str = "capability.request";
+pub const METHOD_CAPABILITY_RESPONSE: &str = "capability.response";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -33,6 +36,28 @@ impl PluginRequest {
 pub struct PluginResponse {
     pub protocol_version: u32,
     pub id: String,
+    pub ok: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Payload used by process/WASM runtimes when guest code asks the host for a
+/// declared capability. The host may reject it before touching the filesystem
+/// or audio device.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityRequest {
+    pub request_id: String,
+    pub capability: String,
+    pub params: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityResponse {
+    pub request_id: String,
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
@@ -88,6 +113,18 @@ mod tests {
             bytes.len() - 4
         );
         let decoded: PluginRequest = read_frame(&mut bytes.as_slice()).unwrap();
+        assert_eq!(decoded, request);
+    }
+
+    #[test]
+    fn capability_request_is_json_only() {
+        let request = CapabilityRequest {
+            request_id: "cap-1".to_owned(),
+            capability: "audio.play".to_owned(),
+            params: serde_json::json!({"fileRef":{"path":"/music/alert.wav"}}),
+        };
+        let decoded: CapabilityRequest =
+            serde_json::from_slice(&serde_json::to_vec(&request).unwrap()).unwrap();
         assert_eq!(decoded, request);
     }
 }

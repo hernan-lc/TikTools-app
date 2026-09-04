@@ -77,6 +77,30 @@ pub fn builtin_action_types() -> Vec<Value> {
             ]
         }),
         json!({
+            "id": "audio.play",
+            "version": 1,
+            "title": text("Play a sound", "automation.action.audio.play.title"),
+            "description": text("Play a local audio file without copying it into TikTools.", "automation.action.audio.play.description"),
+            "tag": "audio",
+            "source": {"kind": "builtin"},
+            "requiredCapabilities": ["audio.play"],
+            "fields": [
+                field("file", "Audio file", "media", "", "automation.action.audio.play.field.file.label", json!({
+                    "hint": text("Select an existing audio file. TikTools stores a path-backed reference and validates it again when it plays.", "automation.action.audio.play.field.file.hint")
+                })),
+                field("volume", "Volume", "number", "1", "automation.action.audio.play.field.volume.label", json!({
+                    "hint": text("A value from 0 (silent) to 1 (full volume).", "automation.action.audio.play.field.volume.hint")
+                })),
+                field("overlap", "If already playing", "select", "allow", "automation.action.audio.play.field.overlap.label", json!({
+                    "options": [
+                        {"value": "allow", "label": text("Allow overlap", "automation.action.audio.play.field.overlap.option.allow")},
+                        {"value": "restart", "label": text("Restart sound", "automation.action.audio.play.field.overlap.option.restart")},
+                        {"value": "drop", "label": text("Drop new sound", "automation.action.audio.play.field.overlap.option.drop")}
+                    ]
+                }))
+            ]
+        }),
+        json!({
             "id": "core.delay",
             "version": 1,
             "title": text("Wait", "automation.action.core.delay.title"),
@@ -118,6 +142,8 @@ pub fn builtin_translations() -> Value {
             "automation.action.core.emit.description": "Publish an event that other automations can consume.",
             "automation.action.core.points.title": "Give points",
             "automation.action.core.points.description": "Add or subtract points for the viewer who triggered the event.",
+            "automation.action.audio.play.title": "Play a sound",
+            "automation.action.audio.play.description": "Play a local audio file without copying it into TikTools.",
             "automation.action.core.delay.title": "Wait",
             "automation.action.core.delay.description": "Delay the remaining actions for this event.",
             "automation.action.core.log.title": "Write to the log",
@@ -132,6 +158,8 @@ pub fn builtin_translations() -> Value {
             "automation.action.core.emit.description": "Publica un evento para otras automatizaciones.",
             "automation.action.core.points.title": "Sumar puntos",
             "automation.action.core.points.description": "Suma o resta puntos al espectador que disparó el evento.",
+            "automation.action.audio.play.title": "Reproducir un sonido",
+            "automation.action.audio.play.description": "Reproduce un archivo de audio local sin copiarlo a TikTools.",
             "automation.action.core.delay.title": "Esperar",
             "automation.action.core.delay.description": "Retrasa las acciones restantes del evento.",
             "automation.action.core.log.title": "Escribir en el registro",
@@ -199,6 +227,16 @@ pub fn builtin_node_catalog() -> Vec<Value> {
             "configSchema": {"type": "object", "properties": {"uniqueId": {"type": "string"}, "delta": {"type": "number"}}},
             "requiredCapabilities": ["points.write"]
         }),
+        json!({
+            "type": "action.play-sound", "version": 1, "pluginId": "core", "title": "Play Sound",
+            "category": "Actions", "kind": "action", "inputs": [flow_input()], "outputs": [flow_output()],
+            "configSchema": {"type": "object", "properties": {
+                "filePath": {"type": "string"},
+                "volume": {"type": "number", "minimum": 0, "maximum": 1},
+                "overlap": {"type": "string", "enum": ["allow", "restart", "drop"]}
+            }, "required": ["filePath"]},
+            "requiredCapabilities": ["audio.play"]
+        }),
     ]
 }
 
@@ -245,8 +283,18 @@ mod tests {
     #[test]
     fn builtins_are_runtime_neutral_json() {
         let actions = builtin_action_types();
-        assert_eq!(actions.len(), 6);
+        assert_eq!(actions.len(), 7);
         assert_eq!(actions[0]["source"]["kind"], "builtin");
+        assert_eq!(
+            actions
+                .iter()
+                .find(|action| action["id"] == "audio.play")
+                .unwrap()["requiredCapabilities"][0],
+            "audio.play"
+        );
         assert_eq!(builtin_node_catalog()[0]["type"], "trigger.event");
+        assert!(builtin_node_catalog()
+            .iter()
+            .any(|node| node["type"] == "action.play-sound"));
     }
 }

@@ -87,6 +87,7 @@ const app = reactive(useAppController());
         :on-set-event-enabled="app.handleSetEventEnabled"
         :on-test-event="app.handleTestEvent"
         :on-open-plugins="app.openPlugins"
+        :on-open-media-picker="app.openMediaPicker"
         :action-options="app.actionOptions"
         :on-get-action-options="app.handleGetActionOptions"
       />
@@ -103,6 +104,7 @@ const app = reactive(useAppController());
         :settings="app.pluginSettings"
         :on-get-settings="app.handleGetPluginSettings"
         :on-save-settings="app.handleSavePluginSettings"
+        :on-open-media-picker="app.openMediaPicker"
       />
 
       <ConnectView

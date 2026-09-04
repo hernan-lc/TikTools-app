@@ -15,6 +15,42 @@ import type {
 
 export type PluginSettingValues = Record<string, string | number | boolean>;
 
+export type MediaKind = 'audio' | 'video' | 'image' | 'other';
+export type MediaPickerMode = 'file' | 'directory';
+
+export type MediaPickerOptions = {
+  mode?: MediaPickerMode;
+  kind?: MediaKind;
+  title?: string;
+  initialDirectory?: string;
+  extensions?: string[];
+};
+
+export type MediaFileRef = {
+  referenceVersion: number;
+  path: string;
+  directory: string;
+  name: string;
+  extension: string;
+  kind?: MediaKind;
+  sizeBytes: number;
+  modifiedAt?: number;
+  mimeType?: string;
+};
+
+export type MediaDirectoryRef = {
+  referenceVersion: number;
+  path: string;
+  name: string;
+};
+
+export type MediaSelection =
+  | { type: 'file'; file: MediaFileRef }
+  | { type: 'directory'; directory: MediaDirectoryRef };
+
+export type MediaSelectionHandler = (selection: MediaSelection | null, error?: string) => void;
+export type OpenMediaPicker = (options: MediaPickerOptions, onSelected: MediaSelectionHandler) => void;
+
 export type ActionOptionItem = { value: string; label: string };
 
 export type UiEvent = {
@@ -96,6 +132,7 @@ export type AutomationWorkflowRecord = {
 export type PageMessage =
   | { type: 'connect'; uniqueId: string; sessionCookie: string; roomId?: string }
   | { type: 'pick-live'; sessionCookie: string }
+  | ({ type: 'open-media-picker'; requestId: string } & Required<Pick<MediaPickerOptions, 'mode' | 'kind'>> & Omit<MediaPickerOptions, 'mode' | 'kind'>)
   | { type: 'disconnect' }
   | { type: 'get-points-config' }
   | { type: 'update-points-config'; config: Partial<PointsConfig> }
@@ -167,6 +204,7 @@ export type HostMessage =
   | { type: 'room-stats'; viewers: number; totalUsers: number; topViewers: TopViewerPayload[] }
   | { type: 'reconnecting'; attempt: number; delayMs: number }
   | { type: 'error'; phase: 'connect' | 'live'; message: string }
+  | { type: 'media-selected'; requestId: string; selection?: MediaSelection; error?: string }
   | { type: 'points-config'; config: PointsConfig }
   | { type: 'leaderboard'; viewers: ViewerRecord[] }
   | {

@@ -9,6 +9,7 @@ use std::{collections::BTreeMap, fmt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
+use tiktools_plugin_api::{MediaKind, MediaPickerMode, MediaSelection};
 
 pub type JsonObject = BTreeMap<String, Value>;
 
@@ -156,6 +157,25 @@ pub enum PageMessage {
         #[serde(rename = "sessionCookie")]
         session_cookie: String,
     },
+    #[serde(rename = "open-media-picker")]
+    OpenMediaPicker {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(default)]
+        mode: MediaPickerMode,
+        #[serde(default)]
+        kind: MediaKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        title: Option<String>,
+        #[serde(
+            default,
+            rename = "initialDirectory",
+            skip_serializing_if = "Option::is_none"
+        )]
+        initial_directory: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        extensions: Vec<String>,
+    },
     #[serde(rename = "disconnect")]
     Disconnect,
     #[serde(rename = "get-points-config")]
@@ -273,6 +293,7 @@ impl PageMessage {
         match self {
             Self::Connect { .. } => "connect",
             Self::PickLive { .. } => "pick-live",
+            Self::OpenMediaPicker { .. } => "open-media-picker",
             Self::Disconnect => "disconnect",
             Self::GetPointsConfig => "get-points-config",
             Self::UpdatePointsConfig { .. } => "update-points-config",
@@ -323,6 +344,29 @@ impl PageMessage {
             }
             Self::PickLive { session_cookie } => {
                 bounded_value(session_cookie, "sessionCookie", 256 * 1024)?
+            }
+            Self::OpenMediaPicker {
+                request_id,
+                title,
+                initial_directory,
+                extensions,
+                ..
+            } => {
+                bounded_string(request_id, "requestId", 128)?;
+                if extensions.len() > 32
+                    || extensions.iter().any(|extension| {
+                        extension.is_empty()
+                            || extension.len() > 16
+                            || !extension.chars().all(|character| {
+                                character.is_ascii_alphanumeric()
+                                    || matches!(character, '+' | '-' | '_')
+                            })
+                    })
+                {
+                    return Err(IpcMessageError::InvalidField("extensions"));
+                }
+                optional_bounded(title.as_deref(), "title", 256)?;
+                optional_bounded(initial_directory.as_deref(), "initialDirectory", 4_096)?;
             }
             Self::AdjustPoints { unique_id, delta } => {
                 bounded_string(unique_id, "uniqueId", 256)?;
@@ -431,6 +475,15 @@ pub enum HostMessage {
     },
     #[serde(rename = "error")]
     Error { phase: ErrorPhase, message: String },
+    #[serde(rename = "media-selected")]
+    MediaSelected {
+        #[serde(rename = "requestId")]
+        request_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        selection: Option<MediaSelection>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
     #[serde(rename = "points-config")]
     PointsConfig { config: PointsConfig },
     #[serde(rename = "leaderboard")]
@@ -619,5 +672,29 @@ mod tests {
         .unwrap();
         assert!(json.starts_with(r#"{"type":"points-config""#));
         assert!(json.contains("pointsPerCoin"));
+    }
+
+    #[test]
+    fn media_picker_preserves_the_public_json_contract() {
+        let message = PageMessage::parse(
+            r#"{"type":"open-media-picker","requestId":"media-1","mode":"file","kind":"audio","extensions":["wav","mp3"]}"#,
+        )
+        .unwrap();
+        assert_eq!(message.type_name(), "open-media-picker");
+        let json = serde_json::to_string(&message).unwrap();
+        assert!(json.contains("requestId"));
+        assert!(json.contains("initialDirectory") == false);
+
+        let response = HostMessage::MediaSelected {
+            request_id: "media-1".to_owned(),
+            selection: None,
+            error: None,
+        }
+        .to_json()
+        .unwrap();
+        assert_eq!(
+            response,
+            r#"{"type":"media-selected","requestId":"media-1"}"#
+        );
     }
 }

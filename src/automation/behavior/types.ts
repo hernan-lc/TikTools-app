@@ -34,6 +34,7 @@ export type ActionFieldKind =
   | 'select'
   | 'boolean'
   | 'keyvalue'
+  | 'media'
   | 'code';
 
 /**

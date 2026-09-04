@@ -175,7 +175,11 @@ function createId(prefix: string): string {
 }
 
 export function asString(value: JsonValue | undefined, fallback = ''): string {
-  return typeof value === 'string' ? value : value === undefined || value === null ? fallback : String(value);
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (!Array.isArray(value) && typeof value.path === 'string') return value.path;
+  return JSON.stringify(value) ?? fallback;
 }
 
 export function asNumber(value: JsonValue | undefined, fallback = 0): number {

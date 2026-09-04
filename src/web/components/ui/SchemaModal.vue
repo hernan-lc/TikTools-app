@@ -4,6 +4,7 @@ import { defineVueComponent } from '../../vue/component.ts';
 
 import type { JsonObject } from '../../../automation/types.ts';
 import type { Locale } from '../../i18n.ts';
+import type { OpenMediaPicker } from '../../../shared/messages.ts';
 import { Button } from './Button.vue';
 import { Modal } from './Modal.vue';
 import { SchemaForm } from './SchemaForm.vue';
@@ -21,11 +22,12 @@ export type SchemaModalProps = {
   templateSuggestions?: TemplateSuggestion[];
   onApply: (value: JsonObject) => void;
   onClose: () => void;
+  onOpenMediaPicker?: OpenMediaPicker;
 };
 
 /** Modal shell for any host-owned JSON Schema form, including plugin settings. */
 export const SchemaModal = defineVueComponent<SchemaModalProps>(
-  ['locale', 'title', 'description', 'schema', 'uiHints', 'initialValue', 'cancelLabel', 'applyLabel', 'templateSuggestions', 'onApply', 'onClose'],
+  ['locale', 'title', 'description', 'schema', 'uiHints', 'initialValue', 'cancelLabel', 'applyLabel', 'templateSuggestions', 'onApply', 'onClose', 'onOpenMediaPicker'],
   (props) => {
   const value = ref<JsonObject>({ ...props.initialValue });
   return () => {
@@ -43,7 +45,7 @@ export const SchemaModal = defineVueComponent<SchemaModalProps>(
         </div>
       }
     >
-      <SchemaForm locale={locale} schema={schema} uiHints={uiHints} value={value.value} onChange={(next) => (value.value = next)} templateSuggestions={templateSuggestions} />
+      <SchemaForm locale={locale} schema={schema} uiHints={uiHints} value={value.value} onChange={(next) => (value.value = next)} templateSuggestions={templateSuggestions} onOpenMediaPicker={props.onOpenMediaPicker} />
     </Modal>
     );
   };

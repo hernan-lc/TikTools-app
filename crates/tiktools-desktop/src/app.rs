@@ -18,7 +18,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let event_loop = event_loop_builder.build()?;
     let proxy = event_loop.create_proxy();
     let emitter = crate::event::shared_emitter(proxy.clone());
-    let core = Arc::new(AppCore::new(emitter));
+    let media = Arc::new(crate::media::DesktopMediaHost::default());
+    let core = Arc::new(AppCore::with_media_host(emitter, media));
     let router = Arc::new(IpcRouter::new(core.clone()));
     let source = FrontendSource::from_environment()
         .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;

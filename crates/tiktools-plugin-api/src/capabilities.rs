@@ -4,6 +4,10 @@ use crate::manifest::PluginManifest;
 
 pub const HTTP: &str = "http";
 pub const AUDIO: &str = "audio";
+pub const AUDIO_PLAY: &str = "audio.play";
+pub const AUDIO_OUTPUT_PERMISSION: &str = "audio.output";
+pub const MEDIA_PICK: &str = "media.pick";
+pub const MEDIA_READ: &str = "media.read";
 pub const TTS: &str = "tts";
 pub const POINTS_READ: &str = "points.read";
 pub const POINTS_WRITE: &str = "points.write";

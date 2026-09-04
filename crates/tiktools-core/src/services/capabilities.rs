@@ -133,7 +133,7 @@ mod tests {
                 "version": "1.0.0",
                 "runtime": "process",
                 "entry": "index.js",
-                "capabilities": ["audio"],
+                "capabilities": ["audio.play"],
                 "permissions": ["audio.output"]
             }"#,
         )
@@ -144,7 +144,7 @@ mod tests {
     fn enforces_declared_capabilities_and_permissions() {
         let broker = CapabilityBroker::new(std::env::temp_dir());
         let manifest = manifest();
-        assert!(broker.require_capability(&manifest, "audio").is_ok());
+        assert!(broker.require_capability(&manifest, "audio.play").is_ok());
         assert!(broker.require_permission(&manifest, "audio.output").is_ok());
         assert!(broker.require_permission(&manifest, "http").is_err());
     }

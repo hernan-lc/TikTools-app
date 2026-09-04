@@ -6,11 +6,21 @@
 pub mod abi;
 pub mod capabilities;
 pub mod manifest;
+pub mod media;
 pub mod protocol;
 
 pub use abi::{PluginBuffer, PluginInit, PluginStatus, TikToolsPluginApi};
 pub use manifest::{PluginManifest, PluginRuntimeKind, PluginTrust};
-pub use protocol::{read_frame, write_frame, PluginRequest, PluginResponse, MAX_FRAME_BYTES};
+pub use media::{
+    AudioOverlap, AudioPlayOptions, AudioPlaybackResult, MediaDirectoryRef, MediaFileRef,
+    MediaKind, MediaPickerMode, MediaPickerOptions, MediaSelection, AUDIO_PLAY_INTENT,
+    CAPABILITY_AUDIO_PLAY, CAPABILITY_MEDIA_PICK, CAPABILITY_MEDIA_READ, MEDIA_REFERENCE_VERSION,
+};
+pub use protocol::{
+    read_frame, write_frame, CapabilityRequest, CapabilityResponse, FrameError, PluginRequest,
+    PluginResponse, MAX_FRAME_BYTES, METHOD_CALL, METHOD_CAPABILITY_REQUEST,
+    METHOD_CAPABILITY_RESPONSE,
+};
 
 pub const TIKTOOLS_PLUGIN_ABI_VERSION: u32 = 1;
 pub const TIKTOOLS_PLUGIN_PROTOCOL_VERSION: u32 = 1;

@@ -1,0 +1,9 @@
+[package]
+name = "tiktools-audio-process-plugin"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde_json = "1.0"
+tiktools-plugin-api = { path = "../../crates/tiktools-plugin-api" }

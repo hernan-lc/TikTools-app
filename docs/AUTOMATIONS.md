@@ -49,9 +49,11 @@ provides editor samples, labels, types, and source-field metadata.
 ## Built-in action types
 
 The Rust host owns the built-in catalog. It includes HTTP, internal event
-emission, points, delay, logging, and script actions. Each action declares its
-required capability and configuration fields. Plugin actions arrive only from
-runtime manifests.
+emission, points, delay, logging, script, and local audio actions. The audio
+action stores only a path-backed media reference and revalidates it before
+streaming; it never copies the sound into TikTools. Each action declares its required
+capability and configuration fields. Plugin actions arrive only from runtime
+manifests.
 
 ## Scripts
 

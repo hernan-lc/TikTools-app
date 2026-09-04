@@ -15,6 +15,7 @@ import { Modal } from '../ui/Modal.vue';
 import { NodeConfigForm } from './NodeConfigForm.vue';
 import { EventContextPreview } from './EventContextPreview.vue';
 import { t, type Locale } from '../../i18n.ts';
+import type { OpenMediaPicker } from '../../../shared/messages.ts';
 
 type NodeConfigModalProps = {
   locale: Locale;
@@ -26,6 +27,7 @@ type NodeConfigModalProps = {
   analysis?: AutomationScriptAnalysis;
   onApply: (config: JsonObject) => void;
   onAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType) => void;
+  onOpenMediaPicker?: OpenMediaPicker;
   onClose: () => void;
 };
 
@@ -34,11 +36,11 @@ type NodeConfigModalProps = {
  * user confirms, so closing the modal is a safe cancel operation.
  */
 export const NodeConfigModal = defineVueComponent<NodeConfigModalProps>(
-  ['locale', 'node', 'definition', 'eventType', 'lastEvent', 'lastEventCapturedAt', 'analysis', 'onApply', 'onAnalyzeScript', 'onClose'],
+  ['locale', 'node', 'definition', 'eventType', 'lastEvent', 'lastEventCapturedAt', 'analysis', 'onApply', 'onAnalyzeScript', 'onOpenMediaPicker', 'onClose'],
   (props) => {
   const config = ref<JsonObject>({ ...props.node.config });
   return () => {
-    const { locale, node, definition, eventType, lastEvent, lastEventCapturedAt, analysis, onApply, onAnalyzeScript, onClose } = props;
+    const { locale, node, definition, eventType, lastEvent, lastEventCapturedAt, analysis, onApply, onAnalyzeScript, onOpenMediaPicker, onClose } = props;
     const title = definition?.title ?? node.type;
     const draftNode: WorkflowNode = { ...node, config: config.value };
     return (
@@ -65,6 +67,7 @@ export const NodeConfigModal = defineVueComponent<NodeConfigModalProps>(
           analysis={analysis}
           onChange={(next) => (config.value = next)}
           onAnalyzeScript={onAnalyzeScript}
+          onOpenMediaPicker={onOpenMediaPicker}
         />
       </div>
     </Modal>

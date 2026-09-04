@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 2,
+  "id": "audio.play.process",
+  "name": "Process Audio",
+  "version": "0.1.0",
+  "description": "A crash-isolated example action that asks the host to play an existing audio file.",
+  "runtime": "process",
+  "trust": "trusted",
+  "entry": "tiktools-audio-process-plugin",
+  "protocolVersion": 1,
+  "capabilities": ["audio.play"],
+  "permissions": ["audio.output"],
+  "actionTypes": [
+    {
+      "id": "audio.play.process",
+      "version": 1,
+      "title": {"default": "Play a sound (process)", "i18key": "audio.play.process.title"},
+      "description": {"default": "Request host playback without copying the selected file.", "i18key": "audio.play.process.description"},
+      "tag": "audio",
+      "requiredCapabilities": ["audio.play"],
+      "fields": [
+        {
+          "key": "filePath",
+          "label": {"default": "Audio file", "i18key": "audio.play.process.file.label"},
+          "kind": "media",
+          "value": "",
+          "hint": {"default": "Only the canonical path is retained; the host validates it again before playback.", "i18key": "audio.play.process.file.hint"}
+        },
+        {
+          "key": "volume",
+          "label": {"default": "Volume", "i18key": "audio.play.process.volume.label"},
+          "kind": "number",
+          "value": "1"
+        },
+        {
+          "key": "overlap",
+          "label": {"default": "If already playing", "i18key": "audio.play.process.overlap.label"},
+          "kind": "select",
+          "value": "allow",
+          "options": [
+            {"value": "allow", "label": {"default": "Allow overlap", "i18key": "audio.play.process.overlap.allow"}},
+            {"value": "restart", "label": {"default": "Restart sound", "i18key": "audio.play.process.overlap.restart"}},
+            {"value": "drop", "label": {"default": "Drop new sound", "i18key": "audio.play.process.overlap.drop"}}
+          ]
+        }
+      ]
+    }
+  ]
+}

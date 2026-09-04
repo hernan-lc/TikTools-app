@@ -4,6 +4,7 @@ import { IconTrash } from '../icons.vue';
 import { Badge, EmptyState } from '../ui/Card.vue';
 import { Button } from '../ui/Button.vue';
 import { t, type Locale } from '../../i18n.ts';
+import { asString } from './graph.ts';
 
 type WorkflowCanvasProps = {
   locale: Locale;
@@ -159,17 +160,17 @@ function orderNodes(graph: WorkflowGraph, definitions: Map<string, NodeDefinitio
 function nodeSummary(node: WorkflowNode, definition: NodeDefinition | undefined, locale: Locale): string {
   const config = node.config;
   switch (node.type) {
-    case 'trigger.event': return eventLabel(String(config.eventType ?? '*'), locale);
-    case 'condition.compare': return `${String(config.leftPath ?? 'event.data')}  ${operatorLabel(String(config.operator ?? 'equals'))}  ${String(config.right ?? '')}`;
-    case 'transform.template': return String(config.template ?? '');
+    case 'trigger.event': return eventLabel(asString(config.eventType, '*'), locale);
+    case 'condition.compare': return `${asString(config.leftPath, 'event.data')}  ${operatorLabel(asString(config.operator, 'equals'))}  ${asString(config.right)}`;
+    case 'transform.template': return asString(config.template);
     case 'transform.script': return t(locale, 'nodeTransformScriptSummary');
-    case 'control.delay': return `${String(config.delayMs ?? 0)} ms`;
-    case 'control.cooldown': return `${String(config.durationMs ?? 0)} ms · ${String(config.key ?? '')}`;
-    case 'action.log': return String(config.message ?? '');
-    case 'action.http': return `${String(config.method ?? 'GET')} ${String(config.url ?? '')}`;
-    case 'action.play-sound': return String(config.filePath ?? '');
-    case 'action.tts': return String(config.text ?? '');
-    case 'action.adjust-points': return `${String(config.uniqueId ?? '')} · ${String(config.delta ?? 0)}`;
+    case 'control.delay': return `${asString(config.delayMs, '0')} ms`;
+    case 'control.cooldown': return `${asString(config.durationMs, '0')} ms · ${asString(config.key)}`;
+    case 'action.log': return asString(config.message);
+    case 'action.http': return `${asString(config.method, 'GET')} ${asString(config.url)}`;
+    case 'action.play-sound': return asString(config.filePath);
+    case 'action.tts': return asString(config.text);
+    case 'action.adjust-points': return `${asString(config.uniqueId)} · ${asString(config.delta, '0')}`;
     default: return definition?.title ?? node.type;
   }
 }
