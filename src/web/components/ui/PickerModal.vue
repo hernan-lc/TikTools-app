@@ -111,6 +111,7 @@ export const PickerModal = defineVueComponent<PickerModalProps>(
       <div class="ui-picker__tools">
         <input
           class="plg-input"
+          name="pickerSearch"
           type="search"
           value={query.value}
           placeholder={searchPlaceholder}
@@ -161,6 +162,7 @@ export const PickerModal = defineVueComponent<PickerModalProps>(
           <div class="ui-picker__manual-row">
             <input
               class="plg-input"
+              name="manualValue"
               value={manualDraft.value}
               placeholder={manualPlaceholder}
               onInput={(event) => (manual.value = (event.currentTarget as HTMLInputElement).value)}

@@ -8,6 +8,7 @@ import { filterSuggestions, highlightSegments } from '../autocomplete/autocomple
 import { AutocompletePortal } from '../node-editor/AutocompletePortal.vue';
 import { t, type Locale } from '../../i18n.ts';
 import { formatJsonText, tokenizeJson, type JsonToken } from './code-editor-logic.ts';
+import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from './control-events.ts';
 
 export { formatJsonText, tokenizeJson };
 
@@ -26,6 +27,7 @@ type CodeEditorProps = {
   mime?: string;
   rows?: number;
   ariaLabel?: string;
+  name?: string;
   /** When set, a format button renders in the header. */
   onFormat?: () => void;
   formatLabel?: string;
@@ -47,6 +49,7 @@ export const CodeEditor = defineVueComponent<CodeEditorProps>(
     'mime',
     'rows',
     'ariaLabel',
+    'name',
     'onFormat',
     'formatLabel',
   ],
@@ -57,18 +60,19 @@ export const CodeEditor = defineVueComponent<CodeEditorProps>(
   const backdropRef = ref<HTMLPreElement | null>(null);
   const focused = ref(false);
   const forcedOpen = ref(false);
-  const cursor = ref(props.value.length);
+  const value = computed(() => normalizeControlString(props.value));
+  const cursor = ref(value.value.length);
   const suggestionIndex = ref(0);
 
-  const lineCount = computed(() => Math.max(1, props.value.split('\n').length));
+  const lineCount = computed(() => Math.max(1, value.value.split('\n').length));
   const lineHeight = 19.2; // 12px mono * 1.6
   const visibleLines = computed(() => Math.max(lineCount.value, props.rows ?? 7));
   const minEditHeight = computed(() => visibleLines.value * lineHeight + 20);
   const nodes = computed(() => (
-    (props.language ?? 'text') === 'json' ? highlightJson(props.value) : highlightText(props.value)
+    (props.language ?? 'text') === 'json' ? highlightJson(value.value) : highlightText(value.value)
   ));
 
-  const token = computed(() => getToken(props.value, cursor.value));
+  const token = computed(() => getToken(value.value, cursor.value));
   const items = computed(() => dedupeItems((props.suggestions ?? []).map(toItem)));
   const scored = computed(() => filterSuggestions(items.value, token.value.query, 7));
   const visible = computed(() => scored.value.map((entry) => ({ item: entry.item, ranges: entry.matchRanges })));
@@ -86,6 +90,11 @@ export const CodeEditor = defineVueComponent<CodeEditorProps>(
     if (!open) forcedOpen.value = false;
   });
 
+  watch(value, (next) => {
+    if (inputRef.value) syncNativeControlValue(inputRef.value, next);
+    cursor.value = Math.min(cursor.value, next.length);
+  });
+
   const syncScroll = (): void => {
     const target = inputRef.value;
     if (!target) return;
@@ -98,19 +107,28 @@ export const CodeEditor = defineVueComponent<CodeEditorProps>(
 
   const updateCursor = (): void => {
     const target = inputRef.value;
-    cursor.value = target?.selectionStart ?? props.value.length;
+    cursor.value = target?.selectionStart ?? value.value.length;
+  };
+
+  const commitProgrammaticValue = (nextValue: string): void => {
+    const control = inputRef.value;
+    if (control) {
+      syncNativeControlValue(control, nextValue);
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(nextValue);
   };
 
   const insertSuggestion = (suggestion: { value: string }): void => {
     const offset = inputRef.value?.selectionStart ?? cursor.value;
-    const current = getToken(props.value, offset);
+    const current = getToken(value.value, offset);
     // Replace the exact word/`{{ …` span being typed; inserting at the
     // cursor without replacing duplicated the typed text.
     const start = current.inside || current.query.length > 0 ? current.start : offset;
     const inserted = `{{ ${suggestion.value} }}`;
-    const nextValue = `${props.value.slice(0, start)}${inserted}${props.value.slice(offset)}`;
+    const nextValue = `${value.value.slice(0, start)}${inserted}${value.value.slice(offset)}`;
     const nextCursor = start + inserted.length;
-    props.onValueChange(nextValue);
+    commitProgrammaticValue(nextValue);
     cursor.value = nextCursor;
     forcedOpen.value = false;
     requestAnimationFrame(() => {
@@ -181,13 +199,14 @@ export const CodeEditor = defineVueComponent<CodeEditorProps>(
           <pre ref={backdropRef} class="codeed-backdrop" aria-hidden="true">
             <code>
               {nodes.value}
-              {props.value.endsWith('\n') ? '\n​' : ''}
+              {value.value.endsWith('\n') ? '\n​' : ''}
             </code>
           </pre>
           <textarea
             ref={inputRef}
             class="codeed-input"
-            value={props.value}
+            name={props.name}
+            value={value.value}
             rows={rows}
             spellcheck={false}
             wrap="off"

@@ -150,6 +150,7 @@ export const ActionEditor = defineVueComponent<ActionEditorProps>(
               <span class="act-label">{t(props.locale, 'behavior.editor.actionName')}</span>
               <input
                 class="plg-input act-name-input"
+                name="actionName"
                 value={draftValue.name}
                 aria-label={t(props.locale, 'behavior.editor.actionName')}
                 placeholder={typeValue ? i18nText(props.locale, typeValue.title) : undefined}
@@ -278,6 +279,7 @@ const FetchFields = defineVueComponent<FetchFieldsProps>(
         <div class="act-endpoint">
           <select
             class="act-method"
+            name="method"
             value={method}
             aria-label={fieldTitle(properties.method, locale) || 'Method'}
             onChange={(event) => onPatchConfig({ method: (event.currentTarget as HTMLSelectElement).value })}
@@ -288,6 +290,7 @@ const FetchFields = defineVueComponent<FetchFieldsProps>(
           </select>
           <TemplateField
             locale={locale}
+            name="url"
             value={urlValue}
             onValueChange={(next) => onPatchConfig({ url: next })}
             suggestions={suggestionsFor('url', true)}
@@ -350,6 +353,7 @@ const FetchFields = defineVueComponent<FetchFieldsProps>(
       {activeTab === 'body' && (
         <CodeEditor
           locale={locale}
+          name="body"
           language="json"
           value={body}
           onValueChange={(next) => onPatchConfig({ body: next })}

@@ -212,8 +212,9 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
               <div class="plg-section__tools">
                 <input
                   class="plg-input"
+                  name="actionQuery"
                   type="search"
-                  value={actionQuery}
+                  value={actionQuery.value}
                   placeholder={t(locale, 'behavior.copy.searchAction')}
                   onInput={(event) => { actionQuery.value = (event.currentTarget as HTMLInputElement).value; }}
                 />
@@ -328,8 +329,9 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
               <div class="plg-section__tools">
                 <input
                   class="plg-input"
+                  name="eventQuery"
                   type="search"
-                  value={eventQuery}
+                  value={eventQuery.value}
                   placeholder={t(locale, 'behavior.copy.searchEvent')}
                   onInput={(event) => { eventQuery.value = (event.currentTarget as HTMLInputElement).value; }}
                 />

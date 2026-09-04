@@ -159,6 +159,7 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Rows:</span>
             <select
+              name="pageSize"
               value={pageSize}
               onChange={(e) => onPageSizeChange(parseInt((e.target as HTMLSelectElement).value, 10))}
               class="ui-pagination__select"

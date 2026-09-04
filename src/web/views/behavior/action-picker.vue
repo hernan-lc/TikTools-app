@@ -38,6 +38,7 @@ export const ActionPicker = defineVueComponent<ActionPickerProps>(
       <div class="plg-toolbar">
         <input
           class="plg-input"
+          name="actionSearch"
           type="search"
           value={query.value}
           placeholder={t(props.locale, 'behavior.copy.searchAction')}

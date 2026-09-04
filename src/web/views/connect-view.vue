@@ -45,6 +45,7 @@ export const ConnectView = defineVueComponent<ConnectViewProps>(
             {isLive ? <Alert variant="info">{t(locale, 'live')} — {t(locale, 'disconnectToChangeCreator')}</Alert> : null}
             <TextInput
               id="connect-creator"
+              name="creator"
               value={uniqueId}
               onValueChange={onUniqueIdChange}
               label={t(locale, 'creatorHandle')}
@@ -56,8 +57,9 @@ export const ConnectView = defineVueComponent<ConnectViewProps>(
             />
 
             {showCookie.value ? (
-              <TextInput
-                id="connect-cookie"
+                <TextInput
+                  id="connect-cookie"
+                  name="cookie"
                 type="password"
                 value={cookie}
                 onValueChange={onCookieChange}

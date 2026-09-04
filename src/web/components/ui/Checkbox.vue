@@ -1,6 +1,7 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
+import { dispatchControlEvent, syncNativeControlValue } from './control-events.ts';
 
 export type CheckboxHandle = {
   getValue: () => boolean;
@@ -13,28 +14,41 @@ type CheckboxProps = {
   label?: string;
   disabled?: boolean;
   id?: string;
+  name?: string;
   error?: string;
 };
 
 export const Checkbox = defineVueComponent<CheckboxProps>(
-  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'error'],
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'name', 'error'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
+  const commitProgrammaticValue = (checked: boolean): void => {
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, checked);
+      dispatchControlEvent(control);
+    }
+    props.onCheckedChange(checked);
+  };
   context.expose({
     getValue: () => innerRef.value?.checked ?? props.checked,
-    setValue: (value: boolean) => props.onCheckedChange(value),
+    setValue: commitProgrammaticValue,
+  });
+  watch(() => props.checked, (checked) => {
+    if (innerRef.value) syncNativeControlValue(innerRef.value, checked);
   });
   return () => {
-    const { checked, onCheckedChange, label, disabled, id, error } = props;
+    const { checked, label, disabled, id, name, error } = props;
     return (
     <label for={id} class={`ui-check ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
         ref={innerRef}
         id={id}
+        name={name}
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
+        onChange={(e) => props.onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
       <span class="ui-check__box" aria-hidden />
       {label ? <span class="ui-check__label">{label}</span> : null}
@@ -45,25 +59,37 @@ export const Checkbox = defineVueComponent<CheckboxProps>(
 );
 
 export const Switch = defineVueComponent<CheckboxProps>(
-  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'error'],
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'name', 'error'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
+  const commitProgrammaticValue = (checked: boolean): void => {
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, checked);
+      dispatchControlEvent(control);
+    }
+    props.onCheckedChange(checked);
+  };
   context.expose({
     getValue: () => innerRef.value?.checked ?? props.checked,
-    setValue: (value: boolean) => props.onCheckedChange(value),
+    setValue: commitProgrammaticValue,
+  });
+  watch(() => props.checked, (checked) => {
+    if (innerRef.value) syncNativeControlValue(innerRef.value, checked);
   });
   return () => {
-    const { checked, onCheckedChange, label, disabled, id, error } = props;
+    const { checked, label, disabled, id, name, error } = props;
     return (
     <label for={id} class={`ui-switch ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
         ref={innerRef}
         id={id}
+        name={name}
         type="checkbox"
         role="switch"
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
+        onChange={(e) => props.onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
       <span class="ui-switch__track" aria-hidden>
         <span class="ui-switch__thumb" />

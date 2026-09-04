@@ -1,7 +1,8 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 import { InfoTip } from './InfoTip.vue';
+import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from './control-events.ts';
 
 export type SelectHandle = {
   getValue: () => string;
@@ -18,6 +19,7 @@ type SelectProps = {
   disabled?: boolean;
   error?: string;
   id?: string;
+  name?: string;
   placeholder?: string;
   /** MUI-style floating label. */
   label?: string;
@@ -26,25 +28,37 @@ type SelectProps = {
 };
 
 export const Select = defineVueComponent<SelectProps>(
-  ['value', 'onValueChange', 'options', 'disabled', 'error', 'id', 'placeholder', 'label', 'hint'],
+  ['value', 'onValueChange', 'options', 'disabled', 'error', 'id', 'name', 'placeholder', 'label', 'hint'],
   (props, context) => {
   const innerRef = ref<HTMLSelectElement | null>(null);
+  const commitProgrammaticValue = (value: string): void => {
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, value);
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(value);
+  };
   context.expose({
-    getValue: () => innerRef.value?.value ?? props.value,
-    setValue: (value: string) => props.onValueChange(value),
+    getValue: () => innerRef.value?.value ?? normalizeControlString(props.value),
+    setValue: commitProgrammaticValue,
     focus: () => innerRef.value?.focus(),
   });
 
   const handleChange = (e: Event) => props.onValueChange((e.currentTarget as HTMLSelectElement).value);
+  watch(() => props.value, (value) => {
+    if (innerRef.value) syncNativeControlValue(innerRef.value, value);
+  });
 
   return () => {
-    const { value, onValueChange, options, disabled, error, id, placeholder, label, hint } = props;
+    const { options, disabled, error, id, name, placeholder, label, hint } = props;
+    const value = normalizeControlString(props.value);
     if (label) {
       const filled = value.trim().length > 0;
       return (
       <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
         <div class="ui-float__control">
-          <select ref={innerRef} id={id} value={value} disabled={disabled} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
+          <select ref={innerRef} id={id} name={name} value={value} disabled={disabled} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
             {placeholder ? (
               <option value="" disabled>
                 {placeholder}
@@ -68,7 +82,7 @@ export const Select = defineVueComponent<SelectProps>(
 
     return (
     <div class={`ui-select ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
-      <select ref={innerRef} id={id} value={value} disabled={disabled} aria-invalid={Boolean(error)} onChange={handleChange}>
+      <select ref={innerRef} id={id} name={name} value={value} disabled={disabled} aria-invalid={Boolean(error)} onChange={handleChange}>
         {placeholder ? (
           <option value="" disabled>
             {placeholder}

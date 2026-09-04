@@ -10,3 +10,4 @@ export * from './Button.vue';
 export * from './Modal.vue';
 export * from './SchemaForm.vue';
 export * from './SchemaModal.vue';
+export * from './control-events.ts';

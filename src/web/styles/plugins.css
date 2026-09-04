@@ -188,6 +188,15 @@
 .plg-switch.is-on .plg-switch__track { border-color: var(--plg-accent); background: rgba(254, 44, 85, 0.22); }
 .plg-switch.is-on .plg-switch__thumb { background: var(--plg-accent); transform: translateX(14px); }
 .plg-switch:hover { transform: none; }
+.plg-switch--field { position: relative; }
+.plg-switch--field .plg-switch__input {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer;
+}
+.plg-switch--field .plg-switch__input:focus,
+.plg-switch--field .plg-switch__input:focus-visible { outline: 2px solid var(--plg-accent) !important; outline-offset: 2px; }
+.plg-switch--field .plg-switch__input:checked + .plg-switch__track { border-color: var(--plg-accent); background: rgba(254, 44, 85, 0.22); }
+.plg-switch--field .plg-switch__input:checked + .plg-switch__track .plg-switch__thumb { background: var(--plg-accent); transform: translateX(14px); }
 
 .plg-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--plg-dim); flex-shrink: 0; }
 .plg-dot.is-ok { background: var(--plg-ok); }

@@ -1,6 +1,7 @@
 <script lang="tsx">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
+import { readFormValues, type FormSchema } from './control-events.ts';
 
 import type { AutomationEvent, AutomationEventType, JsonObject, JsonValue } from '../../../automation/types.ts';
 import type { ActionTypeDefinition, Localized } from '../../../automation/behavior/types.ts';
@@ -32,6 +33,10 @@ export type SchemaFormProps = {
   lastEvent?: AutomationEvent;
   /** Dynamic per-field options fetched on demand (voices, devices, …). */
   fieldOptions?: Record<string, FieldOption[]>;
+};
+
+export type SchemaFormHandle = {
+  getValues: () => Record<string, unknown>;
 };
 
 /** Default scope per field name so Call-URL-like forms work with zero config. */
@@ -106,8 +111,13 @@ export const SchemaForm = defineVueComponent<SchemaFormProps>(
     'lastEvent',
     'fieldOptions',
   ],
-  (props) => {
+  (props, context) => {
+  const formRef = ref<HTMLDivElement | null>(null);
   const properties = computed(() => objectProperties(props.schema.properties));
+  const controlSchema = computed(() => formSchemaFromJsonSchema(props.schema));
+  context.expose({
+    getValues: () => formRef.value ? readFormValues(formRef.value, controlSchema.value) : {},
+  } satisfies SchemaFormHandle);
 
   return () => {
   const templateSuggestions = props.templateSuggestions ?? [];
@@ -129,7 +139,7 @@ export const SchemaForm = defineVueComponent<SchemaFormProps>(
   });
 
   return (
-    <div class="plg-form__schema">
+      <div ref={formRef} class="plg-form__schema" data-tiktools-form="schema">
       {basic.map(([key, field]) => (
         <SchemaField
           key={key}
@@ -177,6 +187,23 @@ export function schemaForAction(type: ActionTypeDefinition): { schema: JsonObjec
   };
 }
 
+function formSchemaFromJsonSchema(schema: JsonObject): FormSchema {
+  const properties = objectProperties(schema.properties);
+  const entries = Object.entries(properties).map(([name, field]) => {
+    const type = field.format === 'json'
+      ? 'json'
+      : field.type === 'boolean'
+        ? 'boolean'
+        : field.type === 'integer'
+          ? 'integer'
+          : field.type === 'number'
+            ? 'number'
+            : 'string';
+    return [name, { type, defaultValue: field.default }] as const;
+  });
+  return Object.fromEntries(entries) as FormSchema;
+}
+
 function SchemaField({ locale, name, schema, hint, value, onChange, templateSuggestions, fieldOptions }: {
   locale: Locale;
   name: string;
@@ -197,21 +224,23 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
 
   if (kind === 'boolean' || schema.type === 'boolean') {
     const checked = value === true || value === 'true';
+    const controlId = `schema-${name.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
     return (
       <div class="plg-field">
         <div class="plg-switch-row">
-          <button
-            type="button"
-            class={`plg-switch${checked ? ' is-on' : ''}`}
-            aria-label={label}
-            data-tooltip={hintText || undefined}
-            data-tooltip-pos="right"
-            data-tooltip-wide={hintText ? '' : undefined}
-            onClick={() => onChange(!checked)}
-          >
+          <label class={`plg-switch plg-switch--field${checked ? ' is-on' : ''}`} for={controlId} data-tooltip={hintText || undefined} data-tooltip-pos="right" data-tooltip-wide={hintText ? '' : undefined}>
+            <input
+              id={controlId}
+              class="plg-switch__input"
+              type="checkbox"
+              name={name}
+              checked={checked}
+              aria-label={label}
+              onChange={(event) => onChange((event.currentTarget as HTMLInputElement).checked)}
+            />
             <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
-          </button>
-          <label class="plg-label" onClick={() => onChange(!checked)}>{label}</label>
+          </label>
+          <label class="plg-label" for={controlId}>{label}</label>
           {hintText ? <InfoTip text={hintText} position="right" /> : null}
         </div>
       </div>
@@ -244,6 +273,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   if (options.length > 0) {
     return (
       <SelectField
+        name={name}
         label={label}
         hintText={hintText}
         template={template}
@@ -269,6 +299,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
           <CodeEditor
             locale={locale}
             language={json ? 'json' : 'text'}
+            name={name}
             value={editorValue}
             onValueChange={onChange}
             suggestions={templateSuggestions}
@@ -291,6 +322,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
         <div class={`plg-float ${filled ? 'is-filled' : ''}`}>
           <div class="plg-float__control plg-float__control--textarea">
             <textarea
+              name={name}
               rows={kind === 'code' ? 16 : 6}
               spellcheck={false}
               value={text}
@@ -319,6 +351,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
         <div class="plg-float is-filled">
           <div class="plg-float__control">
             <input
+              name={name}
               type="number"
               value={displayValue}
               placeholder=" "
@@ -347,6 +380,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
       <div class="plg-field">
         <TemplateField
           locale={locale}
+          name={name}
           value={displayValue}
           onValueChange={onChange}
           suggestions={templateSuggestions}
@@ -365,6 +399,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
       <div class={`plg-float ${displayValue.trim().length > 0 ? 'is-filled' : ''}`}>
         <div class="plg-float__control">
           <input
+            name={name}
             type="text"
             value={displayValue}
             placeholder=" "
@@ -383,12 +418,14 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
 
 /** Select with floating label + tooltips on every option (`title`). */
 function SelectField({
+  name,
   label,
   hintText,
   value,
   options,
   onChange,
 }: {
+  name: string;
   label: string;
   hintText: string;
   template?: boolean;
@@ -402,6 +439,7 @@ function SelectField({
       <div class={`plg-float ${filled ? 'is-filled' : ''}`}>
         <div class="plg-float__control">
           <select
+            name={name}
             value={value}
             aria-label={label}
             onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}

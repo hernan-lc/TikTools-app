@@ -1,7 +1,8 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { InfoTip } from './InfoTip.vue';
 import { defineVueComponent } from '../../vue/component.ts';
+import { dispatchControlEvent, syncNativeControlValue } from './control-events.ts';
 
 export type NumberInputHandle = {
   getValue: () => number;
@@ -18,6 +19,7 @@ type NumberInputProps = {
   disabled?: boolean;
   error?: string;
   id?: string;
+  name?: string;
   suffix?: string;
   placeholder?: string;
   /** MUI-style floating label. */
@@ -40,13 +42,26 @@ function toFixedStep(v: number, step?: number): number {
 }
 
 export const NumberInput = defineVueComponent<NumberInputProps>(
-  ['value', 'onValueChange', 'min', 'max', 'step', 'disabled', 'error', 'id', 'suffix', 'placeholder', 'label', 'hint'],
+  ['value', 'onValueChange', 'min', 'max', 'step', 'disabled', 'error', 'id', 'name', 'suffix', 'placeholder', 'label', 'hint'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
+  const commitProgrammaticValue = (value: number): void => {
+    const next = clamp(toFixedStep(value, props.step), props.min, props.max);
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, String(next));
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(next);
+  };
   context.expose({
     getValue: () => props.value,
-    setValue: (value: number) => props.onValueChange(clamp(toFixedStep(value, props.step), props.min, props.max)),
+    setValue: commitProgrammaticValue,
     focus: () => innerRef.value?.focus(),
+  });
+
+  watch(() => props.value, (value) => {
+    if (innerRef.value) syncNativeControlValue(innerRef.value, String(value));
   });
 
   const handleInput = (e: Event) => {
@@ -59,11 +74,11 @@ export const NumberInput = defineVueComponent<NumberInputProps>(
   const nudge = (dir: 1 | -1) => {
     if (props.disabled) return;
     const next = clamp(toFixedStep(props.value + dir * (props.step ?? 1), props.step), props.min, props.max);
-    props.onValueChange(next);
+    commitProgrammaticValue(next);
   };
 
   return () => {
-    const { value, onValueChange, min, max, step = 1, disabled, error, id, suffix, placeholder, label, hint } = props;
+    const { value, min, max, step = 1, disabled, error, id, name, suffix, placeholder, label, hint } = props;
     if (label) {
       return (
       <div class={`ui-float is-filled ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
@@ -71,6 +86,7 @@ export const NumberInput = defineVueComponent<NumberInputProps>(
           <input
             ref={innerRef}
             id={id}
+            name={name}
             type="number"
             value={String(value)}
             min={min}
@@ -101,6 +117,7 @@ export const NumberInput = defineVueComponent<NumberInputProps>(
       <input
         ref={innerRef}
         id={id}
+        name={name}
         type="number"
         value={String(value)}
         min={min}

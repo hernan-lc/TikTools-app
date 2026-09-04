@@ -206,6 +206,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
             <Card title={t(locale, 'pointsSystem')} icon={<IconCoins />}>
               <TextInput
                 id="tf-currency-name"
+                name="currencyName"
                 value={config.currencyName}
                 onValueChange={(v) => { localConfig.value = { ...localConfig.value, currencyName: v }; }}
                 label={t(locale, 'currencyName')}
@@ -215,11 +216,13 @@ export const PointsView = defineVueComponent<PointsViewProps>(
               <FieldRow label={t(locale, 'pointsPerCoin')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
+                    name="pointsPerCoinEnabled"
                     checked={config.pointsPerCoinEnabled}
                     onCheckedChange={(v) => !live && patchConfig('pointsPerCoinEnabled', v)}
                     disabled={live}
                   />
                   <NumberInput
+                    name="pointsPerCoin"
                     value={config.pointsPerCoin}
                     onValueChange={(v) => patchConfig('pointsPerCoin', v)}
                     min={0}
@@ -232,11 +235,13 @@ export const PointsView = defineVueComponent<PointsViewProps>(
               <FieldRow label={t(locale, 'pointsPerShare')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
+                    name="pointsPerShareEnabled"
                     checked={config.pointsPerShareEnabled}
                     onCheckedChange={(v) => !live && patchConfig('pointsPerShareEnabled', v)}
                     disabled={live}
                   />
                   <NumberInput
+                    name="pointsPerShare"
                     value={config.pointsPerShare}
                     onValueChange={(v) => patchConfig('pointsPerShare', v)}
                     min={0}
@@ -249,11 +254,13 @@ export const PointsView = defineVueComponent<PointsViewProps>(
               <FieldRow label={t(locale, 'pointsPerChat')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
+                    name="pointsPerChatEnabled"
                     checked={config.pointsPerChatEnabled}
                     onCheckedChange={(v) => !live && patchConfig('pointsPerChatEnabled', v)}
                     disabled={live}
                   />
                   <NumberInput
+                    name="pointsPerChat"
                     value={config.pointsPerChat}
                     onValueChange={(v) => patchConfig('pointsPerChat', v)}
                     min={0}
@@ -266,11 +273,13 @@ export const PointsView = defineVueComponent<PointsViewProps>(
               <FieldRow label={t(locale, 'pointsPerLike')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
+                    name="pointsPerLikeEnabled"
                     checked={config.pointsPerLikeEnabled}
                     onCheckedChange={(v) => !live && patchConfig('pointsPerLikeEnabled', v)}
                     disabled={live}
                   />
                   <NumberInput
+                    name="pointsPerLike"
                     value={config.pointsPerLike}
                     onValueChange={(v) => patchConfig('pointsPerLike', v)}
                     min={0}
@@ -283,11 +292,13 @@ export const PointsView = defineVueComponent<PointsViewProps>(
               <FieldRow label={t(locale, 'pointsPerFollow')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
+                    name="pointsPerFollowEnabled"
                     checked={config.pointsPerFollowEnabled}
                     onCheckedChange={(v) => !live && patchConfig('pointsPerFollowEnabled', v)}
                     disabled={live}
                   />
                   <NumberInput
+                    name="pointsPerFollow"
                     value={config.pointsPerFollow}
                     onValueChange={(v) => patchConfig('pointsPerFollow', v)}
                     min={0}
@@ -301,6 +312,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
             <Card title={t(locale, 'subBonus')} subtitle={t(locale, 'subBonusLead')} icon={<IconStar />}>
               <FieldRow label={t(locale, 'subBonusRatio')}>
                 <NumberInput
+                  name="subBonusMultiplier"
                   value={config.subBonusMultiplier}
                   onValueChange={(v) => patchConfig('subBonusMultiplier', v)}
                   min={0}
@@ -315,6 +327,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
             <Card title={t(locale, 'levelConfig')} subtitle={t(locale, 'levelConfigLead')} icon={<IconFlame />}>
               <FieldRow label={t(locale, 'pointsPerLevel')}>
                 <NumberInput
+                  name="pointsPerLevel"
                   value={config.pointsPerLevel}
                   onValueChange={(v) => patchConfig('pointsPerLevel', Math.max(10, v | 0))}
                   min={10}

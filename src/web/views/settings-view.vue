@@ -20,6 +20,7 @@ function renderSettingsView({ locale, theme, onLocaleChange, onThemeChange }: Se
       <Card title={t(locale, 'preferences')} subtitle={t(locale, 'preferencesLead')} icon={<IconSettings />}>
         <Select
           id="settings-language"
+          name="language"
           value={locale}
           label={t(locale, 'language')}
           onValueChange={(v) => onLocaleChange(v as Locale)}
@@ -31,6 +32,7 @@ function renderSettingsView({ locale, theme, onLocaleChange, onThemeChange }: Se
 
         <Select
           id="settings-theme-select"
+          name="theme"
           value={theme}
           label={t(locale, 'theme')}
           onValueChange={(v) => onThemeChange(v as Theme)}

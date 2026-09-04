@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 import { InfoTip } from './InfoTip.vue';
+import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from './control-events.ts';
 
 export type TextInputHandle = {
   getValue: () => string;
@@ -26,6 +27,7 @@ type TextInputProps = {
   disabled?: boolean;
   error?: string;
   id?: string;
+  name?: string;
   type?: 'text' | 'password';
   autoComplete?: string;
   spellCheck?: boolean;
@@ -35,19 +37,27 @@ type TextInputProps = {
 };
 
 export const TextInput = defineVueComponent<TextInputProps>(
-  ['value', 'onValueChange', 'placeholder', 'label', 'hint', 'template', 'templateHint', 'prefix', 'suffix', 'disabled', 'error', 'id', 'type', 'autoComplete', 'spellCheck', 'required', 'clearable', 'onEnter'],
+  ['value', 'onValueChange', 'placeholder', 'label', 'hint', 'template', 'templateHint', 'prefix', 'suffix', 'disabled', 'error', 'id', 'name', 'type', 'autoComplete', 'spellCheck', 'required', 'clearable', 'onEnter'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
+  const commitProgrammaticValue = (value: string): void => {
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, value);
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(value);
+  };
   context.expose({
-    getValue: () => innerRef.value?.value ?? props.value,
-    setValue: (value: string) => props.onValueChange(value),
+    getValue: () => innerRef.value?.value ?? normalizeControlString(props.value),
+    setValue: commitProgrammaticValue,
     focus: () => innerRef.value?.focus(),
-    clear: () => props.onValueChange(''),
-    validate: () => !(props.required && !props.value.trim()),
+    clear: () => commitProgrammaticValue(''),
+    validate: () => !(props.required && !normalizeControlString(props.value).trim()),
   });
 
   watch(() => props.value, (value) => {
-    if (innerRef.value && innerRef.value.value !== value) innerRef.value.value = value;
+    if (innerRef.value) syncNativeControlValue(innerRef.value, value);
   });
 
   const handleInput = (e: Event) => props.onValueChange((e.currentTarget as HTMLInputElement).value);
@@ -56,7 +66,8 @@ export const TextInput = defineVueComponent<TextInputProps>(
   };
 
   return () => {
-    const { value, onValueChange, placeholder, label, hint, prefix, suffix, disabled, error, id, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter } = props;
+    const { placeholder, label, hint, prefix, suffix, disabled, error, id, name, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter } = props;
+    const value = normalizeControlString(props.value);
     if (label) {
       const filled = value.trim().length > 0 || type === 'password' && value.length > 0;
       return (
@@ -66,6 +77,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
           <input
             ref={innerRef}
             id={id}
+            name={name}
             type={type}
             value={value}
             placeholder=" "
@@ -83,7 +95,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
           {clearable && value ? (
-            <button type="button" class="ui-float__clear" style={{ right: suffix ? 44 : 8 }} onClick={() => onValueChange('')} aria-label="Clear">×</button>
+            <button type="button" class="ui-float__clear" style={{ right: suffix ? 44 : 8 }} onClick={() => commitProgrammaticValue('')} aria-label="Clear">×</button>
           ) : null}
           {suffix ? <span class="ui-float__suffix">{suffix}</span> : null}
         </div>
@@ -98,6 +110,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
       <input
         ref={innerRef}
         id={id}
+        name={name}
         type={type}
         value={value}
         placeholder={placeholder}
@@ -110,7 +123,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
         onKeydown={handleKeyDown}
       />
       {clearable && value ? (
-        <button type="button" class="ui-input__clear" onClick={() => onValueChange('')} aria-label="Clear">
+        <button type="button" class="ui-input__clear" onClick={() => commitProgrammaticValue('')} aria-label="Clear">
           ×
         </button>
       ) : null}
@@ -127,21 +140,34 @@ export type SearchInputProps = {
   placeholder?: string;
   disabled?: boolean;
   id?: string;
+  name?: string;
 };
 
 export const SearchInput = defineVueComponent<SearchInputProps>(
-  ['value', 'onValueChange', 'placeholder', 'disabled', 'id'],
+  ['value', 'onValueChange', 'placeholder', 'disabled', 'id', 'name'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
+  const commitProgrammaticValue = (value: string): void => {
+    const control = innerRef.value;
+    if (control) {
+      syncNativeControlValue(control, value);
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(value);
+  };
   context.expose({
-    getValue: () => innerRef.value?.value ?? props.value,
-    setValue: (value: string) => props.onValueChange(value),
+    getValue: () => innerRef.value?.value ?? normalizeControlString(props.value),
+    setValue: commitProgrammaticValue,
     focus: () => innerRef.value?.focus(),
-    clear: () => props.onValueChange(''),
+    clear: () => commitProgrammaticValue(''),
     validate: () => true,
   });
+  watch(() => props.value, (value) => {
+    if (innerRef.value) syncNativeControlValue(innerRef.value, value);
+  });
   return () => {
-    const { value, onValueChange, placeholder, disabled, id } = props;
+    const { placeholder, disabled, id, name } = props;
+    const value = normalizeControlString(props.value);
     return (
     <div class={`ui-search ${disabled ? 'is-disabled' : ''}`}>
       <span class="ui-search__icon" aria-hidden>
@@ -150,14 +176,15 @@ export const SearchInput = defineVueComponent<SearchInputProps>(
       <input
         ref={innerRef}
         id={id}
+        name={name}
         type="text"
         value={value}
         placeholder={placeholder}
         disabled={disabled}
-        onInput={(e) => onValueChange((e.currentTarget as HTMLInputElement).value)}
+        onInput={(e) => props.onValueChange((e.currentTarget as HTMLInputElement).value)}
       />
       {value ? (
-        <button type="button" class="ui-search__clear" onClick={() => onValueChange('')} aria-label="Clear search">
+        <button type="button" class="ui-search__clear" onClick={() => commitProgrammaticValue('')} aria-label="Clear search">
           ×
         </button>
       ) : null}

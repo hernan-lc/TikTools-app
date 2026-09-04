@@ -7,6 +7,7 @@ import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
 import { AutocompletePortal } from './AutocompletePortal.vue';
 import { InfoTip } from '../ui/InfoTip.vue';
+import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from '../ui/control-events.ts';
 import { t, type Locale } from '../../i18n.ts';
 
 /** Anything list-like works: TemplateSuggestion is an AutocompleteItem. */
@@ -21,6 +22,7 @@ type TemplateFieldProps = {
   multiline?: boolean;
   rows?: number;
   ariaLabel?: string;
+  name?: string;
   /** Kept for compatibility; no longer rendered (see dropdown footer). */
   hintText?: string;
   /** MUI-style floating label. When set, label lives inside until focus/filled. */
@@ -99,6 +101,7 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
     'multiline',
     'rows',
     'ariaLabel',
+    'name',
     'hintText',
     'label',
     'hint',
@@ -113,8 +116,23 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
   const fieldRef = ref<HTMLDivElement | null>(null);
   const focused = ref(false);
   const forcedOpen = ref(false);
-  const cursor = ref(props.value.length);
+  const value = computed(() => normalizeControlString(props.value));
+  const cursor = ref(value.value.length);
   const suggestionIndex = ref(0);
+
+  watch(value, (next) => {
+    if (inputRef.value) syncNativeControlValue(inputRef.value, next);
+    cursor.value = Math.min(cursor.value, next.length);
+  });
+
+  const commitProgrammaticValue = (nextValue: string): void => {
+    const control = inputRef.value;
+    if (control) {
+      syncNativeControlValue(control, nextValue);
+      dispatchControlEvent(control);
+    }
+    props.onValueChange(nextValue);
+  };
 
   const updateCursor = (event: Event): void => {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
@@ -131,7 +149,7 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
   };
 
   const suggestionMode = computed(() => props.suggestionMode ?? 'template');
-  const token = computed(() => getToken(props.value, cursor.value, suggestionMode.value));
+  const token = computed(() => getToken(value.value, cursor.value, suggestionMode.value));
   const items = computed(() => dedupeItems(props.suggestions.map(toItem)));
   // URL mode: presets live in the same dropdown; bare words match presets
   // only, variables stay behind `{{ }}` / Ctrl+Space.
@@ -178,15 +196,15 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
   const insertSuggestion = (suggestion: { value: string }): void => {
     const element = inputRef.value;
     const offset = element?.selectionStart ?? cursor.value;
-    const current = getToken(props.value, offset, suggestionMode.value);
+    const current = getToken(value.value, offset, suggestionMode.value);
     // Replace the exact range being typed: the `{{ …` span when inside
     // braces, the bare word (`event.us`) when completing outside them.
     // Inserting at the cursor without replacing duplicated the word.
     const start = suggestionMode.value === 'path' || current.inside || current.query.length > 0 ? current.start : offset;
     const inserted = suggestionMode.value === 'path' ? suggestion.value : `{{ ${suggestion.value} }}`;
-    const nextValue = `${props.value.slice(0, start)}${inserted}${props.value.slice(offset)}`;
+    const nextValue = `${value.value.slice(0, start)}${inserted}${value.value.slice(offset)}`;
     const nextCursor = start + inserted.length;
-    props.onValueChange(nextValue);
+    commitProgrammaticValue(nextValue);
     cursor.value = nextCursor;
     forcedOpen.value = false;
     requestAnimationFrame(() => {
@@ -197,9 +215,9 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
 
   /** URL preset pick: swap only the origin, keeping the typed path/query. */
   const insertPreset = (preset: FetchUrlTemplate): void => {
-    const nextValue = applyFetchUrlTemplate(props.value, preset.url);
+    const nextValue = applyFetchUrlTemplate(value.value, preset.url);
     const nextCursor = nextValue.length;
-    props.onValueChange(nextValue);
+    commitProgrammaticValue(nextValue);
     cursor.value = nextCursor;
     forcedOpen.value = false;
     requestAnimationFrame(() => {
@@ -262,13 +280,14 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
     onScroll: syncHighlightScroll,
   } as const;
 
-  const highlight = renderHighlight(props.value);
+  const highlight = renderHighlight(value.value);
 
   const control = multiline ? (
     <textarea
       ref={(element) => { inputRef.value = element as HTMLTextAreaElement | null; }}
       class="node-editor-template-control node-editor-template-control--textarea tpl-transparent"
-      value={props.value}
+      name={props.name}
+      value={value.value}
       rows={rows}
       placeholder={props.label ? ' ' : props.placeholder}
       {...shared}
@@ -278,7 +297,8 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
       ref={(element) => { inputRef.value = element as HTMLInputElement | null; }}
       class="node-editor-template-control tpl-transparent"
       type="text"
-      value={props.value}
+      name={props.name}
+      value={value.value}
       placeholder={props.label ? ' ' : props.placeholder}
       {...shared}
     />
@@ -305,7 +325,7 @@ export const TemplateField = defineVueComponent<TemplateFieldProps>(
   );
 
   if (props.label) {
-    const filled = props.value.trim().length > 0;
+    const filled = value.value.trim().length > 0;
     return (
       <div ref={fieldRef} class={`node-editor-template-field node-editor-template-field--float ${filled ? 'is-filled' : ''} ${multiline ? 'is-multiline' : ''}`}>
         <div class="node-editor-template-control-wrap">

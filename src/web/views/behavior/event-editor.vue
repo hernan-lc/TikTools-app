@@ -114,6 +114,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                     <label class="plg-label">{t(props.locale, 'behavior.copy.trigger')}</label>
                     <select
                       class="plg-select"
+                      name="trigger"
                       value={draftValue.trigger}
                       onChange={(node) => update({ trigger: (node.currentTarget as HTMLSelectElement).value as AutomationEventType })}
                     >
@@ -126,6 +127,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                     <label class="plg-label">{t(props.locale, 'behavior.copy.name')}</label>
                     <input
                       class="plg-input"
+                      name="eventName"
                       value={draftValue.name}
                       onInput={(node) => update({ name: (node.currentTarget as HTMLInputElement).value })}
                     />
@@ -200,6 +202,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                     <label class="plg-label">{t(props.locale, 'behavior.copy.cooldown')}</label>
                     <select
                       class="plg-select"
+                      name="cooldownMs"
                       value={String(draftValue.cooldownMs)}
                       onChange={(node) => update({ cooldownMs: Number((node.currentTarget as HTMLSelectElement).value) })}
                     >
@@ -221,6 +224,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                     </div>
                     <select
                       class="plg-select"
+                      name="cooldownScope"
                       value={draftValue.cooldownScope}
                       onChange={(node) => update({ cooldownScope: (node.currentTarget as HTMLSelectElement).value === 'global' ? 'global' : 'user' })}
                     >
