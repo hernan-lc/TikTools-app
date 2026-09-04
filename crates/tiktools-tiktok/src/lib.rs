@@ -527,7 +527,9 @@ async fn bootstrap_guest_session() -> Result<ttl_sign_core::CookieJar, TikTokErr
             }
         }
     }
-    let _ = response.bytes().await;
+    // The bootstrap response body is not used. Dropping the response avoids
+    // buffering an attacker-controlled document merely to collect cookies.
+    drop(response);
     if !status.is_success() {
         return Err(TikTokError::Discovery(format!(
             "guest bootstrap returned HTTP {}",
@@ -567,11 +569,8 @@ async fn load_signing_bundle(config: &NativeTikTokConfig) -> Result<String, TikT
             response.status().as_u16()
         )));
     }
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| TikTokError::Bundle(error.to_string()))?;
-    if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
+    let bytes = read_limited_response(response, 8 * 1024 * 1024).await?;
+    if bytes.is_empty() {
         return Err(TikTokError::Bundle(
             "downloaded bundle has an invalid size".to_owned(),
         ));
@@ -593,6 +592,34 @@ async fn load_signing_bundle(config: &NativeTikTokConfig) -> Result<String, TikT
             .map_err(|error| TikTokError::Bundle(error.to_string()))?;
     }
     Ok(source)
+}
+
+async fn read_limited_response(
+    mut response: reqwest::Response,
+    max_bytes: usize,
+) -> Result<Vec<u8>, TikTokError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > max_bytes as u64)
+    {
+        return Err(TikTokError::Bundle(format!(
+            "downloaded response exceeds the {max_bytes} byte limit"
+        )));
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| TikTokError::Bundle(error.to_string()))?
+    {
+        if bytes.len().saturating_add(chunk.len()) > max_bytes {
+            return Err(TikTokError::Bundle(format!(
+                "downloaded response exceeds the {max_bytes} byte limit"
+            )));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
 }
 
 async fn read_bundle(path: &Path) -> Result<String, TikTokError> {

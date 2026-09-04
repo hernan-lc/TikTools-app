@@ -86,6 +86,8 @@ pub trait PluginRuntime: Send + Sync {
     ) -> Result<Box<dyn PluginInstance>, PluginLoaderError>;
 }
 
+type PluginInstanceHandle = Arc<Mutex<Box<dyn PluginInstance>>>;
+
 #[derive(Default)]
 pub struct RuntimeRegistry {
     runtimes: BTreeMap<PluginRuntimeKind, Arc<dyn PluginRuntime>>,
@@ -95,9 +97,9 @@ impl RuntimeRegistry {
     pub fn new() -> Self {
         let mut registry = Self::default();
         #[cfg(feature = "native-plugins")]
-        registry.register(Arc::new(NativePluginRuntime::default()));
-        registry.register(Arc::new(ProcessPluginRuntime::default()));
-        registry.register(Arc::new(WasmPluginRuntime::default()));
+        registry.register(Arc::new(NativePluginRuntime));
+        registry.register(Arc::new(ProcessPluginRuntime));
+        registry.register(Arc::new(WasmPluginRuntime));
         registry
     }
 
@@ -122,7 +124,8 @@ pub struct PluginManager {
     roots: Vec<PluginRoot>,
     registry: RwLock<PluginRegistry>,
     runtimes: RuntimeRegistry,
-    instances: RwLock<BTreeMap<String, Mutex<Box<dyn PluginInstance>>>>,
+    instances: RwLock<BTreeMap<String, PluginInstanceHandle>>,
+    lifecycle: Mutex<()>,
 }
 
 impl PluginManager {
@@ -136,6 +139,7 @@ impl PluginManager {
             registry: RwLock::new(PluginRegistry::default()),
             runtimes,
             instances: RwLock::new(BTreeMap::new()),
+            lifecycle: Mutex::new(()),
         }
     }
 
@@ -216,6 +220,7 @@ impl PluginManager {
     }
 
     pub fn start(&self, id: &str) -> Result<(), PluginLoaderError> {
+        let _lifecycle = self.lifecycle.lock().expect("plugin lifecycle poisoned");
         if self
             .instances
             .read()
@@ -241,22 +246,23 @@ impl PluginManager {
         self.instances
             .write()
             .expect("plugin instances poisoned")
-            .insert(id.to_owned(), Mutex::new(instance));
+            .insert(id.to_owned(), Arc::new(Mutex::new(instance)));
         self.set_running(id, true);
         Ok(())
     }
 
     pub fn stop(&self, id: &str) -> Result<(), PluginLoaderError> {
-        let instance = self
-            .instances
-            .write()
-            .expect("plugin instances poisoned")
-            .remove(id);
+        let instance = {
+            let _lifecycle = self.lifecycle.lock().expect("plugin lifecycle poisoned");
+            self.remove_instance(id)
+        };
         if let Some(instance) = instance {
-            instance
-                .into_inner()
+            let result = instance
+                .lock()
                 .expect("plugin instance poisoned")
-                .shutdown()?;
+                .shutdown();
+            self.set_running(id, false);
+            return result;
         }
         self.set_running(id, false);
         Ok(())
@@ -280,17 +286,33 @@ impl PluginManager {
     pub fn call(&self, id: &str, request: &Value) -> Result<Value, PluginLoaderError> {
         let bytes = serde_json::to_vec(request)
             .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
-        let instances = self.instances.read().expect("plugin instances poisoned");
-        let instance = instances
+        let instance = self
+            .instances
+            .read()
+            .expect("plugin instances poisoned")
             .get(id)
+            .cloned()
             .ok_or_else(|| PluginLoaderError::NotFound(id.to_owned()))?;
         let response = instance
             .lock()
             .expect("plugin instance poisoned")
-            .handle_message(&bytes)?;
-        serde_json::from_slice(&response).map_err(|error| {
-            PluginLoaderError::Runtime(format!("plugin returned invalid JSON: {error}"))
-        })
+            .handle_message(&bytes);
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                self.remove_failed_instance(id, &instance);
+                return Err(error);
+            }
+        };
+        match serde_json::from_slice(&response) {
+            Ok(response) => Ok(response),
+            Err(error) => {
+                self.remove_failed_instance(id, &instance);
+                Err(PluginLoaderError::Runtime(format!(
+                    "plugin returned invalid JSON: {error}"
+                )))
+            }
+        }
     }
 
     pub fn start_all(&self) -> Vec<(String, Result<(), PluginLoaderError>)> {
@@ -313,6 +335,38 @@ impl PluginManager {
             .get_mut(id)
         {
             plugin.running = running;
+        }
+    }
+
+    fn remove_instance(&self, id: &str) -> Option<PluginInstanceHandle> {
+        self.instances
+            .write()
+            .expect("plugin instances poisoned")
+            .remove(id)
+    }
+
+    fn remove_failed_instance(&self, id: &str, failed: &PluginInstanceHandle) {
+        let removed = {
+            let _lifecycle = self.lifecycle.lock().expect("plugin lifecycle poisoned");
+            let mut instances = self.instances.write().expect("plugin instances poisoned");
+            if instances
+                .get(id)
+                .is_some_and(|current| Arc::ptr_eq(current, failed))
+            {
+                instances.remove(id)
+            } else {
+                None
+            }
+        };
+        if let Some(instance) = removed {
+            if let Err(error) = instance
+                .lock()
+                .expect("plugin instance poisoned")
+                .shutdown()
+            {
+                tracing::warn!(id = %id, %error, "failed plugin shutdown after an unhealthy call");
+            }
+            self.set_running(id, false);
         }
     }
 }

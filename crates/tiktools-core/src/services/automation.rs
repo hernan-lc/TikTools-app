@@ -10,6 +10,8 @@ use serde_json::Value;
 
 use super::ScriptService;
 
+const MAX_COOLDOWN_MS: u64 = 24 * 60 * 60 * 1_000;
+
 /// Automation orchestration boundary. The workflow persistence and event
 /// routing stay in `AppCore`; script evaluation is isolated here so it can be
 /// tested without a desktop object or a plugin runtime.
@@ -25,7 +27,7 @@ pub struct AutomationService {
 impl Default for AutomationService {
     fn default() -> Self {
         Self {
-            script: ScriptService::default(),
+            script: ScriptService,
             actions: RwLock::new(BTreeMap::new()),
             events: RwLock::new(BTreeMap::new()),
             cooldowns: Mutex::new(BTreeMap::new()),
@@ -105,7 +107,8 @@ impl AutomationService {
         let cooldown_ms = record
             .get("cooldownMs")
             .and_then(number_u64)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .min(MAX_COOLDOWN_MS);
         if cooldown_ms == 0 {
             return true;
         }
@@ -125,6 +128,7 @@ impl AutomationService {
             .cooldowns
             .lock()
             .expect("automation cooldowns poisoned");
+        cooldowns.retain(|_, previous| now.saturating_sub(*previous) <= MAX_COOLDOWN_MS);
         if cooldowns
             .get(&key)
             .is_some_and(|previous| now.saturating_sub(*previous) < cooldown_ms)
@@ -151,7 +155,7 @@ impl AutomationService {
             .cloned()
             .collect::<Vec<_>>();
         if record.get("runMode").and_then(Value::as_str) == Some("random") && selected.len() > 1 {
-            let index = (self.sequence.fetch_add(1, Ordering::AcqRel) as usize) % selected.len();
+            let index = fastrand::usize(..selected.len());
             selected = vec![selected.swap_remove(index)];
         }
         selected
@@ -250,12 +254,20 @@ fn matches_filter(filter: &Value, event: &Value) -> bool {
         "gt" => numeric && left_number > right_number,
         "lte" => numeric && left_number <= right_number,
         "lt" => numeric && left_number < right_number,
-        "eq" => numeric
-            .then(|| left_number == right_number)
-            .unwrap_or_else(|| left == right),
-        "neq" => numeric
-            .then(|| left_number != right_number)
-            .unwrap_or_else(|| left != right),
+        "eq" => {
+            if numeric {
+                left_number == right_number
+            } else {
+                left == right
+            }
+        }
+        "neq" => {
+            if numeric {
+                left_number != right_number
+            } else {
+                left != right
+            }
+        }
         "contains" => left
             .to_ascii_lowercase()
             .contains(&right.to_ascii_lowercase()),

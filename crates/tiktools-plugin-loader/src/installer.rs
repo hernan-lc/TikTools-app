@@ -79,7 +79,7 @@ impl PluginInstaller {
         let mut archive = ZipArchive::new(file).map_err(|error| {
             PluginLoaderError::Runtime(format!("could not inspect plugin archive: {error}"))
         })?;
-        if archive.len() == 0 || archive.len() > MAX_FILES {
+        if archive.is_empty() || archive.len() > MAX_FILES {
             return Err(PluginLoaderError::Runtime(
                 "plugin archive contains an invalid number of entries".to_owned(),
             ));

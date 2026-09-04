@@ -37,6 +37,8 @@ use tiktools_plugin_api::{
     AudioPlayOptions, AudioPlaybackResult, MediaFileRef, MediaPickerOptions, MediaSelection,
 };
 use tiktools_plugin_loader::{plugin_roots, PluginManager};
+#[cfg(feature = "native-tiktok")]
+use tokio::sync::Semaphore;
 
 #[cfg(feature = "native-tiktok")]
 use tiktools_tiktok::{events::LiveEvent as NativeLiveEvent, ClientEvent, ConnectRequest};
@@ -85,9 +87,19 @@ pub struct AppCore {
     emitter: Arc<dyn HostEmitter>,
     last_automation_event: RwLock<Option<serde_json::Value>>,
     last_automation_event_at: RwLock<Option<u64>>,
+    last_automation_context_emit_at: AtomicU64,
     automation_sequence: AtomicU64,
+    /// Bounds native-live automation work. Events arriving while all slots
+    /// are occupied are intentionally dropped; live delivery must remain
+    /// responsive and disposable events must not create an unbounded task
+    /// backlog.
+    #[cfg(feature = "native-tiktok")]
+    pub(crate) automation_slots: Arc<Semaphore>,
+    last_leaderboard_emit_at: AtomicU64,
     #[cfg(feature = "http")]
-    http_client: reqwest::Client,
+    http_client: Option<reqwest::Client>,
+    #[cfg(feature = "http")]
+    http_client_error: Option<String>,
     #[cfg(feature = "native-tiktok")]
     connection_sequence: AtomicU64,
     connection_context: RwLock<Option<LiveContext>>,
@@ -126,8 +138,10 @@ impl AppCore {
         let live = {
             #[cfg(feature = "native-tiktok")]
             {
-                let mut config = tiktools_tiktok::NativeTikTokConfig::default();
-                config.bundle_cache_path = Some(db.paths().data.join("webmssdk.js"));
+                let config = tiktools_tiktok::NativeTikTokConfig {
+                    bundle_cache_path: Some(db.paths().data.join("webmssdk.js")),
+                    ..Default::default()
+                };
                 LiveService::with_native_config(config)
             }
             #[cfg(not(feature = "native-tiktok"))]
@@ -142,15 +156,21 @@ impl AppCore {
             automation.replace_snapshot(&snapshot);
         }
         #[cfg(feature = "http")]
-        let http_client = reqwest::Client::builder()
+        let (http_client, http_client_error) = match reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .unwrap_or_else(|error| {
-                tracing::warn!(%error, "could not configure HTTP client without redirects");
-                reqwest::Client::new()
-            });
+        {
+            Ok(client) => (Some(client), None),
+            Err(error) => {
+                let message = format!(
+                        "HTTP automation is disabled because the hardened client could not be created: {error}"
+                    );
+                tracing::error!(%error, "hardened HTTP client unavailable; refusing insecure fallback");
+                (None, Some(message))
+            }
+        };
 
-        Self {
+        let core = Self {
             live: Arc::new(live),
             points: Arc::new(PointsService::new(db.clone())),
             automation,
@@ -163,19 +183,51 @@ impl AppCore {
             emitter,
             last_automation_event: RwLock::new(None),
             last_automation_event_at: RwLock::new(None),
+            last_automation_context_emit_at: AtomicU64::new(0),
             automation_sequence: AtomicU64::new(0),
+            #[cfg(feature = "native-tiktok")]
+            automation_slots: Arc::new(Semaphore::new(32)),
+            last_leaderboard_emit_at: AtomicU64::new(0),
             #[cfg(feature = "http")]
             http_client,
+            #[cfg(feature = "http")]
+            http_client_error,
             #[cfg(feature = "native-tiktok")]
             connection_sequence: AtomicU64::new(0),
             connection_context: RwLock::new(None),
             #[cfg(feature = "native-tiktok")]
             live_pump_started: AtomicBool::new(false),
+        };
+        #[cfg(feature = "http")]
+        if let Some(message) = core.http_client_error.clone() {
+            core.emit(HostMessage::AutomationError { message });
         }
+        core
     }
 
     pub fn emit(&self, message: HostMessage) {
         self.emitter.emit(message);
+    }
+
+    /// Publishes a leaderboard snapshot at a bounded rate. Callers that need
+    /// an immediate snapshot (for example an explicit UI request) still emit
+    /// directly; high-rate live events use this coalescing boundary.
+    pub(crate) fn emit_leaderboard_if_due(&self) {
+        const MIN_INTERVAL_MS: u64 = 250;
+        let now = now_millis();
+        let last = self.last_leaderboard_emit_at.load(Ordering::Acquire);
+        if last != 0 && now.saturating_sub(last) < MIN_INTERVAL_MS {
+            return;
+        }
+        if self
+            .last_leaderboard_emit_at
+            .compare_exchange(last, now, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            self.emit(HostMessage::Leaderboard {
+                viewers: self.points.leaderboard(Some(50)),
+            });
+        }
     }
 
     /// Opens the host-owned native picker and returns a validated reference to

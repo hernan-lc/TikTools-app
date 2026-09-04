@@ -267,6 +267,7 @@ export function useAppController() {
     if (message.type === 'behavior-runs') behaviorRuns.value = message.runs;
     if (message.type === 'behavior-test-result') behaviorTestRuns.value = message.runs;
     if (message.type === 'behavior-error') behaviorError.value = message.message;
+    if (message.type === 'automation-error') behaviorError.value = message.message;
 
     if (message.type === 'plugin-settings') {
       pluginSettings.value = {

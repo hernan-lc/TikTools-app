@@ -10,19 +10,14 @@ use serde::{Deserialize, Serialize};
 
 pub const MEDIA_REFERENCE_VERSION: u32 = 1;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum MediaKind {
+    #[default]
     Audio,
     Video,
     Image,
     Other,
-}
-
-impl Default for MediaKind {
-    fn default() -> Self {
-        Self::Audio
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -127,18 +122,13 @@ pub enum MediaSelection {
     Directory { directory: MediaDirectoryRef },
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum AudioOverlap {
+    #[default]
     Allow,
     Restart,
     Drop,
-}
-
-impl Default for AudioOverlap {
-    fn default() -> Self {
-        Self::Allow
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

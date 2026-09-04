@@ -73,7 +73,8 @@ impl PointsService {
         let service = Self::default();
         #[cfg(feature = "persistence")]
         {
-            if let Ok(config) = database.load_points_config() {
+            if let Ok(mut config) = database.load_points_config() {
+                config.normalize();
                 *service.config.write().expect("points config poisoned") = config;
             }
             if let Ok(viewers) = database.load_point_viewers() {
@@ -83,7 +84,7 @@ impl PointsService {
             // short-lived rusqlite connection per operation.
             let mut service = service;
             service.database = Some(database);
-            return service;
+            service
         }
         #[cfg(not(feature = "persistence"))]
         {
@@ -209,6 +210,7 @@ impl PointsService {
         let updated = {
             let mut config = self.config.write().expect("points config poisoned");
             update.apply(&mut config);
+            config.normalize();
             config.clone()
         };
         #[cfg(feature = "persistence")]
@@ -272,7 +274,7 @@ impl PointsService {
             })?;
             let points = viewer.get("points").and_then(Value::as_f64).unwrap_or(0.0) + delta;
             let points = points.max(0.0);
-            let level = ((points / self.config().points_per_level.max(1.0)).floor() as u32)
+            let level = ((points / self.config().points_per_level.max(10.0)).floor() as u32)
                 .saturating_add(1);
             if let Some(object) = viewer.as_object_mut() {
                 object.insert("points".to_owned(), Value::from(points));
@@ -461,5 +463,28 @@ mod tests {
         assert_eq!(viewer["points"], 0.0);
         assert_eq!(viewer["level"], 1);
         assert_eq!(viewer["totalChats"], 1);
+    }
+
+    #[test]
+    fn point_configuration_normalizes_unsafe_ranges() {
+        let mut config = PointsConfig {
+            points_per_coin: -10.0,
+            points_per_share: f64::NAN,
+            points_per_chat: 2.0,
+            points_per_like: f64::INFINITY,
+            points_per_follow: 2.0,
+            points_per_join: 2.0,
+            sub_bonus_multiplier: -1.0,
+            points_per_level: 1.0,
+            currency_name: "   ".to_owned(),
+            ..PointsConfig::default()
+        };
+        config.normalize();
+        assert_eq!(config.points_per_coin, 0.0);
+        assert_eq!(config.points_per_share, 3.0);
+        assert_eq!(config.points_per_like, 0.1);
+        assert_eq!(config.sub_bonus_multiplier, 0.0);
+        assert_eq!(config.points_per_level, 10.0);
+        assert_eq!(config.currency_name, "Points");
     }
 }

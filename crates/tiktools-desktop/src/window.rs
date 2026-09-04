@@ -11,7 +11,7 @@ use winit::{
 };
 use wry::{
     dpi::{PhysicalPosition as WryPhysicalPosition, PhysicalSize as WryPhysicalSize},
-    Rect, WebView, WebViewBuilder,
+    NewWindowResponse, Rect, WebView, WebViewBuilder,
 };
 
 use crate::{
@@ -68,10 +68,28 @@ impl DesktopApp {
 
         let router = self.router.clone();
         let runtime = self.runtime.clone();
+        let navigation_frontend = self.frontend.clone();
+        let new_window_frontend = self.frontend.clone();
         let mut builder = WebViewBuilder::new()
             .with_devtools(cfg!(debug_assertions) || cfg!(feature = "devtools"))
             .with_focused(true)
             .with_autoplay(true)
+            .with_navigation_handler(move |url| {
+                let allowed = navigation_frontend.allows_navigation(&url);
+                if !allowed {
+                    tracing::warn!(url = %url, "blocked WebView navigation outside the application frontend");
+                }
+                allowed
+            })
+            .with_new_window_req_handler(move |url, _features| {
+                if new_window_frontend.allows_navigation(&url) {
+                    tracing::debug!(url = %url, "allowing same-origin WebView window request");
+                    NewWindowResponse::Allow
+                } else {
+                    tracing::warn!(url = %url, "blocked WebView new-window request");
+                    NewWindowResponse::Deny
+                }
+            })
             .with_ipc_handler(move |request| {
                 let raw = request.body().clone();
                 let router = router.clone();

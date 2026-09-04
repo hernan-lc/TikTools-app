@@ -256,9 +256,7 @@ impl AppCore {
         self.emit(HostMessage::PointsConfig {
             config: self.points.config(),
         });
-        self.emit(HostMessage::Leaderboard {
-            viewers: self.points.leaderboard(Some(50)),
-        });
+        self.emit_leaderboard_if_due();
 
         self.emit(HostMessage::GiftCatalog { gifts });
 
@@ -367,9 +365,7 @@ impl AppCore {
             }
         }
         self.emit(HostMessage::LiveEvent { event: ui_event });
-        self.emit(HostMessage::Leaderboard {
-            viewers: self.points.leaderboard(Some(50)),
-        });
+        self.emit_leaderboard_if_due();
     }
 
     #[cfg(feature = "native-tiktok")]
@@ -465,22 +461,36 @@ impl AppCore {
             )),
             NativeLiveEvent::Social { action, .. } => {
                 let is_follow = *action == 1;
+                let is_share = *action == 3;
+                let (text, i18n_key, point_action, reason) = if is_follow {
+                    (
+                        "followed the creator",
+                        "followedCreator",
+                        PointAction::Follow,
+                        "follow",
+                    )
+                } else if is_share {
+                    ("shared the LIVE", "sharedLive", PointAction::Share, "share")
+                } else {
+                    (
+                        "performed a social action",
+                        "socialAction",
+                        PointAction::Manual,
+                        "social",
+                    )
+                };
                 Some((
                     json!({
                         "kind": "social",
                         "author": unique_id,
                         "nickname": user.nickname,
-                        "text": if is_follow { "followed the creator" } else { "shared the LIVE" },
-                        "i18nKey": if is_follow { "followedCreator" } else { "sharedLive" },
+                        "text": text,
+                        "i18nKey": i18n_key,
                         "i18nParams": {}
                     }),
-                    if is_follow {
-                        PointAction::Follow
-                    } else {
-                        PointAction::Share
-                    },
+                    point_action,
                     base_options(),
-                    if is_follow { "follow" } else { "share" },
+                    reason,
                 ))
             }
             NativeLiveEvent::RoomUser { .. } | NativeLiveEvent::Unknown { .. } => None,
@@ -655,9 +665,21 @@ impl AppCore {
     #[cfg(feature = "native-tiktok")]
     pub(super) fn queue_automation_event(self: &Arc<Self>, event: serde_json::Value) {
         self.remember_automation_event(&event);
+        let event_type = event
+            .get("type")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown");
+        let Ok(permit) = Arc::clone(&self.automation_slots).try_acquire_owned() else {
+            tracing::warn!(
+                event_type,
+                "automation concurrency limit reached; dropping live automation event"
+            );
+            return;
+        };
         let core = Arc::clone(self);
         tokio::spawn(async move {
             Box::pin(core.run_automation_event(event)).await;
+            drop(permit);
         });
     }
 
@@ -671,13 +693,29 @@ impl AppCore {
             .write()
             .expect("automation timestamp lock poisoned") = Some(now_millis());
         self.events.publish(AppEvent::TikTok(event.clone()));
-        self.emit(HostMessage::AutomationContext {
-            event: Some(event.clone()),
-            captured_at: *self
-                .last_automation_event_at
-                .read()
-                .expect("automation timestamp lock poisoned"),
-        });
+        let now = now_millis();
+        let last = self
+            .last_automation_context_emit_at
+            .load(std::sync::atomic::Ordering::Acquire);
+        if (last == 0 || now.saturating_sub(last) >= 100)
+            && self
+                .last_automation_context_emit_at
+                .compare_exchange(
+                    last,
+                    now,
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                )
+                .is_ok()
+        {
+            self.emit(HostMessage::AutomationContext {
+                event: Some(event.clone()),
+                captured_at: *self
+                    .last_automation_event_at
+                    .read()
+                    .expect("automation timestamp lock poisoned"),
+            });
+        }
     }
 
     pub(super) async fn publish_disconnected_event(self: &Arc<Self>) {

@@ -91,6 +91,30 @@ pub(crate) async fn validate_http_url(
     allowed_hosts: Option<&[String]>,
     allow_private_network: bool,
 ) -> Result<(), String> {
+    validate_http_url_shape(url, configured_host, allowed_hosts, allow_private_network)?;
+    let host = url
+        .host_str()
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "HTTP URL has no host.".to_owned())?;
+    let port = url
+        .port_or_known_default()
+        .ok_or_else(|| "HTTP URL has no valid port.".to_owned())?;
+    let addresses = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .map_err(|_| format!("HTTP host could not be resolved: {host}"))?;
+    if !allow_private_network && addresses.map(|address| address.ip()).any(is_private_ip) {
+        return Err(format!("HTTP host resolves to a private address: {host}"));
+    }
+    Ok(())
+}
+
+#[cfg(feature = "http")]
+pub(crate) fn validate_http_url_shape(
+    url: &reqwest::Url,
+    configured_host: &str,
+    allowed_hosts: Option<&[String]>,
+    allow_private_network: bool,
+) -> Result<(), String> {
     if !matches!(url.scheme(), "http" | "https") {
         return Err("Only http:// and https:// URLs are allowed.".to_owned());
     }
@@ -111,15 +135,6 @@ pub(crate) async fn validate_http_url(
     }
     if is_private_host(&host) && !allow_private_network {
         return Err(format!("HTTP request to a private host is blocked: {host}"));
-    }
-    let port = url
-        .port_or_known_default()
-        .ok_or_else(|| "HTTP URL has no valid port.".to_owned())?;
-    let addresses = tokio::net::lookup_host((host.as_str(), port))
-        .await
-        .map_err(|_| format!("HTTP host could not be resolved: {host}"))?;
-    if !allow_private_network && addresses.map(|address| address.ip()).any(is_private_ip) {
-        return Err(format!("HTTP host resolves to a private address: {host}"));
     }
     Ok(())
 }

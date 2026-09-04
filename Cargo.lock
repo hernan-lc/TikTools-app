@@ -4303,6 +4303,7 @@ dependencies = [
 name = "tiktools-core"
 version = "0.1.0"
 dependencies = [
+ "fastrand",
  "napi-vm",
  "reqwest 0.13.4",
  "rusqlite",

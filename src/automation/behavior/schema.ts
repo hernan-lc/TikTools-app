@@ -17,6 +17,8 @@ export const BEHAVIOR_TRIGGERS: AutomationEventType[] = [
   'tiktok.join',
   'tiktok.social',
   'tiktok.room_stats',
+  'tiktok.connected',
+  'tiktok.disconnected',
   'points.awarded',
   'plugin.emit',
 ];

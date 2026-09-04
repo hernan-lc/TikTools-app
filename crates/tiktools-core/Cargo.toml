@@ -22,6 +22,7 @@ tiktools-plugin-loader = { path = "../tiktools-plugin-loader", default-features 
 tiktools-tiktok = { path = "../tiktools-tiktok", optional = true }
 serde.workspace = true
 serde_json.workspace = true
+fastrand.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 tokio.workspace = true

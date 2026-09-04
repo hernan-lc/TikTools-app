@@ -165,11 +165,42 @@ async fn napi_vm_audio_intent_uses_the_same_validated_media_api() {
     let media = Arc::new(RecordingMediaHost::default());
     let core = Arc::new(AppCore::with_media_host(emitter, media.clone()));
 
+    let action = json!({
+        "id": "vm-audio",
+        "name": "VM audio",
+        "typeId": "core.code",
+        "config": {
+            "source": format!(
+                "return {{ playAudio: {{ fileRef: {{ path: {:?} }}, volume: 0.5 }} }};",
+                file.to_string_lossy()
+            )
+        }
+    });
+    let run = core.execute_action(&action, &json!({}), None, false).await;
+
+    assert_eq!(run["status"], "ok");
+    let played = media.played.lock().expect("media playback lock poisoned");
+    assert_eq!(played.len(), 1);
+    assert_eq!(
+        played[0].path,
+        std::fs::canonicalize(&file).unwrap().to_string_lossy()
+    );
+    drop(played);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[tokio::test]
+async fn test_action_is_a_dry_run_for_audio() {
+    let (root, file) = media_fixture();
+    let emitter = Arc::new(RecordingEmitter::default());
+    let media = Arc::new(RecordingMediaHost::default());
+    let core = Arc::new(AppCore::with_media_host(emitter, media.clone()));
+
     let run = core
         .test_action(
             &json!({
-                "id": "vm-audio",
-                "name": "VM audio",
+                "id": "vm-audio-test",
+                "name": "VM audio test",
                 "typeId": "core.code",
                 "config": {
                     "source": format!(
@@ -183,13 +214,12 @@ async fn napi_vm_audio_intent_uses_the_same_validated_media_api() {
         .await;
 
     assert_eq!(run["status"], "ok");
-    let played = media.played.lock().expect("media playback lock poisoned");
-    assert_eq!(played.len(), 1);
-    assert_eq!(
-        played[0].path,
-        std::fs::canonicalize(&file).unwrap().to_string_lossy()
-    );
-    drop(played);
+    assert!(run["summary"].as_str().unwrap().contains("would play"));
+    assert!(media
+        .played
+        .lock()
+        .expect("media playback lock poisoned")
+        .is_empty());
     let _ = std::fs::remove_dir_all(root);
 }
 

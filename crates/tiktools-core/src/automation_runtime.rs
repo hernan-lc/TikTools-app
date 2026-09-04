@@ -1,5 +1,10 @@
 use super::*;
 
+const AUTOMATION_ACTION_DEADLINE: std::time::Duration = std::time::Duration::from_secs(125);
+const PLUGIN_CALL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
+#[cfg(feature = "http")]
+const MAX_HTTP_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
+
 impl AppCore {
     pub(super) async fn test_action(
         self: &Arc<Self>,
@@ -131,9 +136,18 @@ impl AppCore {
             .cloned()
             .unwrap_or_default();
         let mut logs = Vec::new();
-        let result = self
-            .execute_action_impl(&type_id, &config, action, event, &mut logs, test)
-            .await;
+        let result = match tokio::time::timeout(
+            AUTOMATION_ACTION_DEADLINE,
+            self.execute_action_impl(&type_id, &config, action, event, &mut logs, test),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(format!(
+                "Automation action timed out after {} seconds.",
+                AUTOMATION_ACTION_DEADLINE.as_secs()
+            )),
+        };
 
         let (status, summary, error) = match result {
             Ok(summary) => ("ok", summary, None),
@@ -191,13 +205,19 @@ impl AppCore {
                     .get("data")
                     .map(|value| render_json_map(value, event))
                     .unwrap_or_default();
-                self.publish_automation_event(self.make_internal_automation_event(
-                    event,
-                    &event_type,
-                    Value::Object(payload.into_iter().collect()),
-                ))
-                .await;
-                Ok(format!("emit {event_type}"))
+                if !test {
+                    self.publish_automation_event(self.make_internal_automation_event(
+                        event,
+                        &event_type,
+                        Value::Object(payload.into_iter().collect()),
+                    ))
+                    .await;
+                }
+                Ok(if test {
+                    format!("would emit {event_type}")
+                } else {
+                    format!("emit {event_type}")
+                })
             }
             "core.points" => {
                 let unique_id = render_template(
@@ -207,6 +227,9 @@ impl AppCore {
                 let delta = number_value(config.get("delta")).unwrap_or_default();
                 if unique_id.trim().is_empty() || !delta.is_finite() || delta == 0.0 {
                     return Err("Points action needs a viewer and a non-zero number.".to_owned());
+                }
+                if test {
+                    return Ok(format!("would award {unique_id} {delta:+}"));
                 }
                 let award = self
                     .points
@@ -218,9 +241,7 @@ impl AppCore {
                     total_points: award.total_points,
                     level: award.level,
                 });
-                self.emit(HostMessage::Leaderboard {
-                    viewers: self.points.leaderboard(Some(50)),
-                });
+                self.emit_leaderboard_if_due();
                 Ok(format!("{} {:+}", award.unique_id, award.delta))
             }
             "core.delay" => {
@@ -233,7 +254,7 @@ impl AppCore {
                 Ok(format!("wait {millis} ms"))
             }
             "audio.play" | "core.audio.play" => {
-                self.execute_audio_action(config, event, logs).await
+                self.execute_audio_action(config, event, logs, test).await
             }
             "core.code" => {
                 let source = config
@@ -264,13 +285,19 @@ impl AppCore {
                         .get("data")
                         .map(|value| render_json_map(value, event))
                         .unwrap_or_default();
-                    self.publish_automation_event(self.make_internal_automation_event(
-                        event,
-                        &event_type,
-                        Value::Object(payload.into_iter().collect()),
-                    ))
-                    .await;
-                    parts.push(format!("emit {event_type}"));
+                    if !test {
+                        self.publish_automation_event(self.make_internal_automation_event(
+                            event,
+                            &event_type,
+                            Value::Object(payload.into_iter().collect()),
+                        ))
+                        .await;
+                    }
+                    parts.push(if test {
+                        format!("would emit {event_type}")
+                    } else {
+                        format!("emit {event_type}")
+                    });
                 }
                 for intent in result
                     .get(tiktools_plugin_api::AUDIO_PLAY_INTENT)
@@ -280,7 +307,7 @@ impl AppCore {
                     let Some(intent) = intent.as_object() else {
                         continue;
                     };
-                    parts.push(self.execute_audio_action(intent, event, logs).await?);
+                    parts.push(self.execute_audio_action(intent, event, logs, test).await?);
                 }
                 if let Some(intent) = result.get("fetch").and_then(Value::as_object) {
                     let mut fetch_config = intent.clone();
@@ -289,8 +316,14 @@ impl AppCore {
                     }
                     let allowed_hosts = hosts_in_source(source);
                     parts.push(
-                        self.execute_http_action(&fetch_config, event, logs, Some(&allowed_hosts))
-                            .await?,
+                        self.execute_http_action(
+                            &fetch_config,
+                            event,
+                            logs,
+                            Some(&allowed_hosts),
+                            test,
+                        )
+                        .await?,
                     );
                 }
                 if parts.is_empty() {
@@ -299,10 +332,13 @@ impl AppCore {
                     Ok(parts.join(" · "))
                 }
             }
-            "core.fetch" => self.execute_http_action(config, event, logs, None).await,
+            "core.fetch" => {
+                self.execute_http_action(config, event, logs, None, test)
+                    .await
+            }
             _ if type_id.is_empty() => Err("Action has no typeId.".to_owned()),
             _ => {
-                self.execute_plugin_action(type_id, action, event, logs)
+                self.execute_plugin_action(type_id, action, event, logs, test)
                     .await
             }
         }
@@ -313,6 +349,7 @@ impl AppCore {
         config: &serde_json::Map<String, Value>,
         event: &Value,
         logs: &mut Vec<String>,
+        test: bool,
     ) -> Result<String, String> {
         let configured = config
             .get("fileRef")
@@ -346,6 +383,13 @@ impl AppCore {
             "drop" => tiktools_plugin_api::AudioOverlap::Drop,
             _ => tiktools_plugin_api::AudioOverlap::Allow,
         };
+        if test {
+            let summary = format!("would play {}", file.name);
+            if logs.len() < 40 {
+                logs.push(summary.clone());
+            }
+            return Ok(summary);
+        }
         let result = self
             .play_audio(
                 file.clone(),
@@ -383,6 +427,7 @@ impl AppCore {
         event: &Value,
         logs: &mut Vec<String>,
         allowed_hosts: Option<&[String]>,
+        test: bool,
     ) -> Result<String, String> {
         let raw_url = config
             .get("url")
@@ -401,7 +446,11 @@ impl AppCore {
             .get("allowPrivateNetwork")
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        validate_http_url(&url, &configured_host, allowed_hosts, allow_private_network).await?;
+        if test {
+            validate_http_url_shape(&url, &configured_host, allowed_hosts, allow_private_network)?;
+        } else {
+            validate_http_url(&url, &configured_host, allowed_hosts, allow_private_network).await?;
+        }
 
         let method_name = config
             .get("method")
@@ -411,8 +460,8 @@ impl AppCore {
             .to_ascii_uppercase();
         let method = reqwest::Method::from_bytes(method_name.as_bytes())
             .map_err(|_| format!("HTTP method is invalid: {method_name}"))?;
-        let mut request = self.http_client.request(method.clone(), url.clone());
         let mut content_type = String::new();
+        let mut rendered_headers = Vec::new();
         if let Some(headers) = config.get("headers").and_then(Value::as_object) {
             if headers.len() > 64 {
                 return Err("HTTP action has too many headers.".to_owned());
@@ -425,7 +474,7 @@ impl AppCore {
                 if key.eq_ignore_ascii_case("content-type") {
                     content_type = value.clone();
                 }
-                request = request.header(key, value);
+                rendered_headers.push((key.clone(), value));
             }
         }
         let body = config.get("body").and_then(|value| {
@@ -450,6 +499,24 @@ impl AppCore {
             {
                 return Err("The JSON body is invalid after applying the template.".to_owned());
             }
+        }
+        if test {
+            let summary = format!("would {method_name} request to {configured_host}");
+            if logs.len() < 40 {
+                logs.push(summary.clone());
+            }
+            return Ok(summary);
+        }
+        let http_client = self.http_client.as_ref().ok_or_else(|| {
+            self.http_client_error.clone().unwrap_or_else(|| {
+                "HTTP automation is disabled because its hardened client is unavailable.".to_owned()
+            })
+        })?;
+        let mut request = http_client.request(method.clone(), url.clone());
+        for (key, value) in rendered_headers {
+            request = request.header(key, value);
+        }
+        if let Some(body) = body.as_deref() {
             request = request.body(body.to_owned());
         }
         let timeout_ms = number_value(config.get("timeoutMs"))
@@ -481,12 +548,23 @@ impl AppCore {
             .and_then(|value| value.to_str().ok())
             .unwrap_or_default()
             .to_owned();
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| format!("could not read HTTP response: {error}"))?;
-        if bytes.len() > 2 * 1024 * 1024 {
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_HTTP_RESPONSE_BYTES as u64)
+        {
             return Err("HTTP response exceeds the 2 MiB limit.".to_owned());
+        }
+        let mut response = response;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| format!("could not read HTTP response: {error}"))?
+        {
+            if bytes.len().saturating_add(chunk.len()) > MAX_HTTP_RESPONSE_BYTES {
+                return Err("HTTP response exceeds the 2 MiB limit.".to_owned());
+            }
+            bytes.extend_from_slice(&chunk);
         }
         let body = if content_type.to_ascii_lowercase().contains("json") {
             serde_json::from_slice::<Value>(&bytes)
@@ -537,6 +615,7 @@ impl AppCore {
         _event: &Value,
         _logs: &mut Vec<String>,
         _allowed_hosts: Option<&[String]>,
+        _test: bool,
     ) -> Result<String, String> {
         Err("HTTP action execution requires the host HTTP capability.".to_owned())
     }
@@ -547,6 +626,7 @@ impl AppCore {
         action: &Value,
         event: &Value,
         logs: &mut Vec<String>,
+        test: bool,
     ) -> Result<String, String> {
         let Some((plugin, descriptor)) = self.plugin_for_action(type_id) else {
             return Err(format!(
@@ -590,6 +670,12 @@ impl AppCore {
                 )
                 .map_err(|error| error.to_string())?;
         }
+        if test {
+            return Ok(format!(
+                "would run plugin {} action {type_id}",
+                plugin.manifest.id
+            ));
+        }
         self.plugins
             .start(&plugin.manifest.id)
             .map_err(|error| error.to_string())?;
@@ -597,11 +683,20 @@ impl AppCore {
         let request = json!({"type": "action", "action": action, "event": event});
         let plugins = Arc::clone(&self.plugins);
         let request_for_call = request.clone();
-        let response =
-            tokio::task::spawn_blocking(move || plugins.call(&plugin_id, &request_for_call))
-                .await
-                .map_err(|error| format!("plugin task failed: {error}"))?
-                .map_err(|error| error.to_string())?;
+        let response = tokio::time::timeout(
+            PLUGIN_CALL_DEADLINE,
+            tokio::task::spawn_blocking(move || plugins.call(&plugin_id, &request_for_call)),
+        )
+        .await
+        .map_err(|_| {
+            format!(
+                "plugin `{}` timed out after {} seconds",
+                plugin.manifest.id,
+                PLUGIN_CALL_DEADLINE.as_secs()
+            )
+        })?
+        .map_err(|error| format!("plugin task failed: {error}"))?
+        .map_err(|error| error.to_string())?;
         self.events.publish(AppEvent::Plugin(json!({
             "pluginId": plugin.manifest.id,
             "type": "action-result",
@@ -637,7 +732,7 @@ impl AppCore {
             let Some(intent) = intent.as_object() else {
                 continue;
             };
-            parts.push(self.execute_audio_action(intent, event, logs).await?);
+            parts.push(self.execute_audio_action(intent, event, logs, test).await?);
         }
         for intent in response.get("emit").into_iter().flat_map(as_values) {
             let Some(intent) = intent.as_object() else {

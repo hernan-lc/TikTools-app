@@ -1,10 +1,12 @@
 //! Framed process runtime for crash-sensitive standalone plugins.
 
 use std::{
-    env,
+    env, fs,
     io::{BufReader, BufWriter},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    sync::mpsc,
+    time::Duration,
 };
 
 use serde_json::Value;
@@ -14,6 +16,8 @@ use tiktools_plugin_api::{
 };
 
 use crate::{PluginInstance, PluginLoaderError, PluginRuntime};
+
+const PROCESS_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Default)]
 pub struct ProcessPluginRuntime;
@@ -29,7 +33,20 @@ impl PluginRuntime for ProcessPluginRuntime {
         directory: &Path,
     ) -> Result<Box<dyn PluginInstance>, PluginLoaderError> {
         let entry = manifest.entry.as_str();
-        let entry_path = directory.join(entry);
+        let package_root = fs::canonicalize(directory).map_err(|error| {
+            PluginLoaderError::Runtime(format!(
+                "could not resolve plugin directory {}: {error}",
+                directory.display()
+            ))
+        })?;
+        let entry_path = fs::canonicalize(directory.join(entry)).map_err(|error| {
+            PluginLoaderError::Runtime(format!("could not resolve plugin entry {entry}: {error}"))
+        })?;
+        if !entry_path.starts_with(&package_root) {
+            return Err(PluginLoaderError::Runtime(format!(
+                "plugin entry escapes its package directory: {entry}"
+            )));
+        }
         if !entry_path.is_file() {
             return Err(PluginLoaderError::Runtime(format!(
                 "entry does not exist: {entry}"
@@ -46,10 +63,14 @@ impl PluginRuntime for ProcessPluginRuntime {
         let mut command = Command::new(program);
         command
             .args(args)
-            .current_dir(directory)
+            .current_dir(&package_root)
+            // A process plugin is still trusted executable code, but it does
+            // not need the host's complete environment. Only the explicit
+            // plugin contract is passed across this boundary.
+            .env_clear()
             .env("TIKTOOLS_PLUGIN_ID", &manifest.id)
             .env("TIKTOOLS_PLUGIN_VERSION", &manifest.version)
-            .env("TIKTOOLS_PLUGIN_DIRECTORY", directory)
+            .env("TIKTOOLS_PLUGIN_DIRECTORY", &package_root)
             .env("TIKTOOLS_PLUGIN_DATA_DIR", data_directory)
             .env("TIKTOOLS_PLUGIN_STORAGE_FILE", storage_file)
             .env(
@@ -75,8 +96,8 @@ impl PluginRuntime for ProcessPluginRuntime {
         Ok(Box::new(ProcessPluginInstance {
             id: manifest.id.clone(),
             child,
-            stdin: BufWriter::new(stdin),
-            stdout: BufReader::new(stdout),
+            stdin: Some(BufWriter::new(stdin)),
+            stdout: Some(BufReader::new(stdout)),
             next_request_id: 0,
         }))
     }
@@ -101,9 +122,16 @@ fn process_command(entry: &Path) -> Result<(PathBuf, Vec<String>), PluginLoaderE
 struct ProcessPluginInstance {
     id: String,
     child: Child,
-    stdin: BufWriter<ChildStdin>,
-    stdout: BufReader<ChildStdout>,
+    stdin: Option<BufWriter<ChildStdin>>,
+    stdout: Option<BufReader<ChildStdout>>,
     next_request_id: u64,
+}
+
+impl ProcessPluginInstance {
+    fn terminate_child(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
 }
 
 impl PluginInstance for ProcessPluginInstance {
@@ -118,10 +146,37 @@ impl PluginInstance for ProcessPluginInstance {
         let request_id = self.next_request_id.to_string();
         self.next_request_id = self.next_request_id.saturating_add(1);
         let message = PluginRequest::new(request_id.clone(), "call", payload);
-        write_frame(&mut self.stdin, &message)
-            .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
-        let response: PluginResponse = read_frame(&mut self.stdout)
-            .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
+        let mut stdin = self.stdin.take().ok_or_else(|| {
+            PluginLoaderError::Runtime("plugin process stdin is unavailable".to_owned())
+        })?;
+        let mut stdout = self.stdout.take().ok_or_else(|| {
+            PluginLoaderError::Runtime("plugin process stdout is unavailable".to_owned())
+        })?;
+        let (sender, receiver) = mpsc::sync_channel(1);
+        std::thread::spawn(move || {
+            let result = write_frame(&mut stdin, &message).and_then(|_| read_frame(&mut stdout));
+            let _ = sender.send((result, stdin, stdout));
+        });
+        let (result, stdin, stdout) = match receiver.recv_timeout(PROCESS_CALL_TIMEOUT) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.terminate_child();
+                return Err(PluginLoaderError::Runtime(format!(
+                    "plugin process call timed out after {} seconds",
+                    PROCESS_CALL_TIMEOUT.as_secs()
+                )));
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                self.terminate_child();
+                return Err(PluginLoaderError::Runtime(
+                    "plugin process I/O worker stopped unexpectedly".to_owned(),
+                ));
+            }
+        };
+        self.stdin = Some(stdin);
+        self.stdout = Some(stdout);
+        let response: PluginResponse =
+            result.map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
         if response.protocol_version != TIKTOOLS_PLUGIN_PROTOCOL_VERSION {
             return Err(PluginLoaderError::Runtime(format!(
                 "plugin process protocol mismatch: {}",
@@ -145,8 +200,9 @@ impl PluginInstance for ProcessPluginInstance {
     }
 
     fn shutdown(&mut self) -> Result<(), PluginLoaderError> {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        self.stdin.take();
+        self.stdout.take();
+        self.terminate_child();
         Ok(())
     }
 }

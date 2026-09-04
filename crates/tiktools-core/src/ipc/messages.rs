@@ -118,6 +118,44 @@ pub struct PointsConfig {
     pub points_per_level: f64,
 }
 
+impl PointsConfig {
+    /// Normalizes values at the service boundary so legacy databases and IPC
+    /// updates use the same safe ranges. Manual adjustments can still be
+    /// negative; per-event rates and the level threshold cannot.
+    pub fn normalize(&mut self) {
+        const MAX_RATE: f64 = 1_000_000_000.0;
+        const MAX_MULTIPLIER: f64 = 10_000.0;
+        const MIN_POINTS_PER_LEVEL: f64 = 10.0;
+
+        if self.currency_name.trim().is_empty() {
+            self.currency_name = "Points".to_owned();
+        } else {
+            self.currency_name = self.currency_name.trim().chars().take(64).collect();
+        }
+        self.points_per_coin = finite_nonnegative(self.points_per_coin, 1.0, MAX_RATE);
+        self.points_per_share = finite_nonnegative(self.points_per_share, 3.0, MAX_RATE);
+        self.points_per_chat = finite_nonnegative(self.points_per_chat, 1.0, MAX_RATE);
+        self.points_per_like = finite_nonnegative(self.points_per_like, 0.1, MAX_RATE);
+        self.points_per_follow = finite_nonnegative(self.points_per_follow, 5.0, MAX_RATE);
+        self.points_per_join = finite_nonnegative(self.points_per_join, 0.5, MAX_RATE);
+        self.sub_bonus_multiplier =
+            finite_nonnegative(self.sub_bonus_multiplier, 0.0, MAX_MULTIPLIER);
+        self.points_per_level = if self.points_per_level.is_finite() {
+            self.points_per_level.clamp(MIN_POINTS_PER_LEVEL, MAX_RATE)
+        } else {
+            100.0
+        };
+    }
+}
+
+fn finite_nonnegative(value: f64, fallback: f64, maximum: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, maximum)
+    } else {
+        fallback
+    }
+}
+
 impl Default for PointsConfig {
     fn default() -> Self {
         Self {
@@ -683,7 +721,7 @@ mod tests {
         assert_eq!(message.type_name(), "open-media-picker");
         let json = serde_json::to_string(&message).unwrap();
         assert!(json.contains("requestId"));
-        assert!(json.contains("initialDirectory") == false);
+        assert!(!json.contains("initialDirectory"));
 
         let response = HostMessage::MediaSelected {
             request_id: "media-1".to_owned(),

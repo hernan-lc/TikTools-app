@@ -935,7 +935,6 @@ fn chrono_like_now() -> i64 {
 mod tests {
     use std::{
         fs,
-        path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
     };
 
@@ -985,6 +984,6 @@ mod tests {
         let snapshot = database.load_behavior_snapshot().unwrap();
         assert_eq!(snapshot["actions"][0]["id"], "action-1");
 
-        let _ = fs::remove_dir_all(PathBuf::from(paths.root));
+        let _ = fs::remove_dir_all(paths.root);
     }
 }

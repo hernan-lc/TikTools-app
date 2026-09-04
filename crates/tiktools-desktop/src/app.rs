@@ -21,8 +21,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let media = Arc::new(crate::media::DesktopMediaHost::default());
     let core = Arc::new(AppCore::with_media_host(emitter, media));
     let router = Arc::new(IpcRouter::new(core.clone()));
-    let source = FrontendSource::from_environment()
-        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Other, error))?;
+    let source = FrontendSource::from_environment().map_err(std::io::Error::other)?;
     let mut app = DesktopApp::new(core, router, source, runtime.handle().clone(), proxy);
     event_loop.run_app(&mut app)?;
     Ok(())

@@ -36,18 +36,13 @@ impl PluginRuntimeKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum PluginTrust {
+    #[default]
     Trusted,
     Sandboxed,
     Untrusted,
-}
-
-impl Default for PluginTrust {
-    fn default() -> Self {
-        Self::Trusted
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

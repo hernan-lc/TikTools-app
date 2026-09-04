@@ -9,6 +9,25 @@ use percent_encoding::percent_decode_str;
 use url::Url;
 use wry::http::{header::CONTENT_TYPE, Request, Response, StatusCode};
 
+const PACKAGED_ASSET_SCHEME: &str = "tiktools";
+const PACKAGED_ASSET_HOST: &str = "app";
+const WINDOWS_PACKAGED_ASSET_HOST: &str = "tiktools.localhost";
+const PACKAGED_CONTENT_SECURITY_POLICY: &str = concat!(
+    "default-src 'self'; ",
+    "base-uri 'none'; ",
+    "object-src 'none'; ",
+    "frame-ancestors 'none'; ",
+    "frame-src 'none'; ",
+    "form-action 'none'; ",
+    "script-src 'self'; ",
+    "style-src 'self' 'unsafe-inline'; ",
+    "img-src 'self' data: https:; ",
+    "font-src 'self' data: https:; ",
+    "media-src 'self' blob:; ",
+    "connect-src 'self' http://localhost:* http://127.0.0.1:* http://[::1]:* ",
+    "ws://localhost:* ws://127.0.0.1:* ws://[::1]:* https: wss:"
+);
+
 #[derive(Clone)]
 pub enum FrontendSource {
     DevelopmentServer(Url),
@@ -19,11 +38,24 @@ impl FrontendSource {
     pub fn from_environment() -> Result<Self, String> {
         for variable in ["TIKTOOLS_DEV_URL", "TIKTOOLS_FRONTEND_URL"] {
             if let Some(value) = env::var_os(variable) {
+                if !cfg!(debug_assertions) {
+                    return Err(format!(
+                        "{variable} is only supported in debug builds; release builds use packaged assets"
+                    ));
+                }
                 let value = value.to_string_lossy();
                 let url = Url::parse(&value)
                     .map_err(|error| format!("{variable} is not a URL: {error}"))?;
                 if !matches!(url.scheme(), "http" | "https") {
                     return Err(format!("{variable} must use http or https"));
+                }
+                if !is_loopback_url(&url) {
+                    return Err(format!(
+                        "{variable} must point to localhost, 127.0.0.1, or ::1"
+                    ));
+                }
+                if !url.username().is_empty() || url.password().is_some() {
+                    return Err(format!("{variable} cannot contain embedded credentials"));
                 }
                 return Ok(Self::DevelopmentServer(url));
             }
@@ -73,6 +105,25 @@ impl FrontendSource {
             Self::EmbeddedAssets { root } => Some(AssetServer { root: root.clone() }),
         }
     }
+
+    /// Returns whether a navigation remains inside the frontend origin that
+    /// was selected for this window. The IPC bridge is only safe while this
+    /// policy holds, so every navigation and new-window request is checked by
+    /// the desktop layer.
+    pub fn allows_navigation(&self, raw_url: &str) -> bool {
+        let Ok(url) = Url::parse(raw_url) else {
+            return false;
+        };
+        match self {
+            Self::DevelopmentServer(expected) => same_origin(expected, &url),
+            Self::EmbeddedAssets { .. } => {
+                (url.scheme() == PACKAGED_ASSET_SCHEME
+                    && url.host_str() == Some(PACKAGED_ASSET_HOST))
+                    || (url.scheme() == "http"
+                        && url.host_str() == Some(WINDOWS_PACKAGED_ASSET_HOST))
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -117,9 +168,29 @@ impl AssetServer {
         Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, content_type(&canonical))
+            .header("content-security-policy", PACKAGED_CONTENT_SECURITY_POLICY)
             .body(Cow::Owned(bytes))
             .expect("asset response builder should accept static headers")
     }
+}
+
+fn same_origin(expected: &Url, actual: &Url) -> bool {
+    expected.scheme() == actual.scheme()
+        && expected.host() == actual.host()
+        && expected.port_or_known_default() == actual.port_or_known_default()
+        && actual.username().is_empty()
+        && actual.password().is_none()
+}
+
+fn is_loopback_url(url: &Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .map(|address| address.is_loopback())
+            .unwrap_or(false)
 }
 
 fn requested_path(raw: &str) -> Result<PathBuf, String> {
@@ -222,6 +293,31 @@ mod tests {
         );
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.body().as_ref(), b"ok");
+        assert_eq!(
+            response
+                .headers()
+                .get("content-security-policy")
+                .and_then(|value| value.to_str().ok()),
+            Some(PACKAGED_CONTENT_SECURITY_POLICY)
+        );
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn development_frontend_is_limited_to_loopback() {
+        let localhost = FrontendSource::DevelopmentServer(
+            Url::parse("http://127.0.0.1:3000").expect("valid URL"),
+        );
+        assert!(localhost.allows_navigation("http://127.0.0.1:3000/settings"));
+        assert!(!localhost.allows_navigation("http://127.0.0.1:3001/settings"));
+        assert!(!localhost.allows_navigation("https://example.com/"));
+
+        let packaged = FrontendSource::EmbeddedAssets {
+            root: Arc::new(PathBuf::from("/tmp/tiktools-web")),
+        };
+        assert!(packaged.allows_navigation("tiktools://app/index.html"));
+        assert!(packaged.allows_navigation("tiktools://app/assets/app.js"));
+        assert!(packaged.allows_navigation("http://tiktools.localhost/index.html"));
+        assert!(!packaged.allows_navigation("https://example.com/"));
     }
 }
