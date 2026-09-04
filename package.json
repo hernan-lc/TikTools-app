@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run build:web && cargo run -p tiktools-desktop",
+    "start": "bun run scripts/start-dev.ts",
+    "prepare:dev-plugins": "bun run scripts/prepare-dev-plugins.ts",
     "start:rust": "cargo run -p tiktools-desktop",
     "dev": "bun run serve:web",
     "build:web": "vite build",

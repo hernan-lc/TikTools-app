@@ -34,8 +34,12 @@ bun run test
 bun run start
 ```
 
-`start` builds `dist/web` and launches the Rust desktop binary. For fast UI
-iteration, run the frontend server and point the Rust host at it:
+`start` builds `dist/web`, compiles the checked-in process-plugin examples into
+the ignored `.dev-plugins` directory, and launches the Rust desktop binary with
+that directory as a development runtime root. This makes plugin changes easy
+to test without installing them into the user profile. Use `start:rust` to
+launch without rebuilding the example plugins. For fast UI-only iteration, run
+the frontend server and point the Rust host at it:
 
 ```bash
 bun run serve:web
@@ -53,6 +57,7 @@ cargo build -p tiktools-desktop --release
 
 ```bash
 bun run start             # Build the Vue assets and run the Rust host
+bun run prepare:dev-plugins # Compile and stage example plugins only
 bun run start:rust        # Run the Rust host against existing dist/web assets
 bun run dev               # Run the frontend development server
 bun run build:web         # Build dist/web

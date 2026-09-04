@@ -27,6 +27,15 @@ cargo check -p tiktools-desktop
 cargo run -p tiktools-desktop
 ```
 
+The normal `bun run start` command also runs
+`bun run prepare:dev-plugins`. It discovers example directories containing a
+`Cargo.toml` and `plugin.json`, builds process examples in debug mode, and
+stages them under the ignored `.dev-plugins` runtime root. This is a
+development convenience only; it does not install plugins into the user
+profile or add a compile-time plugin registry. Set
+`TIKTOOLS_SKIP_DEV_PLUGINS=1` to skip it, or use `bun run start:rust` when the
+existing frontend and plugin artifacts are sufficient.
+
 For live frontend changes:
 
 ```bash

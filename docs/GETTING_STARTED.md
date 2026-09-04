@@ -24,16 +24,25 @@ bun run test
 bun run start
 ```
 
-The `start` script builds the Vue assets into `dist/web`, then runs
-`tiktools-desktop`. The Rust host reads those assets through the
+The `start` script builds the Vue assets into `dist/web`, compiles and stages
+the checked-in process-plugin examples into the ignored `.dev-plugins`
+directory, then runs `tiktools-desktop` with that directory as a development
+plugin root. The Rust host reads the assets through the
 `tiktools://app/index.html` custom protocol and does not start a production
-localhost server.
+localhost server. Use `bun run start:rust` when you do not need the example
+plugin build.
 
 For UI-only iteration:
 
 ```bash
 bun run serve:web
 TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+```
+
+To only rebuild and stage example plugins:
+
+```bash
+bun run prepare:dev-plugins
 ```
 
 The development URL bypasses the custom protocol while retaining the same Wry
