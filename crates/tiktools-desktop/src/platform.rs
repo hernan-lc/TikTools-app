@@ -8,6 +8,15 @@ use wry::{WebView, WebViewBuilder};
 pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
+        // WebKitGTK/GLX can emit GLXBadWindow while Winit is processing a
+        // focus transition. Winit otherwise reports that queued Xlib error at
+        // the next IME operation and panics. This is the supported Winit hook
+        // for Xlib users such as WebKitGTK and matches Wry's Linux example.
+        winit::platform::x11::register_xlib_error_hook(Box::new(|_display, error| {
+            let error = error as *mut x11_dl::xlib::XErrorEvent;
+            unsafe { (*error).error_code == 170 }
+        }));
+
         // Wry's child-window backend is X11-only. When a desktop exposes both
         // Wayland and X11/XWayland, select the same backend for GTK and Winit
         // so the raw handles remain compatible. Native Wayland needs the
