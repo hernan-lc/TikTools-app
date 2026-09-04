@@ -28,7 +28,7 @@ the core does not require GTK.
 
 ## The page loads but does not respond
 
-The Preact app expects the Wry bridge `window.ipc.postMessage`. A normal
+The Vue app expects the Wry bridge `window.ipc.postMessage`. A normal
 browser tab or an arbitrary HTTP server does not provide that bridge. Use the
 Rust desktop host and inspect DevTools in a debug build. The raw message flow
 is:

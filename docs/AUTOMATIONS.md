@@ -1,6 +1,6 @@
 # Automations
 
-Automation data is stored in Rust and edited in the existing Preact UI.
+Automation data is stored in Rust and edited in the existing Vue UI.
 TikTok events enter the core event bus, where points, behavior records,
 workflow execution, plugins, and the UI can consume JSON-safe values.
 

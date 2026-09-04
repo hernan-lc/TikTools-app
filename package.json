@@ -7,19 +7,23 @@
     "start": "bun run build:web && cargo run -p tiktools-desktop",
     "start:rust": "cargo run -p tiktools-desktop",
     "dev": "bun run serve:web",
-    "build:web": "bun run scripts/build-web.ts",
-    "serve:web": "bun run scripts/serve-web.ts",
-    "typecheck": "bunx tsc --noEmit",
+    "build:web": "vite build",
+    "serve:web": "vite --host 127.0.0.1",
+    "typecheck": "vue-tsc --noEmit",
     "test": "bun test src/web src/automation",
     "check:rust": "cargo check --workspace",
     "test:rust": "cargo test --workspace",
     "build:desktop": "cargo build -p tiktools-desktop --release"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitejs/plugin-vue-jsx": "^5.1.6",
     "@types/bun": "latest",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vite": "^8.2.2",
+    "vue-tsc": "^3.3.11"
   },
   "dependencies": {
-    "preact": "^10.29.8"
+    "vue": "^3.5.42"
   }
 }

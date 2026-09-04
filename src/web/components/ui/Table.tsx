@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
+import { onMounted, onUnmounted, ref } from 'vue';
+import type { VNodeChild } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 export type Column<T> = {
   key: string;
@@ -7,7 +8,7 @@ export type Column<T> = {
   width?: string;
   align?: 'left' | 'right' | 'center';
   sortable?: boolean;
-  render?: (row: T, index: number) => ComponentChildren;
+  render?: (row: T, index: number) => VNodeChild;
   accessor?: (row: T) => string | number;
 };
 
@@ -25,7 +26,7 @@ type DataTableProps<T> = {
   data: T[];
   rowKey: keyof T | ((row: T) => string);
   stickyHeader?: boolean;
-  emptyState?: ComponentChildren;
+  emptyState?: VNodeChild;
   loading?: boolean;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T, index: number) => string | undefined;
@@ -57,8 +58,8 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
   if (loading) {
     return (
-      <div className="ui-table-wrap">
-        <div className="ui-table-skeleton">Loading…</div>
+      <div class="ui-table-wrap">
+        <div class="ui-table-skeleton">Loading…</div>
       </div>
     );
   }
@@ -77,16 +78,16 @@ export function DataTable<T extends Record<string, unknown>>({
   // Empty still shows pagination footer for navigating back after filter
   if (visibleRows.length === 0 && total === 0) {
     return (
-      <div className="ui-table-wrap">
-        <div style={{ padding: 4 }}>{emptyState ?? <div className="ui-empty__title">No data</div>}</div>
+      <div class="ui-table-wrap">
+        <div style={{ padding: 4 }}>{emptyState ?? <div class="ui-empty__title">No data</div>}</div>
         {showPagination ? <PaginationFooter pagination={pagination!} total={total} totalPages={totalPages} /> : null}
       </div>
     );
   }
 
   return (
-    <div className="ui-table-wrap ui-table-with-pagination">
-      <table className={`ui-table ${stickyHeader ? 'is-sticky' : ''}`}>
+    <div class="ui-table-wrap ui-table-with-pagination">
+      <table class={`ui-table ${stickyHeader ? 'is-sticky' : ''}`}>
         <thead>
           <tr>
             {columns.map((c) => {
@@ -114,7 +115,7 @@ export function DataTable<T extends Record<string, unknown>>({
             return (
               <tr
                 key={getKey(row, absoluteIdx, rowKey)}
-                className={rowClassName?.(row, absoluteIdx)}
+                class={rowClassName?.(row, absoluteIdx)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 style={onRowClick ? { cursor: 'pointer' } : undefined}
               >
@@ -150,8 +151,8 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
   for (let i = lo; i <= hi; i++) pages.push(i);
 
   return (
-    <div className="ui-pagination">
-      <div className="ui-pagination__info">
+    <div class="ui-pagination">
+      <div class="ui-pagination__info">
         {total > 0 ? `${start}–${end} of ${total}` : '0 results'}
         {onPageSizeChange ? (
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
@@ -159,7 +160,7 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(parseInt((e.target as HTMLSelectElement).value, 10))}
-              className="ui-pagination__select"
+              class="ui-pagination__select"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -170,23 +171,23 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
           </label>
         ) : null}
       </div>
-      <div className="ui-pagination__controls">
-        <button type="button" className="ui-pagination__btn" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))}>
+      <div class="ui-pagination__controls">
+        <button type="button" class="ui-pagination__btn" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))}>
           ‹
         </button>
         {lo > 1 ? (
           <>
-            <button type="button" className="ui-pagination__btn" onClick={() => onPageChange(1)}>
+            <button type="button" class="ui-pagination__btn" onClick={() => onPageChange(1)}>
               1
             </button>
-            {lo > 2 ? <span className="ui-pagination__ellipsis">…</span> : null}
+            {lo > 2 ? <span class="ui-pagination__ellipsis">…</span> : null}
           </>
         ) : null}
         {pages.map((p) => (
           <button
             key={p}
             type="button"
-            className={`ui-pagination__btn ${p === page ? 'is-active' : ''}`}
+            class={`ui-pagination__btn ${p === page ? 'is-active' : ''}`}
             onClick={() => onPageChange(p)}
           >
             {p}
@@ -194,13 +195,13 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
         ))}
         {hi < totalPages ? (
           <>
-            {hi < totalPages - 1 ? <span className="ui-pagination__ellipsis">…</span> : null}
-            <button type="button" className="ui-pagination__btn" onClick={() => onPageChange(totalPages)}>
+            {hi < totalPages - 1 ? <span class="ui-pagination__ellipsis">…</span> : null}
+            <button type="button" class="ui-pagination__btn" onClick={() => onPageChange(totalPages)}>
               {totalPages}
             </button>
           </>
         ) : null}
-        <button type="button" className="ui-pagination__btn" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>
+        <button type="button" class="ui-pagination__btn" disabled={page >= totalPages} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>
           ›
         </button>
       </div>
@@ -216,37 +217,41 @@ type RowActionsProps = {
   disabled?: boolean;
 };
 
-export function RowActions({ onAdd, onDeduct, onReset, disabled }: RowActionsProps) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+export const RowActions = defineVueComponent<RowActionsProps>(
+  ['onAdd', 'onDeduct', 'onReset', 'disabled'],
+  (props) => {
+  const open = ref(false);
+  const rootRef = ref<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    if (open) document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
+  const onDocClick = (e: MouseEvent) => {
+      if (rootRef.value && !rootRef.value.contains(e.target as Node)) open.value = false;
+  };
+  onMounted(() => document.addEventListener('mousedown', onDocClick));
+  onUnmounted(() => document.removeEventListener('mousedown', onDocClick));
 
-  return (
-    <div className="ui-row-actions" ref={ref}>
-      <button type="button" className="ui-row-actions__trigger" disabled={disabled} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="More options">
+  return () => {
+    const { onAdd, onDeduct, onReset, disabled } = props;
+    return (
+    <div class="ui-row-actions" ref={rootRef}>
+      <button type="button" class="ui-row-actions__trigger" disabled={disabled} onClick={() => (open.value = !open.value)} aria-haspopup="menu" aria-expanded={open.value} title="More options">
         ⋮
       </button>
-      {open ? (
-        <div className="ui-row-actions__menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => { setOpen(false); onAdd(); }}>
+      {open.value ? (
+        <div class="ui-row-actions__menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => { open.value = false; onAdd(); }}>
             + Add points
           </button>
-          <button type="button" role="menuitem" onClick={() => { setOpen(false); onDeduct(); }}>
+          <button type="button" role="menuitem" onClick={() => { open.value = false; onDeduct(); }}>
             − Deduct points
           </button>
-          <div className="ui-row-actions__divider" />
-          <button type="button" role="menuitem" className="is-danger" onClick={() => { setOpen(false); onReset(); }}>
+          <div class="ui-row-actions__divider" />
+          <button type="button" role="menuitem" class="is-danger" onClick={() => { open.value = false; onReset(); }}>
             Reset user
           </button>
         </div>
       ) : null}
     </div>
-  );
-}
+    );
+  };
+  },
+);

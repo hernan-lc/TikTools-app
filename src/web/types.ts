@@ -5,6 +5,7 @@ import type {
   UiEvent,
   ViewerRecord,
 } from '../shared/messages.ts';
+import type { JsonObject } from '../automation/types.ts';
 
 export type AppTab = 'feed' | 'points' | 'analytics' | 'connect' | 'behavior' | 'plugins' | 'settings';
 
@@ -28,6 +29,12 @@ export type StreamTelemetry = {
   gifts: number;
   likes: number;
   members: number;
+};
+
+export type PluginSettingsState = {
+  schema: JsonObject;
+  uiHints?: JsonObject;
+  values: JsonObject;
 };
 
 export type { CreatorRecord, PointsConfig, TopViewerPayload, ViewerRecord };

@@ -592,7 +592,7 @@ let pluginDictionary: TranslationCatalog = {};
 
 /**
  * Replace the optional plugin catalog delivered by the host. Keeping this in
- * the WebView avoids coupling plugin packages to Preact or to the DOM.
+ * the WebView avoids coupling plugin packages to Vue or to the DOM.
  */
 export function setPluginTranslations(catalog: TranslationCatalog | undefined): void {
   pluginDictionary = catalog ?? {};

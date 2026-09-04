@@ -35,35 +35,35 @@ export function TopNav({
   const isBusy = status === 'connecting' || status === 'retrying';
 
   return (
-    <header className="top-nav">
-      <div className="brand-section">
-        <div className="brand-logo" data-tooltip="TikTok LIVE" data-tooltip-pos="bottom">
+    <header class="top-nav">
+      <div class="brand-section">
+        <div class="brand-logo" data-tooltip="TikTok LIVE" data-tooltip-pos="bottom">
           <AppIcon size={28} />
         </div>
-        <div className="brand-info">
+        <div class="brand-info">
           <h1>
             TikTok LIVE
-            <span className={`badge-live ${isConnected ? 'live' : isBusy ? 'busy' : 'offline'}`}>
+            <span class={`badge-live ${isConnected ? 'live' : isBusy ? 'busy' : 'offline'}`}>
               {status === 'connected' ? t(locale, 'live') : isBusy ? t(locale, 'connecting') : t(locale, 'disconnected')}
             </span>
           </h1>
         </div>
       </div>
 
-      <div className="top-center">
+      <div class="top-center">
         {activeCreator ? (
-          <div className="active-creator-pill" data-tooltip={`Status: ${status}`} data-tooltip-pos="bottom">
-            <span className={`status-dot ${isConnected ? 'online' : isBusy ? 'busy' : 'offline'}`} />
+          <div class="active-creator-pill" data-tooltip={`Status: ${status}`} data-tooltip-pos="bottom">
+            <span class={`status-dot ${isConnected ? 'online' : isBusy ? 'busy' : 'offline'}`} />
             <span>@{activeCreator.replace(/^@/, '')}</span>
           </div>
         ) : null}
       </div>
 
-      <div className="top-actions">
+      <div class="top-actions">
         {isConnected ? (
           <>
             <button
-              className="btn-icon"
+              class="btn-icon"
               type="button"
               data-tooltip={t(locale, 'reconnect')}
               data-tooltip-pos="bottom"
@@ -72,7 +72,7 @@ export function TopNav({
               <IconRefresh />
             </button>
             <button
-              className="btn-icon btn-danger"
+              class="btn-icon btn-danger"
               type="button"
               data-tooltip={t(locale, 'disconnect')}
               data-tooltip-pos="bottom"
@@ -84,7 +84,7 @@ export function TopNav({
         ) : null}
 
         <button
-          className="btn-icon"
+          class="btn-icon"
           type="button"
           data-tooltip={t(locale, 'switchTheme')}
           data-tooltip-pos="bottom"
@@ -94,7 +94,7 @@ export function TopNav({
         </button>
 
         <button
-          className="btn-icon"
+          class="btn-icon"
           type="button"
           data-tooltip={t(locale, 'switchLanguage') + ` (${locale.toUpperCase()})`}
           data-tooltip-pos="bottom"

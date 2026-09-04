@@ -3,6 +3,7 @@ mod event;
 mod platform;
 mod tray;
 mod webview;
+mod window;
 
 fn main() {
     // rustls 0.23 cannot choose a provider when multiple TLS stacks are unified

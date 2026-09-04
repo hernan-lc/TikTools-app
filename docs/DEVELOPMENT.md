@@ -1,7 +1,7 @@
 # Development Guide
 
-TikTools has two intentionally separate edit loops: Bun builds/tests the
-Preact frontend, and Cargo builds/tests the Rust host. The desktop integration
+TikTools has two intentionally separate edit loops: Bun runs Vite/Vue
+builds/tests, and Cargo builds/tests the Rust host. The desktop integration
 is only needed when changing Winit, Wry, the tray, or the final IPC bridge.
 
 ## Fast checks
@@ -52,9 +52,9 @@ cargo build -p tiktools-desktop --release
 - `crates/tiktools-plugin-api`: manifest, protocol, capability names, and C ABI.
 - `crates/tiktools-plugin-loader`: runtime scanning, validation, installation,
   dynamic native libraries, process plugins, and the optional WASM boundary.
-- `src/web`: Preact presentation only.
+- `src/web`: Vue presentation only.
 - `src/automation`: editor contracts and the native event registry consumed by
-  the Preact UI.
+  the Vue UI.
 
 Keep Wry/Winit types out of core services. Use `HostEmitter` for outbound UI
 messages and `EventLoopProxy` for UI-thread work. Never put database handles,
@@ -67,16 +67,16 @@ event.
 2. Mirror it in `crates/tiktools-core/src/ipc/messages.rs`.
 3. Validate bounded input in both the frontend boundary and Rust parser.
 4. Route it in `AppCore::handle_page_message`.
-5. Add the matching `HostMessage` and update the Preact state handler.
+5. Add the matching `HostMessage` and update the Vue state handler.
 6. Test serialization and invalid-input rejection.
 
 The Rust parser is authoritative at runtime. The TypeScript contract stays in
-the repository so the existing Preact build remains compatible.
+the repository so the existing Vue build remains compatible.
 
 ## Adding an automation action
 
 Host action descriptors belong in the Rust catalog and are sent as JSON in the
-behavior snapshot. The Preact editor renders their field metadata; it must not
+behavior snapshot. The Vue editor renders their field metadata; it must not
 execute host behavior. An action implementation should:
 
 - validate its JSON configuration;

@@ -23,19 +23,19 @@ type FieldLabelProps = {
 export function FieldLabel({ label, hint, example, labelHint, htmlFor }: FieldLabelProps) {
   const tooltip = hint ?? labelHint;
   return (
-    <div className="plg-label-row">
-      <label className="plg-label" htmlFor={htmlFor}>
+    <div class="plg-label-row">
+      <label class="plg-label" for={htmlFor}>
         {label}
       </label>
       {tooltip ? <InfoTip text={tooltip} position="right" /> : null}
-      {example ? <span className="plg-field-example">{example}</span> : null}
+      {example ? <span class="plg-field-example">{example}</span> : null}
     </div>
   );
 }
 
 /** Inline hint under the control for short, always-visible guidance. */
 export function FieldInlineHint({ text }: { text: string }) {
-  return <span className="plg-field-hint">{text}</span>;
+  return <span class="plg-field-hint">{text}</span>;
 }
 
 /** Extract `{{ path }}` tokens so inputs can show what will be rendered. */

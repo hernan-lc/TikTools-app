@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
+import { onMounted, onUnmounted, ref } from 'vue';
+import type { VNodeChild } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 export type IconSelectOption = {
   value: string;
   label: string;
   /** Drawn inside the closed control and beside the option. */
-  icon?: ComponentChildren;
+  icon?: VNodeChild;
   /** Second line in the list: the code equivalent, a sample value… */
   meta?: string;
   hint?: string;
@@ -26,106 +27,109 @@ type IconSelectProps = {
  * icon used to sit outside as a second element; here the closed control shows
  * the selected option exactly as the list does, so there is only one of it.
  */
-export function IconSelect({ value, options, onChange, ariaLabel, className = '', placeholder }: IconSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const selected = options.find((option) => option.value === value);
+export const IconSelect = defineVueComponent<IconSelectProps>(
+  ['value', 'options', 'onChange', 'ariaLabel', 'className', 'placeholder'],
+  (props) => {
+  const open = ref(false);
+  const active = ref(0);
+  const rootRef = ref<HTMLDivElement | null>(null);
+  const onPointerDown = (event: MouseEvent): void => {
+    if (open.value && !rootRef.value?.contains(event.target as Node)) open.value = false;
+  };
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent): void => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [open]);
+  onMounted(() => document.addEventListener('mousedown', onPointerDown));
+  onUnmounted(() => document.removeEventListener('mousedown', onPointerDown));
 
   const openAt = (): void => {
-    setActive(Math.max(0, options.findIndex((option) => option.value === value)));
-    setOpen(true);
+    active.value = Math.max(0, props.options.findIndex((option) => option.value === props.value));
+    open.value = true;
   };
 
   const commit = (index: number): void => {
-    const option = options[index];
-    if (option) onChange(option.value);
-    setOpen(false);
+    const option = props.options[index];
+    if (option) props.onChange(option.value);
+    open.value = false;
   };
 
-  const onKeyDown = (event: KeyboardEvent): void => {
+  const onKeydown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
-      setOpen(false);
+      open.value = false;
       return;
     }
-    if (!open && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')) {
+    if (!open.value && (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown')) {
       event.preventDefault();
       openAt();
       return;
     }
-    if (!open) return;
+    if (!open.value) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActive((current) => Math.min(options.length - 1, current + 1));
+      active.value = Math.min(props.options.length - 1, active.value + 1);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((current) => Math.max(0, current - 1));
+      active.value = Math.max(0, active.value - 1);
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      commit(active);
+      commit(active.value);
     }
   };
 
-  return (
-    <div className={`ui-select ${className}`.trim()} ref={rootRef}>
+  return () => {
+    const { value, options, onChange, ariaLabel, className = '', placeholder } = props;
+    const selected = options.find((option) => option.value === value);
+    return (
+    <div class={`ui-select ${className}`.trim()} ref={rootRef}>
       <button
         type="button"
-        className={`ui-select__control${open ? ' is-open' : ''}`}
+        class={`ui-select__control${open.value ? ' is-open' : ''}`}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => (open ? setOpen(false) : openAt())}
-        onKeyDown={onKeyDown}
+        aria-expanded={open.value}
+        onClick={() => (open.value ? (open.value = false) : openAt())}
+        onKeydown={onKeydown}
       >
-        {selected?.icon && <span className="ui-select__icon">{selected.icon}</span>}
-        <span className="ui-select__value">{selected?.label ?? placeholder ?? ''}</span>
+        {selected?.icon && <span class="ui-select__icon">{selected.icon}</span>}
+        <span class="ui-select__value">{selected?.label ?? placeholder ?? ''}</span>
         <svg
-          className="ui-select__caret"
+          class="ui-select__caret"
           width="12"
           height="12"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
           aria-hidden="true"
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
 
-      {open && (
-        <div className="ui-select__menu" role="listbox" aria-label={ariaLabel}>
+      {open.value && (
+        <div class="ui-select__menu" role="listbox" aria-label={ariaLabel}>
           {options.map((option, index) => (
             <button
               type="button"
               key={option.value}
               role="option"
               aria-selected={option.value === value}
-              className={`ui-select__option${option.value === value ? ' is-selected' : ''}${index === active ? ' is-active' : ''}`}
+              class={`ui-select__option${option.value === value ? ' is-selected' : ''}${index === active.value ? ' is-active' : ''}`}
               title={option.hint}
-              onMouseEnter={() => setActive(index)}
+              onMouseenter={() => (active.value = index)}
               onClick={() => commit(index)}
             >
-              {option.icon && <span className="ui-select__icon">{option.icon}</span>}
-              <span className="ui-select__text">
-                <span className="ui-select__label">{option.label}</span>
-                {option.meta && <span className="ui-select__meta">{option.meta}</span>}
+              {option.icon && <span class="ui-select__icon">{option.icon}</span>}
+              <span class="ui-select__text">
+                <span class="ui-select__label">{option.label}</span>
+                {option.meta && <span class="ui-select__meta">{option.meta}</span>}
               </span>
             </button>
           ))}
         </div>
       )}
     </div>
-  );
-}
+    );
+  };
+  },
+);

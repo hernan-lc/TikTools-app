@@ -1,4 +1,4 @@
-import type { JSX } from 'preact';
+import type { VNode } from 'vue';
 
 import { EventCard } from '../components/event-card.tsx';
 import { IconArrowDown, IconChat, IconDot, IconGift, IconHeart, IconPause, IconSparkles, IconTrash, IconUsers } from '../components/icons.tsx';
@@ -22,7 +22,7 @@ type FeedViewProps = {
   onSearchChange: (q: string) => void;
   onToggleAutoScroll: () => void;
   onClearFeed: () => void;
-  streamContainerRef: (el: HTMLDivElement | null) => void;
+  streamContainerRef: (el: Element | null) => void;
 };
 
 export function FeedView({
@@ -41,7 +41,7 @@ export function FeedView({
   onClearFeed,
   streamContainerRef,
 }: FeedViewProps) {
-  const filterButtons: Array<{ key: EventFilter; tooltip: string; icon: JSX.Element }> = [
+  const filterButtons: Array<{ key: EventFilter; tooltip: string; icon: VNode }> = [
     { key: 'all', tooltip: t(locale, 'filterAll'), icon: <IconSparkles /> },
     { key: 'chat', tooltip: t(locale, 'filterChats'), icon: <IconChat /> },
     { key: 'gift', tooltip: t(locale, 'filterGifts'), icon: <IconGift /> },
@@ -64,14 +64,14 @@ export function FeedView({
   });
 
   return (
-    <main className="feed-pane">
-      <div className="feed-toolbar">
-        <div className="filter-icon-group">
+    <main class="feed-pane">
+      <div class="feed-toolbar">
+        <div class="filter-icon-group">
           {filterButtons.map((btn) => (
             <button
               key={btn.key}
               type="button"
-              className={`filter-icon-btn ${filter === btn.key ? 'active' : ''}`}
+              class={`filter-icon-btn ${filter === btn.key ? 'active' : ''}`}
               data-tooltip={btn.tooltip}
               data-tooltip-pos="bottom"
               onClick={() => onFilterChange(btn.key)}
@@ -86,10 +86,10 @@ export function FeedView({
 
       <TopViewersRibbon locale={locale} topViewers={topViewers} leaderboard={leaderboard} liveViewers={liveViewers} />
 
-      <div className="feed-stream" ref={streamContainerRef}>
+      <div class="feed-stream" ref={(element) => streamContainerRef(element as Element | null)}>
         {filteredEvents.length === 0 ? (
-          <div className="feed-empty">
-            <div className="empty-icon">
+          <div class="feed-empty">
+            <div class="empty-icon">
               <IconChat />
             </div>
             <p>{t(locale, 'messagesEmpty')}</p>
@@ -100,14 +100,14 @@ export function FeedView({
       </div>
 
       {!autoScroll && unreadCount > 0 ? (
-        <div className="feed-floating-bar">
+        <div class="feed-floating-bar">
           <Button variant="primary" size="sm" icon={<IconArrowDown />} onClick={onToggleAutoScroll}>
             {t(locale, 'scrollToBottom', { count: unreadCount })}
           </Button>
         </div>
       ) : null}
 
-      <footer className="feed-footer-info">
+      <footer class="feed-footer-info">
         <span>
           {t(locale, filteredEvents.length === 1 ? 'messageCountOne' : 'messageCountMany', {
             count: filteredEvents.length,

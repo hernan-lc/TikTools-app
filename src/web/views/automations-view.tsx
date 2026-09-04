@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks';
+import { ref, watch } from 'vue';
+import { defineVueComponent } from '../vue/component.ts';
 
 import type {
   AutomationEventType,
@@ -51,206 +52,211 @@ type WorkflowConfirmState =
   | { kind: 'discard'; action: PendingWorkflowAction }
   | { kind: 'delete'; id: string; name: string };
 
-export function AutomationsView({
-  locale,
-  workflows,
-  nodes,
-  error,
-  scriptAnalysis,
-  lastEvent,
-  lastEventCapturedAt,
-  onRefresh,
-  onSave,
-  onDelete,
-  onSetEnabled,
-  onAnalyzeScript,
-}: AutomationsViewProps) {
-  const initialRecord = workflows[0];
-  const initialGraph = initialRecord ? prepareGraph(initialRecord.graph, nodes) : null;
-  const [selectedId, setSelectedId] = useState<string | null>(initialRecord?.id ?? null);
-  const [draft, setDraft] = useState<WorkflowGraph | null>(initialGraph);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialGraph?.nodes[0]?.id ?? null);
-  const [dirty, setDirty] = useState(false);
-  const [editorError, setEditorError] = useState('');
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [configuringNodeId, setConfiguringNodeId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState<string | null>(null);
-  const [confirmModal, setConfirmModal] = useState<WorkflowConfirmState | null>(null);
+export const AutomationsView = defineVueComponent<AutomationsViewProps>(
+  ['locale', 'workflows', 'nodes', 'error', 'scriptAnalysis', 'lastEvent', 'lastEventCapturedAt', 'onRefresh', 'onSave', 'onDelete', 'onSetEnabled', 'onAnalyzeScript'],
+  (props) => {
+  const initialRecord = props.workflows[0];
+  const initialGraph = initialRecord ? prepareGraph(initialRecord.graph, props.nodes) : null;
+  const selectedId = ref<string | null>(initialRecord?.id ?? null);
+  const draft = ref<WorkflowGraph | null>(initialGraph);
+  const selectedNodeId = ref<string | null>(initialGraph?.nodes[0]?.id ?? null);
+  const dirty = ref(false);
+  const editorError = ref('');
+  const wizardOpen = ref(false);
+  const pickerOpen = ref(false);
+  const configuringNodeId = ref<string | null>(null);
+  const renameValue = ref<string | null>(null);
+  const confirmModal = ref<WorkflowConfirmState | null>(null);
 
-  const selectedRecord = selectedId ? workflows.find((workflow) => workflow.id === selectedId) : undefined;
-  const selectedNode = draft?.nodes.find((node) => node.id === selectedNodeId);
-  const selectedDefinition = selectedNode ? nodes.find((node) => node.type === selectedNode.type) : undefined;
-  const configuringNode = draft?.nodes.find((node) => node.id === configuringNodeId);
-  const configuringDefinition = configuringNode ? nodes.find((node) => node.type === configuringNode.type) : undefined;
-
-  useEffect(() => {
-    if (selectedId || workflows.length === 0 || dirty) return;
-    const first = workflows[0];
+  watch(() => [selectedId.value, props.workflows, props.nodes, dirty.value], () => {
+    if (selectedId.value || props.workflows.length === 0 || dirty.value) return;
+    const first = props.workflows[0];
     if (!first) return;
-    const nextGraph = prepareGraph(first.graph, nodes);
-    setSelectedId(first.id);
-    setDraft(nextGraph);
-    setSelectedNodeId(nextGraph.nodes[0]?.id ?? null);
-  }, [selectedId, workflows, nodes, dirty]);
+    const nextGraph = prepareGraph(first.graph, props.nodes);
+    selectedId.value = first.id;
+    draft.value = nextGraph;
+    selectedNodeId.value = nextGraph.nodes[0]?.id ?? null;
+  });
 
-  useEffect(() => {
-    if (!selectedId || dirty) return;
-    const record = workflows.find((workflow) => workflow.id === selectedId);
+  watch(() => [selectedId.value, props.workflows, props.nodes, dirty.value], () => {
+    if (!selectedId.value || dirty.value) return;
+    const record = props.workflows.find((workflow) => workflow.id === selectedId.value);
     if (!record) return;
-    const nextGraph = prepareGraph(record.graph, nodes);
-    setDraft(nextGraph);
-    setSelectedNodeId((current) => nextGraph.nodes.some((node) => node.id === current) ? current : nextGraph.nodes[0]?.id ?? null);
-  }, [selectedId, workflows, nodes, dirty]);
+    const nextGraph = prepareGraph(record.graph, props.nodes);
+    draft.value = nextGraph;
+    selectedNodeId.value = nextGraph.nodes.some((node) => node.id === selectedNodeId.value) ? selectedNodeId.value : nextGraph.nodes[0]?.id ?? null;
+  });
 
-  useEffect(() => {
-    if (!dirty || !draft || !selectedId) return;
-    const record = workflows.find((workflow) => workflow.id === selectedId);
-    if (record && graphsEqual(record.graph, draft)) setDirty(false);
-  }, [draft, dirty, selectedId, workflows]);
+  watch(() => [draft.value, dirty.value, selectedId.value, props.workflows], () => {
+    if (!dirty.value || !draft.value || !selectedId.value) return;
+    const record = props.workflows.find((workflow) => workflow.id === selectedId.value);
+    if (record && graphsEqual(record.graph, draft.value)) dirty.value = false;
+  });
 
-  useEffect(() => {
-    if (!draft?.nodes.length) {
-      setSelectedNodeId(null);
+  watch(() => [draft.value?.id, draft.value?.nodes.length, selectedNodeId.value], () => {
+    if (!draft.value?.nodes.length) {
+      selectedNodeId.value = null;
       return;
     }
-    if (!selectedNodeId || !draft.nodes.some((node) => node.id === selectedNodeId)) {
-      setSelectedNodeId(draft.nodes[0]?.id ?? null);
+    if (!selectedNodeId.value || !draft.value.nodes.some((node) => node.id === selectedNodeId.value)) {
+      selectedNodeId.value = draft.value.nodes[0]?.id ?? null;
     }
-  }, [draft?.id, draft?.nodes.length, selectedNodeId]);
+  });
 
   const updateDraft = (update: (current: WorkflowGraph) => WorkflowGraph): void => {
-    setDraft((current) => current ? update(current) : current);
-    setDirty(true);
-    setEditorError('');
+    if (draft.value) draft.value = update(draft.value);
+    dirty.value = true;
+    editorError.value = '';
   };
 
   const applyWorkflowAction = (action: PendingWorkflowAction): void => {
     if (action.kind === 'create') {
-      setWizardOpen(true);
+      wizardOpen.value = true;
       return;
     }
-    const nextGraph = prepareGraph(action.record.graph, nodes);
-    setSelectedId(action.record.id);
-    setDraft(nextGraph);
-    setSelectedNodeId(nextGraph.nodes[0]?.id ?? null);
-    setConfiguringNodeId(null);
-    setDirty(!graphsEqual(action.record.graph, nextGraph));
-    setEditorError('');
+    const nextGraph = prepareGraph(action.record.graph, props.nodes);
+    selectedId.value = action.record.id;
+    draft.value = nextGraph;
+    selectedNodeId.value = nextGraph.nodes[0]?.id ?? null;
+    configuringNodeId.value = null;
+    dirty.value = !graphsEqual(action.record.graph, nextGraph);
+    editorError.value = '';
   };
 
   const requestWorkflowAction = (action: PendingWorkflowAction): void => {
-    if (dirty) {
-      setConfirmModal({ kind: 'discard', action });
+    if (dirty.value) {
+      confirmModal.value = { kind: 'discard', action };
       return;
     }
     applyWorkflowAction(action);
   };
 
   const selectWorkflow = (record: AutomationWorkflowRecord): void => {
-    if (record.id === selectedId) return;
+    if (record.id === selectedId.value) return;
     requestWorkflowAction({ kind: 'select', record });
   };
 
   const requestCreateWorkflow = (): void => requestWorkflowAction({ kind: 'create' });
 
   const handleCreateWorkflow = (name: string, eventType: AutomationEventType): void => {
-    const triggerDefinition = nodes.find((definition) => definition.type === 'trigger.event');
+    const triggerDefinition = props.nodes.find((definition) => definition.type === 'trigger.event');
     if (!triggerDefinition) {
-      setEditorError('The Event Trigger node is not available. Refresh the node catalog.');
+      editorError.value = 'The Event Trigger node is not available. Refresh the node catalog.';
       return;
     }
     const graph = createWorkflowGraph(name, eventType, triggerDefinition);
-    setWizardOpen(false);
-    setSelectedId(graph.id);
-    setDraft(graph);
-    setSelectedNodeId(graph.nodes[0]?.id ?? null);
-    setConfiguringNodeId(null);
-    setDirty(true);
-    setEditorError('');
+    wizardOpen.value = false;
+    selectedId.value = graph.id;
+    draft.value = graph;
+    selectedNodeId.value = graph.nodes[0]?.id ?? null;
+    configuringNodeId.value = null;
+    dirty.value = true;
+    editorError.value = '';
   };
 
   const handleRename = (name: string): void => {
-    setRenameValue(null);
+    renameValue.value = null;
     updateDraft((current) => ({ ...current, name }));
   };
 
   const handleAddNode = (definition: NodeDefinition): void => {
-    if (!draft || definition.kind === 'trigger') return;
-    const node = createWorkflowNode(definition, draft.nodes.length);
-    const nextGraph = appendNodeToGraph(draft, node, nodes);
-    setDraft(nextGraph);
-    setSelectedNodeId(node.id);
-    setConfiguringNodeId(null);
-    setPickerOpen(false);
-    setDirty(true);
-    setEditorError('');
+    if (!draft.value || definition.kind === 'trigger') return;
+    const node = createWorkflowNode(definition, draft.value.nodes.length);
+    const nextGraph = appendNodeToGraph(draft.value, node, props.nodes);
+    draft.value = nextGraph;
+    selectedNodeId.value = node.id;
+    configuringNodeId.value = null;
+    pickerOpen.value = false;
+    dirty.value = true;
+    editorError.value = '';
   };
 
   const handleDeleteNode = (nodeId: string): void => {
-    if (!draft) return;
-    const node = draft.nodes.find((item) => item.id === nodeId);
+    if (!draft.value) return;
+    const node = draft.value.nodes.find((item) => item.id === nodeId);
     if (!node || node.type === 'trigger.event') return;
-    const nodeIndex = draft.nodes.findIndex((item) => item.id === nodeId);
-    const nextGraph = removeNodeFromGraph(draft, nodeId, nodes);
-    setDraft(nextGraph);
-    setSelectedNodeId(nextGraph.nodes[Math.max(0, nodeIndex - 1)]?.id ?? nextGraph.nodes[0]?.id ?? null);
-    setConfiguringNodeId((current) => current === nodeId ? null : current);
-    setDirty(true);
+    const nodeIndex = draft.value.nodes.findIndex((item) => item.id === nodeId);
+    const nextGraph = removeNodeFromGraph(draft.value, nodeId, props.nodes);
+    draft.value = nextGraph;
+    selectedNodeId.value = nextGraph.nodes[Math.max(0, nodeIndex - 1)]?.id ?? nextGraph.nodes[0]?.id ?? null;
+    if (configuringNodeId.value === nodeId) configuringNodeId.value = null;
+    dirty.value = true;
   };
 
   const handleConfigChange = (config: JsonObject): void => {
-    if (!selectedNode) return;
+    const nodeId = selectedNodeId.value;
+    if (!nodeId) return;
     updateDraft((current) => ({
       ...current,
-      nodes: current.nodes.map((node) => node.id === selectedNode.id ? { ...node, config: { ...config } } : node),
+      nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, config: { ...config } } : node),
     }));
   };
 
   const openConfiguration = (): void => {
-    if (selectedNode) setConfiguringNodeId(selectedNode.id);
+    if (selectedNodeId.value) configuringNodeId.value = selectedNodeId.value;
   };
 
   const handleSave = (): void => {
-    if (!draft) return;
-    onSave(prepareGraph(draft, nodes));
+    if (!draft.value) return;
+    props.onSave(prepareGraph(draft.value, props.nodes));
   };
 
   const handleDeleteWorkflow = (): void => {
-    if (!selectedId || !selectedRecord) return;
-    setConfirmModal({ kind: 'delete', id: selectedId, name: selectedRecord.name });
+    const record = selectedId.value ? props.workflows.find((workflow) => workflow.id === selectedId.value) : undefined;
+    if (!selectedId.value || !record) return;
+    confirmModal.value = { kind: 'delete', id: selectedId.value, name: record.name };
   };
 
   const confirmDelete = (id: string): void => {
-    setConfirmModal(null);
-    onDelete(id);
-    setSelectedId(null);
-    setDraft(null);
-    setSelectedNodeId(null);
-    setConfiguringNodeId(null);
-    setDirty(false);
+    confirmModal.value = null;
+    props.onDelete(id);
+    selectedId.value = null;
+    draft.value = null;
+    selectedNodeId.value = null;
+    configuringNodeId.value = null;
+    dirty.value = false;
   };
 
+  return () => {
+  const locale = props.locale;
+  const workflows = props.workflows;
+  const nodes = props.nodes;
+  const error = props.error;
+  const scriptAnalysis = props.scriptAnalysis;
+  const lastEvent = props.lastEvent;
+  const lastEventCapturedAt = props.lastEventCapturedAt;
+  const draftValue = draft.value;
+  const selectedRecord = selectedId.value ? workflows.find((workflow) => workflow.id === selectedId.value) : undefined;
+  const selectedNode = draftValue?.nodes.find((node) => node.id === selectedNodeId.value);
+  const selectedDefinition = selectedNode ? nodes.find((node) => node.type === selectedNode.type) : undefined;
+  const configuringNode = draftValue?.nodes.find((node) => node.id === configuringNodeId.value);
+  const configuringDefinition = configuringNode ? nodes.find((node) => node.type === configuringNode.type) : undefined;
+  const dirtyValue = dirty.value;
+  const confirmValue = confirmModal.value;
+  const rename = renameValue.value;
+  const wizard = wizardOpen.value;
+  const picker = pickerOpen.value;
+
   return (
-    <main className="automation-view">
+    <main class="automation-view">
       <PageHeader
         title={t(locale, 'automations')}
         subtitle={t(locale, 'automationsLead')}
         icon={<IconSparkles />}
         action={
-          <div className="automation-header-actions">
-            <Button variant="ghost" size="sm" onClick={onRefresh}>{t(locale, 'refresh')}</Button>
+          <div class="automation-header-actions">
+            <Button variant="ghost" size="sm" onClick={props.onRefresh}>{t(locale, 'refresh')}</Button>
             <Button variant="primary" size="sm" onClick={requestCreateWorkflow}>{t(locale, 'newWorkflow')}</Button>
           </div>
         }
       />
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
-      {editorError ? <Alert variant="warning">{editorError}</Alert> : null}
+      {editorError.value ? <Alert variant="warning">{editorError.value}</Alert> : null}
 
-      <div className="automation-workspace automation-workspace--simple">
-        <aside className="automation-sidebar">
-          <div className="automation-panel-heading">
+      <div class="automation-workspace automation-workspace--simple">
+        <aside class="automation-sidebar">
+          <div class="automation-panel-heading">
             <span>{t(locale, 'automations')}</span>
             <Badge tone="cyan">{workflows.length}</Badge>
           </div>
@@ -258,85 +264,85 @@ export function AutomationsView({
           {workflows.length === 0 ? (
             <EmptyState title={t(locale, 'noWorkflows')} action={<Button variant="soft" size="sm" onClick={requestCreateWorkflow}>{t(locale, 'newWorkflow')}</Button>} />
           ) : (
-            <div className="automation-workflow-list">
+            <div class="automation-workflow-list">
               {workflows.map((record) => (
-                <button key={record.id} type="button" className={`automation-workflow-item ${selectedId === record.id ? 'is-active' : ''}`} onClick={() => selectWorkflow(record)}>
-                  <span className="automation-workflow-item__name">{record.name}</span>
-                  <span className="automation-workflow-item__meta">
+                <button key={record.id} type="button" class={`automation-workflow-item ${selectedId.value === record.id ? 'is-active' : ''}`} onClick={() => selectWorkflow(record)}>
+                  <span class="automation-workflow-item__name">{record.name}</span>
+                  <span class="automation-workflow-item__meta">
                     <span>{t(locale, 'nodeCount', { count: record.graph.nodes.length })}</span>
-                    <span className={`automation-status-dot ${record.enabled ? 'is-enabled' : ''}`} />
+                    <span class={`automation-status-dot ${record.enabled ? 'is-enabled' : ''}`} />
                   </span>
                 </button>
               ))}
             </div>
           )}
 
-          <div className="automation-catalog">
-            <div className="automation-panel-heading">
+          <div class="automation-catalog">
+            <div class="automation-panel-heading">
               <span>{t(locale, 'nodeCatalog')}</span>
               <Badge>{Math.max(0, nodes.filter((node) => node.kind !== 'trigger').length)}</Badge>
             </div>
-            <p className="automation-panel-hint">{t(locale, 'automationAddNodeHint')}</p>
-            <Button variant="cyan" block disabled={!draft} onClick={() => setPickerOpen(true)}>{`＋ ${t(locale, 'addStep')}`}</Button>
-            <p className="automation-panel-hint automation-panel-hint--secondary">{t(locale, 'automationFlowHint')}</p>
+            <p class="automation-panel-hint">{t(locale, 'automationAddNodeHint')}</p>
+            <Button variant="cyan" block disabled={!draftValue} onClick={() => { pickerOpen.value = true; }}>{`＋ ${t(locale, 'addStep')}`}</Button>
+            <p class="automation-panel-hint automation-panel-hint--secondary">{t(locale, 'automationFlowHint')}</p>
           </div>
         </aside>
 
-        <section className="automation-editor-panel">
-          {!draft ? (
+        <section class="automation-editor-panel">
+          {!draftValue ? (
             <EmptyState title={t(locale, 'selectWorkflow')} description={t(locale, 'noWorkflows')} action={<Button variant="primary" onClick={requestCreateWorkflow}>{t(locale, 'newWorkflow')}</Button>} />
           ) : (
             <>
-              <div className="automation-editor-toolbar">
-                <div className="automation-workflow-name">
-                  <button type="button" className="automation-workflow-name-button" onClick={() => setRenameValue(draft.name)}>
-                    <span className="automation-workflow-name-button__value">{draft.name}</span>
-                    <span className="automation-workflow-name-button__edit" aria-hidden="true">✎</span>
+              <div class="automation-editor-toolbar">
+                <div class="automation-workflow-name">
+                  <button type="button" class="automation-workflow-name-button" onClick={() => { renameValue.value = draftValue.name; }}>
+                    <span class="automation-workflow-name-button__value">{draftValue.name}</span>
+                    <span class="automation-workflow-name-button__edit" aria-hidden="true">✎</span>
                   </button>
-                  {dirty ? <Badge tone="pink">{t(locale, 'unsavedChanges')}</Badge> : null}
+                  {dirtyValue ? <Badge tone="pink">{t(locale, 'unsavedChanges')}</Badge> : null}
                 </div>
-                <div className="automation-toolbar-actions">
+                <div class="automation-toolbar-actions">
                   {selectedRecord ? (
-                    <Checkbox checked={draft.enabled} onCheckedChange={(enabled) => { setDraft((current) => current ? { ...current, enabled } : current); onSetEnabled(selectedRecord.id, enabled); }} label={draft.enabled ? t(locale, 'disableWorkflow') : t(locale, 'enableWorkflow')} />
+                    <Checkbox checked={draftValue.enabled} onCheckedChange={(enabled) => { draft.value = { ...draft.value!, enabled }; props.onSetEnabled(selectedRecord.id, enabled); }} label={draftValue.enabled ? t(locale, 'disableWorkflow') : t(locale, 'enableWorkflow')} />
                   ) : null}
-                  <Button variant="primary" size="sm" disabled={!dirty} onClick={handleSave}>{t(locale, 'saveWorkflow')}</Button>
+                  <Button variant="primary" size="sm" disabled={!dirtyValue} onClick={handleSave}>{t(locale, 'saveWorkflow')}</Button>
                   {selectedRecord ? <Button variant="danger" size="sm" icon={<IconTrash />} iconOnly tooltip={t(locale, 'deleteWorkflow')} onClick={handleDeleteWorkflow} /> : null}
                 </div>
               </div>
 
               <WorkflowCanvas
                 locale={locale}
-                graph={draft}
+                graph={draftValue}
                 definitions={nodes}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onAddNode={() => setPickerOpen(true)}
+                selectedNodeId={selectedNodeId.value}
+                onSelectNode={(id) => { selectedNodeId.value = id; }}
+                onAddNode={() => { pickerOpen.value = true; }}
                 onDeleteNode={handleDeleteNode}
               />
             </>
           )}
         </section>
 
-        <aside className="automation-inspector">
-          <div className="automation-panel-heading">{t(locale, 'nodeInspector')}</div>
+        <aside class="automation-inspector">
+          <div class="automation-panel-heading">{t(locale, 'nodeInspector')}</div>
           {!selectedNode ? (
-            <p className="automation-panel-hint">{t(locale, 'noNodeSelected')}</p>
+            <p class="automation-panel-hint">{t(locale, 'noNodeSelected')}</p>
           ) : (
-            <div className="automation-inspector-content">
-              <div className="automation-node-title">{selectedDefinition?.title ?? selectedNode.type}</div>
-              <div className="automation-node-type">
+            <div class="automation-inspector-content">
+              <div class="automation-node-title">{selectedDefinition?.title ?? selectedNode.type}</div>
+              <div class="automation-node-type">
                 <span>{selectedDefinition?.category ?? 'Plugin'}</span>
                 <span>·</span>
                 <span>{selectedDefinition?.kind ?? 'node'}</span>
               </div>
-              <div className="automation-inspector-summary">
-                <span className="automation-inspector-summary__label">{t(locale, 'workflowSteps')}</span>
+              <div class="automation-inspector-summary">
+                <span class="automation-inspector-summary__label">{t(locale, 'workflowSteps')}</span>
                 <strong>{selectedNode.type}</strong>
               </div>
               <Button variant="primary" block onClick={openConfiguration}>{t(locale, 'configureStep')}</Button>
-              <p className="automation-panel-hint">{t(locale, 'configureStepHint')}</p>
+              <p class="automation-panel-hint">{t(locale, 'configureStepHint')}</p>
               {selectedDefinition?.requiredCapabilities?.length ? (
-                <div className="automation-capabilities">
+                <div class="automation-capabilities">
                   <span>{t(locale, 'capabilities')}</span>
                   {selectedDefinition.requiredCapabilities.map((capability) => <Badge key={capability}>{capability}</Badge>)}
                 </div>
@@ -346,68 +352,70 @@ export function AutomationsView({
         </aside>
       </div>
 
-      {wizardOpen ? <WorkflowWizardModal locale={locale} onClose={() => setWizardOpen(false)} onCreate={handleCreateWorkflow} /> : null}
-      {pickerOpen ? <NodePickerModal locale={locale} definitions={nodes} onClose={() => setPickerOpen(false)} onSelect={handleAddNode} /> : null}
+      {wizard ? <WorkflowWizardModal locale={locale} onClose={() => { wizardOpen.value = false; }} onCreate={handleCreateWorkflow} /> : null}
+      {picker ? <NodePickerModal locale={locale} definitions={nodes} onClose={() => { pickerOpen.value = false; }} onSelect={handleAddNode} /> : null}
       {configuringNode ? (
         <NodeConfigModal
           locale={locale}
           node={configuringNode}
           definition={configuringDefinition}
-          eventType={eventTypeForGraph(draft)}
+          eventType={eventTypeForGraph(draftValue)}
           lastEvent={lastEvent}
           lastEventCapturedAt={lastEventCapturedAt}
           analysis={scriptAnalysis?.nodeId === configuringNode.id ? scriptAnalysis : undefined}
           onApply={(config) => {
             handleConfigChange(config);
-            setConfiguringNodeId(null);
+            configuringNodeId.value = null;
           }}
-          onAnalyzeScript={onAnalyzeScript}
-          onClose={() => setConfiguringNodeId(null)}
+          onAnalyzeScript={props.onAnalyzeScript}
+          onClose={() => { configuringNodeId.value = null; }}
         />
       ) : null}
-      {renameValue !== null ? (
+      {rename !== null ? (
         <TextPromptModal
           title={t(locale, 'renameWorkflowTitle')}
           description={t(locale, 'workflowNameHint')}
           label={t(locale, 'workflowName')}
-          initialValue={renameValue}
+          initialValue={rename}
           placeholder={t(locale, 'workflowNamePlaceholder')}
           confirmLabel={t(locale, 'confirm')}
           cancelLabel={t(locale, 'cancel')}
           requiredMessage={t(locale, 'workflowNameRequired')}
           onConfirm={handleRename}
-          onClose={() => setRenameValue(null)}
+          onClose={() => { renameValue.value = null; }}
         />
       ) : null}
-      {confirmModal?.kind === 'discard' ? (
+      {confirmValue?.kind === 'discard' ? (
         <ConfirmModal
           title={t(locale, 'discardWorkflowTitle')}
           description={t(locale, 'discardWorkflowChanges')}
           confirmLabel={t(locale, 'discardChanges')}
           cancelLabel={t(locale, 'cancel')}
           onConfirm={() => {
-            const pending = confirmModal;
-            setConfirmModal(null);
-            setDirty(false);
+            const pending = confirmValue;
+            confirmModal.value = null;
+            dirty.value = false;
             applyWorkflowAction(pending.action);
           }}
-          onClose={() => setConfirmModal(null)}
+          onClose={() => { confirmModal.value = null; }}
         />
       ) : null}
-      {confirmModal?.kind === 'delete' ? (
+      {confirmValue?.kind === 'delete' ? (
         <ConfirmModal
           title={t(locale, 'deleteWorkflow')}
-          description={t(locale, 'deleteWorkflowConfirm', { name: confirmModal.name })}
+          description={t(locale, 'deleteWorkflowConfirm', { name: confirmValue.name })}
           confirmLabel={t(locale, 'deleteWorkflow')}
           cancelLabel={t(locale, 'cancel')}
           danger
-          onConfirm={() => confirmDelete(confirmModal.id)}
-          onClose={() => setConfirmModal(null)}
+          onConfirm={() => confirmDelete(confirmValue.id)}
+          onClose={() => { confirmModal.value = null; }}
         />
       ) : null}
     </main>
   );
-}
+  };
+  },
+);
 
 function prepareGraph(graph: WorkflowGraph, definitions: NodeDefinition[]): WorkflowGraph {
   const cloned = cloneGraph(graph);

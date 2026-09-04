@@ -1,4 +1,5 @@
-import { useRef, useImperativeHandle, forwardRef } from 'preact/compat';
+import { ref } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 export type CheckboxHandle = {
   getValue: () => boolean;
@@ -14,42 +15,46 @@ type CheckboxProps = {
   error?: string;
 };
 
-export const Checkbox = forwardRef<CheckboxHandle, CheckboxProps>(function Checkbox(
-  { checked, onCheckedChange, label, disabled, id, error },
-  ref,
-) {
-  const innerRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(ref, () => ({
-    getValue: () => innerRef.current?.checked ?? checked,
-    setValue: (v: boolean) => onCheckedChange(v),
-  }));
-  return (
-    <label htmlFor={id} className={`ui-check ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+export const Checkbox = defineVueComponent<CheckboxProps>(
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'error'],
+  (props, context) => {
+  const innerRef = ref<HTMLInputElement | null>(null);
+  context.expose({
+    getValue: () => innerRef.value?.checked ?? props.checked,
+    setValue: (value: boolean) => props.onCheckedChange(value),
+  });
+  return () => {
+    const { checked, onCheckedChange, label, disabled, id, error } = props;
+    return (
+    <label for={id} class={`ui-check ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
         ref={innerRef}
         id={id}
         type="checkbox"
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onCheckedChange(e.currentTarget.checked)}
+        onChange={(e) => onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
-      <span className="ui-check__box" aria-hidden />
-      {label ? <span className="ui-check__label">{label}</span> : null}
+      <span class="ui-check__box" aria-hidden />
+      {label ? <span class="ui-check__label">{label}</span> : null}
     </label>
-  );
-});
+    );
+  };
+  },
+);
 
-export const Switch = forwardRef<CheckboxHandle, CheckboxProps>(function Switch(
-  { checked, onCheckedChange, label, disabled, id, error },
-  ref,
-) {
-  const innerRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(ref, () => ({
-    getValue: () => innerRef.current?.checked ?? checked,
-    setValue: (v: boolean) => onCheckedChange(v),
-  }));
-  return (
-    <label htmlFor={id} className={`ui-switch ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+export const Switch = defineVueComponent<CheckboxProps>(
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'error'],
+  (props, context) => {
+  const innerRef = ref<HTMLInputElement | null>(null);
+  context.expose({
+    getValue: () => innerRef.value?.checked ?? props.checked,
+    setValue: (value: boolean) => props.onCheckedChange(value),
+  });
+  return () => {
+    const { checked, onCheckedChange, label, disabled, id, error } = props;
+    return (
+    <label for={id} class={`ui-switch ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
         ref={innerRef}
         id={id}
@@ -57,12 +62,14 @@ export const Switch = forwardRef<CheckboxHandle, CheckboxProps>(function Switch(
         role="switch"
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onCheckedChange(e.currentTarget.checked)}
+        onChange={(e) => onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
-      <span className="ui-switch__track" aria-hidden>
-        <span className="ui-switch__thumb" />
+      <span class="ui-switch__track" aria-hidden>
+        <span class="ui-switch__thumb" />
       </span>
-      {label ? <span className="ui-switch__label">{label}</span> : null}
+      {label ? <span class="ui-switch__label">{label}</span> : null}
     </label>
-  );
-});
+    );
+  };
+  },
+);

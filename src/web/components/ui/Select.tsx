@@ -1,5 +1,5 @@
-import { useRef, useImperativeHandle, forwardRef } from 'preact/compat';
-import type { JSX } from 'preact';
+import { ref } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 import { InfoTip } from './InfoTip.tsx';
 
 export type SelectHandle = {
@@ -24,24 +24,25 @@ type SelectProps = {
   hint?: string;
 };
 
-export const Select = forwardRef<SelectHandle, SelectProps>(function Select(
-  { value, onValueChange, options, disabled, error, id, placeholder, label, hint },
-  ref,
-) {
-  const innerRef = useRef<HTMLSelectElement>(null);
-  useImperativeHandle(ref, () => ({
-    getValue: () => innerRef.current?.value ?? value,
-    setValue: (v: string) => onValueChange(v),
-    focus: () => innerRef.current?.focus(),
-  }));
+export const Select = defineVueComponent<SelectProps>(
+  ['value', 'onValueChange', 'options', 'disabled', 'error', 'id', 'placeholder', 'label', 'hint'],
+  (props, context) => {
+  const innerRef = ref<HTMLSelectElement | null>(null);
+  context.expose({
+    getValue: () => innerRef.value?.value ?? props.value,
+    setValue: (value: string) => props.onValueChange(value),
+    focus: () => innerRef.value?.focus(),
+  });
 
-  const handleChange: JSX.GenericEventHandler<HTMLSelectElement> = (e) => onValueChange(e.currentTarget.value);
+  const handleChange = (e: Event) => props.onValueChange((e.currentTarget as HTMLSelectElement).value);
 
-  if (label) {
-    const filled = value.trim().length > 0;
-    return (
-      <div className={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
-        <div className="ui-float__control">
+  return () => {
+    const { value, onValueChange, options, disabled, error, id, placeholder, label, hint } = props;
+    if (label) {
+      const filled = value.trim().length > 0;
+      return (
+      <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+        <div class="ui-float__control">
           <select ref={innerRef} id={id} value={value} disabled={disabled} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
             {placeholder ? (
               <option value="" disabled>
@@ -54,18 +55,18 @@ export const Select = forwardRef<SelectHandle, SelectProps>(function Select(
               </option>
             ))}
           </select>
-          <label className="ui-float__label" htmlFor={id}>
+          <label class="ui-float__label" for={id}>
             {label}
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
-          <span className="ui-float__arrow" aria-hidden>▾</span>
+          <span class="ui-float__arrow" aria-hidden>▾</span>
         </div>
       </div>
     );
-  }
+    }
 
-  return (
-    <div className={`ui-select ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+    return (
+    <div class={`ui-select ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <select ref={innerRef} id={id} value={value} disabled={disabled} aria-invalid={Boolean(error)} onChange={handleChange}>
         {placeholder ? (
           <option value="" disabled>
@@ -78,9 +79,11 @@ export const Select = forwardRef<SelectHandle, SelectProps>(function Select(
           </option>
         ))}
       </select>
-      <span className="ui-select__arrow" aria-hidden>
+      <span class="ui-select__arrow" aria-hidden>
         ▾
       </span>
     </div>
-  );
-});
+    );
+  };
+  },
+);

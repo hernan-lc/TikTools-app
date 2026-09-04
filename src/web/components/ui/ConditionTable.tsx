@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { ref } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 import {
   fieldsForTrigger,
@@ -61,25 +62,25 @@ type PickerState = { index: number; kind: 'gift' | 'user'; multiple: boolean } |
  * comparison carries its symbol, and the value uses the editor its type asks
  * for — a gift picker, a viewer picker, a number, a switch.
  */
-export function ConditionTable({ locale, trigger, filters, gifts, viewers, onChange }: ConditionTableProps) {
-  const copy = copyFor(locale);
-  const [picker, setPicker] = useState<PickerState>(null);
-  const fields = fieldsForTrigger(trigger);
+export const ConditionTable = defineVueComponent<ConditionTableProps>(
+  ['locale', 'trigger', 'filters', 'gifts', 'viewers', 'onChange'],
+  (props) => {
+  const picker = ref<PickerState>(null);
 
   const update = (index: number, patch: Partial<EventFilter>): void => {
-    onChange(filters.map((filter, position) => (position === index ? { ...filter, ...patch } : filter)));
+    props.onChange(props.filters.map((filter, position) => (position === index ? { ...filter, ...patch } : filter)));
   };
 
-  const kindOf = (filter: EventFilter): FieldValueKind => findField(trigger, filter.path)?.kind ?? 'text';
+  const kindOf = (filter: EventFilter): FieldValueKind => findField(props.trigger, filter.path)?.kind ?? 'text';
 
   const changeField = (index: number, path: string): void => {
     if (path === CUSTOM) {
       update(index, { path: '', operator: 'eq', value: '', values: undefined });
       return;
     }
-    const kind = findField(trigger, path)?.kind ?? 'text';
+    const kind = findField(props.trigger, path)?.kind ?? 'text';
     const operators = operatorsFor(kind);
-    const current = filters[index]!;
+    const current = props.filters[index]!;
     const operator = operators.includes(current.operator) ? current.operator : operators[0]!;
     update(index, {
       path,
@@ -90,10 +91,10 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
   };
 
   const addFilter = (): void => {
-    const first = fields[0];
+    const first = fieldsForTrigger(props.trigger)[0];
     const kind = first?.kind ?? 'text';
-    onChange([
-      ...filters,
+    props.onChange([
+      ...props.filters,
       {
         path: first?.path ?? 'event.user.uniqueId',
         operator: operatorsFor(kind)[0]!,
@@ -110,15 +111,19 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
       : []);
 
   const applyPick = (index: number, values: string[]): void => {
-    const filter = filters[index]!;
+    const filter = props.filters[index]!;
     if (filter.operator === 'in') update(index, { values });
     else update(index, { value: values[0] ?? '' });
-    setPicker(null);
+    picker.value = null;
   };
 
-  return (
-    <div className="plg-cond">
-      <div className="plg-cond__head">
+  return () => {
+    const { locale, trigger, filters, gifts, viewers, onChange } = props;
+    const copy = copyFor(locale);
+    const fields = fieldsForTrigger(trigger);
+    return (
+    <div class="plg-cond">
+      <div class="plg-cond__head">
         <span>
           {copy.colField}
           <InfoTip text={copy.headHint} position="bottom" />
@@ -128,7 +133,7 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
         <span />
       </div>
 
-      {filters.length === 0 && <p className="plg-note plg-cond__empty">{copy.empty}</p>}
+      {filters.length === 0 && <p class="plg-note plg-cond__empty">{copy.empty}</p>}
 
       {filters.map((filter, index) => {
         const field = findField(trigger, filter.path);
@@ -139,10 +144,10 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
         const missing = needsValue && picked.length === 0;
 
         return (
-          <div className="plg-cond__row" key={`${index}-${filter.path}`}>
-            <span className="plg-cond__cell">
+          <div class="plg-cond__row" key={`${index}-${filter.path}`}>
+            <span class="plg-cond__cell">
               <IconSelect
-                className="plg-cond__select"
+                class="plg-cond__select"
                 ariaLabel={copy.colField}
                 value={field ? filter.path : CUSTOM}
                 placeholder={copy.custom}
@@ -160,9 +165,9 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
               />
             </span>
 
-            <span className="plg-cond__cell">
+            <span class="plg-cond__cell">
               <IconSelect
-                className="plg-cond__select"
+                class="plg-cond__select"
                 ariaLabel={copy.colOperator}
                 value={filter.operator}
                 onChange={(next) => {
@@ -182,14 +187,14 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
               />
             </span>
 
-            <span className="plg-cond__cell plg-cond__cell--value">
+            <span class="plg-cond__cell plg-cond__cell--value">
               <ConditionValue
                 locale={locale}
                 filter={filter}
                 kind={kind}
                 missing={missing}
                 copy={copy}
-                onOpenPicker={(multiple) => setPicker({
+                onOpenPicker={(multiple) => (picker.value = {
                   index,
                   kind: kind === 'gift' ? 'gift' : 'user',
                   multiple,
@@ -201,13 +206,13 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
 
             <button
               type="button"
-              className="plg-iconbtn is-danger"
+              class="plg-iconbtn is-danger"
               aria-label={copy.remove}
               data-tooltip={copy.remove}
               data-tooltip-pos="left"
               onClick={() => onChange(filters.filter((_, position) => position !== index))}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
@@ -215,7 +220,7 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
 
             {!field && (
               <input
-                className="plg-input plg-input--mono plg-cond__custom"
+                class="plg-input plg-input--mono plg-cond__custom"
                 value={filter.path}
                 placeholder={copy.customPlaceholder}
                 onInput={(event) => update(index, { path: (event.currentTarget as HTMLInputElement).value })}
@@ -223,8 +228,8 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
             )}
 
             {missing && (
-              <span className="plg-cond__err">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <span class="plg-cond__err">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 8v5m0 3h.01" />
                 </svg>
@@ -235,31 +240,33 @@ export function ConditionTable({ locale, trigger, filters, gifts, viewers, onCha
         );
       })}
 
-      <button type="button" className="plg-dashed" onClick={addFilter}>{copy.add}</button>
+      <button type="button" class="plg-dashed" onClick={addFilter}>{copy.add}</button>
 
-      {picker && picker.kind === 'gift' && (
+      {picker.value && picker.value.kind === 'gift' && (
         <GiftPicker
           locale={locale}
           gifts={gifts}
-          selected={valuesOf(filters[picker.index]!)}
-          multiple={picker.multiple}
-          onPick={(values) => applyPick(picker.index, values)}
-          onClose={() => setPicker(null)}
+          selected={valuesOf(filters[picker.value.index]!)}
+          multiple={picker.value.multiple}
+          onPick={(values) => applyPick(picker.value!.index, values)}
+          onClose={() => (picker.value = null)}
         />
       )}
-      {picker && picker.kind === 'user' && (
+      {picker.value && picker.value.kind === 'user' && (
         <UserPicker
           locale={locale}
           viewers={viewers}
-          selected={valuesOf(filters[picker.index]!)}
-          multiple={picker.multiple}
-          onPick={(values) => applyPick(picker.index, values)}
-          onClose={() => setPicker(null)}
+          selected={valuesOf(filters[picker.value.index]!)}
+          multiple={picker.value.multiple}
+          onPick={(values) => applyPick(picker.value!.index, values)}
+          onClose={() => (picker.value = null)}
         />
       )}
     </div>
-  );
-}
+    );
+  };
+  },
+);
 
 type ValueProps = {
   locale: Locale;
@@ -275,7 +282,7 @@ type ValueProps = {
 /** The value editor the field's type asks for. */
 function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onValue, onValues }: ValueProps) {
   if (filter.operator === 'is-true' || filter.operator === 'is-false') {
-    return <span className="plg-cond__fixed">{filter.operator === 'is-true' ? copy.yes : copy.no}</span>;
+    return <span class="plg-cond__fixed">{filter.operator === 'is-true' ? copy.yes : copy.no}</span>;
   }
 
   if (kind === 'gift' || kind === 'user') {
@@ -284,13 +291,13 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
     return (
       <button
         type="button"
-        className={`plg-cond__pick${missing ? ' is-missing' : ''}`}
+        class={`plg-cond__pick${missing ? ' is-missing' : ''}`}
         onClick={() => onOpenPicker(multiple)}
       >
         {values.length === 0 && <span>{missing ? copy.missing : copy.choose}</span>}
         {values.length === 1 && <span>{kind === 'user' ? `@${values[0]}` : values[0]}</span>}
         {values.length > 1 && <span>{copy.values(values.length)}</span>}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
@@ -300,11 +307,11 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
   if (filter.operator === 'in') {
     const values = filter.values ?? [];
     return (
-      <span className="plg-cond__list">
+      <span class="plg-cond__list">
         {values.map((value, index) => (
           <button
             type="button"
-            className="plg-pill plg-pill--accent ui-picker__chip"
+            class="plg-pill plg-pill--accent ui-picker__chip"
             key={`${value}-${index}`}
             onClick={() => onValues(values.filter((_, position) => position !== index))}
           >
@@ -313,9 +320,9 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
           </button>
         ))}
         <input
-          className={`plg-input plg-cond__inline${missing ? ' is-missing' : ''}`}
+          class={`plg-input plg-cond__inline${missing ? ' is-missing' : ''}`}
           placeholder={t(locale, 'condition.addValuePlaceholder')}
-          onKeyDown={(event) => {
+          onKeydown={(event) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();
             const input = event.currentTarget as HTMLInputElement;
@@ -331,7 +338,7 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
 
   return (
     <input
-      className={`plg-input${missing ? ' is-missing' : ''}`}
+      class={`plg-input${missing ? ' is-missing' : ''}`}
       type={kind === 'number' ? 'number' : 'text'}
       value={filter.value}
       placeholder={missing ? copy.missing : ''}

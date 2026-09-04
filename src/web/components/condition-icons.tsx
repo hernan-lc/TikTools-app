@@ -72,9 +72,9 @@ export function FieldIconGlyph({ icon, size = 14 }: GlyphProps & { icon: FieldIc
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      stroke-width="1.9"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       aria-hidden="true"
     >
       <path d={FIELD_PATHS[icon]} />
@@ -90,9 +90,9 @@ export function OperatorGlyph({ operator, size = 14 }: GlyphProps & { operator: 
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      stroke-width="1.9"
+      stroke-linecap="round"
+      stroke-linejoin="round"
       aria-hidden="true"
     >
       {OPERATOR_PATHS[operator].map((path) => <path d={path} key={path} />)}

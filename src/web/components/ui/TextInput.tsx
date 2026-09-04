@@ -1,5 +1,5 @@
-import { useEffect, useRef, useImperativeHandle, forwardRef } from 'preact/compat';
-import type { JSX } from 'preact';
+import { ref, watch } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 import { InfoTip } from './InfoTip.tsx';
 
 export type TextInputHandle = {
@@ -33,38 +33,35 @@ type TextInputProps = {
   onEnter?: () => void;
 };
 
-export const TextInput = forwardRef<TextInputHandle, TextInputProps>(function TextInput(
-  { value, onValueChange, placeholder, label, hint, prefix, suffix, disabled, error, id, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter },
-  ref,
-) {
-  const innerRef = useRef<HTMLInputElement>(null);
+export const TextInput = defineVueComponent<TextInputProps>(
+  ['value', 'onValueChange', 'placeholder', 'label', 'hint', 'template', 'templateHint', 'prefix', 'suffix', 'disabled', 'error', 'id', 'type', 'autoComplete', 'spellCheck', 'required', 'clearable', 'onEnter'],
+  (props, context) => {
+  const innerRef = ref<HTMLInputElement | null>(null);
+  context.expose({
+    getValue: () => innerRef.value?.value ?? props.value,
+    setValue: (value: string) => props.onValueChange(value),
+    focus: () => innerRef.value?.focus(),
+    clear: () => props.onValueChange(''),
+    validate: () => !(props.required && !props.value.trim()),
+  });
 
-  useImperativeHandle(ref, () => ({
-    getValue: () => innerRef.current?.value ?? value,
-    setValue: (v: string) => onValueChange(v),
-    focus: () => innerRef.current?.focus(),
-    clear: () => onValueChange(''),
-    validate: () => {
-      if (required && !value.trim()) return false;
-      return true;
-    },
-  }));
+  watch(() => props.value, (value) => {
+    if (innerRef.value && innerRef.value.value !== value) innerRef.value.value = value;
+  });
 
-  useEffect(() => {
-    if (innerRef.current && innerRef.current.value !== value) innerRef.current.value = value;
-  }, [value]);
-
-  const handleInput: JSX.GenericEventHandler<HTMLInputElement> = (e) => onValueChange(e.currentTarget.value);
-  const handleKeyDown: JSX.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (e.key === 'Enter' && onEnter) onEnter();
+  const handleInput = (e: Event) => props.onValueChange((e.currentTarget as HTMLInputElement).value);
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && props.onEnter) props.onEnter();
   };
 
-  if (label) {
-    const filled = value.trim().length > 0 || type === 'password' && value.length > 0;
-    return (
-      <div className={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
-        <div className="ui-float__control">
-          {prefix ? <span className="ui-float__prefix">{prefix}</span> : null}
+  return () => {
+    const { value, onValueChange, placeholder, label, hint, prefix, suffix, disabled, error, id, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter } = props;
+    if (label) {
+      const filled = value.trim().length > 0 || type === 'password' && value.length > 0;
+      return (
+      <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+        <div class="ui-float__control">
+          {prefix ? <span class="ui-float__prefix">{prefix}</span> : null}
           <input
             ref={innerRef}
             id={id}
@@ -72,31 +69,31 @@ export const TextInput = forwardRef<TextInputHandle, TextInputProps>(function Te
             value={value}
             placeholder=" "
             disabled={disabled}
-            autoComplete={autoComplete}
+            autocomplete={autoComplete}
             spellcheck={spellCheck}
             required={required}
             aria-invalid={Boolean(error)}
             aria-label={label}
             onInput={handleInput}
-            onKeyDown={handleKeyDown}
+            onKeydown={handleKeyDown}
           />
-          <label className="ui-float__label" htmlFor={id}>
+          <label class="ui-float__label" for={id}>
             {label}{required ? ' *' : ''}
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
           {clearable && value ? (
-            <button type="button" className="ui-float__clear" style={{ right: suffix ? 44 : 8 }} onClick={() => onValueChange('')} aria-label="Clear">×</button>
+            <button type="button" class="ui-float__clear" style={{ right: suffix ? 44 : 8 }} onClick={() => onValueChange('')} aria-label="Clear">×</button>
           ) : null}
-          {suffix ? <span className="ui-float__suffix">{suffix}</span> : null}
+          {suffix ? <span class="ui-float__suffix">{suffix}</span> : null}
         </div>
-        {error ? <span className="ui-float__error">{error}</span> : null}
+        {error ? <span class="ui-float__error">{error}</span> : null}
       </div>
     );
-  }
+    }
 
-  return (
-    <div className={`ui-input ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''} ${prefix ? 'has-prefix' : ''} ${suffix || clearable ? 'has-suffix' : ''}`}>
-      {prefix ? <span className="ui-input__prefix">{prefix}</span> : null}
+    return (
+    <div class={`ui-input ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''} ${prefix ? 'has-prefix' : ''} ${suffix || clearable ? 'has-suffix' : ''}`}>
+      {prefix ? <span class="ui-input__prefix">{prefix}</span> : null}
       <input
         ref={innerRef}
         id={id}
@@ -104,22 +101,24 @@ export const TextInput = forwardRef<TextInputHandle, TextInputProps>(function Te
         value={value}
         placeholder={placeholder}
         disabled={disabled}
-        autoComplete={autoComplete}
+        autocomplete={autoComplete}
         spellcheck={spellCheck}
         required={required}
         aria-invalid={Boolean(error)}
         onInput={handleInput}
-        onKeyDown={handleKeyDown}
+        onKeydown={handleKeyDown}
       />
       {clearable && value ? (
-        <button type="button" className="ui-input__clear" onClick={() => onValueChange('')} aria-label="Clear">
+        <button type="button" class="ui-input__clear" onClick={() => onValueChange('')} aria-label="Clear">
           ×
         </button>
       ) : null}
-      {suffix ? <span className="ui-input__suffix">{suffix}</span> : null}
+      {suffix ? <span class="ui-input__suffix">{suffix}</span> : null}
     </div>
-  );
-});
+    );
+  };
+  },
+);
 
 export type SearchInputProps = {
   value: string;
@@ -129,18 +128,22 @@ export type SearchInputProps = {
   id?: string;
 };
 
-export const SearchInput = forwardRef<TextInputHandle, SearchInputProps>(function SearchInput({ value, onValueChange, placeholder, disabled, id }, ref) {
-  const innerRef = useRef<HTMLInputElement>(null);
-  useImperativeHandle(ref, () => ({
-    getValue: () => innerRef.current?.value ?? value,
-    setValue: (v: string) => onValueChange(v),
-    focus: () => innerRef.current?.focus(),
-    clear: () => onValueChange(''),
+export const SearchInput = defineVueComponent<SearchInputProps>(
+  ['value', 'onValueChange', 'placeholder', 'disabled', 'id'],
+  (props, context) => {
+  const innerRef = ref<HTMLInputElement | null>(null);
+  context.expose({
+    getValue: () => innerRef.value?.value ?? props.value,
+    setValue: (value: string) => props.onValueChange(value),
+    focus: () => innerRef.value?.focus(),
+    clear: () => props.onValueChange(''),
     validate: () => true,
-  }));
-  return (
-    <div className={`ui-search ${disabled ? 'is-disabled' : ''}`}>
-      <span className="ui-search__icon" aria-hidden>
+  });
+  return () => {
+    const { value, onValueChange, placeholder, disabled, id } = props;
+    return (
+    <div class={`ui-search ${disabled ? 'is-disabled' : ''}`}>
+      <span class="ui-search__icon" aria-hidden>
         ⌕
       </span>
       <input
@@ -150,13 +153,15 @@ export const SearchInput = forwardRef<TextInputHandle, SearchInputProps>(functio
         value={value}
         placeholder={placeholder}
         disabled={disabled}
-        onInput={(e) => onValueChange(e.currentTarget.value)}
+        onInput={(e) => onValueChange((e.currentTarget as HTMLInputElement).value)}
       />
       {value ? (
-        <button type="button" className="ui-search__clear" onClick={() => onValueChange('')} aria-label="Clear search">
+        <button type="button" class="ui-search__clear" onClick={() => onValueChange('')} aria-label="Clear search">
           ×
         </button>
       ) : null}
     </div>
-  );
-});
+    );
+  };
+  },
+);

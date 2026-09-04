@@ -48,38 +48,38 @@ export function TopViewersRibbon({ locale, topViewers = [], leaderboard = [], li
   const totalLabel = liveViewers > 0 ? liveViewers : hasNative ? topViewers.length : leaderboard.length;
 
   return (
-    <div className="tt-viewers-ribbon">
-      <div className="tt-ribbon-title" data-tooltip={t(locale, 'topContributors')} data-tooltip-pos="bottom">
+    <div class="tt-viewers-ribbon">
+      <div class="tt-ribbon-title" data-tooltip={t(locale, 'topContributors')} data-tooltip-pos="bottom">
         <span>
           {t(locale, 'viewersCount')} · {totalLabel}
         </span>
         <span style={{ opacity: 0.6, fontSize: '11px' }} title="TikTok native ranking">ⓘ</span>
       </div>
-      <div className="tt-top-contributors">
+      <div class="tt-top-contributors">
         {ribbonItems.map((viewer, idx) => {
           const rankNum = hasNative ? viewer.rank || idx + 1 : idx + 1;
           const displayRank = rankNum === 0 ? '–' : String(rankNum);
           const scoreLabel = viewer.score > 0 ? String(viewer.score) : hasNative ? '' : String(viewer.score);
           return (
-            <div key={viewer.key} className={`tt-contributor-chip rank-${rankNum <= 3 ? rankNum : 'other'}`}>
-              <span className="tt-rank-num">{displayRank}</span>
+            <div key={viewer.key} class={`tt-contributor-chip rank-${rankNum <= 3 ? rankNum : 'other'}`}>
+              <span class="tt-rank-num">{displayRank}</span>
               {viewer.avatarUrl ? (
                 <img
                   src={viewer.avatarUrl}
                   alt={viewer.uniqueId}
-                  className="tt-chip-avatar"
+                  class="tt-chip-avatar"
                   loading="lazy"
                   onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = 'none')}
                 />
               ) : (
-                <span className="tt-chip-avatar fallback" aria-hidden>
+                <span class="tt-chip-avatar fallback" aria-hidden>
                   {getInitials(viewer.uniqueId)}
                 </span>
               )}
-              <span className="tt-rank-name" title={viewer.nickname || viewer.uniqueId}>
+              <span class="tt-rank-name" title={viewer.nickname || viewer.uniqueId}>
                 {viewer.nickname && viewer.nickname !== viewer.uniqueId ? viewer.nickname : `@${viewer.uniqueId}`}
               </span>
-              {scoreLabel ? <span className="tt-rank-pts">{scoreLabel}</span> : null}
+              {scoreLabel ? <span class="tt-rank-pts">{scoreLabel}</span> : null}
             </div>
           );
         })}

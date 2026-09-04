@@ -1,6 +1,6 @@
 # TikTools contributor notes
 
-TikTools is a Rust desktop host with a Preact frontend. Do not add Tauri or a
+TikTools is a Rust desktop host with a Vue frontend. Do not add Tauri or a
 new application framework.
 
 ## Rust boundaries

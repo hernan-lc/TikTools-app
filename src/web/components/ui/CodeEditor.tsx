@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { JSX } from 'preact';
+import { computed, ref, watch } from 'vue';
+import type { VNode } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 import type { TemplateSuggestion } from '../node-editor/template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
@@ -40,175 +41,183 @@ export function formatJsonText(value: string): string | null {
  * backdrop (JSON tokens + `{{ }}` pills) behind a transparent textarea, and
  * the same quiet variable autocomplete as the single-line template inputs.
  */
-export function CodeEditor({
-  value,
-  onValueChange,
-  suggestions = [],
-  language = 'text',
-  locale = 'en',
-  filename,
-  mime,
-  rows = 7,
-  ariaLabel,
-  onFormat,
-  formatLabel,
-}: CodeEditorProps) {
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const gutterRef = useRef<HTMLDivElement | null>(null);
-  const backdropRef = useRef<HTMLPreElement | null>(null);
-  const [focused, setFocused] = useState(false);
-  const [forcedOpen, setForcedOpen] = useState(false);
-  const [cursor, setCursor] = useState(value.length);
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
+export const CodeEditor = defineVueComponent<CodeEditorProps>(
+  [
+    'value',
+    'onValueChange',
+    'suggestions',
+    'language',
+    'locale',
+    'filename',
+    'mime',
+    'rows',
+    'ariaLabel',
+    'onFormat',
+    'formatLabel',
+  ],
+  (props) => {
+  const inputRef = ref<HTMLTextAreaElement | null>(null);
+  const boxRef = ref<HTMLDivElement | null>(null);
+  const gutterRef = ref<HTMLDivElement | null>(null);
+  const backdropRef = ref<HTMLPreElement | null>(null);
+  const focused = ref(false);
+  const forcedOpen = ref(false);
+  const cursor = ref(props.value.length);
+  const suggestionIndex = ref(0);
 
-  const lineCount = useMemo(() => Math.max(1, value.split('\n').length), [value]);
+  const lineCount = computed(() => Math.max(1, props.value.split('\n').length));
   const lineHeight = 19.2; // 12px mono * 1.6
-  const visibleLines = Math.max(lineCount, rows);
-  const minEditHeight = visibleLines * lineHeight + 20;
-  const nodes = useMemo(
-    () => (language === 'json' ? highlightJson(value) : highlightText(value)),
-    [value, language],
-  );
+  const visibleLines = computed(() => Math.max(lineCount.value, props.rows ?? 7));
+  const minEditHeight = computed(() => visibleLines.value * lineHeight + 20);
+  const nodes = computed(() => (
+    (props.language ?? 'text') === 'json' ? highlightJson(props.value) : highlightText(props.value)
+  ));
 
-  const token = getToken(value, cursor);
-  const items = useMemo(() => dedupeItems(suggestions.map(toItem)), [suggestions]);
-  const scored = useMemo(() => filterSuggestions(items, token.query, 7), [items, token.query]);
-  const visible = scored.map((entry) => ({ item: entry.item, ranges: entry.matchRanges }));
-  const showSuggestions = focused && (forcedOpen || token.inside || token.query.length >= 2) && visible.length > 0;
+  const token = computed(() => getToken(props.value, cursor.value));
+  const items = computed(() => dedupeItems((props.suggestions ?? []).map(toItem)));
+  const scored = computed(() => filterSuggestions(items.value, token.value.query, 7));
+  const visible = computed(() => scored.value.map((entry) => ({ item: entry.item, ranges: entry.matchRanges })));
+  const showSuggestions = computed(() => (
+    focused.value
+    && (forcedOpen.value || token.value.inside || token.value.query.length >= 2)
+    && visible.value.length > 0
+  ));
 
-  useEffect(() => {
-    setSuggestionIndex(0);
-  }, [token.query, suggestions.length]);
+  watch(() => [token.value.query, (props.suggestions ?? []).length], () => {
+    suggestionIndex.value = 0;
+  });
 
-  useEffect(() => {
-    if (!showSuggestions) setForcedOpen(false);
-  }, [showSuggestions]);
+  watch(showSuggestions, (open) => {
+    if (!open) forcedOpen.value = false;
+  });
 
   const syncScroll = (): void => {
-    const target = inputRef.current;
+    const target = inputRef.value;
     if (!target) return;
-    if (gutterRef.current) gutterRef.current.scrollTop = target.scrollTop;
-    if (backdropRef.current) {
-      backdropRef.current.scrollTop = target.scrollTop;
-      backdropRef.current.scrollLeft = target.scrollLeft;
+    if (gutterRef.value) gutterRef.value.scrollTop = target.scrollTop;
+    if (backdropRef.value) {
+      backdropRef.value.scrollTop = target.scrollTop;
+      backdropRef.value.scrollLeft = target.scrollLeft;
     }
   };
 
   const updateCursor = (): void => {
-    const target = inputRef.current;
-    setCursor(target?.selectionStart ?? value.length);
+    const target = inputRef.value;
+    cursor.value = target?.selectionStart ?? props.value.length;
   };
 
   const insertSuggestion = (suggestion: { value: string }): void => {
-    const offset = inputRef.current?.selectionStart ?? cursor;
-    const current = getToken(value, offset);
+    const offset = inputRef.value?.selectionStart ?? cursor.value;
+    const current = getToken(props.value, offset);
     // Replace the exact word/`{{ …` span being typed; inserting at the
     // cursor without replacing duplicated the typed text.
     const start = current.inside || current.query.length > 0 ? current.start : offset;
     const inserted = `{{ ${suggestion.value} }}`;
-    const nextValue = `${value.slice(0, start)}${inserted}${value.slice(offset)}`;
+    const nextValue = `${props.value.slice(0, start)}${inserted}${props.value.slice(offset)}`;
     const nextCursor = start + inserted.length;
-    onValueChange(nextValue);
-    setCursor(nextCursor);
-    setForcedOpen(false);
+    props.onValueChange(nextValue);
+    cursor.value = nextCursor;
+    forcedOpen.value = false;
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+      inputRef.value?.focus();
+      inputRef.value?.setSelectionRange(nextCursor, nextCursor);
     });
   };
 
-  const handleKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLTextAreaElement>): void => {
+  const handleKeyDown = (event: KeyboardEvent): void => {
     if ((event.ctrlKey || event.metaKey) && event.key === ' ') {
       event.preventDefault();
-      setForcedOpen(true);
-      setFocused(true);
+      forcedOpen.value = true;
+      focused.value = true;
       return;
     }
-    if (!showSuggestions || visible.length === 0) return;
+    if (!showSuggestions.value || visible.value.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSuggestionIndex((current) => (current + 1) % visible.length);
+      suggestionIndex.value = (suggestionIndex.value + 1) % visible.value.length;
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setSuggestionIndex((current) => (current - 1 + visible.length) % visible.length);
-    } else if (event.key === 'Tab' || (event.key === 'Enter' && (token.inside || forcedOpen))) {
+      suggestionIndex.value = (suggestionIndex.value - 1 + visible.value.length) % visible.value.length;
+    } else if (event.key === 'Tab' || (event.key === 'Enter' && (token.value.inside || forcedOpen.value))) {
       event.preventDefault();
-      const selected = visible[suggestionIndex]?.item;
+      const selected = visible.value[suggestionIndex.value]?.item;
       if (selected) insertSuggestion(selected);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      if (forcedOpen) setForcedOpen(false);
-      else setFocused(false);
+      if (forcedOpen.value) forcedOpen.value = false;
+      else focused.value = false;
       (event.currentTarget as HTMLElement).blur?.();
     }
   };
 
-  const showHead = Boolean(filename || mime || onFormat);
-
-  return (
-    <div ref={boxRef} className="codeed">
+  return () => {
+    const rows = props.rows ?? 7;
+    const locale = props.locale ?? 'en';
+    const showHead = Boolean(props.filename || props.mime || props.onFormat);
+    return (
+    <div ref={boxRef} class="codeed">
       {showHead && (
-        <div className="codeed-head">
-          <span className="codeed-file">
-            {filename && (
+        <div class="codeed-head">
+          <span class="codeed-file">
+            {props.filename && (
               <>
-                <i className="codeed-dot" aria-hidden="true" />
-                {filename}
+                <i class="codeed-dot" aria-hidden="true" />
+                {props.filename}
               </>
             )}
           </span>
-          <span className="codeed-side">
-            {mime && <span className="codeed-mime">{mime}</span>}
-            {onFormat && (
-              <button type="button" className="codeed-format" onClick={onFormat}>
-                {formatLabel ?? t(locale, 'behavior.editor.format')}
+          <span class="codeed-side">
+            {props.mime && <span class="codeed-mime">{props.mime}</span>}
+            {props.onFormat && (
+              <button type="button" class="codeed-format" onClick={props.onFormat}>
+                {props.formatLabel ?? t(locale, 'behavior.editor.format')}
               </button>
             )}
           </span>
         </div>
       )}
-      <div className="codeed-body">
-        <div ref={gutterRef} className="codeed-gutter" aria-hidden="true">
-          {Array.from({ length: visibleLines }, (_, index) => (
+      <div class="codeed-body">
+        <div ref={gutterRef} class="codeed-gutter" aria-hidden="true">
+          {Array.from({ length: visibleLines.value }, (_, index) => (
             <span key={index + 1}>{index + 1}</span>
           ))}
         </div>
-        <div className="codeed-edit" style={{ minHeight: `${minEditHeight}px` }}>
-          <pre ref={backdropRef} className="codeed-backdrop" aria-hidden="true">
+        <div class="codeed-edit" style={{ minHeight: `${minEditHeight.value}px` }}>
+          <pre ref={backdropRef} class="codeed-backdrop" aria-hidden="true">
             <code>
-              {nodes}
-              {value.endsWith('\n') ? '\n​' : ''}
+              {nodes.value}
+              {props.value.endsWith('\n') ? '\n​' : ''}
             </code>
           </pre>
           <textarea
             ref={inputRef}
-            className="codeed-input"
-            value={value}
+            class="codeed-input"
+            value={props.value}
             rows={rows}
             spellcheck={false}
             wrap="off"
-            aria-label={ariaLabel}
-            onFocus={() => setFocused(true)}
+            aria-label={props.ariaLabel}
+            onFocus={() => { focused.value = true; }}
             onBlur={() => {
-              setFocused(false);
-              setForcedOpen(false);
+              focused.value = false;
+              forcedOpen.value = false;
             }}
-            onKeyDown={handleKeyDown}
+            onKeydown={handleKeyDown}
             onInput={(event) => {
-              onValueChange(event.currentTarget.value);
+              const target = event.currentTarget as HTMLTextAreaElement;
+              props.onValueChange(target.value);
               updateCursor();
             }}
-            onKeyUp={updateCursor}
+            onKeyup={updateCursor}
             onSelect={updateCursor}
             onClick={updateCursor}
             onScroll={syncScroll}
           />
         </div>
       </div>
-      <AutocompletePortal anchorRef={boxRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
-        <div className="tpl-suggest" role="listbox" aria-label={ariaLabel ?? 'Suggestions'}>
-          {visible.map(({ item, ranges }, index) => {
+      <AutocompletePortal anchorRef={boxRef} cursorRef={inputRef} cursorOffset={cursor.value} open={showSuggestions.value}>
+        <div class="tpl-suggest" role="listbox" aria-label={props.ariaLabel ?? 'Suggestions'}>
+          {visible.value.map(({ item, ranges }, index) => {
             const valueSegments = highlightSegments(item.value, ranges);
             const hoverTitle = [
               item.value,
@@ -221,31 +230,33 @@ export function CodeEditor({
                 key={`${item.value}:${index}`}
                 type="button"
                 role="option"
-                aria-selected={index === suggestionIndex}
-                className={index === suggestionIndex ? 'is-selected' : ''}
+                aria-selected={index === suggestionIndex.value}
+                class={index === suggestionIndex.value ? 'is-selected' : ''}
                 title={hoverTitle || item.value}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setSuggestionIndex(index)}
-                onFocus={() => setSuggestionIndex(index)}
+                onMousedown={(event) => event.preventDefault()}
+                onMouseenter={() => { suggestionIndex.value = index; }}
+                onFocus={() => { suggestionIndex.value = index; }}
                 onClick={() => insertSuggestion(item)}
               >
-                <i className={`tpl-dot tpl-dot--${item.kind ?? 'unknown'}`} aria-hidden="true" />
-                <code className="tpl-path">
+                <i class={`tpl-dot tpl-dot--${item.kind ?? 'unknown'}`} aria-hidden="true" />
+                <code class="tpl-path">
                   {valueSegments.map((segment, segmentIndex) => (
                     segment.highlight ? <mark key={segmentIndex}>{segment.text}</mark> : <span key={segmentIndex}>{segment.text}</span>
                   ))}
                 </code>
-                {item.detail ?? item.kind ? <span className="tpl-kind">{item.detail ?? item.kind}</span> : null}
-                {item.preview ? <span className="tpl-preview" title={item.preview}>{item.preview}</span> : null}
+                {item.detail ?? item.kind ? <span class="tpl-kind">{item.detail ?? item.kind}</span> : null}
+                {item.preview ? <span class="tpl-preview" title={item.preview}>{item.preview}</span> : null}
               </button>
             );
           })}
-          <div className="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
+          <div class="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
         </div>
       </AutocompletePortal>
     </div>
   );
-}
+  };
+  },
+);
 
 function toItem(suggestion: TemplateSuggestion | AutocompleteItem): AutocompleteItem & { label: string; value: string } {
   const item = suggestion as AutocompleteItem;
@@ -281,11 +292,11 @@ function getToken(value: string, cursor: number): { start: number; query: string
 }
 
 /** Plain text: only `{{ }}` spans get the pill treatment. */
-function highlightText(value: string): JSX.Element[] {
+function highlightText(value: string): VNode[] {
   if (!value) return [<span key="empty">{''}</span>];
   const parts = value.split(/(\{\{\s*[^{}]*\}?\}?)/g);
   return parts.map((part, index) =>
-    index % 2 === 1 ? <span key={index} className="codeed-var">{part || '{{'}</span> : <span key={index}>{part}</span>,
+    index % 2 === 1 ? <span key={index} class="codeed-var">{part || '{{'}</span> : <span key={index}>{part}</span>,
   );
 }
 
@@ -324,19 +335,19 @@ export function tokenizeJson(chunk: string): JsonToken[] {
   return out;
 }
 
-function highlightJson(value: string): JSX.Element[] {
+function highlightJson(value: string): VNode[] {
   if (!value) return [<span key="empty">{''}</span>];
-  const out: JSX.Element[] = [];
+  const out: VNode[] = [];
   const varPattern = /\{\{\s*[^{}]*\}?\}?/g;
   let last = 0;
   let key = 0;
   let match: RegExpExecArray | null;
   const pushChunk = (chunk: string): void => {
-    for (const token of tokenizeJson(chunk)) out.push(<span key={key++} className={token.cls}>{token.text}</span>);
+    for (const token of tokenizeJson(chunk)) out.push(<span key={key++} class={token.cls}>{token.text}</span>);
   };
   while ((match = varPattern.exec(value)) !== null) {
     if (match.index > last) pushChunk(value.slice(last, match.index));
-    out.push(<span key={key++} className="codeed-var">{match[0]}</span>);
+    out.push(<span key={key++} class="codeed-var">{match[0]}</span>);
     last = match.index + match[0].length;
   }
   if (last < value.length) pushChunk(value.slice(last));

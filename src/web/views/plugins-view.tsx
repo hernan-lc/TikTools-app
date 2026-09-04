@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'preact/hooks';
+import { ref } from 'vue';
+import { defineVueComponent } from '../vue/component.ts';
 
 import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
 import type { JsonObject } from '../../automation/types.ts';
 import type { PluginSettingValues } from '../../shared/messages.ts';
-import type { PluginSettingsState } from '../app.tsx';
+import type { PluginSettingsState } from '../types.ts';
 import { SchemaForm } from '../components/ui/SchemaForm.tsx';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
@@ -44,124 +45,116 @@ function pluginCopy(locale: Locale) {
   };
 }
 
-export function PluginsView({
-  locale,
-  plugins,
-  actions,
-  actionTypes,
-  error,
-  onSetInstalled,
-  onSetEnabled,
-  settings,
-  onGetSettings,
-  onSaveSettings,
-}: PluginsViewProps) {
-  const copy = pluginCopy(locale);
-  const [tab, setTab] = useState<'installed' | 'store'>('installed');
+export const PluginsView = defineVueComponent<PluginsViewProps>(
+  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings'],
+  (props) => {
+  const tab = ref<'installed' | 'store'>('installed');
 
-  const installed = plugins.filter((plugin) => plugin.installed);
-  const visible = tab === 'installed' ? installed : plugins;
+  return () => {
+  const copy = pluginCopy(props.locale);
+  const installed = props.plugins.filter((plugin) => plugin.installed);
+  const visible = tab.value === 'installed' ? installed : props.plugins;
 
   return (
-    <div className="plg">
-      <div className="plg-topbar">
-        <div className="plg-topbar__text">
-          <h2 className="plg-topbar__title">{copy.title}</h2>
-          <span className="plg-topbar__subtitle">{copy.lead}</span>
+    <div class="plg">
+      <div class="plg-topbar">
+        <div class="plg-topbar__text">
+          <h2 class="plg-topbar__title">{copy.title}</h2>
+          <span class="plg-topbar__subtitle">{copy.lead}</span>
         </div>
       </div>
 
-      <div className="plg-tabs" style="padding: 0 16px;">
+      <div class="plg-tabs" style="padding: 0 16px;">
         <button
           type="button"
-          className={`plg-tab${tab === 'installed' ? ' is-active' : ''}`}
-          onClick={() => setTab('installed')}
+          class={`plg-tab${tab.value === 'installed' ? ' is-active' : ''}`}
+          onClick={() => { tab.value = 'installed'; }}
         >
           {copy.installed} · {installed.length}
         </button>
         <button
           type="button"
-          className={`plg-tab${tab === 'store' ? ' is-active' : ''}`}
-          onClick={() => setTab('store')}
+          class={`plg-tab${tab.value === 'store' ? ' is-active' : ''}`}
+          onClick={() => { tab.value = 'store'; }}
         >
-          {copy.store} · {plugins.length}
+          {copy.store} · {props.plugins.length}
         </button>
       </div>
 
-      {error && <div className="plg-stack"><div className="plg-alert">{error}</div></div>}
+      {props.error && <div class="plg-stack"><div class="plg-alert">{props.error}</div></div>}
 
-      <div className="plg-scroll">
-        <div className="plg-stack">
-          {tab === 'installed' && (
-            <div className="plg-banner">
-              <span className="plg-dot is-ok" />
-              <span className="plg-banner__label">{copy.builtInLabel}</span>
-              <span className="plg-banner__list">
-                {actionTypes.filter((type) => type.source.kind === 'builtin').map((type) => i18nText(locale, type.title)).join(' · ')}
+      <div class="plg-scroll">
+        <div class="plg-stack">
+          {tab.value === 'installed' && (
+            <div class="plg-banner">
+              <span class="plg-dot is-ok" />
+              <span class="plg-banner__label">{copy.builtInLabel}</span>
+              <span class="plg-banner__list">
+                {props.actionTypes.filter((type) => type.source.kind === 'builtin').map((type) => i18nText(props.locale, type.title)).join(' · ')}
               </span>
-              <span className="plg-banner__note">{copy.builtInNote}</span>
+              <span class="plg-banner__note">{copy.builtInNote}</span>
             </div>
           )}
 
           {visible.map((plugin) => {
-            const usedBy = actions.filter((action) => {
-              const type = actionTypes.find((entry) => entry.id === action.typeId);
+            const usedBy = props.actions.filter((action) => {
+              const type = props.actionTypes.find((entry) => entry.id === action.typeId);
               return type?.source.kind === 'plugin' && type.source.pluginId === plugin.descriptor.id;
             }).length;
 
             return (
               <div
-                className={`plg-plugin${plugin.installed && !plugin.enabled ? ' is-off' : ''}`}
+                class={`plg-plugin${plugin.installed && !plugin.enabled ? ' is-off' : ''}`}
                 key={plugin.descriptor.id}
               >
-                <div className="plg-plugin__head">
-                  <div className="plg-field">
-                    <div className="plg-plugin__title">
-                      <span className="plg-plugin__name">{i18nText(locale, plugin.descriptor.name)}</span>
-                      <span className="plg-pill plg-pill--mono">{plugin.descriptor.version}</span>
+                <div class="plg-plugin__head">
+                  <div class="plg-field">
+                    <div class="plg-plugin__title">
+                      <span class="plg-plugin__name">{i18nText(props.locale, plugin.descriptor.name)}</span>
+                      <span class="plg-pill plg-pill--mono">{plugin.descriptor.version}</span>
                       {plugin.installed && (
-                        <span className={`plg-pill${plugin.enabled ? ' plg-pill--accent' : ''}`}>
+                        <span class={`plg-pill${plugin.enabled ? ' plg-pill--accent' : ''}`}>
                           {plugin.enabled ? copy.active : copy.disabled}
                         </span>
                       )}
-                      {!plugin.available && <span className="plg-pill">{copy.unavailable}</span>}
+                      {!plugin.available && <span class="plg-pill">{copy.unavailable}</span>}
                     </div>
-                    <span className="plg-plugin__desc">{i18nText(locale, plugin.descriptor.description)}</span>
-                    <div className="plg-table__chips">
-                      <span className="plg-group-note">{copy.actionsLabel}</span>
+                    <span class="plg-plugin__desc">{i18nText(props.locale, plugin.descriptor.description)}</span>
+                    <div class="plg-table__chips">
+                      <span class="plg-group-note">{copy.actionsLabel}</span>
                       {plugin.descriptor.actionTypeIds.map((id) => (
-                        <span className="plg-pill" key={id}>
+                        <span class="plg-pill" key={id}>
                           {(() => {
-                            const type = actionTypes.find((entry) => entry.id === id);
-                            return type ? i18nText(locale, type.title) : id;
+                            const type = props.actionTypes.find((entry) => entry.id === id);
+                            return type ? i18nText(props.locale, type.title) : id;
                           })()}
                         </span>
                       ))}
                     </div>
-                    <div className="plg-plugin__meta">
-                      <span>{i18nText(locale, plugin.descriptor.dependency)}</span>
+                    <div class="plg-plugin__meta">
+                      <span>{i18nText(props.locale, plugin.descriptor.dependency)}</span>
                       <span>·</span>
                       <span>{plugin.descriptor.permissions.join(' · ')}</span>
                     </div>
                   </div>
 
-                  <div className="plg-plugin__controls">
+                  <div class="plg-plugin__controls">
                     {plugin.installed && (
                       <button
                         type="button"
-                        className={`plg-switch${plugin.enabled ? ' is-on' : ''}`}
-                        aria-label={i18nText(locale, plugin.descriptor.name)}
-                        onClick={() => onSetEnabled(plugin.descriptor.id, !plugin.enabled)}
+                        class={`plg-switch${plugin.enabled ? ' is-on' : ''}`}
+                        aria-label={i18nText(props.locale, plugin.descriptor.name)}
+                        onClick={() => props.onSetEnabled(plugin.descriptor.id, !plugin.enabled)}
                       >
-                        <span className="plg-switch__track"><span className="plg-switch__thumb" /></span>
+                        <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
                       </button>
                     )}
                     <button
                       type="button"
-                      className={`plg-btn plg-btn--sm${plugin.installed ? ' plg-btn--danger' : ' plg-btn--primary'}`}
+                      class={`plg-btn plg-btn--sm${plugin.installed ? ' plg-btn--danger' : ' plg-btn--primary'}`}
                       onClick={() => {
                         if (plugin.installed && !confirm(copy.confirm)) return;
-                        onSetInstalled(plugin.descriptor.id, !plugin.installed);
+                        props.onSetInstalled(plugin.descriptor.id, !plugin.installed);
                       }}
                     >
                       {plugin.installed ? copy.uninstall : copy.install}
@@ -170,7 +163,7 @@ export function PluginsView({
                 </div>
 
                 {plugin.installed && usedBy > 0 && (
-                  <div className="plg-warn">
+                  <div class="plg-warn">
                     <strong>{copy.uninstall}:</strong>
                     {copy.usedBy(usedBy)}
                   </div>
@@ -178,12 +171,12 @@ export function PluginsView({
 
                 {plugin.installed && plugin.descriptor.hasSettings && (
                   <PluginSettingsForm
-                    locale={locale}
+                    locale={props.locale}
                     pluginId={plugin.descriptor.id}
                     plugin={plugin}
-                    state={settings[plugin.descriptor.id]}
-                    onGetSettings={onGetSettings}
-                    onSaveSettings={onSaveSettings}
+                    state={props.settings[plugin.descriptor.id]}
+                    onGetSettings={props.onGetSettings}
+                    onSaveSettings={props.onSaveSettings}
                   />
                 )}
               </div>
@@ -191,9 +184,9 @@ export function PluginsView({
           })}
 
           {visible.length === 0 && (
-            <div className="plg-empty">
-              <span className="plg-empty__desc">{copy.emptyInstalled}</span>
-              <button type="button" className="plg-btn plg-btn--primary" onClick={() => setTab('store')}>
+            <div class="plg-empty">
+              <span class="plg-empty__desc">{copy.emptyInstalled}</span>
+              <button type="button" class="plg-btn plg-btn--primary" onClick={() => { tab.value = 'store'; }}>
                 {copy.explore}
               </button>
             </div>
@@ -202,67 +195,68 @@ export function PluginsView({
       </div>
     </div>
   );
-}
+  };
+  },
+);
 
 /** Host-rendered JSON settings for one plugin. Nothing here executes plugin code. */
-function PluginSettingsForm({
-  locale,
-  pluginId,
-  plugin,
-  state,
-  onGetSettings,
-  onSaveSettings,
-}: {
+type PluginSettingsFormProps = {
   locale: Locale;
   pluginId: string;
   plugin: PluginStatus;
   state?: PluginSettingsState;
   onGetSettings: (id: string) => void;
   onSaveSettings: (id: string, values: PluginSettingValues) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<JsonObject | null>(null);
-  useEffect(() => {
-    if (open && state) setDraft((current) => current ?? { ...state.values });
-  }, [open, state]);
-  if (!plugin.descriptor.hasSettings) return null;
+};
+
+const PluginSettingsForm = defineVueComponent<PluginSettingsFormProps>(
+  ['locale', 'pluginId', 'plugin', 'state', 'onGetSettings', 'onSaveSettings'],
+  (props) => {
+  const open = ref(false);
+  const draft = ref<JsonObject | null>(null);
+
+  return () => {
+  if (!props.plugin.descriptor.hasSettings) return null;
+  const state = props.state;
   return (
-    <div className="plg-plugin__settings">
+    <div class="plg-plugin__settings">
       <button
         type="button"
-        className="plg-btn plg-btn--sm"
+        class="plg-btn plg-btn--sm"
         onClick={() => {
-          if (!open && !state) onGetSettings(pluginId);
-          if (!open) setDraft(null);
-          setOpen(!open);
+          if (!open.value && !state) props.onGetSettings(props.pluginId);
+          if (!open.value) draft.value = null;
+          open.value = !open.value;
         }}
       >
-        {t(locale, 'pluginSettings')}
+        {t(props.locale, 'pluginSettings')}
       </button>
-      {open && state && (
-        <div className="plg-form">
-          <span className="plg-group-note">{t(locale, 'pluginSettingsHint')}</span>
+      {open.value && state && (
+        <div class="plg-form">
+          <span class="plg-group-note">{t(props.locale, 'pluginSettingsHint')}</span>
           <SchemaForm
-            locale={locale}
+            locale={props.locale}
             schema={state.schema}
             uiHints={state.uiHints}
-            value={draft ?? state.values}
-            onChange={(value) => setDraft(value)}
+            value={draft.value ?? state.values}
+            onChange={(value) => { draft.value = value; }}
           />
-          <div className="plg-row">
+          <div class="plg-row">
             <button
               type="button"
-              className="plg-btn plg-btn--primary plg-btn--sm"
-              onClick={() => onSaveSettings(pluginId, toSettingValues(draft ?? state.values))}
+              class="plg-btn plg-btn--primary plg-btn--sm"
+              onClick={() => props.onSaveSettings(props.pluginId, toSettingValues(draft.value ?? state.values))}
             >
-              {t(locale, 'pluginSettingsSave')}
+              {t(props.locale, 'pluginSettingsSave')}
             </button>
           </div>
         </div>
       )}
     </div>
   );
-}
+  };
+  },
+);
 
 function toSettingValues(value: JsonObject): PluginSettingValues {
   const clean: PluginSettingValues = {};

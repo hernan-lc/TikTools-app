@@ -1,65 +1,65 @@
-import type { ComponentChildren } from 'preact';
+import type { VNodeChild } from 'vue';
+import { defineVueFunctional } from '../../vue/component.ts';
 
 type CardProps = {
-  children: ComponentChildren;
+  children: VNodeChild;
   title?: string;
   subtitle?: string;
-  icon?: ComponentChildren;
-  action?: ComponentChildren;
+  icon?: VNodeChild;
+  action?: VNodeChild;
   variant?: 'default' | 'elevated' | 'ghost';
   padding?: 'sm' | 'md' | 'lg' | 'none';
   className?: string;
 };
 
-export function Card({ children, title, subtitle, icon, action, variant = 'default', padding = 'md', className = '' }: CardProps) {
+export const Card = defineVueFunctional<CardProps>((props) => {
+  const { children, title, subtitle, icon, action, variant = 'default', padding = 'md', className = '' } = props;
   return (
-    <div className={`ui-card ui-card--${variant} ui-card--pad-${padding} ${className}`}>
+    <div class={`ui-card ui-card--${variant} ui-card--pad-${padding} ${className}`}>
       {title || icon || subtitle || action ? (
-        <header className="ui-card__header">
-          <div className="ui-card__title-wrap">
-            {icon ? <span className="ui-card__icon">{icon}</span> : null}
+        <header class="ui-card__header">
+          <div class="ui-card__title-wrap">
+            {icon ? <span class="ui-card__icon">{icon}</span> : null}
             <div>
-              {title ? <h2 className="ui-card__title">{title}</h2> : null}
-              {subtitle ? <p className="ui-card__subtitle">{subtitle}</p> : null}
+              {title ? <h2 class="ui-card__title">{title}</h2> : null}
+              {subtitle ? <p class="ui-card__subtitle">{subtitle}</p> : null}
             </div>
           </div>
-          {action ? <div className="ui-card__action">{action}</div> : null}
+          {action ? <div class="ui-card__action">{action}</div> : null}
         </header>
       ) : null}
-      <div className="ui-card__body">{children}</div>
+      <div class="ui-card__body">{children}</div>
     </div>
   );
-}
+});
 
-export function CardFooter({ children }: { children: ComponentChildren }) {
-  return <div className="ui-card__footer">{children}</div>;
-}
+export const CardFooter = defineVueFunctional<{ children?: VNodeChild }>((props) => <div class="ui-card__footer">{props.children}</div>);
 
-export function Badge({ children, tone = 'neutral' }: { children: ComponentChildren; tone?: 'neutral' | 'pink' | 'cyan' | 'success' }) {
-  return <span className={`ui-badge ui-badge--${tone}`}>{children}</span>;
-}
+export const Badge = defineVueFunctional<{ children?: VNodeChild; tone?: 'neutral' | 'pink' | 'cyan' | 'success' }>((props) => (
+  <span class={`ui-badge ui-badge--${props.tone ?? 'neutral'}`}>{props.children}</span>
+));
 
-export function Alert({ children, variant = 'info' }: { children: ComponentChildren; variant?: 'info' | 'success' | 'danger' | 'warning' }) {
-  return <div className={`ui-alert ui-alert--${variant}`}>{children}</div>;
-}
+export const Alert = defineVueFunctional<{ children?: VNodeChild; variant?: 'info' | 'success' | 'danger' | 'warning' }>((props) => (
+  <div class={`ui-alert ui-alert--${props.variant ?? 'info'}`}>{props.children}</div>
+));
 
-export function EmptyState({ title, description, action }: { title: string; description?: string; action?: ComponentChildren }) {
+export const EmptyState = defineVueFunctional<{ title: string; description?: string; action?: VNodeChild }>((props) => {
+  const { title, description, action } = props;
   return (
-    <div className="ui-empty">
-      <div className="ui-empty__title">{title}</div>
-      {description ? <p className="ui-empty__desc">{description}</p> : null}
-      {action ? <div className="ui-empty__action">{action}</div> : null}
+    <div class="ui-empty">
+      <div class="ui-empty__title">{title}</div>
+      {description ? <p class="ui-empty__desc">{description}</p> : null}
+      {action ? <div class="ui-empty__action">{action}</div> : null}
     </div>
   );
-}
+});
 
-export function Chip({ children, onClick, active }: { children: ComponentChildren; onClick?: () => void; active?: boolean }) {
+export const Chip = defineVueFunctional<{ children?: VNodeChild; onClick?: () => void; active?: boolean }>((props) => {
+  const { children, onClick, active } = props;
   return (
-    <button type="button" className={`ui-chip ${active ? 'is-active' : ''}`} onClick={onClick}>
+    <button type="button" class={`ui-chip ${active ? 'is-active' : ''}`} onClick={onClick}>
       {children}
     </button>
   );
-}
-export function ChipGroup({ children }: { children: ComponentChildren }) {
-  return <div className="ui-chip-group">{children}</div>;
-}
+});
+export const ChipGroup = defineVueFunctional<{ children?: VNodeChild }>((props) => <div class="ui-chip-group">{props.children}</div>);

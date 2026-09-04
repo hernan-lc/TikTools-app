@@ -1,5 +1,5 @@
-import type { JSX } from 'preact';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { defineVueComponent } from '../vue/component.ts';
 
 import { IconBolt, IconCheck, IconCoins, IconFlame, IconStar, IconTrash, IconTrophy } from '../components/icons.tsx';
 import { Alert, Badge, Card, EmptyState } from '../components/ui/Card.tsx';
@@ -23,25 +23,28 @@ type PointsViewProps = {
   onAdjustPoints: (uniqueId: string, delta: number) => void;
 };
 
-export function PointsView({ locale, config, leaderboard, status, onUpdateConfig, onResetPoints, onAdjustPoints }: PointsViewProps) {
-  const isLive = status === 'connected' || status === 'connecting' || status === 'retrying';
-  const [localConfig, setLocalConfig] = useState<PointsConfig>(config);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [adjustTarget, setAdjustTarget] = useState<string | null>(null);
-  const [adjustDelta, setAdjustDelta] = useState<string>('50');
-  const [deductMode, setDeductMode] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [sortBy, setSortBy] = useState<string>('points');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const leaderboardWrapRef = useRef<HTMLDivElement>(null);
+export const PointsView = defineVueComponent<PointsViewProps>(
+  ['locale', 'config', 'leaderboard', 'status', 'onUpdateConfig', 'onResetPoints', 'onAdjustPoints'],
+  (props) => {
+  const localConfig = ref<PointsConfig>(props.config);
+  const searchQuery = ref('');
+  const saveSuccess = ref(false);
+  const adjustTarget = ref<string | null>(null);
+  const adjustDelta = ref('50');
+  const deductMode = ref(false);
+  const page = ref(1);
+  const pageSize = ref(10);
+  const sortBy = ref<string>('points');
+  const sortDir = ref<'asc' | 'desc'>('desc');
+  const leaderboardWrapRef = ref<HTMLDivElement | null>(null);
 
-  useEffect(() => setLocalConfig(config), [config]);
+  const isLive = computed(() => props.status === 'connected' || props.status === 'connecting' || props.status === 'retrying');
+
+  watch(() => props.config, (config) => { localConfig.value = config; });
 
   // Auto-calc pageSize to fill available height and avoid empty gap (Image 1)
-  useEffect(() => {
-    const el = leaderboardWrapRef.current;
+  onMounted(() => {
+    const el = leaderboardWrapRef.value;
     if (!el) return;
     const ROW_H = 37; // td + border
     const compute = () => {
@@ -54,61 +57,69 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
       const auto = Math.max(10, Math.min(50, rows > 0 ? rows : 10));
       // snap to 5 step to avoid jitter, keep minimal that fills
       const snapped = Math.ceil(auto / 5) * 5;
-      setPageSize((prev) => (Math.abs(prev - snapped) > 2 ? snapped : prev));
+      if (Math.abs(pageSize.value - snapped) > 2) pageSize.value = snapped;
     };
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     window.addEventListener('resize', compute);
     // initial tick after layout
     requestAnimationFrame(compute);
-    return () => {
+    onUnmounted(() => {
       ro.disconnect();
       window.removeEventListener('resize', compute);
-    };
-  }, []);
+    });
+  });
   // reset page when search changes
-  useEffect(() => setPage(1), [searchQuery, pageSize]);
+  watch([searchQuery, pageSize], () => { page.value = 1; });
 
-  const handleSave = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
+  const handleSave = (e: SubmitEvent) => {
     e.preventDefault();
-    if (isLive) return;
-    onUpdateConfig(localConfig);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    if (isLive.value) return;
+    props.onUpdateConfig(localConfig.value);
+    saveSuccess.value = true;
+    setTimeout(() => { saveSuccess.value = false; }, 3000);
   };
 
   const handleResetAll = () => {
-    if (window.confirm(t(locale, 'resetPointsConfirm'))) onResetPoints();
+    if (window.confirm(t(props.locale, 'resetPointsConfirm'))) props.onResetPoints();
   };
 
-  const handleAdjustSubmit = (e: JSX.TargetedEvent<HTMLFormElement, SubmitEvent>) => {
+  const handleAdjustSubmit = (e: SubmitEvent) => {
     e.preventDefault();
-    if (!adjustTarget) return;
-    const base = parseFloat(adjustDelta);
+    if (!adjustTarget.value) return;
+    const base = parseFloat(adjustDelta.value);
     if (Number.isNaN(base)) return;
-    const delta = deductMode ? -Math.abs(base) : Math.abs(base);
-    onAdjustPoints(adjustTarget, delta);
-    setAdjustTarget(null);
+    const delta = deductMode.value ? -Math.abs(base) : Math.abs(base);
+    props.onAdjustPoints(adjustTarget.value, delta);
+    adjustTarget.value = null;
   };
 
-  const filteredViewers = useMemo(() => {
-    let out = leaderboard.filter((v) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase().replace(/^@/, '');
+  const filteredViewers = computed(() => {
+    let out = props.leaderboard.filter((v) => {
+      if (!searchQuery.value.trim()) return true;
+      const q = searchQuery.value.toLowerCase().replace(/^@/, '');
       return v.uniqueId.toLowerCase().includes(q) || (v.nickname && v.nickname.toLowerCase().includes(q));
     });
     // sorting
     out = [...out].sort((a, b) => {
-      if (sortBy === 'points') return sortDir === 'asc' ? a.points - b.points : b.points - a.points;
-      if (sortBy === 'level') return sortDir === 'asc' ? a.level - b.level : b.level - a.level;
-      if (sortBy === 'viewer') return sortDir === 'asc' ? a.uniqueId.localeCompare(b.uniqueId) : b.uniqueId.localeCompare(a.uniqueId);
+      if (sortBy.value === 'points') return sortDir.value === 'asc' ? a.points - b.points : b.points - a.points;
+      if (sortBy.value === 'level') return sortDir.value === 'asc' ? a.level - b.level : b.level - a.level;
+      if (sortBy.value === 'viewer') return sortDir.value === 'asc' ? a.uniqueId.localeCompare(b.uniqueId) : b.uniqueId.localeCompare(a.uniqueId);
       return 0;
     });
     return out;
-  }, [leaderboard, searchQuery, sortBy, sortDir]);
+  });
 
-  const openAdd = (id: string) => { setAdjustTarget(id); setAdjustDelta('50'); setDeductMode(false); };
-  const openDeduct = (id: string) => { setAdjustTarget(id); setAdjustDelta('50'); setDeductMode(true); };
+  const openAdd = (id: string) => { adjustTarget.value = id; adjustDelta.value = '50'; deductMode.value = false; };
+  const openDeduct = (id: string) => { adjustTarget.value = id; adjustDelta.value = '50'; deductMode.value = true; };
+  const patchConfig = <K extends keyof PointsConfig>(key: K, value: PointsConfig[K]): void => {
+    localConfig.value = { ...localConfig.value, [key]: value };
+  };
+
+  return () => {
+  const locale = props.locale;
+  const config = localConfig.value;
+  const live = isLive.value;
 
   const columns: Column<ViewerRecord>[] = [
     {
@@ -153,11 +164,11 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
       width: '84px',
       sortable: true,
       render: (row) => (
-        <span className="tt-badge-level" style={{ transform: 'scale(0.88)', transformOrigin: 'left' }}>
-          <span className="tt-badge-icon">
+        <span class="tt-badge-level" style={{ transform: 'scale(0.88)', transformOrigin: 'left' }}>
+          <span class="tt-badge-icon">
             <IconBolt />
           </span>
-          <span className="tt-badge-text">N.º {row.level}</span>
+          <span class="tt-badge-text">N.º {row.level}</span>
         </span>
       ),
     },
@@ -179,40 +190,40 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
           <Button size="sm" variant="soft" tooltip={t(locale, 'addPoints')} onClick={() => openAdd(row.uniqueId)}>
             +
           </Button>
-          <RowActions onAdd={() => openAdd(row.uniqueId)} onDeduct={() => openDeduct(row.uniqueId)} onReset={() => { if (confirm(`Reset @${row.uniqueId}?`)) onResetPoints(row.uniqueId); }} />
+          <RowActions onAdd={() => openAdd(row.uniqueId)} onDeduct={() => openDeduct(row.uniqueId)} onReset={() => { if (confirm(`Reset @${row.uniqueId}?`)) props.onResetPoints(row.uniqueId); }} />
         </div>
       ),
     },
   ];
 
   return (
-    <div className="view-container" style={{ flexDirection: 'column' }}>
+    <div class="view-container" style={{ flexDirection: 'column' }}>
       <SplitLayout
         left={
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {isLive ? <Alert variant="info">LIVE {t(locale, 'live')} — {t(locale, 'configLockedLive')}</Alert> : null}
+            {live ? <Alert variant="info">LIVE {t(locale, 'live')} — {t(locale, 'configLockedLive')}</Alert> : null}
             <Card title={t(locale, 'pointsSystem')} icon={<IconCoins />}>
               <TextInput
                 id="tf-currency-name"
-                value={localConfig.currencyName}
-                onValueChange={(v) => setLocalConfig({ ...localConfig, currencyName: v })}
+                value={config.currencyName}
+                onValueChange={(v) => { localConfig.value = { ...localConfig.value, currencyName: v }; }}
                 label={t(locale, 'currencyName')}
-                disabled={isLive}
+                disabled={live}
               />
 
               <FieldRow label={t(locale, 'pointsPerCoin')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
-                    checked={localConfig.pointsPerCoinEnabled}
-                    onCheckedChange={(v) => !isLive && setLocalConfig({ ...localConfig, pointsPerCoinEnabled: v })}
-                    disabled={isLive}
+                    checked={config.pointsPerCoinEnabled}
+                    onCheckedChange={(v) => !live && patchConfig('pointsPerCoinEnabled', v)}
+                    disabled={live}
                   />
                   <NumberInput
-                    value={localConfig.pointsPerCoin}
-                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerCoin: v })}
+                    value={config.pointsPerCoin}
+                    onValueChange={(v) => patchConfig('pointsPerCoin', v)}
                     min={0}
                     step={0.1}
-                    disabled={isLive || !localConfig.pointsPerCoinEnabled}
+                    disabled={live || !config.pointsPerCoinEnabled}
                   />
                 </div>
               </FieldRow>
@@ -220,16 +231,16 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
               <FieldRow label={t(locale, 'pointsPerShare')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
-                    checked={localConfig.pointsPerShareEnabled}
-                    onCheckedChange={(v) => !isLive && setLocalConfig({ ...localConfig, pointsPerShareEnabled: v })}
-                    disabled={isLive}
+                    checked={config.pointsPerShareEnabled}
+                    onCheckedChange={(v) => !live && patchConfig('pointsPerShareEnabled', v)}
+                    disabled={live}
                   />
                   <NumberInput
-                    value={localConfig.pointsPerShare}
-                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerShare: v })}
+                    value={config.pointsPerShare}
+                    onValueChange={(v) => patchConfig('pointsPerShare', v)}
                     min={0}
                     step={0.5}
-                    disabled={isLive || !localConfig.pointsPerShareEnabled}
+                    disabled={live || !config.pointsPerShareEnabled}
                   />
                 </div>
               </FieldRow>
@@ -237,16 +248,16 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
               <FieldRow label={t(locale, 'pointsPerChat')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
-                    checked={localConfig.pointsPerChatEnabled}
-                    onCheckedChange={(v) => !isLive && setLocalConfig({ ...localConfig, pointsPerChatEnabled: v })}
-                    disabled={isLive}
+                    checked={config.pointsPerChatEnabled}
+                    onCheckedChange={(v) => !live && patchConfig('pointsPerChatEnabled', v)}
+                    disabled={live}
                   />
                   <NumberInput
-                    value={localConfig.pointsPerChat}
-                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerChat: v })}
+                    value={config.pointsPerChat}
+                    onValueChange={(v) => patchConfig('pointsPerChat', v)}
                     min={0}
                     step={0.1}
-                    disabled={isLive || !localConfig.pointsPerChatEnabled}
+                    disabled={live || !config.pointsPerChatEnabled}
                   />
                 </div>
               </FieldRow>
@@ -254,16 +265,16 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
               <FieldRow label={t(locale, 'pointsPerLike')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
-                    checked={localConfig.pointsPerLikeEnabled}
-                    onCheckedChange={(v) => !isLive && setLocalConfig({ ...localConfig, pointsPerLikeEnabled: v })}
-                    disabled={isLive}
+                    checked={config.pointsPerLikeEnabled}
+                    onCheckedChange={(v) => !live && patchConfig('pointsPerLikeEnabled', v)}
+                    disabled={live}
                   />
                   <NumberInput
-                    value={localConfig.pointsPerLike}
-                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerLike: v })}
+                    value={config.pointsPerLike}
+                    onValueChange={(v) => patchConfig('pointsPerLike', v)}
                     min={0}
                     step={0.05}
-                    disabled={isLive || !localConfig.pointsPerLikeEnabled}
+                    disabled={live || !config.pointsPerLikeEnabled}
                   />
                 </div>
               </FieldRow>
@@ -271,16 +282,16 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
               <FieldRow label={t(locale, 'pointsPerFollow')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Checkbox
-                    checked={localConfig.pointsPerFollowEnabled}
-                    onCheckedChange={(v) => !isLive && setLocalConfig({ ...localConfig, pointsPerFollowEnabled: v })}
-                    disabled={isLive}
+                    checked={config.pointsPerFollowEnabled}
+                    onCheckedChange={(v) => !live && patchConfig('pointsPerFollowEnabled', v)}
+                    disabled={live}
                   />
                   <NumberInput
-                    value={localConfig.pointsPerFollow}
-                    onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerFollow: v })}
+                    value={config.pointsPerFollow}
+                    onValueChange={(v) => patchConfig('pointsPerFollow', v)}
                     min={0}
                     step={1}
-                    disabled={isLive || !localConfig.pointsPerFollowEnabled}
+                    disabled={live || !config.pointsPerFollowEnabled}
                   />
                 </div>
               </FieldRow>
@@ -289,13 +300,13 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
             <Card title={t(locale, 'subBonus')} subtitle={t(locale, 'subBonusLead')} icon={<IconStar />}>
               <FieldRow label={t(locale, 'subBonusRatio')}>
                 <NumberInput
-                  value={localConfig.subBonusMultiplier}
-                  onValueChange={(v) => setLocalConfig({ ...localConfig, subBonusMultiplier: v })}
+                  value={config.subBonusMultiplier}
+                  onValueChange={(v) => patchConfig('subBonusMultiplier', v)}
                   min={0}
                   max={500}
                   step={5}
                   suffix="%"
-                  disabled={isLive}
+                  disabled={live}
                 />
               </FieldRow>
             </Card>
@@ -303,23 +314,23 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
             <Card title={t(locale, 'levelConfig')} subtitle={t(locale, 'levelConfigLead')} icon={<IconFlame />}>
               <FieldRow label={t(locale, 'pointsPerLevel')}>
                 <NumberInput
-                  value={localConfig.pointsPerLevel}
-                  onValueChange={(v) => setLocalConfig({ ...localConfig, pointsPerLevel: Math.max(10, v | 0) })}
+                  value={config.pointsPerLevel}
+                  onValueChange={(v) => patchConfig('pointsPerLevel', Math.max(10, v | 0))}
                   min={10}
                   step={10}
-                  disabled={isLive}
+                  disabled={live}
                 />
               </FieldRow>
             </Card>
 
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Button type="submit" variant="primary" block icon={<IconCheck />} disabled={isLive}>
+              <Button type="submit" variant="primary" block icon={<IconCheck />} disabled={live}>
                 {t(locale, 'savePointsConfig')}
               </Button>
-              <Button variant="danger" icon={<IconTrash />} tooltip={t(locale, 'resetPoints')} onClick={handleResetAll} iconOnly disabled={isLive} />
+              <Button variant="danger" icon={<IconTrash />} tooltip={t(locale, 'resetPoints')} onClick={handleResetAll} iconOnly disabled={live} />
             </div>
 
-            {saveSuccess ? (
+            {saveSuccess.value ? (
               <Alert variant="success">
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <IconCheck /> {t(locale, 'configSaved')}
@@ -330,42 +341,42 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
         }
         right={
           <div ref={leaderboardWrapRef} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
-            <Card title={t(locale, 'leaderboard')} icon={<IconTrophy />} action={<Badge>{filteredViewers.length} {t(locale, 'viewersCount')}</Badge>} padding="md" className="ui-card--fill">
+            <Card title={t(locale, 'leaderboard')} icon={<IconTrophy />} action={<Badge>{filteredViewers.value.length} {t(locale, 'viewersCount')}</Badge>} padding="md" class="ui-card--fill">
               <div style={{ marginBottom: 10 }}>
-                <SearchInput value={searchQuery} onValueChange={setSearchQuery} placeholder={t(locale, 'searchViewers')} />
+                <SearchInput value={searchQuery.value} onValueChange={(value) => { searchQuery.value = value; }} placeholder={t(locale, 'searchViewers')} />
               </div>
               <DataTable
                 columns={columns}
-                data={filteredViewers}
+                data={filteredViewers.value}
                 rowKey="uniqueId"
                 emptyState={<EmptyState title={t(locale, 'noData')} />}
                 rowClassName={(_r, i) => (i < 3 ? `top-rank-${i + 1}` : undefined)}
-                pagination={{ page, pageSize, total: filteredViewers.length, onPageChange: setPage, onPageSizeChange: (s) => { setPageSize(s); setPage(1); }, pageSizeOptions: [10, 15, 20, 30, 50] }}
-                sortBy={sortBy}
-                sortDir={sortDir}
-                onSortChange={(k, d) => { setSortBy(k); setSortDir(d); }}
+                pagination={{ page: page.value, pageSize: pageSize.value, total: filteredViewers.value.length, onPageChange: (value) => { page.value = value; }, onPageSizeChange: (value) => { pageSize.value = value; page.value = 1; }, pageSizeOptions: [10, 15, 20, 30, 50] }}
+                sortBy={sortBy.value}
+                sortDir={sortDir.value}
+                onSortChange={(key, direction) => { sortBy.value = key; sortDir.value = direction; }}
               />
             </Card>
           </div>
         }
       />
 
-      {adjustTarget ? (
-        <div className="modal-backdrop">
-          <div className="modal-card">
+      {adjustTarget.value ? (
+        <div class="modal-backdrop">
+          <div class="modal-card">
             <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <IconCoins /> {deductMode ? 'Deduct' : 'Add'} Points: @{adjustTarget}
+              <IconCoins /> {deductMode.value ? 'Deduct' : 'Add'} Points: @{adjustTarget.value}
             </h2>
             <form onSubmit={handleAdjustSubmit}>
-              <FormField label={deductMode ? 'Points to deduct:' : 'Points to add:'}>
-                <NumberInput value={parseFloat(adjustDelta) || 0} onValueChange={(v) => setAdjustDelta(String(Math.abs(v)))} min={0} step={1} />
+              <FormField label={deductMode.value ? 'Points to deduct:' : 'Points to add:'}>
+                <NumberInput value={parseFloat(adjustDelta.value) || 0} onValueChange={(value) => { adjustDelta.value = String(Math.abs(value)); }} min={0} step={1} />
               </FormField>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                <Button variant="soft" onClick={() => setAdjustTarget(null)}>
+                <Button variant="soft" onClick={() => { adjustTarget.value = null; }}>
                   {t(locale, 'cancel')}
                 </Button>
-                <Button type="submit" variant={deductMode ? 'danger' : 'primary'}>
-                  {deductMode ? 'Deduct' : t(locale, 'continue')}
+                <Button type="submit" variant={deductMode.value ? 'danger' : 'primary'}>
+                  {deductMode.value ? 'Deduct' : t(locale, 'continue')}
                 </Button>
               </div>
             </form>
@@ -374,4 +385,6 @@ export function PointsView({ locale, config, leaderboard, status, onUpdateConfig
       ) : null}
     </div>
   );
-}
+  };
+  },
+);

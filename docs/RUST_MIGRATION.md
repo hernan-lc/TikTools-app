@@ -1,8 +1,8 @@
 # Rust host migration
 
 The migration cutover is complete: TikTools is a Rust desktop application,
-not a Bun desktop host. The Preact frontend remains intact and Bun is used
-only to build and test that frontend.
+not a Bun desktop host. The Vue frontend remains intact and Bun is used only
+to run the Vite build and frontend tests.
 
 ## Current architecture
 
@@ -59,7 +59,7 @@ symlinks before atomic replacement.
 
 ## Compatibility retained
 
-- Existing Preact views and styles.
+- Existing Vue views and styles.
 - `PageMessage`/`HostMessage` discriminator and field names.
 - Points and automation SQLite filenames, tables, and JSON payload columns.
 - Platform app-data migration from checkout-local database files.

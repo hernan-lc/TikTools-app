@@ -28,15 +28,15 @@ export function WorkflowCanvas({
 
   if (orderedNodes.length === 0) {
     return (
-      <div className="node-editor-canvas node-editor-canvas--empty">
+      <div class="node-editor-canvas node-editor-canvas--empty">
         <EmptyState title={t(locale, 'emptyWorkflowTitle')} description={t(locale, 'emptyWorkflowHint')} action={<Button variant="primary" onClick={onAddNode}>{t(locale, 'addStep')}</Button>} />
       </div>
     );
   }
 
   return (
-    <div className="node-editor-canvas">
-      <div className="node-editor-canvas__intro">
+    <div class="node-editor-canvas">
+      <div class="node-editor-canvas__intro">
         <div>
           <strong>{t(locale, 'workflowSteps')}</strong>
           <span>{t(locale, 'workflowStepsHint')}</span>
@@ -44,13 +44,13 @@ export function WorkflowCanvas({
         <Badge tone="cyan">{t(locale, 'nodeCount', { count: orderedNodes.length })}</Badge>
       </div>
 
-      <div className="node-editor-flow-list">
+      <div class="node-editor-flow-list">
         {orderedNodes.map((node, index) => {
           const definition = definitionMap.get(node.type);
           const next = orderedNodes[index + 1];
           const edge = next ? graph.edges.find((candidate) => candidate.kind === 'flow' && candidate.source === node.id && candidate.target === next.id) : undefined;
           return (
-            <div key={node.id} className="node-editor-flow-item">
+            <div key={node.id} class="node-editor-flow-item">
               <NodeCard
                 locale={locale}
                 node={node}
@@ -67,7 +67,7 @@ export function WorkflowCanvas({
         })}
       </div>
 
-      <button type="button" className="node-editor-add-step" onClick={onAddNode}>
+      <button type="button" class="node-editor-add-step" onClick={onAddNode}>
         <span>＋</span>
         <span>{t(locale, 'addStep')}</span>
       </button>
@@ -96,27 +96,27 @@ function NodeCard({
 }) {
   const kind = definition?.kind ?? 'plugin';
   return (
-    <article className={`node-editor-node-card ${selected ? 'is-selected' : ''} is-${kind}`}>
-      <div className="node-editor-node-card__main">
+    <article class={`node-editor-node-card ${selected ? 'is-selected' : ''} is-${kind}`}>
+      <div class="node-editor-node-card__main">
         <button
           type="button"
-          className="node-editor-node-card__select"
+          class="node-editor-node-card__select"
           onClick={onSelect}
           aria-pressed={selected}
         >
-          <span className="node-editor-node-card__number">{index + 1}</span>
-          <span className="node-editor-node-card__content">
-            <span className="node-editor-node-card__topline">
+          <span class="node-editor-node-card__number">{index + 1}</span>
+          <span class="node-editor-node-card__content">
+            <span class="node-editor-node-card__topline">
               <strong>{definition?.title ?? node.type}</strong>
               <Badge tone={kind === 'action' ? 'pink' : kind === 'trigger' ? 'cyan' : 'neutral'}>{kind}</Badge>
             </span>
-            <span className="node-editor-node-card__type">{node.type}</span>
-            <span className="node-editor-node-card__summary">{nodeSummary(node, definition, locale)}</span>
+            <span class="node-editor-node-card__type">{node.type}</span>
+            <span class="node-editor-node-card__summary">{nodeSummary(node, definition, locale)}</span>
           </span>
-          <span className="node-editor-node-card__chevron">›</span>
+          <span class="node-editor-node-card__chevron">›</span>
         </button>
-        <div className="node-editor-node-card__actions">
-          {canDelete ? <Button variant="ghost" size="sm" icon={<IconTrash />} iconOnly tooltip={t(locale, 'removeStep')} onClick={onDelete} /> : <span className="node-editor-node-card__trigger-label">{t(locale, 'triggerStep')}</span>}
+        <div class="node-editor-node-card__actions">
+          {canDelete ? <Button variant="ghost" size="sm" icon={<IconTrash />} iconOnly tooltip={t(locale, 'removeStep')} onClick={onDelete} /> : <span class="node-editor-node-card__trigger-label">{t(locale, 'triggerStep')}</span>}
         </div>
       </div>
     </article>
@@ -125,7 +125,7 @@ function NodeCard({
 
 function FlowConnector({ locale, edge }: { locale: Locale; edge?: WorkflowEdge }) {
   return (
-    <div className={`node-editor-flow-connector ${edge ? '' : 'is-disconnected'}`} aria-hidden="true">
+    <div class={`node-editor-flow-connector ${edge ? '' : 'is-disconnected'}`} aria-hidden="true">
       <span />
       <small>{edge ? t(locale, 'nextStep') : t(locale, 'notConnected')}</small>
       <span />

@@ -12,7 +12,7 @@ type EventContextPreviewProps = {
 export function EventContextPreview({ locale, event, capturedAt }: EventContextPreviewProps) {
   if (!event) {
     return (
-      <div className="node-editor-live-context is-empty">
+      <div class="node-editor-live-context is-empty">
         <strong>{t(locale, 'lastEventContext')}</strong>
         <span>{t(locale, 'noLastEventContext')}</span>
       </div>
@@ -25,18 +25,18 @@ export function EventContextPreview({ locale, event, capturedAt }: EventContextP
   const time = capturedAt ? new Date(capturedAt).toLocaleTimeString(locale) : new Date(event.timestamp).toLocaleTimeString(locale);
 
   return (
-    <div className="node-editor-live-context">
-      <div className="node-editor-live-context__header">
+    <div class="node-editor-live-context">
+      <div class="node-editor-live-context__header">
         <div>
           <strong>{t(locale, 'lastEventContext')}</strong>
           <small>{t(locale, 'capturedAt', { time })}</small>
         </div>
         <Badge tone="cyan">{event.type}</Badge>
       </div>
-      <span className="node-editor-live-context__fields-label">{t(locale, 'eventFields')}</span>
-      <div className="node-editor-live-context__fields">
+      <span class="node-editor-live-context__fields-label">{t(locale, 'eventFields')}</span>
+      <div class="node-editor-live-context__fields">
         {fields.map((field) => (
-          <div key={field.value} className="node-editor-live-context__field">
+          <div key={field.value} class="node-editor-live-context__field">
             <code>{field.value}</code>
             <span>{field.preview}</span>
           </div>

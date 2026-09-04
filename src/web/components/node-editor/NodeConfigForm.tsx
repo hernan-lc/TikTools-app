@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { computed, ref, watch } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 import type {
   AutomationEvent,
@@ -45,7 +46,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
   switch (node.type) {
     case 'trigger.event':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <Select
             label={t(locale, 'nodeEventType')}
             hint={t(locale, 'nodeEventTypeHint')}
@@ -57,7 +58,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       );
     case 'condition.compare':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale}
             label={t(locale, 'nodeValuePath')}
             hint={t(locale, 'nodeValuePathHint')}
@@ -88,7 +89,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       );
     case 'transform.template':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale} label={t(locale, 'nodeTemplate')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.template)} onValueChange={(value) => update('template', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
@@ -96,20 +97,20 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return <ScriptConfigForm locale={locale} node={node} analysis={analysis} eventType={eventType} lastEvent={lastEvent} onChange={onChange} onAnalyzeScript={onAnalyzeScript} />;
     case 'control.delay':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <NumberInput label={t(locale, 'nodeDelay')} hint={t(locale, 'nodeDelayHint')} value={asNumber(config.delayMs)} min={0} max={3_600_000} step={100} suffix="ms" onValueChange={(value) => update('delayMs', value)} />
         </div>
       );
     case 'control.cooldown':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <NumberInput label={t(locale, 'nodeDuration')} hint={t(locale, 'nodeCooldownHint')} value={asNumber(config.durationMs)} min={0} max={86_400_000} step={100} suffix="ms" onValueChange={(value) => update('durationMs', value)} />
           <TemplateField locale={locale} label={t(locale, 'nodeCooldownKey')} value={asString(config.key)} onValueChange={(value) => update('key', value)} suggestions={templateValues('identity')} />
         </div>
       );
     case 'action.log':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale} label={t(locale, 'nodeMessage')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.message)} onValueChange={(value) => update('message', value)} suggestions={templateValues('message')} multiline rows={5} />
         </div>
       );
@@ -117,7 +118,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       return <HttpConfigForm locale={locale} eventType={eventType} lastEvent={lastEvent} config={config} onChange={update} />;
     case 'action.play-sound':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale} label={t(locale, 'nodeFilePath')} hint={t(locale, 'nodeFilePathHint')} value={asString(config.filePath)} onValueChange={(value) => update('filePath', value)} suggestions={templateValues('sound-file')} />
           <NumberInput label={t(locale, 'nodeVolume')} value={asNumber(config.volume, 1)} min={0} max={1} step={0.05} onValueChange={(value) => update('volume', value)} />
           <Select label={t(locale, 'nodeOverlap')} value={asString(config.overlap, 'allow')} options={[{ value: 'allow', label: t(locale, 'nodeAllowOverlap') }, { value: 'restart', label: t(locale, 'nodeRestartOverlap') }, { value: 'drop', label: t(locale, 'nodeDropOverlap') }]} onValueChange={(value) => update('overlap', value)} />
@@ -125,7 +126,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       );
     case 'action.tts':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale} label={t(locale, 'nodeText')} hint={t(locale, 'nodeTemplateHint')} value={asString(config.text)} onValueChange={(value) => update('text', value)} suggestions={templateValues('text')} multiline rows={5} />
           <TextInput label={t(locale, 'nodeVoice')} value={asString(config.voice, 'M1')} onValueChange={(value) => update('voice', value)} />
           <Select label={t(locale, 'nodeLanguage')} value={asString(config.lang, 'en')} options={[{ value: 'en', label: 'English' }, { value: 'es', label: 'Español' }]} onValueChange={(value) => update('lang', value)} />
@@ -134,7 +135,7 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
       );
     case 'action.adjust-points':
       return (
-        <div className="node-editor-form-stack">
+        <div class="node-editor-form-stack">
           <TemplateField locale={locale} label={t(locale, 'nodeViewer')} hint={t(locale, 'nodeViewerHint')} value={asString(config.uniqueId)} onValueChange={(value) => update('uniqueId', value)} suggestions={templateValues('identity')} />
           <NumberInput label={t(locale, 'nodeDelta')} value={asNumber(config.delta, 10)} step={1} onValueChange={(value) => update('delta', value)} />
         </div>
@@ -144,109 +145,113 @@ export function NodeConfigForm({ locale, node, definition, analysis, eventType, 
   }
 }
 
-function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChange, onAnalyzeScript }: NodeConfigFormProps) {
-  const source = asString(node.config.source);
-  const [cursor, setCursor] = useState(source.length);
-  const [completionIndex, setCompletionIndex] = useState(0);
-  const [completionOpen, setCompletionOpen] = useState(true);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const completionAnchorRef = useRef<HTMLDivElement | null>(null);
-  const completionKey = analysis?.completions.map((completion) => `${completion.label}:${completion.detail ?? ''}`).join('|') ?? '';
-  const visibleCompletions = analysis?.completions.slice(0, 12) ?? [];
+const ScriptConfigForm = defineVueComponent<NodeConfigFormProps>(
+  ['locale', 'node', 'analysis', 'eventType', 'lastEvent', 'onChange', 'onAnalyzeScript'],
+  (props) => {
+  const source = computed(() => asString(props.node.config.source));
+  const cursor = ref(source.value.length);
+  const completionIndex = ref(0);
+  const completionOpen = ref(true);
+  const textareaRef = ref<HTMLTextAreaElement | null>(null);
+  const completionAnchorRef = ref<HTMLDivElement | null>(null);
+  const completionKey = computed(() => props.analysis?.completions.map((completion) => `${completion.label}:${completion.detail ?? ''}`).join('|') ?? '');
+  const visibleCompletions = computed(() => props.analysis?.completions.slice(0, 12) ?? []);
 
-  useEffect(() => setCursor(source.length), [node.id, source]);
-  useEffect(() => {
-    setCompletionIndex(0);
-    setCompletionOpen(visibleCompletions.length > 0);
-  }, [completionKey]);
+  watch(() => [props.node.id, source.value], () => { cursor.value = source.value.length; });
+  watch(completionKey, () => {
+    completionIndex.value = 0;
+    completionOpen.value = visibleCompletions.value.length > 0;
+  });
 
   const change = (nextSource: string, nextCursor: number): void => {
-    setCursor(nextCursor);
-    onChange({ ...node.config, source: nextSource });
-    onAnalyzeScript(node.id, nextSource, nextCursor, eventType);
+    cursor.value = nextCursor;
+    props.onChange({ ...props.node.config, source: nextSource });
+    props.onAnalyzeScript(props.node.id, nextSource, nextCursor, props.eventType);
   };
 
   const applyCompletion = (completion: AutomationScriptCompletion): void => {
-    const textarea = textareaRef.current;
-    const offset = textarea?.selectionStart ?? cursor;
-    const before = source.slice(0, offset);
+    const textarea = textareaRef.value;
+    const offset = textarea?.selectionStart ?? cursor.value;
+    const before = source.value.slice(0, offset);
     const match = before.match(/[A-Za-z0-9_$]*$/);
     const start = offset - (match?.[0]?.length ?? 0);
-    const nextSource = `${source.slice(0, start)}${completion.label}${source.slice(offset)}`;
+    const nextSource = `${source.value.slice(0, start)}${completion.label}${source.value.slice(offset)}`;
     const nextOffset = start + completion.label.length;
     change(nextSource, nextOffset);
-    setCompletionOpen(false);
+    completionOpen.value = false;
     requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(nextOffset, nextOffset);
+      textareaRef.value?.focus();
+      textareaRef.value?.setSelectionRange(nextOffset, nextOffset);
     });
   };
 
-  const handleCompletionKeyDown = (event: KeyboardEvent): void => {
-    const completions = visibleCompletions;
-    if (!completionOpen || completions.length === 0) return;
+  const handleCompletionKeydown = (event: KeyboardEvent): void => {
+    const completions = visibleCompletions.value;
+    if (!completionOpen.value || completions.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setCompletionIndex((current) => (current + 1) % completions.length);
+      completionIndex.value = (completionIndex.value + 1) % completions.length;
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setCompletionIndex((current) => (current - 1 + completions.length) % completions.length);
+      completionIndex.value = (completionIndex.value - 1 + completions.length) % completions.length;
     } else if (event.key === 'Tab' || event.key === 'Enter') {
       event.preventDefault();
-      const selected = completions[completionIndex];
+      const selected = completions[completionIndex.value];
       if (selected) applyCompletion(selected);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      setCompletionOpen(false);
+      completionOpen.value = false;
     }
   };
 
-  return (
-    <div className="node-editor-form-stack">
-      <div className="node-editor-script-context">
-        <span>{t(locale, 'scriptEditor')}</span>
-        <small>{lastEvent ? `${t(locale, 'lastEventContext')}: ${lastEvent.type}` : t(locale, 'noLastEventContext')}</small>
+  return () => (
+    <div class="node-editor-form-stack">
+      <div class="node-editor-script-context">
+        <span>{t(props.locale, 'scriptEditor')}</span>
+        <small>{props.lastEvent ? `${t(props.locale, 'lastEventContext')}: ${props.lastEvent.type}` : t(props.locale, 'noLastEventContext')}</small>
       </div>
-      <div className={`plg-float ${source.trim().length > 0 ? 'is-filled' : ''}`}>
-        <div className="plg-float__control plg-float__control--textarea">
-          <div ref={completionAnchorRef} className="node-editor-script-editor" style={{ flex: 1, display: 'flex' }}>
+      <div class={`plg-float ${source.value.trim().length > 0 ? 'is-filled' : ''}`}>
+        <div class="plg-float__control plg-float__control--textarea">
+          <div ref={completionAnchorRef} class="node-editor-script-editor" style={{ flex: 1, display: 'flex' }}>
             <textarea
               ref={textareaRef}
-              className="node-editor-form-textarea node-editor-form-textarea--code"
+              class="node-editor-form-textarea node-editor-form-textarea--code"
               style={{ border: 'none', background: 'transparent', flex: 1 }}
-              value={source}
+              value={source.value}
               rows={12}
               spellcheck={false}
               placeholder=" "
-              aria-label={t(locale, 'scriptEditor')}
-              onFocus={() => setCompletionOpen(true)}
-              onKeyDown={handleCompletionKeyDown}
+              aria-label={t(props.locale, 'scriptEditor')}
+              onFocus={() => { completionOpen.value = true; }}
+              onKeydown={handleCompletionKeydown}
               onInput={(event) => {
-                const target = event.currentTarget;
+                const target = event.currentTarget as HTMLTextAreaElement;
                 change(target.value, target.selectionStart ?? target.value.length);
               }}
-              onKeyUp={(event) => {
+              onKeyup={(event) => {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Tab' || event.key === 'Enter' || event.key === 'Escape') return;
-                setCursor(event.currentTarget.selectionStart ?? source.length);
-                onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+                const target = event.currentTarget as HTMLTextAreaElement;
+                cursor.value = target.selectionStart ?? source.value.length;
+                props.onAnalyzeScript(props.node.id, source.value, target.selectionStart ?? source.value.length, props.eventType);
               }}
               onClick={(event) => {
-                setCursor(event.currentTarget.selectionStart ?? source.length);
-                onAnalyzeScript(node.id, source, event.currentTarget.selectionStart ?? source.length, eventType);
+                const target = event.currentTarget as HTMLTextAreaElement;
+                cursor.value = target.selectionStart ?? source.value.length;
+                props.onAnalyzeScript(props.node.id, source.value, target.selectionStart ?? source.value.length, props.eventType);
               }}
             />
-            <AutocompletePortal anchorRef={completionAnchorRef} cursorRef={textareaRef} cursorOffset={cursor} open={completionOpen && visibleCompletions.length > 0}>
-              <div className="node-editor-code-completions" role="listbox">
-                {visibleCompletions.map((completion, index) => (
+            <AutocompletePortal anchorRef={completionAnchorRef} cursorRef={textareaRef} cursorOffset={cursor.value} open={completionOpen.value && visibleCompletions.value.length > 0}>
+              <div class="node-editor-code-completions" role="listbox">
+                {visibleCompletions.value.map((completion, index) => (
                   <button
                     key={`${completion.kind}:${completion.label}`}
                     type="button"
                     role="option"
-                    aria-selected={index === completionIndex}
-                    className={index === completionIndex ? 'is-selected' : ''}
+                    aria-selected={index === completionIndex.value}
+                    class={index === completionIndex.value ? 'is-selected' : ''}
                     title={completion.documentation ?? completion.detail ?? completion.label}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setCompletionIndex(index)}
+                    onMousedown={(event) => event.preventDefault()}
+                    onMouseenter={() => { completionIndex.value = index; }}
                     onClick={() => applyCompletion(completion)}
                   >
                     <strong>{completion.label}</strong>
@@ -254,48 +259,49 @@ function ScriptConfigForm({ locale, node, analysis, eventType, lastEvent, onChan
                     {completion.valueSource === 'live-event' && completion.value !== undefined ? <code>{formatEditorValue(completion.value)}</code> : null}
                   </button>
                 ))}
-                <small>↑ ↓ {t(locale, 'navigate')} · Tab {t(locale, 'insertAction')}</small>
+                <small>↑ ↓ {t(props.locale, 'navigate')} · Tab {t(props.locale, 'insertAction')}</small>
               </div>
             </AutocompletePortal>
           </div>
-          <label className="plg-float__label">
-            {t(locale, 'scriptEditor')}
+          <label class="plg-float__label">
+            {t(props.locale, 'scriptEditor')}
           </label>
         </div>
       </div>
-      {analysis?.diagnostics.length ? (
-        <div className="node-editor-diagnostics" role="status">
-          {analysis.diagnostics.map((diagnostic, index) => <div key={`${diagnostic.line}:${diagnostic.column}:${index}`} className="node-editor-diagnostic"><span>{diagnostic.line}:{diagnostic.column}</span> {diagnostic.message}</div>)}
+      {props.analysis?.diagnostics.length ? (
+        <div class="node-editor-diagnostics" role="status">
+          {props.analysis.diagnostics.map((diagnostic, index) => <div key={`${diagnostic.line}:${diagnostic.column}:${index}`} class="node-editor-diagnostic"><span>{diagnostic.line}:{diagnostic.column}</span> {diagnostic.message}</div>)}
         </div>
       ) : null}
-      {analysis?.hover ? (
-        <div className="node-editor-hover-card" role="status">
-          <strong>{analysis.hover.detail}</strong>
-          <span>{analysis.hover.documentation}</span>
-          {analysis.hover.valueSource === 'live-event' && analysis.hover.value !== undefined
-            ? analysis.hover.path === 'event.data'
-              ? <pre>{formatEditorValue(analysis.hover.value, true)}</pre>
-              : <code>{formatEditorValue(analysis.hover.value)}</code>
+      {props.analysis?.hover ? (
+        <div class="node-editor-hover-card" role="status">
+          <strong>{props.analysis.hover.detail}</strong>
+          <span>{props.analysis.hover.documentation}</span>
+          {props.analysis.hover.valueSource === 'live-event' && props.analysis.hover.value !== undefined
+            ? props.analysis.hover.path === 'event.data'
+              ? <pre>{formatEditorValue(props.analysis.hover.value, true)}</pre>
+              : <code>{formatEditorValue(props.analysis.hover.value)}</code>
             : null}
         </div>
       ) : null}
     </div>
   );
-}
+  },
+);
 
 function HttpConfigForm({ locale, eventType, lastEvent, config, onChange }: { locale: Locale; eventType?: AutomationEventType; lastEvent?: AutomationEvent; config: JsonObject; onChange: (key: string, value: JsonValue) => void }) {
   const templateValues = (scope: TemplateSuggestionScope) => getTemplateSuggestions(eventType, locale, lastEvent, scope);
   const urlValue = asString(config.url);
   const allowPrivate = config.allowPrivateNetwork === true || config.allowPrivateNetwork === 'true';
-  const urlPresets = useMemo(() => getFetchUrlTemplates(), []);
+  const urlPresets = getFetchUrlTemplates();
   return (
-    <div className="node-editor-form-stack">
+    <div class="node-editor-form-stack">
       <Select label={t(locale, 'nodeMethod')} value={asString(config.method, 'GET')} options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((value) => ({ value, label: value }))} onValueChange={(value) => onChange('method', value)} />
       <TemplateField locale={locale} label={t(locale, 'nodeUrl')} hint={t(locale, 'nodeTemplateHint')} value={urlValue} onValueChange={(value) => onChange('url', value)} suggestions={templateValues('http-url')} bareWordTrigger={false} urlPresets={urlPresets} />
       {urlValue.trim() && isLocalFetchUrl(urlValue) && !allowPrivate && (
-        <p className="act-localhint" role="note">
+        <p class="act-localhint" role="note">
           <span>{t(locale, 'behavior.editor.localNetHint')}</span>
-          <button type="button" className="act-preset" onClick={() => onChange('allowPrivateNetwork', true)}>
+          <button type="button" class="act-preset" onClick={() => onChange('allowPrivateNetwork', true)}>
             {t(locale, 'behavior.editor.enableLocalNet')}
           </button>
         </p>
@@ -366,5 +372,5 @@ function isJsonObject(value: JsonValue | undefined): value is JsonObject {
 }
 
 function GenericConfigFormNoForm({ locale }: { locale: Locale }) {
-  return <p className="node-editor-form-empty">{t(locale, 'nodeNoForm')}</p>;
+  return <p class="node-editor-form-empty">{t(locale, 'nodeNoForm')}</p>;
 }

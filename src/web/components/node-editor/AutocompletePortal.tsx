@@ -1,34 +1,34 @@
-import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
-import { createPortal } from 'preact/compat';
+import type { VNodeChild } from 'vue';
+import { onMounted, onUnmounted, ref, Teleport, watch, type Ref } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
-type AnchorRef = { current: HTMLElement | null };
-type CursorRef = { current: HTMLInputElement | HTMLTextAreaElement | null };
+type AnchorRef = Ref<HTMLElement | null>;
+type CursorRef = Ref<HTMLInputElement | HTMLTextAreaElement | null>;
 
 type AutocompletePortalProps = {
   anchorRef: AnchorRef;
   cursorRef?: CursorRef;
   cursorOffset?: number;
   open: boolean;
-  children: ComponentChildren;
+  children: VNodeChild;
 };
 
 /**
  * Renders editor suggestions at document level so modal/canvas overflow never
  * clips the list. It flips above the field when there is not enough room below.
  */
-export function AutocompletePortal({ anchorRef, cursorRef, cursorOffset, open, children }: AutocompletePortalProps) {
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 320 });
+export const AutocompletePortal = defineVueComponent<AutocompletePortalProps>(
+  ['anchorRef', 'cursorRef', 'cursorOffset', 'open'],
+  (props) => {
+  const position = ref({ top: 0, left: 0, width: 320 });
 
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const update = (): void => {
-      const anchor = anchorRef.current;
+  const update = (): void => {
+      if (!props.open) return;
+      const anchor = props.anchorRef.value;
       if (!anchor) return;
       const anchorRect = anchor.getBoundingClientRect();
-      const cursorRect = cursorRef && cursorOffset !== undefined
-        ? measureCursor(cursorRef.current, cursorOffset)
+      const cursorRect = props.cursorRef && props.cursorOffset !== undefined
+        ? measureCursor(props.cursorRef.value, props.cursorOffset)
         : undefined;
       const topAnchor = cursorRect?.top ?? anchorRect.top;
       const bottomAnchor = cursorRect?.bottom ?? anchorRect.bottom;
@@ -40,33 +40,39 @@ export function AutocompletePortal({ anchorRef, cursorRef, cursorOffset, open, c
       const openAbove = bottomAnchor + gap + maxHeight > window.innerHeight && topAnchor > maxHeight;
       const left = Math.max(viewportPadding, Math.min(leftAnchor, window.innerWidth - width - viewportPadding));
       const top = openAbove ? Math.max(viewportPadding, topAnchor - maxHeight - gap) : bottomAnchor + gap;
-      setPosition({
+      position.value = {
         top,
         left,
         width,
-      });
-    };
+      };
+  };
 
+  onMounted(() => {
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
-    return () => {
+  });
+  onUnmounted(() => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
-    };
-  }, [anchorRef, cursorRef, cursorOffset, open]);
+  });
+  watch(() => [props.open, props.cursorOffset, props.anchorRef.value, props.cursorRef?.value], update, { flush: 'post' });
 
-  if (!open || typeof document === 'undefined' || !document.body) return null;
-  return createPortal(
-    <div
-      className="node-editor-autocomplete-portal"
-      style={{ top: `${position.top}px`, left: `${position.left}px`, width: `${position.width}px` }}
-    >
-      {children}
-    </div>,
-    document.body,
-  );
-}
+  return () => {
+    if (!props.open || typeof document === 'undefined' || !document.body) return null;
+    return (
+      <Teleport to="body">
+        <div
+          class="node-editor-autocomplete-portal"
+          style={{ top: `${position.value.top}px`, left: `${position.value.left}px`, width: `${position.value.width}px` }}
+        >
+          {props.children}
+        </div>
+      </Teleport>
+    );
+  };
+  },
+);
 
 function measureCursor(element: HTMLInputElement | HTMLTextAreaElement | null, offset: number): { left: number; top: number; bottom: number } | undefined {
   if (!element || typeof document === 'undefined' || !document.body) return undefined;

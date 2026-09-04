@@ -74,11 +74,11 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
   });
 
   return (
-    <div className={`tiktok-chat-row ${event.kind}`}>
+    <div class={`tiktok-chat-row ${event.kind}`}>
       {/* Avatar: real image if available, initials fallback */}
       {hasAvatar ? (
         <img
-          className="tt-avatar-img"
+          class="tt-avatar-img"
           src={event.avatarUrl!}
           alt={displayName}
           loading="lazy"
@@ -91,7 +91,7 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
         />
       ) : null}
       <div
-        className="tt-avatar"
+        class="tt-avatar"
         style={{
           background: getAvatarColor(cleanHandle),
           display: hasAvatar ? 'none' : 'flex',
@@ -101,33 +101,33 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
       </div>
 
       {/* Message Content Container */}
-      <div className="tt-content-wrap">
-        <div className="tt-message-line">
+      <div class="tt-content-wrap">
+        <div class="tt-message-line">
           {/* Level Badge N.º */}
-          <span className="tt-badge-level" title={`Level ${level}`}>
-            <span className="tt-badge-icon">
+          <span class="tt-badge-level" title={`Level ${level}`}>
+            <span class="tt-badge-icon">
               <IconBolt />
             </span>
-            <span className="tt-badge-text">{t(locale, 'levelBadge', { level })}</span>
+            <span class="tt-badge-text">{t(locale, 'levelBadge', { level })}</span>
           </span>
 
           {/* Author handle/nickname */}
-          <span className="tt-author" title={`@${cleanHandle}`}>
+          <span class="tt-author" title={`@${cleanHandle}`}>
             {displayName}
           </span>
 
           {/* Content text depending on event kind */}
           {event.kind === 'chat' ? (
-            <span className="tt-chat-text">{text}</span>
+            <span class="tt-chat-text">{text}</span>
           ) : event.kind === 'gift' ? (
-            <span className="tt-gift-text">
+            <span class="tt-gift-text">
               {event.giftDetails?.imageUrl ? (
                 <img
-                  className="tt-gift-img"
+                  class="tt-gift-img"
                   src={event.giftDetails.imageUrl}
                   alt={event.giftDetails.name}
                   loading="lazy"
-                  referrerPolicy="no-referrer"
+                  referrerpolicy="no-referrer"
                   decoding="async"
                   onError={(e) => {
                     const img = e.currentTarget as HTMLImageElement;
@@ -143,7 +143,7 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
                 />
               ) : null}
               <span
-                className="tt-gift-icon"
+                class="tt-gift-icon"
                 style={{ display: event.giftDetails?.imageUrl ? 'none' : 'inline-flex' }}
                 title={event.giftDetails?.name || 'Gift'}
               >
@@ -152,24 +152,24 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
               {text}
             </span>
           ) : event.kind === 'like' ? (
-            <span className="tt-like-text">
+            <span class="tt-like-text">
               <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: '4px' }}>
                 <IconHeart />
               </span>
               {text}
             </span>
           ) : (
-            <span className="tt-social-text">{text}</span>
+            <span class="tt-social-text">{text}</span>
           )}
         </div>
       </div>
 
       {/* Point Earned Pill or Time */}
-      <div className="tt-row-tail">
+      <div class="tt-row-tail">
         {typeof event.pointsDelta === 'number' && event.pointsDelta > 0 ? (
-          <span className="tt-points-badge">{t(locale, 'ptsEarned', { amount: event.pointsDelta })}</span>
+          <span class="tt-points-badge">{t(locale, 'ptsEarned', { amount: event.pointsDelta })}</span>
         ) : (
-          <time className="tt-timestamp">{timeLabel}</time>
+          <time class="tt-timestamp">{timeLabel}</time>
         )}
       </div>
     </div>

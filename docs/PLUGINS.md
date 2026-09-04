@@ -81,7 +81,7 @@ in-process native code.
 ## Actions and settings
 
 An action plugin can declare JSON action descriptors in `actionTypes`. The
-Preact UI renders title, fields, JSON schema, and UI hints; it never imports
+Vue UI renders title, fields, JSON schema, and UI hints; it never imports
 plugin code. A `settingsSchema` and optional `settingsUiHints` let the host
 render plugin settings without allowing arbitrary DOM or script injection.
 

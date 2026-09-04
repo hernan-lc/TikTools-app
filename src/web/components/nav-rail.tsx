@@ -1,4 +1,4 @@
-import type { JSX } from 'preact';
+import type { VNode } from 'vue';
 
 import { t, type Locale } from '../i18n.ts';
 import type { AppTab } from '../types.ts';
@@ -19,7 +19,7 @@ type NavigationRailProps = {
 };
 
 export function NavigationRail({ locale, activeTab, onTabChange }: NavigationRailProps) {
-  const navTabs: Array<{ id: AppTab; tooltip: string; icon: JSX.Element }> = [
+  const navTabs: Array<{ id: AppTab; tooltip: string; icon: VNode }> = [
     { id: 'feed', tooltip: t(locale, 'tabFeed'), icon: <IconChat /> },
     { id: 'points', tooltip: t(locale, 'tabPoints'), icon: <IconCoins /> },
     { id: 'analytics', tooltip: t(locale, 'tabAnalytics'), icon: <IconBarChart /> },
@@ -30,12 +30,12 @@ export function NavigationRail({ locale, activeTab, onTabChange }: NavigationRai
   ];
 
   return (
-    <nav className="nav-rail" aria-label="Main Navigation">
+    <nav class="nav-rail" aria-label="Main Navigation">
       {navTabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
-          className={`nav-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+          class={`nav-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
           data-tooltip={tab.tooltip}
           data-tooltip-pos="right"
           onClick={() => onTabChange(tab.id)}

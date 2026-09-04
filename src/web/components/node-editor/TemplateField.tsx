@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { JSX } from 'preact';
+import { computed, ref, watch } from 'vue';
+import type { VNode } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 import { applyFetchUrlTemplate, type FetchUrlTemplate, type TemplateSuggestion } from './template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
@@ -87,34 +88,40 @@ function dedupeItems<T extends { value: string }>(list: T[]): T[] {
  * Autocomplete is deliberately quiet: it opens only while typing inside
  * `{{ }}`, while typing a variable-like word (2+ chars), or via Ctrl+Space.
  */
-export function TemplateField({
-  value,
-  onValueChange,
-  suggestions,
-  suggestionMode = 'template',
-  placeholder,
-  multiline = false,
-  rows = 4,
-  ariaLabel,
-  label,
-  hint,
-  locale = 'en',
-  bareWordTrigger = true,
-  urlPresets,
-}: TemplateFieldProps) {
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-  const fieldRef = useRef<HTMLDivElement | null>(null);
-  const [focused, setFocused] = useState(false);
-  const [forcedOpen, setForcedOpen] = useState(false);
-  const [cursor, setCursor] = useState(value.length);
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
+export const TemplateField = defineVueComponent<TemplateFieldProps>(
+  [
+    'value',
+    'onValueChange',
+    'suggestions',
+    'suggestionMode',
+    'placeholder',
+    'multiline',
+    'rows',
+    'ariaLabel',
+    'hintText',
+    'label',
+    'hint',
+    'template',
+    'templateHint',
+    'locale',
+    'bareWordTrigger',
+    'urlPresets',
+  ],
+  (props) => {
+  const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const fieldRef = ref<HTMLDivElement | null>(null);
+  const focused = ref(false);
+  const forcedOpen = ref(false);
+  const cursor = ref(props.value.length);
+  const suggestionIndex = ref(0);
 
-  const updateCursor = (event: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    setCursor(event.currentTarget.selectionStart ?? event.currentTarget.value.length);
+  const updateCursor = (event: Event): void => {
+    const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
+    cursor.value = target.selectionStart ?? target.value.length;
   };
 
-  const syncHighlightScroll = (event: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const target = event.currentTarget;
+  const syncHighlightScroll = (event: Event): void => {
+    const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
     const backdrop = target.parentElement?.querySelector<HTMLElement>(':scope > .tpl-highlight');
     if (backdrop) {
       backdrop.scrollTop = target.scrollTop;
@@ -122,183 +129,192 @@ export function TemplateField({
     }
   };
 
-  const token = getToken(value, cursor, suggestionMode);
-  const items = useMemo(() => dedupeItems(suggestions.map(toItem)), [suggestions]);
+  const suggestionMode = computed(() => props.suggestionMode ?? 'template');
+  const token = computed(() => getToken(props.value, cursor.value, suggestionMode.value));
+  const items = computed(() => dedupeItems(props.suggestions.map(toItem)));
   // URL mode: presets live in the same dropdown; bare words match presets
   // only, variables stay behind `{{ }}` / Ctrl+Space.
-  const urlMode = suggestionMode === 'template' && Boolean(urlPresets && urlPresets.length > 0);
-  const presetItems = useMemo(
-    () => (urlMode ? (urlPresets ?? []).map(toPresetItem) : []),
-    [urlMode, urlPresets],
-  );
-  const scoredPresets = useMemo(
-    () => (urlMode && !token.inside ? filterSuggestions(presetItems, token.query, 8) : []),
-    [urlMode, presetItems, token.inside, token.query],
-  );
-  const scored = useMemo(() => filterSuggestions(items, token.query, 7), [items, token.query]);
-  const presetRows = scoredPresets.map((entry) => ({
+  const urlMode = computed(() => suggestionMode.value === 'template' && Boolean(props.urlPresets && props.urlPresets.length > 0));
+  const presetItems = computed(() => (urlMode.value ? (props.urlPresets ?? []).map(toPresetItem) : []));
+  const scoredPresets = computed(() => (
+    urlMode.value && !token.value.inside ? filterSuggestions(presetItems.value, token.value.query, 8) : []
+  ));
+  const scored = computed(() => filterSuggestions(items.value, token.value.query, 7));
+  const presetRows = computed(() => scoredPresets.value.map((entry) => ({
     key: `preset:${entry.item.preset.id}`,
     preset: entry.item.preset as FetchUrlTemplate,
     item: entry.item,
     ranges: entry.matchRanges,
-  }));
-  const variableRows = scored.map((entry) => ({
+  })));
+  const variableRows = computed(() => scored.value.map((entry) => ({
     key: `var:${entry.item.value}`,
     preset: undefined as FetchUrlTemplate | undefined,
     item: entry.item,
     ranges: entry.matchRanges,
-  }));
-  const showPresetRows = presetRows.length > 0 && (forcedOpen || token.query.length >= 1);
-  const bareWordHit = suggestionMode === 'path' ? token.query.length >= 1 : bareWordTrigger && token.query.length >= 2;
-  const wantsOpenVars = forcedOpen || token.inside || (!urlMode && bareWordHit);
-  const showVariableRows = wantsOpenVars && variableRows.length > 0;
-  const visible = [...(showPresetRows ? presetRows : []), ...(showVariableRows ? variableRows : [])];
-  const showSuggestions = focused && visible.length > 0;
+  })));
+  const showPresetRows = computed(() => presetRows.value.length > 0 && (forcedOpen.value || token.value.query.length >= 1));
+  const bareWordHit = computed(() => (
+    suggestionMode.value === 'path'
+      ? token.value.query.length >= 1
+      : (props.bareWordTrigger ?? true) && token.value.query.length >= 2
+  ));
+  const wantsOpenVars = computed(() => forcedOpen.value || token.value.inside || (!urlMode.value && bareWordHit.value));
+  const showVariableRows = computed(() => wantsOpenVars.value && variableRows.value.length > 0);
+  const visible = computed(() => [
+    ...(showPresetRows.value ? presetRows.value : []),
+    ...(showVariableRows.value ? variableRows.value : []),
+  ]);
+  const showSuggestions = computed(() => focused.value && visible.value.length > 0);
 
-  useEffect(() => {
-    setSuggestionIndex(0);
-  }, [token.query, suggestions.length, presetItems.length]);
+  watch(() => [token.value.query, props.suggestions.length, presetItems.value.length], () => {
+    suggestionIndex.value = 0;
+  });
 
-  useEffect(() => {
-    if (!showSuggestions) setForcedOpen(false);
-  }, [showSuggestions]);
+  watch(showSuggestions, (open) => {
+    if (!open) forcedOpen.value = false;
+  });
 
   const insertSuggestion = (suggestion: { value: string }): void => {
-    const element = inputRef.current;
-    const offset = element?.selectionStart ?? cursor;
-    const current = getToken(value, offset, suggestionMode);
+    const element = inputRef.value;
+    const offset = element?.selectionStart ?? cursor.value;
+    const current = getToken(props.value, offset, suggestionMode.value);
     // Replace the exact range being typed: the `{{ …` span when inside
     // braces, the bare word (`event.us`) when completing outside them.
     // Inserting at the cursor without replacing duplicated the word.
-    const start = suggestionMode === 'path' || current.inside || current.query.length > 0 ? current.start : offset;
-    const inserted = suggestionMode === 'path' ? suggestion.value : `{{ ${suggestion.value} }}`;
-    const nextValue = `${value.slice(0, start)}${inserted}${value.slice(offset)}`;
+    const start = suggestionMode.value === 'path' || current.inside || current.query.length > 0 ? current.start : offset;
+    const inserted = suggestionMode.value === 'path' ? suggestion.value : `{{ ${suggestion.value} }}`;
+    const nextValue = `${props.value.slice(0, start)}${inserted}${props.value.slice(offset)}`;
     const nextCursor = start + inserted.length;
-    onValueChange(nextValue);
-    setCursor(nextCursor);
-    setForcedOpen(false);
+    props.onValueChange(nextValue);
+    cursor.value = nextCursor;
+    forcedOpen.value = false;
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+      inputRef.value?.focus();
+      inputRef.value?.setSelectionRange(nextCursor, nextCursor);
     });
   };
 
   /** URL preset pick: swap only the origin, keeping the typed path/query. */
   const insertPreset = (preset: FetchUrlTemplate): void => {
-    const nextValue = applyFetchUrlTemplate(value, preset.url);
+    const nextValue = applyFetchUrlTemplate(props.value, preset.url);
     const nextCursor = nextValue.length;
-    onValueChange(nextValue);
-    setCursor(nextCursor);
-    setForcedOpen(false);
+    props.onValueChange(nextValue);
+    cursor.value = nextCursor;
+    forcedOpen.value = false;
     requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+      inputRef.value?.focus();
+      inputRef.value?.setSelectionRange(nextCursor, nextCursor);
     });
   };
 
-  const handleSuggestionKeyDown = (event: JSX.TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+  const handleSuggestionKeydown = (event: KeyboardEvent): void => {
     const modifier = event.ctrlKey || event.metaKey;
     if (modifier && event.key === ' ') {
       event.preventDefault();
-      setForcedOpen(true);
-      setFocused(true);
+      forcedOpen.value = true;
+      focused.value = true;
       return;
     }
-    if (!showSuggestions || visible.length === 0) return;
+    if (!showSuggestions.value || visible.value.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setSuggestionIndex((current) => (current + 1) % visible.length);
+      suggestionIndex.value = (suggestionIndex.value + 1) % visible.value.length;
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setSuggestionIndex((current) => (current - 1 + visible.length) % visible.length);
+      suggestionIndex.value = (suggestionIndex.value - 1 + visible.value.length) % visible.value.length;
     } else if (event.key === 'Tab' || event.key === 'Enter') {
       // Enter on multiline without a query inserts a newline; Tab always picks.
-      if (event.key === 'Enter' && multiline && !token.inside && !forcedOpen && token.query.length < 2) return;
+      if (event.key === 'Enter' && (props.multiline ?? false) && !token.value.inside && !forcedOpen.value && token.value.query.length < 2) return;
       event.preventDefault();
-      const selected = visible[suggestionIndex];
+      const selected = visible.value[suggestionIndex.value];
       if (selected?.preset) insertPreset(selected.preset);
       else if (selected) insertSuggestion(selected.item);
     } else if (event.key === 'Escape') {
       event.preventDefault();
-      if (forcedOpen) setForcedOpen(false);
-      else setFocused(false);
+      if (forcedOpen.value) forcedOpen.value = false;
+      else focused.value = false;
       (event.currentTarget as HTMLElement).blur?.();
     }
   };
 
+  return () => {
+  const multiline = props.multiline ?? false;
+  const rows = props.rows ?? 4;
+  const locale = props.locale ?? 'en';
   const shared = {
-    'aria-label': ariaLabel,
+    'aria-label': props.ariaLabel,
     spellcheck: false,
-    onFocus: () => setFocused(true),
+    onFocus: () => { focused.value = true; },
     onBlur: () => {
-      setFocused(false);
-      setForcedOpen(false);
+      focused.value = false;
+      forcedOpen.value = false;
     },
-    onKeyDown: handleSuggestionKeyDown,
-    onInput: (event: JSX.TargetedEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      onValueChange(event.currentTarget.value);
+    onKeydown: handleSuggestionKeydown,
+    onInput: (event: Event) => {
+      const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement;
+      props.onValueChange(target.value);
       updateCursor(event);
     },
-    onKeyUp: updateCursor,
+    onKeyup: updateCursor,
     onSelect: updateCursor,
     onClick: updateCursor,
     onScroll: syncHighlightScroll,
   } as const;
 
-  const highlight = useMemo(() => renderHighlight(value), [value]);
+  const highlight = renderHighlight(props.value);
 
   const control = multiline ? (
     <textarea
-      ref={(element) => { inputRef.current = element; }}
-      className="node-editor-template-control node-editor-template-control--textarea tpl-transparent"
-      value={value}
+      ref={(element) => { inputRef.value = element as HTMLTextAreaElement | null; }}
+      class="node-editor-template-control node-editor-template-control--textarea tpl-transparent"
+      value={props.value}
       rows={rows}
-      placeholder={label ? ' ' : placeholder}
+      placeholder={props.label ? ' ' : props.placeholder}
       {...shared}
     />
   ) : (
     <input
-      ref={(element) => { inputRef.current = element; }}
-      className="node-editor-template-control tpl-transparent"
+      ref={(element) => { inputRef.value = element as HTMLInputElement | null; }}
+      class="node-editor-template-control tpl-transparent"
       type="text"
-      value={value}
-      placeholder={label ? ' ' : placeholder}
+      value={props.value}
+      placeholder={props.label ? ' ' : props.placeholder}
       {...shared}
     />
   );
 
-  const presetCount = showPresetRows ? presetRows.length : 0;
+  const presetCount = showPresetRows.value ? presetRows.value.length : 0;
   const dropdown = (
-    <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor} open={showSuggestions}>
-      <div className="tpl-suggest" role="listbox" aria-label={ariaLabel ?? label ?? 'Suggestions'}>
-        {presetCount > 0 && <div className="tpl-group">{t(locale, 'behavior.editor.urlPresets')}</div>}
-        {visible.map(({ key, preset, item, ranges }, index) => (
+    <AutocompletePortal anchorRef={fieldRef} cursorRef={inputRef} cursorOffset={cursor.value} open={showSuggestions.value}>
+      <div class="tpl-suggest" role="listbox" aria-label={props.ariaLabel ?? props.label ?? 'Suggestions'}>
+        {presetCount > 0 && <div class="tpl-group">{t(locale, 'behavior.editor.urlPresets')}</div>}
+        {visible.value.map(({ key, preset, item, ranges }, index) => (
           <SuggestionRow
             key={key}
             item={item}
             ranges={ranges}
-            selected={index === suggestionIndex}
-            onHover={() => setSuggestionIndex(index)}
+            selected={index === suggestionIndex.value}
+            onHover={() => { suggestionIndex.value = index; }}
             onPick={() => (preset ? insertPreset(preset) : insertSuggestion(item))}
           />
         ))}
-        <div className="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
+        <div class="tpl-foot">{t(locale, 'autocompleteNavigateInsert')}</div>
       </div>
     </AutocompletePortal>
   );
 
-  if (label) {
-    const filled = value.trim().length > 0;
+  if (props.label) {
+    const filled = props.value.trim().length > 0;
     return (
-      <div ref={fieldRef} className={`node-editor-template-field node-editor-template-field--float ${filled ? 'is-filled' : ''} ${multiline ? 'is-multiline' : ''}`}>
-        <div className="node-editor-template-control-wrap">
-          <div className={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
-            <div className="tpl-highlight" aria-hidden="true">{highlight}</div>
+      <div ref={fieldRef} class={`node-editor-template-field node-editor-template-field--float ${filled ? 'is-filled' : ''} ${multiline ? 'is-multiline' : ''}`}>
+        <div class="node-editor-template-control-wrap">
+          <div class={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
+            <div class="tpl-highlight" aria-hidden="true">{highlight}</div>
             {control}
           </div>
-          <label className="node-editor-float-label">
-            <span className="node-editor-float-label__text">{label}</span>
-            {hint ? <InfoTip text={hint} position="right" /> : null}
+          <label class="node-editor-float-label">
+            <span class="node-editor-float-label__text">{props.label}</span>
+            {props.hint ? <InfoTip text={props.hint} position="right" /> : null}
           </label>
         </div>
         {dropdown}
@@ -307,24 +323,26 @@ export function TemplateField({
   }
 
   return (
-    <div ref={fieldRef} className="node-editor-template-field">
-      <div className="node-editor-template-control-wrap">
-        <div className={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
-          <div className="tpl-highlight" aria-hidden="true">{highlight}</div>
+    <div ref={fieldRef} class="node-editor-template-field">
+      <div class="node-editor-template-control-wrap">
+        <div class={`tpl-edit${multiline ? ' tpl-edit--multi' : ''}`}>
+          <div class="tpl-highlight" aria-hidden="true">{highlight}</div>
           {control}
         </div>
       </div>
       {dropdown}
     </div>
   );
-}
+  };
+  },
+);
 
 /** Inline `{{ … }}` highlight, including the unclosed `{{ …` state while typing. */
-function renderHighlight(value: string): JSX.Element[] | string {
+function renderHighlight(value: string): VNode[] | string {
   if (!value) return '';
   const parts = value.split(/(\{\{\s*[^}{]*\}?\}?)/g);
   return parts.map((part, index) => {
-    if (index % 2 === 1) return <span key={index} className="tpl-var">{part || '{{'}</span>;
+    if (index % 2 === 1) return <span key={index} class="tpl-var">{part || '{{'}</span>;
     return <span key={index}>{part}</span>;
   });
 }
@@ -354,21 +372,21 @@ function SuggestionRow({
       type="button"
       role="option"
       aria-selected={selected}
-      className={selected ? 'is-selected' : ''}
+      class={selected ? 'is-selected' : ''}
       title={hoverTitle || item.value}
-      onMouseDown={(event) => event.preventDefault()}
-      onMouseEnter={onHover}
+      onMousedown={(event) => event.preventDefault()}
+      onMouseenter={onHover}
       onFocus={onHover}
       onClick={onPick}
     >
-      <i className={`tpl-dot tpl-dot--${item.kind ?? 'unknown'}`} aria-hidden="true" />
-      <code className="tpl-path">
+      <i class={`tpl-dot tpl-dot--${item.kind ?? 'unknown'}`} aria-hidden="true" />
+      <code class="tpl-path">
         {valueSegments.map((segment, index) => (
           segment.highlight ? <mark key={index}>{segment.text}</mark> : <span key={index}>{segment.text}</span>
         ))}
       </code>
-      {item.detail ?? item.kind ? <span className="tpl-kind">{item.detail ?? item.kind}</span> : null}
-      {item.preview ? <span className="tpl-preview" title={item.preview}>{item.preview}</span> : null}
+      {item.detail ?? item.kind ? <span class="tpl-kind">{item.detail ?? item.kind}</span> : null}
+      {item.preview ? <span class="tpl-preview" title={item.preview}>{item.preview}</span> : null}
     </button>
   );
 }

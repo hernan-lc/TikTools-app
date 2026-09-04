@@ -2,7 +2,7 @@
 //!
 //! The model intentionally keeps automation/live payloads as JSON values until
 //! their parity ports are complete. Field names and message discriminators are
-//! the compatibility boundary used by the existing Preact UI.
+//! the compatibility boundary used by the existing Vue UI.
 
 use std::{collections::BTreeMap, fmt};
 

@@ -1,0 +1,615 @@
+use super::*;
+
+impl AppCore {
+    pub(super) async fn test_action(
+        self: &Arc<Self>,
+        action: &Value,
+        trigger: Option<&str>,
+    ) -> Value {
+        let event = self
+            .last_automation_event
+            .read()
+            .expect("automation event lock poisoned")
+            .clone()
+            .unwrap_or_else(|| sample_automation_event(trigger.unwrap_or("tiktok.chat")));
+        self.execute_action(action, &event, None, true).await
+    }
+
+    pub(super) async fn test_event(self: &Arc<Self>, record: &Value) -> Value {
+        let started = now_millis();
+        let trigger = record
+            .get("trigger")
+            .and_then(Value::as_str)
+            .unwrap_or("tiktok.chat");
+        let event = self
+            .last_automation_event
+            .read()
+            .expect("automation event lock poisoned")
+            .clone()
+            .filter(|event| event.get("type").and_then(Value::as_str) == Some(trigger))
+            .unwrap_or_else(|| sample_automation_event(trigger));
+
+        if !self.automation.event_record_matches(record, &event) {
+            let summary = "Event filters did not match the sample event.";
+            return json!({
+                "id": self.automation.next_run_id("test-event", started),
+                "at": started,
+                "status": "error",
+                "eventName": trigger,
+                "actionName": record.get("name").and_then(Value::as_str).unwrap_or("Event"),
+                "summary": summary,
+                "durationMs": now_millis().saturating_sub(started),
+                "test": true,
+                "logs": [],
+                "error": summary
+            });
+        }
+
+        let actions = self.automation.actions_for_event(record);
+        if actions.is_empty() {
+            let summary = "The event has no saved actions to test.";
+            return json!({
+                "id": self.automation.next_run_id("test-event", started),
+                "at": started,
+                "status": "error",
+                "eventName": trigger,
+                "actionName": record.get("name").and_then(Value::as_str).unwrap_or("Event"),
+                "summary": summary,
+                "durationMs": now_millis().saturating_sub(started),
+                "test": true,
+                "logs": [],
+                "error": summary
+            });
+        }
+
+        let mut runs = Vec::with_capacity(actions.len());
+        for action in &actions {
+            runs.push(
+                self.execute_action(action, &event, Some(record), true)
+                    .await,
+            );
+        }
+        let failed = runs
+            .iter()
+            .any(|run| run.get("status") == Some(&Value::String("error".to_owned())));
+        let summary = if failed {
+            "One or more actions failed."
+        } else {
+            "All referenced actions passed."
+        };
+        let mut result = json!({
+            "id": self.automation.next_run_id("test-event", started),
+            "at": started,
+            "status": if failed { "error" } else { "ok" },
+            "eventName": trigger,
+            "actionName": record.get("name").and_then(Value::as_str).unwrap_or("Event"),
+            "summary": summary,
+            "durationMs": now_millis().saturating_sub(started),
+            "test": true,
+            "logs": [],
+            "actions": runs
+        });
+        if failed {
+            result["error"] = Value::String(summary.to_owned());
+        }
+        result
+    }
+
+    pub(super) async fn run_automation_event(self: &Arc<Self>, event: Value) {
+        if AutomationService::emit_depth(&event) >= 3 {
+            tracing::warn!(event_type = ?event.get("type"), "automation emit depth limit reached");
+            return;
+        }
+        for record in self.automation.matching_events(&event) {
+            if !self.automation.claim_event(&record, &event, now_millis()) {
+                continue;
+            }
+            for action in self.automation.actions_for_event(&record) {
+                self.execute_action(&action, &event, Some(&record), false)
+                    .await;
+            }
+        }
+    }
+
+    pub(super) async fn execute_action(
+        self: &Arc<Self>,
+        action: &Value,
+        event: &Value,
+        origin: Option<&Value>,
+        test: bool,
+    ) -> Value {
+        let started = now_millis();
+        let type_id = action
+            .get("typeId")
+            .or_else(|| action.get("type"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let config = action
+            .get("config")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        let mut logs = Vec::new();
+        let result = self
+            .execute_action_impl(&type_id, &config, action, event, &mut logs, test)
+            .await;
+
+        let (status, summary, error) = match result {
+            Ok(summary) => ("ok", summary, None),
+            Err(error) => ("error", error.clone(), Some(error)),
+        };
+        let run = json!({
+            "id": self.automation.next_run_id(if test { "test-action" } else { "run" }, started),
+            "at": started,
+            "status": status,
+            "eventId": origin.and_then(|value| value.get("id")),
+            "eventName": origin.and_then(|value| value.get("name")),
+            "actionId": action.get("id"),
+            "actionName": action.get("name").and_then(Value::as_str).unwrap_or("Action"),
+            "summary": summary,
+            "durationMs": now_millis().saturating_sub(started),
+            "test": test,
+            "logs": logs.into_iter().take(40).collect::<Vec<_>>(),
+            "error": error
+        });
+        let runs = self.automation.record_run(run.clone());
+        self.emit(HostMessage::BehaviorRuns { runs });
+        run
+    }
+
+    pub(super) async fn execute_action_impl(
+        self: &Arc<Self>,
+        type_id: &str,
+        config: &serde_json::Map<String, Value>,
+        action: &Value,
+        event: &Value,
+        logs: &mut Vec<String>,
+        test: bool,
+    ) -> Result<String, String> {
+        match type_id {
+            "core.log" => {
+                let message = render_template(
+                    config
+                        .get("message")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    event,
+                );
+                tracing::info!(target: "tiktools::automation", message = %message, "automation log");
+                logs.push(message.clone());
+                Ok(message.chars().take(120).collect())
+            }
+            "core.emit" => {
+                let event_type = normalize_emit_type(
+                    config
+                        .get("type")
+                        .and_then(Value::as_str)
+                        .unwrap_or("overlay.alert"),
+                )?;
+                let payload = config
+                    .get("data")
+                    .map(|value| render_json_map(value, event))
+                    .unwrap_or_default();
+                self.publish_automation_event(self.make_internal_automation_event(
+                    event,
+                    &event_type,
+                    Value::Object(payload.into_iter().collect()),
+                ))
+                .await;
+                Ok(format!("emit {event_type}"))
+            }
+            "core.points" => {
+                let unique_id = render_template(
+                    config.get("uniqueId").and_then(Value::as_str).unwrap_or(""),
+                    event,
+                );
+                let delta = number_value(config.get("delta")).unwrap_or_default();
+                if unique_id.trim().is_empty() || !delta.is_finite() || delta == 0.0 {
+                    return Err("Points action needs a viewer and a non-zero number.".to_owned());
+                }
+                let award = self
+                    .points
+                    .adjust(&unique_id, delta)
+                    .ok_or_else(|| format!("Viewer `{unique_id}` is not in the leaderboard."))?;
+                self.emit(HostMessage::PointsAwarded {
+                    unique_id: award.unique_id.clone(),
+                    delta: award.delta,
+                    total_points: award.total_points,
+                    level: award.level,
+                });
+                self.emit(HostMessage::Leaderboard {
+                    viewers: self.points.leaderboard(Some(50)),
+                });
+                Ok(format!("{} {:+}", award.unique_id, award.delta))
+            }
+            "core.delay" => {
+                let millis = number_value(config.get("ms"))
+                    .unwrap_or_default()
+                    .clamp(0.0, 60_000.0) as u64;
+                if !test && millis > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(millis)).await;
+                }
+                Ok(format!("wait {millis} ms"))
+            }
+            "core.code" => {
+                let source = config
+                    .get("source")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| "Script action has no source.".to_owned())?;
+                let result = self.automation.evaluate_script(source, event, &json!({}))?;
+                let mut parts = Vec::new();
+                for log in result
+                    .get("log")
+                    .into_iter()
+                    .flat_map(as_values)
+                    .filter_map(Value::as_str)
+                {
+                    if logs.len() < 40 {
+                        logs.push(log.to_owned());
+                    }
+                }
+                for intent in result.get("emit").into_iter().flat_map(as_values) {
+                    let Some(intent) = intent.as_object() else {
+                        continue;
+                    };
+                    let Some(event_type) = intent.get("type").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    let event_type = normalize_emit_type(event_type)?;
+                    let payload = intent
+                        .get("data")
+                        .map(|value| render_json_map(value, event))
+                        .unwrap_or_default();
+                    self.publish_automation_event(self.make_internal_automation_event(
+                        event,
+                        &event_type,
+                        Value::Object(payload.into_iter().collect()),
+                    ))
+                    .await;
+                    parts.push(format!("emit {event_type}"));
+                }
+                if let Some(intent) = result.get("fetch").and_then(Value::as_object) {
+                    let mut fetch_config = intent.clone();
+                    if let Some(emit_response_as) = result.get("emitResponseAs") {
+                        fetch_config.insert("emitResponseAs".to_owned(), emit_response_as.clone());
+                    }
+                    let allowed_hosts = hosts_in_source(source);
+                    parts.push(
+                        self.execute_http_action(&fetch_config, event, logs, Some(&allowed_hosts))
+                            .await?,
+                    );
+                }
+                if parts.is_empty() {
+                    Ok(format!("script returned {}", result_type(&result)))
+                } else {
+                    Ok(parts.join(" · "))
+                }
+            }
+            "core.fetch" => self.execute_http_action(config, event, logs, None).await,
+            _ if type_id.is_empty() => Err("Action has no typeId.".to_owned()),
+            _ => {
+                self.execute_plugin_action(type_id, action, event, logs)
+                    .await
+            }
+        }
+    }
+
+    #[cfg(feature = "http")]
+    pub(super) async fn execute_http_action(
+        self: &Arc<Self>,
+        config: &serde_json::Map<String, Value>,
+        event: &Value,
+        logs: &mut Vec<String>,
+        allowed_hosts: Option<&[String]>,
+    ) -> Result<String, String> {
+        let raw_url = config
+            .get("url")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "HTTP action has no URL.".to_owned())?;
+        let configured_url = reqwest::Url::parse(raw_url)
+            .map_err(|_| "HTTP URL is invalid before template rendering.".to_owned())?;
+        let configured_host = configured_url
+            .host_str()
+            .map(str::to_ascii_lowercase)
+            .ok_or_else(|| "HTTP URL has no host.".to_owned())?;
+        let rendered_url = render_template(raw_url, event);
+        let url = reqwest::Url::parse(&rendered_url)
+            .map_err(|_| "HTTP URL is invalid after template rendering.".to_owned())?;
+        let allow_private_network = config
+            .get("allowPrivateNetwork")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        validate_http_url(&url, &configured_host, allowed_hosts, allow_private_network).await?;
+
+        let method_name = config
+            .get("method")
+            .and_then(Value::as_str)
+            .unwrap_or("POST")
+            .trim()
+            .to_ascii_uppercase();
+        let method = reqwest::Method::from_bytes(method_name.as_bytes())
+            .map_err(|_| format!("HTTP method is invalid: {method_name}"))?;
+        let mut request = self.http_client.request(method.clone(), url.clone());
+        let mut content_type = String::new();
+        if let Some(headers) = config.get("headers").and_then(Value::as_object) {
+            if headers.len() > 64 {
+                return Err("HTTP action has too many headers.".to_owned());
+            }
+            for (key, value) in headers {
+                let value = value_to_string(&Value::String(render_template(
+                    &value_to_string(value),
+                    event,
+                )));
+                if key.eq_ignore_ascii_case("content-type") {
+                    content_type = value.clone();
+                }
+                request = request.header(key, value);
+            }
+        }
+        let body = config.get("body").and_then(|value| {
+            if value.is_null() {
+                None
+            } else {
+                Some(
+                    value
+                        .as_str()
+                        .map(|value| render_template(value, event))
+                        .unwrap_or_else(|| value_to_string(value)),
+                )
+            }
+        });
+        if let Some(body) = body.as_deref() {
+            if !matches!(method, reqwest::Method::GET | reqwest::Method::HEAD)
+                && content_type
+                    .to_ascii_lowercase()
+                    .contains("application/json")
+                && !body.trim().is_empty()
+                && serde_json::from_str::<Value>(body).is_err()
+            {
+                return Err("The JSON body is invalid after applying the template.".to_owned());
+            }
+            request = request.body(body.to_owned());
+        }
+        let timeout_ms = number_value(config.get("timeoutMs"))
+            .unwrap_or(5_000.0)
+            .clamp(100.0, 120_000.0) as u64;
+        let started = now_millis();
+        let response = request
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .send()
+            .await
+            .map_err(|error| {
+                if error.is_timeout() {
+                    format!("HTTP request timed out after {timeout_ms} ms.")
+                } else {
+                    format!("HTTP request failed: {error}")
+                }
+            })?;
+        if response.url() != &url && response.url().host_str() != Some(configured_host.as_str()) {
+            return Err("HTTP redirect changed the destination host.".to_owned());
+        }
+        if response.status().is_redirection() && response.headers().get("location").is_some() {
+            return Err("HTTP redirects are blocked by policy.".to_owned());
+        }
+        let status = response.status().as_u16();
+        let response_url = response.url().to_string();
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|error| format!("could not read HTTP response: {error}"))?;
+        if bytes.len() > 2 * 1024 * 1024 {
+            return Err("HTTP response exceeds the 2 MiB limit.".to_owned());
+        }
+        let body = if content_type.to_ascii_lowercase().contains("json") {
+            serde_json::from_slice::<Value>(&bytes)
+                .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()))
+        } else {
+            Value::String(String::from_utf8_lossy(&bytes).into_owned())
+        };
+        let elapsed = now_millis().saturating_sub(started);
+        let log = format!(
+            "{} {} → {} ({} ms)",
+            method_name, configured_host, status, elapsed
+        );
+        tracing::info!(target: "tiktools::automation", message = %log, "HTTP action completed");
+        logs.push(log);
+
+        if let Some(emit_response_as) = config
+            .get("emitResponseAs")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+        {
+            let event_type = normalize_emit_type(emit_response_as)?;
+            Box::pin(
+                self.publish_automation_event(self.make_internal_automation_event(
+                    event,
+                    &event_type,
+                    json!({"status": status, "ok": (200..300).contains(&status), "body": body}),
+                )),
+            )
+            .await;
+        }
+        if !(200..300).contains(&status) {
+            return Err(format!(
+                "HTTP {status} {}",
+                if status >= 500 {
+                    "server error"
+                } else {
+                    "request failed"
+                }
+            ));
+        }
+        Ok(format!("{status} OK · {elapsed} ms · {response_url}"))
+    }
+
+    #[cfg(not(feature = "http"))]
+    pub(super) async fn execute_http_action(
+        self: &Arc<Self>,
+        _config: &serde_json::Map<String, Value>,
+        _event: &Value,
+        _logs: &mut Vec<String>,
+        _allowed_hosts: Option<&[String]>,
+    ) -> Result<String, String> {
+        Err("HTTP action execution requires the host HTTP capability.".to_owned())
+    }
+
+    pub(super) async fn execute_plugin_action(
+        self: &Arc<Self>,
+        type_id: &str,
+        action: &Value,
+        event: &Value,
+        logs: &mut Vec<String>,
+    ) -> Result<String, String> {
+        let Some((plugin, descriptor)) = self.plugin_for_action(type_id) else {
+            return Err(format!(
+                "Action type `{type_id}` is not available in this host."
+            ));
+        };
+        if !self.plugin_ready(&plugin.manifest.id) {
+            return Err(format!(
+                "Plugin `{}` is not installed, enabled, or available.",
+                plugin.manifest.id
+            ));
+        }
+        for capability in descriptor
+            .get("requiredCapabilities")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            self.capabilities
+                .require_capability(&plugin.manifest, capability)
+                .map_err(|error| error.to_string())?;
+        }
+        self.plugins
+            .start(&plugin.manifest.id)
+            .map_err(|error| error.to_string())?;
+        let plugin_id = plugin.manifest.id.clone();
+        let request = json!({"type": "action", "action": action, "event": event});
+        let plugins = Arc::clone(&self.plugins);
+        let request_for_call = request.clone();
+        let response =
+            tokio::task::spawn_blocking(move || plugins.call(&plugin_id, &request_for_call))
+                .await
+                .map_err(|error| format!("plugin task failed: {error}"))?
+                .map_err(|error| error.to_string())?;
+        self.events.publish(AppEvent::Plugin(json!({
+            "pluginId": plugin.manifest.id,
+            "type": "action-result",
+            "actionType": type_id,
+            "response": response
+        })));
+
+        let mut parts = Vec::new();
+        for log in response
+            .get("logs")
+            .into_iter()
+            .flat_map(as_values)
+            .filter_map(Value::as_str)
+        {
+            if logs.len() < 40 {
+                logs.push(log.to_owned());
+            }
+        }
+        for intent in response.get("emit").into_iter().flat_map(as_values) {
+            let Some(intent) = intent.as_object() else {
+                continue;
+            };
+            let Some(event_type) = intent.get("type").and_then(Value::as_str) else {
+                continue;
+            };
+            let event_type = normalize_emit_type(event_type)?;
+            let payload = intent
+                .get("data")
+                .map(|value| render_json_map(value, event))
+                .unwrap_or_default();
+            self.publish_automation_event(self.make_internal_automation_event(
+                event,
+                &event_type,
+                Value::Object(payload.into_iter().collect()),
+            ))
+            .await;
+            parts.push(format!("emit {event_type}"));
+        }
+        if let Some(summary) = response.get("summary").and_then(Value::as_str) {
+            parts.push(summary.to_owned());
+        }
+        if parts.is_empty() {
+            parts.push(format!("plugin {} completed", plugin.manifest.id));
+        }
+        Ok(parts.join(" · "))
+    }
+
+    pub(super) fn plugin_for_action(
+        &self,
+        type_id: &str,
+    ) -> Option<(tiktools_plugin_loader::DiscoveredPlugin, Value)> {
+        self.plugins.list().into_iter().find_map(|plugin| {
+            plugin
+                .manifest
+                .action_types
+                .iter()
+                .find(|descriptor| descriptor.get("id").and_then(Value::as_str) == Some(type_id))
+                .cloned()
+                .map(|descriptor| (plugin, descriptor))
+        })
+    }
+
+    pub(super) fn plugin_ready(&self, id: &str) -> bool {
+        let Some(plugin) = self.plugins.get(id) else {
+            return false;
+        };
+        if !plugin.available {
+            return false;
+        }
+        #[cfg(feature = "persistence")]
+        if let Ok(snapshot) = self.db.load_behavior_snapshot() {
+            if let Some(state) = snapshot
+                .get("plugins")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .find(|state| state.get("id").and_then(Value::as_str) == Some(id))
+            {
+                return state.get("installed").and_then(Value::as_bool) == Some(true)
+                    && state.get("enabled").and_then(Value::as_bool) == Some(true);
+            }
+        }
+        true
+    }
+
+    pub(super) fn make_internal_automation_event(
+        &self,
+        source: &Value,
+        event_type: &str,
+        payload: Value,
+    ) -> Value {
+        let mut event = json!({
+            "id": format!("plugin-emit-{}", self.next_sequence()),
+            "type": "plugin.emit",
+            "timestamp": now_millis(),
+            "data": {
+                "emitType": event_type,
+                "depth": AutomationService::emit_depth(source).saturating_add(1),
+                "payload": payload
+            }
+        });
+        for key in ["connectionId", "creator", "user"] {
+            if let Some(value) = source.get(key) {
+                event[key] = value.clone();
+            }
+        }
+        if let Some(source_id) = source.get("id") {
+            event["sourceEventId"] = source_id.clone();
+        }
+        event
+    }
+}

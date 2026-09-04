@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import type { ComponentChildren } from 'preact';
+import { onMounted, onUnmounted, ref } from 'vue';
+import type { VNodeChild } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 import { Button } from './Button.tsx';
 import { FormField } from './FormField.tsx';
@@ -8,8 +9,8 @@ import { TextInput, type TextInputHandle } from './TextInput.tsx';
 export type ModalProps = {
   title: string;
   description?: string;
-  children?: ComponentChildren;
-  footer?: ComponentChildren;
+  children?: VNodeChild;
+  footer?: VNodeChild;
   onClose: () => void;
   closeLabel?: string;
   closeOnBackdrop?: boolean;
@@ -21,75 +22,70 @@ export type ModalProps = {
  * automation view makes prompts and confirmations behave consistently across
  * the editor and the rest of the WebView UI.
  */
-export function Modal({
-  title,
-  description,
-  children,
-  footer,
-  onClose,
-  closeLabel = 'Close',
-  closeOnBackdrop = true,
-  className = '',
-}: ModalProps) {
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+export const Modal = defineVueComponent<ModalProps>(
+  ['title', 'description', 'children', 'footer', 'onClose', 'closeLabel', 'closeOnBackdrop', 'className'],
+  (props) => {
+  const dialogRef = ref<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  onMounted(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       event.preventDefault();
-      onCloseRef.current();
+      props.onClose();
     };
 
     document.addEventListener('keydown', handleKeyDown);
-    const firstField = dialogRef.current?.querySelector<HTMLElement>(
+    const firstField = dialogRef.value?.querySelector<HTMLElement>(
       'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not(.ui-modal__close):not([disabled])',
     );
-    (firstField ?? dialogRef.current)?.focus();
+    (firstField ?? dialogRef.value)?.focus();
 
-    return () => {
+    onUnmounted(() => {
       document.removeEventListener('keydown', handleKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, []);
+    });
+  });
 
-  return (
+  return () => {
+    const { title, description, children, footer, onClose, closeLabel = 'Close', closeOnBackdrop = true, className = '' } = props;
+    return (
     <div
-      className="ui-modal-backdrop"
+      class="ui-modal-backdrop"
       role="presentation"
-      onMouseDown={(event) => {
+      onMousedown={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) onClose();
       }}
     >
       <div
         ref={dialogRef}
-        className={`ui-modal-card ${className}`.trim()}
+        class={`ui-modal-card ${className}`.trim()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="ui-modal-title"
-        tabIndex={-1}
-        onMouseDown={(event) => event.stopPropagation()}
+        tabindex={-1}
+        onMousedown={(event) => event.stopPropagation()}
       >
-        <header className="ui-modal-card__header">
-          <h2 id="ui-modal-title" className="ui-modal-card__title">{title}</h2>
+        <header class="ui-modal-card__header">
+          <h2 id="ui-modal-title" class="ui-modal-card__title">{title}</h2>
           <button
             type="button"
-            className="ui-modal__close"
+            class="ui-modal__close"
             aria-label={closeLabel}
             onClick={onClose}
           >
             ×
           </button>
         </header>
-        {description ? <p className="ui-modal-card__description">{description}</p> : null}
-        {children ? <div className="ui-modal-card__body">{children}</div> : null}
-        {footer ? <footer className="ui-modal-card__footer">{footer}</footer> : null}
+        {description ? <p class="ui-modal-card__description">{description}</p> : null}
+        {children ? <div class="ui-modal-card__body">{children}</div> : null}
+        {footer ? <footer class="ui-modal-card__footer">{footer}</footer> : null}
       </div>
     </div>
-  );
-}
+    );
+  };
+  },
+);
 
 export type TextPromptModalProps = {
   title: string;
@@ -104,51 +100,44 @@ export type TextPromptModalProps = {
   onClose: () => void;
 };
 
-export function TextPromptModal({
-  title,
-  description,
-  label,
-  initialValue = '',
-  placeholder,
-  confirmLabel,
-  cancelLabel,
-  requiredMessage,
-  onConfirm,
-  onClose,
-}: TextPromptModalProps) {
-  const [value, setValue] = useState(initialValue);
-  const [error, setError] = useState('');
-  const inputRef = useRef<TextInputHandle | null>(null);
+export const TextPromptModal = defineVueComponent<TextPromptModalProps>(
+  ['title', 'description', 'label', 'initialValue', 'placeholder', 'confirmLabel', 'cancelLabel', 'requiredMessage', 'onConfirm', 'onClose'],
+  (props) => {
+  const value = ref(props.initialValue ?? '');
+  const error = ref('');
+  const inputRef = ref<TextInputHandle | null>(null);
 
   const confirm = (): void => {
-    const nextValue = value.trim();
+    const nextValue = value.value.trim();
     if (!nextValue) {
-      setError(requiredMessage);
-      inputRef.current?.focus();
+      error.value = props.requiredMessage;
+      inputRef.value?.focus();
       return;
     }
-    onConfirm(nextValue);
+    props.onConfirm(nextValue);
   };
 
-  return (
+  return () => {
+    const { title, description, label, placeholder, confirmLabel, cancelLabel, onClose } = props;
+    return (
     <Modal
       title={title}
       description={description}
       onClose={onClose}
       footer={
-        <div className="ui-modal-card__actions">
-          <Button variant="soft" onClick={onClose}>{cancelLabel}</Button>
+        <div class="ui-modal-card__actions">
+        <Button variant="soft" onClick={onClose}>{cancelLabel}</Button>
           <Button variant="primary" onClick={confirm}>{confirmLabel}</Button>
         </div>
       }
     >
-      <FormField label={label} error={error} required>
+        <FormField label={label} error={error.value} required>
         <TextInput
           ref={inputRef}
-          value={value}
+          value={value.value}
           onValueChange={(nextValue) => {
-            setValue(nextValue);
-            if (error) setError('');
+            value.value = nextValue;
+            if (error.value) error.value = '';
           }}
           placeholder={placeholder}
           required
@@ -157,8 +146,10 @@ export function TextPromptModal({
         />
       </FormField>
     </Modal>
-  );
-}
+    );
+  };
+  },
+);
 
 export type ConfirmModalProps = {
   title: string;
@@ -185,7 +176,7 @@ export function ConfirmModal({
       description={description}
       onClose={onClose}
       footer={
-        <div className="ui-modal-card__actions">
+        <div class="ui-modal-card__actions">
           <Button variant="soft" onClick={onClose}>{cancelLabel}</Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>{confirmLabel}</Button>
         </div>

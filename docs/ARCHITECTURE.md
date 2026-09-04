@@ -5,7 +5,7 @@ WebView, and `tray-icon` owns the tray. The application core is independent of
 all three.
 
 ```text
-Preact WebView
+Vue WebView
     │ window.ipc.postMessage(JSON)
     ▼
 Wry IPC handler
@@ -100,7 +100,7 @@ records stay readable while their execution is moved into Rust.
 ## Automations
 
 Rust owns workflow/behavior persistence, native event publication, built-in
-action metadata, and bounded script execution. The editor remains Preact and
+action metadata, and bounded script execution. The editor remains Vue and
 uses JSON descriptors supplied by the host. `napi-vm` receives only JSON values
 (`event`, `inputs`, and `data`) and has no Node, filesystem, network, or WebView
 objects.

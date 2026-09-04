@@ -24,7 +24,7 @@ bun run test
 bun run start
 ```
 
-The `start` script builds the Preact assets into `dist/web`, then runs
+The `start` script builds the Vue assets into `dist/web`, then runs
 `tiktools-desktop`. The Rust host reads those assets through the
 `tiktools://app/index.html` custom protocol and does not start a production
 localhost server.
@@ -73,7 +73,8 @@ bun run typecheck
 bun run test
 ```
 
-The frontend is still Preact. Its JSON message types live in
+The frontend uses Vue with Vue JSX components where a direct component
+conversion is useful. Its JSON message types live in
 `src/shared/messages.ts`; no Rust UI rewrite is required.
 
 ## Runtime data

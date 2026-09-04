@@ -1,6 +1,6 @@
 # TikTools
 
-TikTools is a Rust desktop host for TikTok LIVE with a Preact WebView. It
+TikTools is a Rust desktop host for TikTok LIVE with a Vue WebView. It
 connects to live rooms, displays chat and engagement telemetry, awards viewer
 points, and runs local automations. Tauri is not used.
 
@@ -8,7 +8,7 @@ points, and runs local automations. Tauri is not used.
 
 - Direct Winit/Wry window and WebView lifecycle, plus a `tray-icon` tray.
 - Native Rust TikTok discovery, signing, WebSocket transport, and event decode.
-- Existing Preact UI and `PageMessage`/`HostMessage` JSON IPC contract.
+- Existing Vue UI and `PageMessage`/`HostMessage` JSON IPC contract.
 - Rust-owned SQLite persistence for points, creators, gifts, workflows, and
   behavior records.
 - Bounded JavaScript automation through the pure-Rust `napi-vm` runtime.
@@ -21,7 +21,7 @@ points, and runs local automations. Tauri is not used.
 Requirements:
 
 - Rust 1.86 or newer and Cargo.
-- Bun for the Preact development toolchain and frontend asset build.
+- Bun for the Vue/Vite development toolchain and frontend asset build.
 - Platform WebView dependencies. Linux uses WebKitGTK; see
   [Getting Started](docs/GETTING_STARTED.md).
 
@@ -52,11 +52,11 @@ cargo build -p tiktools-desktop --release
 ## Commands
 
 ```bash
-bun run start             # Build the Preact assets and run the Rust host
+bun run start             # Build the Vue assets and run the Rust host
 bun run start:rust        # Run the Rust host against existing dist/web assets
 bun run dev               # Run the frontend development server
 bun run build:web         # Build dist/web
-bun run typecheck         # Type-check the Preact/editor source
+bun run typecheck         # Type-check the Vue/editor source
 bun run test              # Run frontend and editor tests
 bun run check:rust        # Check every Cargo workspace crate
 bun run test:rust         # Run every Rust workspace test
@@ -78,11 +78,9 @@ crates/tiktools-core/          IPC router, services, SQLite, points, events
 crates/tiktools-plugin-api/    Versioned manifest, protocol, capabilities, ABI
 crates/tiktools-plugin-loader/ Runtime discovery and plugin runtimes
 crates/tiktools-tiktok/        Native signer, discovery, WebSocket, event model
-src/web/                       Preact application and styles
+src/web/                       Vue application and styles
 src/shared/messages.ts         Frontend compatibility contract
 src/automation/                Editor schemas and native event registry
-scripts/build-web.ts           Frontend asset build
-scripts/serve-web.ts           Frontend development server
 docs/                          Architecture and development documentation
 ```
 

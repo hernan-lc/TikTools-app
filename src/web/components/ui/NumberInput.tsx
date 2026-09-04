@@ -1,5 +1,6 @@
-import { useRef, useImperativeHandle, forwardRef } from 'preact/compat';
+import { ref } from 'vue';
 import { InfoTip } from './InfoTip.tsx';
+import { defineVueComponent } from '../../vue/component.ts';
 
 export type NumberInputHandle = {
   getValue: () => number;
@@ -37,35 +38,35 @@ function toFixedStep(v: number, step?: number): number {
   return Number(v.toFixed(decimals));
 }
 
-export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(function NumberInput(
-  { value, onValueChange, min, max, step = 1, disabled, error, id, suffix, placeholder, label, hint },
-  ref,
-) {
-  const innerRef = useRef<HTMLInputElement>(null);
-
-  useImperativeHandle(ref, () => ({
-    getValue: () => value,
-    setValue: (v: number) => onValueChange(clamp(toFixedStep(v, step), min, max)),
-    focus: () => innerRef.current?.focus(),
-  }));
+export const NumberInput = defineVueComponent<NumberInputProps>(
+  ['value', 'onValueChange', 'min', 'max', 'step', 'disabled', 'error', 'id', 'suffix', 'placeholder', 'label', 'hint'],
+  (props, context) => {
+  const innerRef = ref<HTMLInputElement | null>(null);
+  context.expose({
+    getValue: () => props.value,
+    setValue: (value: number) => props.onValueChange(clamp(toFixedStep(value, props.step), props.min, props.max)),
+    focus: () => innerRef.value?.focus(),
+  });
 
   const handleInput = (e: Event) => {
     const raw = (e.currentTarget as HTMLInputElement).value;
     const parsed = raw === '' ? 0 : Number(raw);
     if (Number.isNaN(parsed)) return;
-    onValueChange(clamp(toFixedStep(parsed, step), min, max));
+    props.onValueChange(clamp(toFixedStep(parsed, props.step), props.min, props.max));
   };
 
   const nudge = (dir: 1 | -1) => {
-    if (disabled) return;
-    const next = clamp(toFixedStep(value + dir * step, step), min, max);
-    onValueChange(next);
+    if (props.disabled) return;
+    const next = clamp(toFixedStep(props.value + dir * (props.step ?? 1), props.step), props.min, props.max);
+    props.onValueChange(next);
   };
 
-  if (label) {
-    return (
-      <div className={`ui-float is-filled ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
-        <div className="ui-float__control">
+  return () => {
+    const { value, onValueChange, min, max, step = 1, disabled, error, id, suffix, placeholder, label, hint } = props;
+    if (label) {
+      return (
+      <div class={`ui-float is-filled ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+        <div class="ui-float__control">
           <input
             ref={innerRef}
             id={id}
@@ -80,22 +81,22 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
             aria-label={label}
             onInput={handleInput}
           />
-          <label className="ui-float__label" htmlFor={id}>
+          <label class="ui-float__label" for={id}>
             {label}
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
-          <div className="ui-number__steppers" aria-hidden>
-            <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(1)}>▲</button>
-            <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(-1)}>▼</button>
+          <div class="ui-number__steppers" aria-hidden>
+            <button type="button" tabindex={-1} disabled={disabled} onClick={() => nudge(1)}>▲</button>
+            <button type="button" tabindex={-1} disabled={disabled} onClick={() => nudge(-1)}>▼</button>
           </div>
-          {suffix ? <span className="ui-float__suffix">{suffix}</span> : null}
+          {suffix ? <span class="ui-float__suffix">{suffix}</span> : null}
         </div>
       </div>
     );
-  }
+    }
 
-  return (
-    <div className={`ui-number ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+    return (
+    <div class={`ui-number ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
         ref={innerRef}
         id={id}
@@ -109,15 +110,17 @@ export const NumberInput = forwardRef<NumberInputHandle, NumberInputProps>(funct
         aria-invalid={Boolean(error)}
         onInput={handleInput}
       />
-      <div className="ui-number__steppers" aria-hidden>
-        <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(1)}>
+      <div class="ui-number__steppers" aria-hidden>
+        <button type="button" tabindex={-1} disabled={disabled} onClick={() => nudge(1)}>
           ▲
         </button>
-        <button type="button" tabIndex={-1} disabled={disabled} onClick={() => nudge(-1)}>
+        <button type="button" tabindex={-1} disabled={disabled} onClick={() => nudge(-1)}>
           ▼
         </button>
       </div>
-      {suffix ? <span className="ui-number__suffix">{suffix}</span> : null}
+      {suffix ? <span class="ui-number__suffix">{suffix}</span> : null}
     </div>
-  );
-});
+    );
+  };
+  },
+);

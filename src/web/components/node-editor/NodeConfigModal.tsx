@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { ref } from 'vue';
+import { defineVueComponent } from '../../vue/component.ts';
 
 import type {
   AutomationEvent,
@@ -31,36 +32,28 @@ type NodeConfigModalProps = {
  * Edits a local copy of a node. The workflow draft is changed only after the
  * user confirms, so closing the modal is a safe cancel operation.
  */
-export function NodeConfigModal({
-  locale,
-  node,
-  definition,
-  eventType,
-  lastEvent,
-  lastEventCapturedAt,
-  analysis,
-  onApply,
-  onAnalyzeScript,
-  onClose,
-}: NodeConfigModalProps) {
-  const [config, setConfig] = useState<JsonObject>(() => ({ ...node.config }));
-  const title = definition?.title ?? node.type;
-  const draftNode: WorkflowNode = { ...node, config };
-
-  return (
+export const NodeConfigModal = defineVueComponent<NodeConfigModalProps>(
+  ['locale', 'node', 'definition', 'eventType', 'lastEvent', 'lastEventCapturedAt', 'analysis', 'onApply', 'onAnalyzeScript', 'onClose'],
+  (props) => {
+  const config = ref<JsonObject>({ ...props.node.config });
+  return () => {
+    const { locale, node, definition, eventType, lastEvent, lastEventCapturedAt, analysis, onApply, onAnalyzeScript, onClose } = props;
+    const title = definition?.title ?? node.type;
+    const draftNode: WorkflowNode = { ...node, config: config.value };
+    return (
     <Modal
       title={`${t(locale, 'configureStep')}: ${title}`}
       description={t(locale, 'configureStepHint')}
       onClose={onClose}
-      className="ui-modal-card--wide"
+      class="ui-modal-card--wide"
       footer={
-        <div className="node-editor-modal-actions">
+        <div class="node-editor-modal-actions">
           <Button variant="soft" onClick={onClose}>{t(locale, 'cancel')}</Button>
-          <Button variant="primary" onClick={() => onApply(config)}>{t(locale, 'applyChanges')}</Button>
+          <Button variant="primary" onClick={() => onApply(config.value)}>{t(locale, 'applyChanges')}</Button>
         </div>
       }
     >
-      <div className="node-editor-config-modal__body">
+      <div class="node-editor-config-modal__body">
         <EventContextPreview locale={locale} event={lastEvent} capturedAt={lastEventCapturedAt} />
         <NodeConfigForm
           locale={locale}
@@ -69,10 +62,12 @@ export function NodeConfigModal({
           eventType={eventType}
           lastEvent={lastEvent}
           analysis={analysis}
-          onChange={setConfig}
+          onChange={(next) => (config.value = next)}
           onAnalyzeScript={onAnalyzeScript}
         />
       </div>
     </Modal>
-  );
-}
+    );
+  };
+  },
+);
