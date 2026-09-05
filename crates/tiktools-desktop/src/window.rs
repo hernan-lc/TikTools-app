@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::{
+    collections::VecDeque,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use tiktools_core::{ipc::IpcRouter, AppCore};
 use tokio::runtime::Handle;
@@ -11,7 +16,7 @@ use winit::{
 };
 use wry::{
     dpi::{PhysicalPosition as WryPhysicalPosition, PhysicalSize as WryPhysicalSize},
-    NewWindowResponse, Rect, WebView, WebViewBuilder,
+    PageLoadEvent, Rect, WebView, WebViewBuilder,
 };
 
 use crate::{
@@ -32,6 +37,19 @@ pub struct DesktopApp {
     tray: Option<TrayController>,
     pending_host_messages: VecDeque<String>,
     shutting_down: bool,
+    startup_state: StartupState,
+    startup_deadline: Option<Instant>,
+    pending_activation: bool,
+    log_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartupState {
+    Initializing,
+    WebViewLoading,
+    Ready,
+    Failed,
+    ShuttingDown,
 }
 
 impl DesktopApp {
@@ -41,6 +59,7 @@ impl DesktopApp {
         frontend: FrontendSource,
         runtime: Handle,
         proxy: EventLoopProxy<DesktopEvent>,
+        log_path: PathBuf,
     ) -> Self {
         Self {
             window: None,
@@ -53,6 +72,10 @@ impl DesktopApp {
             tray: None,
             pending_host_messages: VecDeque::new(),
             shutting_down: false,
+            startup_state: StartupState::Initializing,
+            startup_deadline: None,
+            pending_activation: false,
+            log_path,
         }
     }
 
@@ -65,18 +88,18 @@ impl DesktopApp {
             .with_inner_size(LogicalSize::new(900_u32, 680_u32))
             .with_resizable(true)
             .with_window_icon(Some(window_icon))
-            .with_visible(true);
+            .with_visible(false);
         let window = event_loop
             .create_window(attributes)
             .map_err(|error| format!("could not create window: {error}"))?;
 
         let router = self.router.clone();
         let runtime = self.runtime.clone();
+        let proxy_for_ipc = self.proxy.clone();
         let navigation_frontend = self.frontend.clone();
-        let new_window_frontend = self.frontend.clone();
         let mut builder = WebViewBuilder::new()
             .with_devtools(cfg!(debug_assertions) || cfg!(feature = "devtools"))
-            .with_focused(true)
+            .with_focused(false)
             .with_autoplay(true)
             .with_navigation_handler(move |url| {
                 let allowed = navigation_frontend.allows_navigation(&url);
@@ -86,16 +109,22 @@ impl DesktopApp {
                 allowed
             })
             .with_new_window_req_handler(move |url, _features| {
-                if new_window_frontend.allows_navigation(&url) {
-                    tracing::debug!(url = %url, "allowing same-origin WebView window request");
-                    NewWindowResponse::Allow
-                } else {
-                    tracing::warn!(url = %url, "blocked WebView new-window request");
-                    NewWindowResponse::Deny
+                tracing::debug!(url = %url, "blocked WebView new-window request");
+                wry::NewWindowResponse::Deny
+            })
+            .with_on_page_load_handler(|event, url| {
+                if matches!(event, PageLoadEvent::Finished) {
+                    tracing::debug!(url = %url, "frontend page load finished; waiting for frontend-ready");
                 }
             })
             .with_ipc_handler(move |request| {
                 let raw = request.body().clone();
+                if is_frontend_ready(&raw) {
+                    let _ = proxy_for_ipc.send_event(DesktopEvent::Command(
+                        DesktopCommand::FrontendReady,
+                    ));
+                    return;
+                }
                 let router = router.clone();
                 runtime.spawn(async move {
                     if let Err(error) = router.dispatch(&raw).await {
@@ -128,6 +157,8 @@ impl DesktopApp {
 
         self.window = Some(window);
         self.webview = Some(webview);
+        self.startup_state = StartupState::WebViewLoading;
+        self.startup_deadline = Some(Instant::now() + Duration::from_secs(10));
         if self.tray.is_none() {
             match TrayController::create(self.proxy.clone()) {
                 Ok(tray) => self.tray = Some(tray),
@@ -225,6 +256,8 @@ impl DesktopApp {
             return;
         }
         self.shutting_down = true;
+        self.startup_state = StartupState::ShuttingDown;
+        self.startup_deadline = None;
         let core = Arc::clone(&self.core);
         let proxy = self.proxy.clone();
         self.runtime.spawn(async move {
@@ -234,9 +267,57 @@ impl DesktopApp {
     }
 
     fn finalize_shutdown(&mut self, event_loop: &ActiveEventLoop) {
+        self.startup_state = StartupState::ShuttingDown;
         self.tray.take();
         self.webview.take();
         self.window.take();
+        event_loop.exit();
+    }
+
+    fn frontend_ready(&mut self) {
+        if self.shutting_down || self.startup_state == StartupState::Ready {
+            return;
+        }
+        if self.startup_state != StartupState::WebViewLoading {
+            tracing::debug!(state = ?self.startup_state, "ignoring frontend-ready outside WebView startup");
+            return;
+        }
+        self.startup_state = StartupState::Ready;
+        self.startup_deadline = None;
+        self.core.spawn_plugin_event_poll(&self.runtime);
+        self.set_window_visible(true);
+        if let Some(window) = self.window.as_ref() {
+            window.focus_window();
+        }
+    }
+
+    fn restore_window(&mut self) {
+        if self.shutting_down {
+            return;
+        }
+        if self.startup_state != StartupState::Ready {
+            self.pending_activation = true;
+            return;
+        }
+        self.pending_activation = false;
+        if let Some(window) = self.window.as_ref() {
+            window.set_minimized(false);
+        }
+        self.set_window_visible(true);
+        if let Some(window) = self.window.as_ref() {
+            window.focus_window();
+        }
+    }
+
+    fn fail_startup(&mut self, event_loop: &ActiveEventLoop, reason: impl Into<String>) {
+        if self.startup_state == StartupState::Failed || self.shutting_down {
+            return;
+        }
+        let reason = reason.into();
+        self.startup_state = StartupState::Failed;
+        self.startup_deadline = None;
+        tracing::error!(%reason, "TikTools frontend did not become ready");
+        crate::show_startup_failure(&reason, &self.log_path);
         event_loop.exit();
     }
 }
@@ -249,13 +330,15 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
         }
         if let Err(error) = self.create_window(event_loop) {
             tracing::error!(%error, "Rust desktop host could not start");
+            crate::show_startup_failure(&error, &self.log_path);
+            self.startup_state = StartupState::Failed;
             event_loop.exit();
         }
     }
 
     fn window_event(
         &mut self,
-        _event_loop: &ActiveEventLoop,
+        event_loop: &ActiveEventLoop,
         window_id: WindowId,
         event: WindowEvent,
     ) {
@@ -268,15 +351,23 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
         }
         match event {
             WindowEvent::CloseRequested => {
-                tracing::debug!("window close requested; hiding TikTools in the tray");
-                self.set_window_visible(false);
+                if self.tray.is_some() {
+                    tracing::debug!("window close requested; hiding TikTools in the tray");
+                    self.set_window_visible(false);
+                } else {
+                    tracing::debug!("window close requested without a tray; shutting down");
+                    self.shutdown(event_loop);
+                }
             }
             WindowEvent::KeyboardInput { event, .. } => self.on_keyboard_input(event),
             WindowEvent::Resized(size) => self.resize_webview(size),
             WindowEvent::Destroyed => {
-                tracing::debug!("window was destroyed; tray restore will recreate it");
+                tracing::debug!(tray = self.tray.is_some(), "window was destroyed");
                 self.webview.take();
                 self.window.take();
+                if self.tray.is_none() {
+                    self.shutdown(event_loop);
+                }
             }
             _ => {}
         }
@@ -287,6 +378,7 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
             DesktopEvent::Command(DesktopCommand::EmitToWebview(message)) => {
                 self.emit_to_webview(message)
             }
+            DesktopEvent::Command(DesktopCommand::FrontendReady) => self.frontend_ready(),
             DesktopEvent::Command(DesktopCommand::ShowWindow) => {
                 if self.window.is_none() {
                     if let Err(error) = self.create_window(event_loop) {
@@ -294,10 +386,7 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
                         return;
                     }
                 }
-                self.set_window_visible(true);
-                if let Some(window) = self.window.as_ref() {
-                    window.focus_window();
-                }
+                self.restore_window();
             }
             DesktopEvent::Command(DesktopCommand::HideWindow) => {
                 self.set_window_visible(false);
@@ -312,6 +401,32 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         platform::pump();
+        if self.startup_state == StartupState::WebViewLoading {
+            if let Some(deadline) = self.startup_deadline {
+                if Instant::now() >= deadline {
+                    self.fail_startup(
+                        event_loop,
+                        "The packaged web application did not become ready within 10 seconds.",
+                    );
+                    return;
+                }
+                event_loop.set_control_flow(ControlFlow::WaitUntil(deadline));
+                return;
+            }
+        }
         platform::prepare_for_wait(event_loop);
     }
+}
+
+fn is_frontend_ready(raw: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("type")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .as_deref()
+        == Some("frontend-ready")
 }

@@ -925,16 +925,32 @@ impl AppCore {
     /// executing them first; later ticks are cheap no-ops until a plugin
     /// answers with events, and shutdown stops the plugins, which empties
     /// every remaining tick until the process exits.
-    pub fn spawn_plugin_event_poll(self: &Arc<Self>) {
+    pub fn spawn_plugin_event_poll(self: &Arc<Self>, runtime: &tokio::runtime::Handle) {
+        if self
+            .shutdown_started
+            .load(std::sync::atomic::Ordering::Acquire)
+            || self
+                .plugin_poll_started
+                .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            return;
+        }
         let core = Arc::clone(self);
-        tokio::spawn(async move {
+        let shutdown = Arc::clone(&self.plugin_poll_shutdown);
+        let task = runtime.spawn(async move {
             let mut ticker = tokio::time::interval(PLUGIN_POLL_INTERVAL);
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                ticker.tick().await;
-                core.poll_plugin_events().await;
+                tokio::select! {
+                    _ = shutdown.notified() => break,
+                    _ = ticker.tick() => core.poll_plugin_events().await,
+                }
             }
         });
+        *self
+            .plugin_poll_task
+            .lock()
+            .expect("plugin poll task lock poisoned") = Some(task);
     }
 
     pub(super) async fn poll_plugin_events(self: &Arc<Self>) {
@@ -972,31 +988,63 @@ impl AppCore {
                 .clone()
                 .unwrap_or_else(|| json!({})),
         );
+        const MAX_CONCURRENT_POLLS: usize = 6;
+        let mut tasks = tokio::task::JoinSet::new();
+        let mut outcomes = Vec::with_capacity(candidates.len());
         for (plugin_id, declared) in candidates {
+            if !self.plugin_retry_allowed(&plugin_id) {
+                continue;
+            }
             if let Err(error) = self.plugins.start(&plugin_id) {
-                tracing::debug!(plugin = %plugin_id, %error, "plugin event source could not start");
+                self.record_plugin_failure(&plugin_id, error.to_string());
                 continue;
             }
             let plugins = Arc::clone(&self.plugins);
             let request = serde_json::json!({"type": "poll"});
             let plugin_id_for_call = plugin_id.clone();
-            let outcome = tokio::time::timeout(
-                PLUGIN_POLL_DEADLINE,
-                tokio::task::spawn_blocking(move || plugins.call(&plugin_id_for_call, &request)),
-            )
-            .await;
-            let response = match outcome {
-                Ok(Ok(Ok(response))) => response,
-                Ok(Ok(Err(error))) => {
-                    tracing::debug!(plugin = %plugin_id, %error, "plugin poll failed");
-                    continue;
+            let declared_for_task = declared.clone();
+            tasks.spawn(async move {
+                let response = tokio::time::timeout(
+                    PLUGIN_POLL_DEADLINE,
+                    tokio::task::spawn_blocking(move || {
+                        plugins.call_with_timeout(
+                            &plugin_id_for_call,
+                            &request,
+                            PLUGIN_POLL_DEADLINE,
+                        )
+                    }),
+                )
+                .await;
+                let response = match response {
+                    Ok(Ok(Ok(response))) => Ok(response),
+                    Ok(Ok(Err(error))) => Err(error.to_string()),
+                    Ok(Err(error)) => Err(format!("plugin poll task failed: {error}")),
+                    Err(_) => Err("plugin poll timed out".to_owned()),
+                };
+                (plugin_id, declared_for_task, response)
+            });
+            if tasks.len() >= MAX_CONCURRENT_POLLS {
+                if let Some(Ok(outcome)) = tasks.join_next().await {
+                    outcomes.push(outcome);
                 }
-                Ok(Err(error)) => {
-                    tracing::debug!(plugin = %plugin_id, %error, "plugin poll task failed");
-                    continue;
+            }
+        }
+        while let Some(joined) = tasks.join_next().await {
+            if let Ok(outcome) = joined {
+                outcomes.push(outcome);
+            }
+        }
+        // Stable ordering keeps automation event handling predictable even
+        // though slow plugins no longer hold up healthy ones.
+        outcomes.sort_by(|left, right| left.0.cmp(&right.0));
+        for (plugin_id, declared, response) in outcomes {
+            let response = match response {
+                Ok(response) => {
+                    self.record_plugin_success(&plugin_id);
+                    response
                 }
-                Err(_) => {
-                    tracing::debug!(plugin = %plugin_id, "plugin poll timed out");
+                Err(error) => {
+                    self.record_plugin_failure(&plugin_id, error);
                     continue;
                 }
             };
@@ -1004,6 +1052,57 @@ impl AppCore {
                 self.publish_automation_event(self.make_plugin_event(&source, &event_type, data))
                     .await;
             }
+        }
+    }
+
+    fn plugin_retry_allowed(&self, id: &str) -> bool {
+        self.plugin_health
+            .lock()
+            .expect("plugin health lock poisoned")
+            .get(id)
+            .and_then(|health| health.next_retry_at)
+            .is_none_or(|next_retry_at| std::time::Instant::now() >= next_retry_at)
+    }
+
+    fn record_plugin_failure(&self, id: &str, error: String) {
+        let mut health = self
+            .plugin_health
+            .lock()
+            .expect("plugin health lock poisoned");
+        let entry = health.entry(id.to_owned()).or_insert(PluginHealth {
+            consecutive_failures: 0,
+            next_retry_at: None,
+        });
+        entry.consecutive_failures = entry.consecutive_failures.saturating_add(1);
+        let delay_seconds = match entry.consecutive_failures {
+            1 => 1,
+            2 => 2,
+            3 => 5,
+            4 => 10,
+            _ => 30,
+        };
+        entry.next_retry_at =
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(delay_seconds));
+        if entry.consecutive_failures <= 5 {
+            tracing::warn!(
+                plugin = %id,
+                failures = entry.consecutive_failures,
+                retry_in_seconds = delay_seconds,
+                %error,
+                "plugin entered retry backoff"
+            );
+        }
+    }
+
+    fn record_plugin_success(&self, id: &str) {
+        let was_unhealthy = self
+            .plugin_health
+            .lock()
+            .expect("plugin health lock poisoned")
+            .remove(id)
+            .is_some_and(|health| health.consecutive_failures > 0);
+        if was_unhealthy {
+            tracing::info!(plugin = %id, "plugin recovered");
         }
     }
 

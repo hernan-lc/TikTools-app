@@ -6,6 +6,7 @@ use std::{
 };
 
 use percent_encoding::percent_decode_str;
+use std::fmt;
 use url::Url;
 use wry::http::{header::CONTENT_TYPE, Request, Response, StatusCode};
 
@@ -34,6 +35,55 @@ const PACKAGED_CONTENT_SECURITY_POLICY: &str = concat!(
     "ws://localhost:* ws://127.0.0.1:* ws://[::1]:* https: wss:"
 );
 
+#[derive(Debug)]
+pub enum FrontendSourceError {
+    DevelopmentUrl {
+        variable: String,
+        reason: String,
+    },
+    AssetsMissing {
+        executable_directory: Option<PathBuf>,
+        expected_web_directory: PathBuf,
+        expected_index: PathBuf,
+    },
+}
+
+impl fmt::Display for FrontendSourceError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DevelopmentUrl { variable, reason } => {
+                write!(formatter, "{variable} is invalid: {reason}")
+            }
+            Self::AssetsMissing {
+                executable_directory,
+                expected_web_directory,
+                expected_index,
+            } => {
+                writeln!(formatter, "TikTools frontend assets were not found.")?;
+                if let Some(directory) = executable_directory {
+                    writeln!(
+                        formatter,
+                        "Detected executable directory:\n{}",
+                        directory.display()
+                    )?;
+                }
+                writeln!(
+                    formatter,
+                    "Expected web directory:\n{}\nExpected index file:\n{}",
+                    expected_web_directory.display(),
+                    expected_index.display()
+                )?;
+                write!(
+                    formatter,
+                    "Keep tiktools-desktop.exe inside the extracted TikTools folder."
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for FrontendSourceError {}
+
 #[derive(Clone)]
 pub enum FrontendSource {
     DevelopmentServer(Url),
@@ -41,46 +91,63 @@ pub enum FrontendSource {
 }
 
 impl FrontendSource {
-    pub fn from_environment() -> Result<Self, String> {
+    pub fn from_environment() -> Result<Self, FrontendSourceError> {
         for variable in ["TIKTOOLS_DEV_URL", "TIKTOOLS_FRONTEND_URL"] {
             if let Some(value) = env::var_os(variable) {
                 if !cfg!(debug_assertions) {
-                    return Err(format!(
-                        "{variable} is only supported in debug builds; release builds use packaged assets"
-                    ));
+                    return Err(FrontendSourceError::DevelopmentUrl {
+                        variable: variable.to_owned(),
+                        reason: "release builds use packaged assets".to_owned(),
+                    });
                 }
                 let value = value.to_string_lossy();
-                let url = Url::parse(&value)
-                    .map_err(|error| format!("{variable} is not a URL: {error}"))?;
+                let url =
+                    Url::parse(&value).map_err(|error| FrontendSourceError::DevelopmentUrl {
+                        variable: variable.to_owned(),
+                        reason: format!("not a URL: {error}"),
+                    })?;
                 if !matches!(url.scheme(), "http" | "https") {
-                    return Err(format!("{variable} must use http or https"));
+                    return Err(FrontendSourceError::DevelopmentUrl {
+                        variable: variable.to_owned(),
+                        reason: "must use http or https".to_owned(),
+                    });
                 }
                 if !is_loopback_url(&url) {
-                    return Err(format!(
-                        "{variable} must point to localhost, 127.0.0.1, or ::1"
-                    ));
+                    return Err(FrontendSourceError::DevelopmentUrl {
+                        variable: variable.to_owned(),
+                        reason: "must point to localhost, 127.0.0.1, or ::1".to_owned(),
+                    });
                 }
                 if !url.username().is_empty() || url.password().is_some() {
-                    return Err(format!("{variable} cannot contain embedded credentials"));
+                    return Err(FrontendSourceError::DevelopmentUrl {
+                        variable: variable.to_owned(),
+                        reason: "cannot contain embedded credentials".to_owned(),
+                    });
                 }
                 return Ok(Self::DevelopmentServer(url));
             }
         }
 
-        let mut candidates = vec![
-            env::var_os("TIKTOOLS_WEB_ROOT").map(PathBuf::from),
-            env::current_exe()
-                .ok()
-                .and_then(|path| path.parent().map(|directory| directory.join("web"))),
-            env::current_exe().ok().and_then(|path| {
-                path.parent()
-                    .map(|directory| directory.join("dist").join("web"))
-            }),
-        ];
-        // The checkout-local output is useful while iterating with `cargo run`,
-        // but production asset lookup must remain relative to the executable or
-        // an explicit TIKTOOLS_WEB_ROOT setting.
+        let executable = env::current_exe().ok();
+        let executable_directory = executable
+            .as_deref()
+            .and_then(Path::parent)
+            .map(Path::to_path_buf);
+        let expected_web_directory = executable_directory
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("<executable directory>"))
+            .join("web");
+        let expected_index = expected_web_directory.join("index.html");
+        let mut candidates = vec![executable.as_deref().and_then(packaged_asset_root)];
+        // Development-only roots are useful while iterating with `cargo run`.
+        // Release lookup is intentionally executable-relative.
         if cfg!(debug_assertions) {
+            candidates.insert(0, env::var_os("TIKTOOLS_WEB_ROOT").map(PathBuf::from));
+            candidates.push(
+                executable_directory
+                    .as_deref()
+                    .map(|directory| directory.join("dist").join("web")),
+            );
             candidates.push(env::current_dir().ok().map(|path| path.join("dist/web")));
         }
         let root = candidates
@@ -88,9 +155,10 @@ impl FrontendSource {
             .flatten()
             .map(make_absolute)
             .find(|path| path.join("index.html").is_file())
-            .ok_or_else(|| {
-                "embedded frontend assets were not found; run `bun run build:web` or set TIKTOOLS_DEV_URL"
-                    .to_owned()
+            .ok_or(FrontendSourceError::AssetsMissing {
+                executable_directory,
+                expected_web_directory,
+                expected_index,
             })?;
         Ok(Self::EmbeddedAssets {
             root: Arc::new(root),
@@ -131,6 +199,10 @@ impl FrontendSource {
             }
         }
     }
+}
+
+pub fn packaged_asset_root(executable: &Path) -> Option<PathBuf> {
+    executable.parent().map(|directory| directory.join("web"))
 }
 
 #[derive(Clone)]
@@ -328,5 +400,13 @@ mod tests {
         assert!(packaged.allows_navigation("http://tiktools.app/index.html"));
         assert!(packaged.allows_navigation("http://tiktools.app/assets/app.js"));
         assert!(!packaged.allows_navigation("https://example.com/"));
+    }
+
+    #[test]
+    fn packaged_assets_are_relative_to_the_executable() {
+        assert_eq!(
+            packaged_asset_root(Path::new("C:/Apps/TikTools/tiktools-desktop.exe")),
+            Some(PathBuf::from("C:/Apps/TikTools/web"))
+        );
     }
 }

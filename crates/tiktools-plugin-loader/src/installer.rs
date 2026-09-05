@@ -14,7 +14,10 @@ use std::{
 };
 
 use sha2::{Digest, Sha256};
-use tiktools_plugin_api::{manifest::is_safe_relative_path, PluginManifest};
+use tiktools_plugin_api::{
+    manifest::{is_safe_relative_path, ManifestError},
+    PluginManifest,
+};
 use zip::ZipArchive;
 
 use crate::PluginLoaderError;
@@ -36,22 +39,67 @@ pub struct InstalledPluginPackage {
 }
 
 impl PluginInstaller {
+    /// Reads and validates the package identity before filesystem mutation.
+    /// Full extraction, checksum validation, and atomic replacement still
+    /// happen in [`Self::install`]; this lightweight pass only lets the host
+    /// stop a running instance belonging to the package being replaced.
+    pub fn inspect_manifest(
+        &self,
+        archive_path: impl AsRef<Path>,
+    ) -> Result<PluginManifest, PluginLoaderError> {
+        let archive = canonical_archive_path(archive_path.as_ref())?;
+        let file = File::open(&archive).map_err(io_error)?;
+        let mut archive = ZipArchive::new(file).map_err(|error| {
+            PluginLoaderError::Runtime(format!("could not inspect plugin archive: {error}"))
+        })?;
+        let mut manifest_bytes = None;
+        for index in 0..archive.len().min(MAX_FILES) {
+            let entry = archive.by_index(index).map_err(zip_error)?;
+            let Some(relative) = normalized_archive_path(entry.name())? else {
+                continue;
+            };
+            let is_manifest = relative.file_name().and_then(|name| name.to_str())
+                == Some("plugin.json")
+                && relative.components().count() <= 2;
+            if !is_manifest {
+                continue;
+            }
+            if manifest_bytes.is_some() {
+                return Err(PluginLoaderError::Runtime(
+                    "plugin archive contains multiple plugin.json manifests".to_owned(),
+                ));
+            }
+            let mut bytes = Vec::new();
+            entry
+                .take(256 * 1024 + 1)
+                .read_to_end(&mut bytes)
+                .map_err(io_error)?;
+            if bytes.len() > 256 * 1024 {
+                return Err(PluginLoaderError::Manifest(ManifestError::TooLarge));
+            }
+            manifest_bytes = Some(bytes);
+        }
+        let bytes = manifest_bytes.ok_or_else(|| {
+            PluginLoaderError::Runtime(
+                "plugin archive must contain plugin.json at its root".to_owned(),
+            )
+        })?;
+        let manifest =
+            PluginManifest::from_json_str(std::str::from_utf8(&bytes).map_err(|_| {
+                PluginLoaderError::Runtime("plugin manifest is not UTF-8".to_owned())
+            })?)
+            .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
+        manifest
+            .validate_compatibility()
+            .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
+        Ok(manifest)
+    }
+
     pub fn install(
         &self,
         archive_path: impl AsRef<Path>,
     ) -> Result<InstalledPluginPackage, PluginLoaderError> {
-        let archive = fs::canonicalize(archive_path.as_ref()).map_err(io_error)?;
-        if archive
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .map(|extension| extension.to_ascii_lowercase())
-            .as_deref()
-            != Some("plugin")
-        {
-            return Err(PluginLoaderError::Runtime(
-                "plugin packages must use the .plugin extension".to_owned(),
-            ));
-        }
+        let archive = canonical_archive_path(archive_path.as_ref())?;
         let archive_size = fs::metadata(&archive).map_err(io_error)?.len();
         if archive_size > MAX_ARCHIVE_BYTES {
             return Err(PluginLoaderError::Runtime(
@@ -175,6 +223,32 @@ impl PluginInstaller {
         self.staging_directory
             .join(format!("plugin-{}-{}", std::process::id(), unique_suffix()))
     }
+}
+
+fn canonical_archive_path(path: &Path) -> Result<PathBuf, PluginLoaderError> {
+    let archive = fs::canonicalize(path).map_err(io_error)?;
+    if archive
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.eq_ignore_ascii_case("plugin"))
+        != Some(true)
+    {
+        return Err(PluginLoaderError::Runtime(
+            "plugin packages must use the .plugin extension".to_owned(),
+        ));
+    }
+    if !archive.is_file() {
+        return Err(PluginLoaderError::Runtime(
+            "plugin package is not a regular file".to_owned(),
+        ));
+    }
+    let archive_size = fs::metadata(&archive).map_err(io_error)?.len();
+    if archive_size > MAX_ARCHIVE_BYTES {
+        return Err(PluginLoaderError::Runtime(
+            "plugin package exceeds the 512 MB limit".to_owned(),
+        ));
+    }
+    Ok(archive)
 }
 
 fn normalized_archive_path(name: &str) -> Result<Option<PathBuf>, PluginLoaderError> {

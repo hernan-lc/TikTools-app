@@ -305,6 +305,10 @@ export function useAppController() {
       );
     }
 
+    if (message.type === 'plugin-uninstall-result' && !message.success) {
+      behaviorError.value = message.error;
+    }
+
     if (message.type === 'gift-debug') {
       console.warn(
         `[gift-debug] giftId=${message.giftId} hasIcon=${message.hasIcon} totalGifts=${message.totalGifts} icon=${message.iconUrl?.slice(0, 80) || 'MISSING'}`,
@@ -329,7 +333,8 @@ export function useAppController() {
     send({ type: 'get-behavior' });
     send({ type: 'get-gift-catalog' });
 
-    if (initialUsername) handleConnect(initialUsername);
+    // Keep the saved username in the connect form, but wait for an explicit
+    // user action before starting network work on a cold launch.
   });
 
   onUnmounted(() => {
@@ -417,6 +422,7 @@ export function useAppController() {
     send({ type: 'test-event', event });
   };
   const handleSetPluginInstalled = (id: string, installed: boolean): void => { clearBehaviorError(); send({ type: 'set-plugin-install', id, installed }); };
+  const handleUninstallPlugin = (id: string): void => { clearBehaviorError(); send({ type: 'uninstall-plugin-package', id }); };
   const handleSetPluginEnabled = (id: string, enabled: boolean): void => { clearBehaviorError(); send({ type: 'set-plugin-enabled', id, enabled }); };
   const handleGetPluginSettings = (id: string): void => send({ type: 'get-plugin-settings', id });
   const handleSavePluginSettings = (id: string, values: PluginSettingValues): void => { clearBehaviorError(); send({ type: 'save-plugin-settings', id, values }); };
@@ -557,6 +563,7 @@ export function useAppController() {
     handleSetEventEnabled,
     handleTestEvent,
     handleSetPluginInstalled,
+    handleUninstallPlugin,
     handleSetPluginEnabled,
     handleGetPluginSettings,
     handleSavePluginSettings,

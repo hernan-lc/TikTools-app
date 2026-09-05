@@ -322,6 +322,8 @@ pub enum PageMessage {
         #[serde(default, rename = "replaceExisting")]
         replace_existing: bool,
     },
+    #[serde(rename = "uninstall-plugin-package")]
+    UninstallPluginPackage { id: String },
     #[serde(rename = "set-plugin-enabled")]
     SetPluginEnabled { id: String, enabled: bool },
     #[serde(rename = "get-plugin-settings")]
@@ -378,6 +380,7 @@ impl PageMessage {
             Self::TestEvent { .. } => "test-event",
             Self::SetPluginInstall { .. } => "set-plugin-install",
             Self::InstallPluginPackage { .. } => "install-plugin-package",
+            Self::UninstallPluginPackage { .. } => "uninstall-plugin-package",
             Self::SetPluginEnabled { .. } => "set-plugin-enabled",
             Self::GetPluginSettings { .. } => "get-plugin-settings",
             Self::SavePluginSettings { .. } => "save-plugin-settings",
@@ -466,6 +469,7 @@ impl PageMessage {
                     return Err(IpcMessageError::InvalidField("path"));
                 }
             }
+            Self::UninstallPluginPackage { id } => bounded_string(id, "id", 128)?,
             _ => {}
         }
         Ok(())
@@ -696,6 +700,13 @@ pub enum HostMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+    #[serde(rename = "plugin-uninstall-result")]
+    PluginUninstallResult {
+        success: bool,
+        id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
 }
 
 impl HostMessage {
@@ -727,6 +738,22 @@ impl HostMessage {
             version: None,
             replaced: None,
             code: Some(code),
+            error: Some(error),
+        }
+    }
+
+    pub fn plugin_uninstall_success(id: String) -> Self {
+        Self::PluginUninstallResult {
+            success: true,
+            id,
+            error: None,
+        }
+    }
+
+    pub fn plugin_uninstall_failure(id: String, error: String) -> Self {
+        Self::PluginUninstallResult {
+            success: false,
+            id,
             error: Some(error),
         }
     }
@@ -950,6 +977,22 @@ mod tests {
         assert_eq!(
             classify_plugin_install_error("checksum mismatch in demo: index.js"),
             PluginInstallErrorCode::InvalidPackage
+        );
+    }
+
+    #[test]
+    fn uninstall_plugin_package_has_a_dedicated_wire_contract() {
+        let message =
+            PageMessage::parse(r#"{"type":"uninstall-plugin-package","id":"demo"}"#).unwrap();
+        assert_eq!(message.type_name(), "uninstall-plugin-package");
+        assert!(matches!(message, PageMessage::UninstallPluginPackage { id } if id == "demo"));
+
+        let success = HostMessage::plugin_uninstall_success("demo".to_owned())
+            .to_json()
+            .unwrap();
+        assert_eq!(
+            success,
+            r#"{"type":"plugin-uninstall-result","success":true,"id":"demo"}"#
         );
     }
 }

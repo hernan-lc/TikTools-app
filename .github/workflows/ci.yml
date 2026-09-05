@@ -143,3 +143,9 @@ jobs:
 
       - name: Check desktop crate
         run: cargo check -p tiktools-desktop --locked
+
+      - name: Build Windows desktop release and verify GUI subsystem
+        if: runner.os == 'Windows'
+        run: |
+          cargo build -p tiktools-desktop --release --locked
+          pwsh -NoProfile -File scripts/check-windows-pe.ps1 target/release/tiktools-desktop.exe

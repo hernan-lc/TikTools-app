@@ -74,6 +74,13 @@ pub enum PluginLoaderError {
 pub trait PluginInstance: Send {
     fn id(&self) -> &str;
     fn handle_message(&mut self, request: &[u8]) -> Result<Vec<u8>, PluginLoaderError>;
+    fn handle_message_with_timeout(
+        &mut self,
+        request: &[u8],
+        _timeout: std::time::Duration,
+    ) -> Result<Vec<u8>, PluginLoaderError> {
+        self.handle_message(request)
+    }
     fn shutdown(&mut self) -> Result<(), PluginLoaderError>;
 }
 
@@ -190,7 +197,23 @@ impl PluginManager {
             }
         }
 
-        let result: Vec<_> = discovered.into_values().collect();
+        let running_ids = self
+            .instances
+            .read()
+            .expect("plugin instances poisoned")
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        let result: Vec<_> = discovered
+            .into_values()
+            .map(|mut plugin| {
+                // The active instance registry is authoritative. A scan must
+                // never report a live runtime as stopped merely because it
+                // rebuilt the discovered package record.
+                plugin.running = running_ids.contains(&plugin.manifest.id);
+                plugin
+            })
+            .collect();
         let mut registry = self.registry.write().expect("plugin registry poisoned");
         registry.entries = result
             .iter()
@@ -217,6 +240,13 @@ impl PluginManager {
             .entries
             .get(id)
             .cloned()
+    }
+
+    pub fn is_running(&self, id: &str) -> bool {
+        self.instances
+            .read()
+            .expect("plugin instances poisoned")
+            .contains_key(id)
     }
 
     pub fn start(&self, id: &str) -> Result<(), PluginLoaderError> {
@@ -284,6 +314,15 @@ impl PluginManager {
     }
 
     pub fn call(&self, id: &str, request: &Value) -> Result<Value, PluginLoaderError> {
+        self.call_with_timeout(id, request, std::time::Duration::from_secs(30))
+    }
+
+    pub fn call_with_timeout(
+        &self,
+        id: &str,
+        request: &Value,
+        timeout: std::time::Duration,
+    ) -> Result<Value, PluginLoaderError> {
         let bytes = serde_json::to_vec(request)
             .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
         let instance = self
@@ -296,7 +335,7 @@ impl PluginManager {
         let response = instance
             .lock()
             .expect("plugin instance poisoned")
-            .handle_message(&bytes);
+            .handle_message_with_timeout(&bytes, timeout);
         let response = match response {
             Ok(response) => response,
             Err(error) => {
@@ -481,6 +520,42 @@ mod tests {
 
     use super::*;
 
+    struct TestRuntime;
+
+    struct TestInstance {
+        id: String,
+    }
+
+    impl PluginRuntime for TestRuntime {
+        fn kind(&self) -> PluginRuntimeKind {
+            PluginRuntimeKind::Process
+        }
+
+        fn load(
+            &self,
+            manifest: &PluginManifest,
+            _directory: &Path,
+        ) -> Result<Box<dyn PluginInstance>, PluginLoaderError> {
+            Ok(Box::new(TestInstance {
+                id: manifest.id.clone(),
+            }))
+        }
+    }
+
+    impl PluginInstance for TestInstance {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn handle_message(&mut self, _request: &[u8]) -> Result<Vec<u8>, PluginLoaderError> {
+            Ok(b"null".to_vec())
+        }
+
+        fn shutdown(&mut self) -> Result<(), PluginLoaderError> {
+            Ok(())
+        }
+    }
+
     fn temp_root() -> PathBuf {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -515,5 +590,32 @@ mod tests {
 
         let _ = fs::remove_dir_all(first);
         let _ = fs::remove_dir_all(second);
+    }
+
+    #[test]
+    fn scan_preserves_the_authoritative_running_instance_state() {
+        let root = temp_root();
+        fs::create_dir_all(root.join("demo")).unwrap();
+        fs::write(
+            root.join("demo/plugin.json"),
+            r#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"1.0.0","runtime":"process","entry":"index.bin"}"#,
+        )
+        .unwrap();
+        fs::write(root.join("demo/index.bin"), b"test").unwrap();
+
+        let mut runtimes = RuntimeRegistry::default();
+        runtimes.register(Arc::new(TestRuntime));
+        let manager =
+            PluginManager::with_runtimes(plugin_roots(root.clone(), temp_root(), None), runtimes);
+        manager.scan().unwrap();
+        manager.start("demo").unwrap();
+        assert!(manager.get("demo").unwrap().running);
+        manager.scan().unwrap();
+        assert!(manager.get("demo").unwrap().running);
+        manager.stop("demo").unwrap();
+        manager.scan().unwrap();
+        assert!(!manager.get("demo").unwrap().running);
+
+        let _ = fs::remove_dir_all(root);
     }
 }

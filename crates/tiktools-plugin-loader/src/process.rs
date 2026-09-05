@@ -2,10 +2,11 @@
 
 use std::{
     env, fs,
-    io::{BufReader, BufWriter},
+    io::{BufReader, BufWriter, Read},
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio},
     sync::mpsc,
+    thread::JoinHandle,
     time::Duration,
 };
 
@@ -83,7 +84,7 @@ impl PluginRuntime for ProcessPluginRuntime {
             )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit());
+            .stderr(Stdio::piped());
         #[cfg(target_os = "windows")]
         {
             // Process plugins talk over piped stdio and never need a
@@ -96,18 +97,45 @@ impl PluginRuntime for ProcessPluginRuntime {
         let mut child = command.spawn().map_err(|error| {
             PluginLoaderError::Runtime(format!("could not start plugin host: {error}"))
         })?;
-        let stdin = child.stdin.take().ok_or_else(|| {
-            PluginLoaderError::Runtime("plugin stdin was not available".to_owned())
-        })?;
-        let stdout = child.stdout.take().ok_or_else(|| {
-            PluginLoaderError::Runtime("plugin stdout was not available".to_owned())
-        })?;
+        let stdin = match child.stdin.take() {
+            Some(stdin) => stdin,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(PluginLoaderError::Runtime(
+                    "plugin stdin was not available".to_owned(),
+                ));
+            }
+        };
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(PluginLoaderError::Runtime(
+                    "plugin stdout was not available".to_owned(),
+                ));
+            }
+        };
+        let stderr = match child.stderr.take() {
+            Some(stderr) => stderr,
+            None => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(PluginLoaderError::Runtime(
+                    "plugin stderr was not available".to_owned(),
+                ));
+            }
+        };
+        let stderr_thread = Some(drain_stderr(manifest.id.clone(), stderr));
         Ok(Box::new(ProcessPluginInstance {
             id: manifest.id.clone(),
             child,
             stdin: Some(BufWriter::new(stdin)),
             stdout: Some(BufReader::new(stdout)),
+            stderr_thread,
             next_request_id: 0,
+            terminated: false,
         }))
     }
 }
@@ -133,11 +161,13 @@ struct ProcessPluginInstance {
     child: Child,
     stdin: Option<BufWriter<ChildStdin>>,
     stdout: Option<BufReader<ChildStdout>>,
+    stderr_thread: Option<JoinHandle<()>>,
     next_request_id: u64,
+    terminated: bool,
 }
 
 impl ProcessPluginInstance {
-    fn handle_message_with_timeout(
+    fn handle_message_with_deadline(
         &mut self,
         request: &[u8],
         timeout: Duration,
@@ -181,8 +211,21 @@ impl ProcessPluginInstance {
     }
 
     fn terminate_child(&mut self) {
+        if self.terminated {
+            return;
+        }
+        self.terminated = true;
         let _ = self.child.kill();
         let _ = self.child.wait();
+        if let Some(thread) = self.stderr_thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+impl Drop for ProcessPluginInstance {
+    fn drop(&mut self) {
+        self.terminate_child();
     }
 }
 
@@ -192,7 +235,15 @@ impl PluginInstance for ProcessPluginInstance {
     }
 
     fn handle_message(&mut self, request: &[u8]) -> Result<Vec<u8>, PluginLoaderError> {
-        self.handle_message_with_timeout(request, PROCESS_CALL_TIMEOUT)
+        self.handle_message_with_deadline(request, PROCESS_CALL_TIMEOUT)
+    }
+
+    fn handle_message_with_timeout(
+        &mut self,
+        request: &[u8],
+        timeout: Duration,
+    ) -> Result<Vec<u8>, PluginLoaderError> {
+        self.handle_message_with_deadline(request, timeout)
     }
 
     fn shutdown(&mut self) -> Result<(), PluginLoaderError> {
@@ -201,6 +252,58 @@ impl PluginInstance for ProcessPluginInstance {
         self.terminate_child();
         Ok(())
     }
+}
+
+const MAX_STDERR_LINE_BYTES: usize = 4 * 1024;
+
+fn drain_stderr(id: String, mut stderr: ChildStderr) -> JoinHandle<()> {
+    std::thread::Builder::new()
+        .name(format!("tiktools-plugin-stderr-{id}"))
+        .spawn(move || {
+            let mut line = Vec::with_capacity(MAX_STDERR_LINE_BYTES);
+            let mut truncated = false;
+            let mut chunk = [0_u8; 4096];
+            loop {
+                let read = match stderr.read(&mut chunk) {
+                    Ok(0) => break,
+                    Ok(read) => read,
+                    Err(error) => {
+                        tracing::debug!(target: "plugin.stderr", plugin = %id, %error, "plugin stderr reader stopped");
+                        break;
+                    }
+                };
+                for byte in &chunk[..read] {
+                    if *byte == b'\n' {
+                        emit_stderr_line(&id, &line, truncated);
+                        line.clear();
+                        truncated = false;
+                    } else if line.len() < MAX_STDERR_LINE_BYTES {
+                        if *byte != b'\r' {
+                            line.push(*byte);
+                        }
+                    } else {
+                        truncated = true;
+                    }
+                }
+            }
+            if !line.is_empty() {
+                emit_stderr_line(&id, &line, truncated);
+            }
+        })
+        .expect("plugin stderr worker should be spawnable")
+}
+
+fn emit_stderr_line(id: &str, line: &[u8], truncated: bool) {
+    let message = bounded_stderr_message(line, truncated);
+    tracing::warn!(target: "plugin.stderr", plugin = %id, message = %message, "plugin stderr");
+}
+
+fn bounded_stderr_message(line: &[u8], truncated: bool) -> String {
+    let mut message = String::from_utf8_lossy(line).into_owned();
+    if truncated {
+        message.push('…');
+    }
+    message
 }
 
 #[derive(Debug)]
@@ -299,6 +402,13 @@ mod tests {
     }
 
     #[test]
+    fn stderr_message_is_bounded_and_marks_truncation() {
+        let message = bounded_stderr_message(&vec![b'x'; MAX_STDERR_LINE_BYTES], true);
+        assert_eq!(message.chars().count(), MAX_STDERR_LINE_BYTES + 1);
+        assert!(message.ends_with('…'));
+    }
+
+    #[test]
     fn terminated_child_can_be_reaped_after_failure() {
         let child = if cfg!(windows) {
             Command::new("cmd")
@@ -313,7 +423,9 @@ mod tests {
             child,
             stdin: None,
             stdout: None,
+            stderr_thread: None,
             next_request_id: 0,
+            terminated: false,
         };
         instance.terminate_child();
         assert!(instance.child.try_wait().unwrap().is_some());

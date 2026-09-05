@@ -5,12 +5,19 @@ use tokio::runtime::Builder;
 use winit::event_loop::EventLoop;
 
 use crate::window::DesktopApp;
-use crate::{event::DesktopEvent, platform, webview::FrontendSource};
+use crate::{event::DesktopEvent, platform, single_instance, webview::FrontendSource};
 
-pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(log_path: std::path::PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(archive) = install_plugin_argument()? {
         return install_plugin(archive, replace_plugin_argument());
     }
+    let mut instance = match single_instance::acquire()? {
+        Ok(instance) => instance,
+        Err(single_instance::InstanceRole::Secondary) => return Ok(()),
+    };
+    // Validate the executable-relative packaged frontend before opening the
+    // database, scanning plugins, or constructing the live client.
+    let source = FrontendSource::from_environment().map_err(std::io::Error::other)?;
     platform::initialize()?;
     let runtime = Builder::new_multi_thread().enable_all().build()?;
     let mut event_loop_builder = EventLoop::<DesktopEvent>::with_user_event();
@@ -21,16 +28,15 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let media = Arc::new(crate::media::DesktopMediaHost::default());
     let core = Arc::new(AppCore::with_media_host(emitter, media));
     let router = Arc::new(IpcRouter::new(core.clone()));
-    {
-        // Lets running plugins publish spontaneous events (hotkeys, timers).
-        // Ticks are no-ops until a plugin declares event types.
-        let poll_core = core.clone();
-        runtime.spawn(async move {
-            poll_core.spawn_plugin_event_poll();
-        });
-    }
-    let source = FrontendSource::from_environment().map_err(std::io::Error::other)?;
-    let mut app = DesktopApp::new(core, router, source, runtime.handle().clone(), proxy);
+    instance.start_listener(proxy.clone());
+    let mut app = DesktopApp::new(
+        core,
+        router,
+        source,
+        runtime.handle().clone(),
+        proxy,
+        log_path,
+    );
     event_loop.run_app(&mut app)?;
     Ok(())
 }

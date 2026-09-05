@@ -24,6 +24,7 @@ type PluginsViewProps = {
   actions: LiveAction[];
   actionTypes: ActionTypeDefinition[];
   error?: string;
+  onUninstall: (id: string) => void;
   onSetInstalled: (id: string, installed: boolean) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
   settings: Record<string, PluginSettingsState>;
@@ -46,7 +47,9 @@ function pluginCopy(locale: Locale) {
     store: t(locale, 'pluginsAvailable'),
     actionsLabel: t(locale, 'pluginActionsLabel'),
     install: t(locale, 'pluginInstall'),
+    activate: t(locale, 'pluginActivate'),
     uninstall: t(locale, 'pluginUninstall'),
+    deactivate: t(locale, 'pluginDeactivate'),
     active: t(locale, 'pluginActive'),
     disabled: t(locale, 'pluginDisabled'),
     unavailable: t(locale, 'pluginUnavailable'),
@@ -68,7 +71,7 @@ function pluginCopy(locale: Locale) {
 }
 
 export const PluginsView = defineVueComponent<PluginsViewProps>(
-  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker', 'onInstallPlugin', 'pluginInstallState', 'onConfirmReplace', 'onCancelReplace'],
+  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onUninstall', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker', 'onInstallPlugin', 'pluginInstallState', 'onConfirmReplace', 'onCancelReplace'],
   (props) => {
   const tab = ref<'installed' | 'store'>('installed');
 
@@ -157,6 +160,7 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
           )}
 
           {visible.map((plugin) => {
+            const canUninstall = plugin.descriptor.source === 'user';
             const usedBy = props.actions.filter((action) => {
               const type = props.actionTypes.find((entry) => entry.id === action.typeId);
               return type?.source.kind === 'plugin' && type.source.pluginId === plugin.descriptor.id;
@@ -210,18 +214,23 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
                       type="button"
                       class={`plg-btn plg-btn--sm${plugin.installed ? ' plg-btn--danger' : ' plg-btn--primary'}`}
                       onClick={() => {
-                        if (plugin.installed && !confirm(copy.confirm)) return;
-                        props.onSetInstalled(plugin.descriptor.id, !plugin.installed);
+                        if (!plugin.installed) {
+                          props.onSetInstalled(plugin.descriptor.id, true);
+                        } else if (canUninstall) {
+                          if (confirm(copy.confirm)) props.onUninstall(plugin.descriptor.id);
+                        } else {
+                          props.onSetInstalled(plugin.descriptor.id, false);
+                        }
                       }}
                     >
-                      {plugin.installed ? copy.uninstall : copy.install}
+                      {plugin.installed ? (canUninstall ? copy.uninstall : copy.deactivate) : (canUninstall ? copy.activate : copy.install)}
                     </button>
                   </div>
                 </div>
 
                 {plugin.installed && usedBy > 0 && (
                   <div class="plg-warn">
-                    <strong>{copy.uninstall}:</strong>
+                    <strong>{canUninstall ? copy.uninstall : copy.deactivate}:</strong>
                     {copy.usedBy(usedBy)}
                   </div>
                 )}

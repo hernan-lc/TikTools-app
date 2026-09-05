@@ -22,21 +22,20 @@ mod tests;
 pub(crate) use helpers::*;
 
 use std::{
+    collections::BTreeMap,
     sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc, RwLock,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Mutex, RwLock,
     },
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
-
-#[cfg(feature = "native-tiktok")]
-use std::sync::atomic::AtomicBool;
 
 use serde_json::{json, Value};
 use tiktools_plugin_api::{
     AudioPlayOptions, AudioPlaybackResult, MediaFileRef, MediaPickerOptions, MediaSelection,
 };
 use tiktools_plugin_loader::{plugin_roots, PluginManager};
+use tokio::sync::Notify;
 #[cfg(feature = "native-tiktok")]
 use tokio::sync::Semaphore;
 
@@ -72,6 +71,11 @@ pub trait HostEmitter: Send + Sync {
     fn emit(&self, message: HostMessage);
 }
 
+pub(crate) struct PluginHealth {
+    pub(crate) consecutive_failures: u32,
+    pub(crate) next_retry_at: Option<Instant>,
+}
+
 /// The Rust application service graph. Each subsystem has separate ownership
 /// so a future database/live/plugin implementation can be tested in isolation.
 pub struct AppCore {
@@ -105,6 +109,12 @@ pub struct AppCore {
     connection_context: RwLock<Option<LiveContext>>,
     #[cfg(feature = "native-tiktok")]
     live_pump_started: AtomicBool,
+    plugin_health: Mutex<BTreeMap<String, PluginHealth>>,
+    plugin_poll_started: AtomicBool,
+    plugin_poll_shutdown: Arc<Notify>,
+    plugin_poll_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    plugin_install_lock: Mutex<()>,
+    shutdown_started: AtomicBool,
 }
 
 impl AppCore {
@@ -197,6 +207,12 @@ impl AppCore {
             connection_context: RwLock::new(None),
             #[cfg(feature = "native-tiktok")]
             live_pump_started: AtomicBool::new(false),
+            plugin_health: Mutex::new(BTreeMap::new()),
+            plugin_poll_started: AtomicBool::new(false),
+            plugin_poll_shutdown: Arc::new(Notify::new()),
+            plugin_poll_task: Mutex::new(None),
+            plugin_install_lock: Mutex::new(()),
+            shutdown_started: AtomicBool::new(false),
         };
         #[cfg(feature = "http")]
         if let Some(message) = core.http_client_error.clone() {
@@ -281,15 +297,104 @@ impl AppCore {
         tiktools_plugin_loader::InstalledPluginPackage,
         tiktools_plugin_loader::PluginLoaderError,
     > {
+        let _install_lock = self
+            .plugin_install_lock
+            .lock()
+            .expect("plugin install lock poisoned");
         let paths = self.db.paths();
         let installer = tiktools_plugin_loader::PluginInstaller {
             plugin_directory: paths.plugins.clone(),
             staging_directory: paths.temp.join("plugin-install"),
             replace_existing,
         };
-        let installed = installer.install(archive)?;
-        self.plugins.scan().map(|_| ())?;
+        let archive = archive.as_ref();
+        let manifest = installer.inspect_manifest(archive)?;
+        let old_running = replace_existing && self.plugins.is_running(&manifest.id);
+        if old_running {
+            self.plugins.stop(&manifest.id)?;
+        }
+        let installed = match installer.install(archive) {
+            Ok(installed) => installed,
+            Err(error) => {
+                if old_running {
+                    restart_plugin(&self.plugins, &manifest.id);
+                }
+                return Err(error);
+            }
+        };
+        if let Err(error) = self.plugins.scan().map(|_| ()) {
+            if old_running {
+                restart_plugin(&self.plugins, &manifest.id);
+            }
+            return Err(error);
+        }
+        if old_running {
+            restart_plugin(&self.plugins, &manifest.id);
+        }
         Ok(installed)
+    }
+
+    #[cfg(feature = "plugin-install")]
+    pub fn uninstall_plugin(
+        &self,
+        id: &str,
+    ) -> Result<(), tiktools_plugin_loader::PluginLoaderError> {
+        let _install_lock = self
+            .plugin_install_lock
+            .lock()
+            .expect("plugin install lock poisoned");
+        let plugin = self
+            .plugins
+            .get(id)
+            .ok_or_else(|| tiktools_plugin_loader::PluginLoaderError::NotFound(id.to_owned()))?;
+        if plugin.source != tiktools_plugin_loader::PluginSource::User {
+            return Err(tiktools_plugin_loader::PluginLoaderError::Runtime(
+                "only user-installed plugin packages can be uninstalled".to_owned(),
+            ));
+        }
+        let root = std::fs::canonicalize(&self.db.paths().plugins).map_err(|error| {
+            tiktools_plugin_loader::PluginLoaderError::Runtime(format!(
+                "could not resolve the user plugin directory: {error}"
+            ))
+        })?;
+        let metadata = std::fs::symlink_metadata(&plugin.directory).map_err(|error| {
+            tiktools_plugin_loader::PluginLoaderError::Runtime(format!(
+                "could not inspect plugin package: {error}"
+            ))
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            return Err(tiktools_plugin_loader::PluginLoaderError::Runtime(
+                "plugin package is not a regular directory".to_owned(),
+            ));
+        }
+        let package = std::fs::canonicalize(&plugin.directory).map_err(|error| {
+            tiktools_plugin_loader::PluginLoaderError::Runtime(format!(
+                "could not resolve plugin package: {error}"
+            ))
+        })?;
+        if !is_strict_plugin_child(&root, &package) {
+            return Err(tiktools_plugin_loader::PluginLoaderError::Runtime(
+                "plugin package is outside the user plugin directory".to_owned(),
+            ));
+        }
+        let was_running = self.plugins.is_running(id);
+        if was_running {
+            self.plugins.stop(id)?;
+        }
+        if let Err(error) = std::fs::remove_dir_all(&package) {
+            if was_running {
+                restart_plugin(&self.plugins, id);
+            }
+            return Err(tiktools_plugin_loader::PluginLoaderError::Runtime(format!(
+                "could not remove plugin package: {error}"
+            )));
+        }
+        #[cfg(feature = "persistence")]
+        if let Err(error) = self.db.remove_plugin_state(id) {
+            tracing::warn!(plugin = %id, %error, "plugin package was removed but persisted state could not be cleared");
+        }
+        self.plugins.scan().map(|_| ())?;
+        Ok(())
     }
 
     pub(crate) fn next_sequence(&self) -> u64 {
@@ -297,9 +402,42 @@ impl AppCore {
     }
 
     pub async fn shutdown(self: &Arc<Self>) {
+        if self.shutdown_started.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        // Keep a notification queued if the polling task is in a plugin call
+        // when shutdown begins; `notify_waiters` alone would be lost before
+        // the task reaches its select point.
+        self.plugin_poll_shutdown.notify_one();
         self.events.publish(AppEvent::Shutdown);
         self.publish_disconnected_event().await;
         self.live.disconnect().await;
+        let task = self
+            .plugin_poll_task
+            .lock()
+            .expect("plugin poll task lock poisoned")
+            .take();
+        if let Some(task) = task {
+            let _ = task.await;
+        }
         self.plugins.stop_all();
+    }
+}
+
+fn restart_plugin(plugins: &PluginManager, id: &str) {
+    if let Err(error) = plugins.start(id) {
+        tracing::warn!(plugin = %id, %error, "plugin runtime could not be restarted after package operation");
+    }
+}
+
+fn is_strict_plugin_child(root: &std::path::Path, candidate: &std::path::Path) -> bool {
+    if cfg!(target_os = "windows") {
+        let root = root.to_string_lossy().to_ascii_lowercase();
+        let candidate = candidate.to_string_lossy().to_ascii_lowercase();
+        candidate.starts_with(&(root.clone() + "\\"))
+            && candidate[root.len() + 1..].find('\\').is_none()
+            && candidate[root.len() + 1..].find('/').is_none()
+    } else {
+        candidate.parent() == Some(root)
     }
 }

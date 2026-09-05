@@ -132,6 +132,30 @@ if (!hasPluginsDir) {
   fail(`archive ${archivePath} does not contain ${bundleName}/plugins/`);
 }
 
+// Verify the archive itself, not only the pre-archive staging directory. This
+// catches layout regressions caused by the platform tar/ZIP implementation.
+const extractedDirectory = join(stagingDirectory, 'verify-extracted');
+await rm(extractedDirectory, { recursive: true, force: true });
+await mkdir(extractedDirectory, { recursive: true });
+run('tar', platformValue === 'windows-x86_64'
+  ? ['-xf', archivePath, '-C', extractedDirectory]
+  : ['-xzf', archivePath, '-C', extractedDirectory]);
+const extractedBundle = join(extractedDirectory, bundleName);
+for (const relative of [
+  platform.binaryName,
+  'web/index.html',
+  'LICENSE',
+  'README.md',
+]) {
+  if (!(await isFile(join(extractedBundle, relative)))) {
+    fail(`extracted archive is missing ${bundleName}/${relative}`);
+  }
+}
+const extractedPlugins = await stat(join(extractedBundle, 'plugins')).catch(() => null);
+if (!extractedPlugins?.isDirectory()) {
+  fail(`extracted archive is missing ${bundleName}/plugins/`);
+}
+
 console.log(`Created ${basename(archivePath)}`);
 console.log(`Package root: ${bundleDirectory}`);
 console.log(`Archive: ${archivePath}`);

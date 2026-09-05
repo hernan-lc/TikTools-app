@@ -109,6 +109,11 @@ impl AppCore {
             plugins.push(json!({
                 "descriptor": {
                     "id": plugin.manifest.id,
+                    "source": match plugin.source {
+                        tiktools_plugin_loader::PluginSource::Builtin => "builtin",
+                        tiktools_plugin_loader::PluginSource::User => "user",
+                        tiktools_plugin_loader::PluginSource::Development => "development",
+                    },
                     "name": localized(&plugin.manifest.name, "plugin.name"),
                     "version": plugin.manifest.version,
                     "description": localized(&description, "plugin.description"),
@@ -120,6 +125,7 @@ impl AppCore {
                 },
                 "installed": installed,
                 "enabled": enabled,
+                "running": plugin.running,
                 "available": plugin.available,
                 "unavailableReason": plugin.reason
             }));

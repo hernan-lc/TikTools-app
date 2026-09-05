@@ -733,6 +733,12 @@ impl DatabaseManager {
         Ok(json!({"id": id, "installed": installed, "enabled": enabled}))
     }
 
+    pub(crate) fn remove_plugin_state(&self, id: &str) -> Result<(), DatabaseError> {
+        let connection = self.open(&self.automation_path())?;
+        connection.execute("DELETE FROM behavior_plugins WHERE id = ?", [id])?;
+        Ok(())
+    }
+
     fn load_behavior_rows(&self, table: &str) -> Result<Vec<Value>, DatabaseError> {
         let connection = self.open(&self.automation_path())?;
         let mut statement = connection.prepare(&format!(

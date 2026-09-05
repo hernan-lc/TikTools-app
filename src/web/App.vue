@@ -100,6 +100,7 @@ const app = reactive(useAppController());
         :action-types="app.behavior.actionTypes"
         :error="app.behaviorError"
         :on-set-installed="app.handleSetPluginInstalled"
+        :on-uninstall="app.handleUninstallPlugin"
         :on-set-enabled="app.handleSetPluginEnabled"
         :settings="app.pluginSettings"
         :on-get-settings="app.handleGetPluginSettings"

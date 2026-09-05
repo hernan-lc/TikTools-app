@@ -39,16 +39,18 @@ desktop implementation sends those messages to the UI thread through
 ## Desktop lifecycle
 
 `crates/tiktools-desktop/src/app.rs` implements `ApplicationHandler`. It creates
-the Winit window and Wry WebView on the event-loop thread, dispatches incoming
-IPC to Tokio, and queues outbound host messages until the WebView exists. Close
-hides the window; the tray exposes Show and Quit. Quit first asks `AppCore` to
-disconnect live transport and stop plugins, then exits the event loop.
+a hidden Winit window and Wry WebView on the event-loop thread, dispatches
+incoming IPC to Tokio, and shows the window after the mounted Vue app sends
+`frontend-ready`. Close hides the window only while the tray is available; if
+the tray cannot be created, close shuts down. The tray exposes Show and Quit.
+Quit first asks `AppCore` to disconnect live transport, stop polling, and stop
+plugins, then exits the event loop.
 
 The WebView loads one of two sources:
 
 - Development: `TIKTOOLS_DEV_URL` or `TIKTOOLS_FRONTEND_URL`.
-- Release: `tiktools://app/index.html`, served from `dist/web` or the executable
-  directory by Wry's custom protocol.
+- Release: `tiktools://app/index.html`, served from the executable-relative
+  `web/` directory by Wry's custom protocol.
 
 The asset handler canonicalizes paths and rejects traversal and symlink escapes.
 

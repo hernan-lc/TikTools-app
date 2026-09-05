@@ -345,6 +345,9 @@ impl AppCore {
             } => {
                 self.handle_install_plugin_package(path, replace_existing);
             }
+            PageMessage::UninstallPluginPackage { id } => {
+                self.handle_uninstall_plugin_package(id);
+            }
             PageMessage::GetActionOptions { source } => {
                 self.emit(HostMessage::ActionOptions {
                     source,
@@ -431,6 +434,30 @@ impl AppCore {
             let _ = (path, replace_existing);
             self.emit(HostMessage::plugin_install_failure(
                 crate::ipc::messages::PluginInstallErrorCode::Unknown,
+                "plugin installation was disabled in this build".to_owned(),
+            ));
+        }
+    }
+
+    fn handle_uninstall_plugin_package(&self, id: String) {
+        #[cfg(feature = "plugin-install")]
+        {
+            match self.uninstall_plugin(&id) {
+                Ok(()) => {
+                    self.emit_persisted_behavior();
+                    self.emit(HostMessage::plugin_uninstall_success(id));
+                }
+                Err(error) => {
+                    let message = error.to_string();
+                    tracing::warn!(plugin = %id, %message, "plugin package uninstall failed");
+                    self.emit(HostMessage::plugin_uninstall_failure(id, message));
+                }
+            }
+        }
+        #[cfg(not(feature = "plugin-install"))]
+        {
+            self.emit(HostMessage::plugin_uninstall_failure(
+                id,
                 "plugin installation was disabled in this build".to_owned(),
             ));
         }

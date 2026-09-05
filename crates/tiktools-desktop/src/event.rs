@@ -7,6 +7,7 @@ use winit::event_loop::EventLoopProxy;
 #[allow(dead_code)]
 pub enum DesktopCommand {
     EmitToWebview(String),
+    FrontendReady,
     ShowWindow,
     HideWindow,
     OpenDevtools,

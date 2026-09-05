@@ -9,9 +9,11 @@ bun run build:web
 cargo run -p tiktools-desktop
 ```
 
-If the host says that `index.html` is missing, set `TIKTOOLS_WEB_ROOT` to the
-directory containing `dist/web/index.html`, or set `TIKTOOLS_DEV_URL` to a
-running frontend server.
+If a debug host says that `index.html` is missing, set `TIKTOOLS_WEB_ROOT` to
+the directory containing `dist/web/index.html`, or set `TIKTOOLS_DEV_URL` to a
+running frontend server. A packaged release must keep `web/index.html` beside
+the executable inside the extracted TikTools folder; release builds ignore
+development URL overrides.
 
 ## Linux WebView errors
 

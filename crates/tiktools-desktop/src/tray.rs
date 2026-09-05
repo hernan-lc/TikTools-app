@@ -15,6 +15,17 @@ pub struct TrayController {
     _icon: TrayIcon,
 }
 
+impl Drop for TrayController {
+    fn drop(&mut self) {
+        // tray-icon dispatches these callbacks globally. Clear them whenever
+        // the one active tray is destroyed so a later recreation cannot leave
+        // a callback holding an old event-loop proxy alive.
+        #[cfg(not(target_os = "linux"))]
+        TrayIconEvent::set_event_handler(None::<fn(TrayIconEvent)>);
+        MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
+    }
+}
+
 impl TrayController {
     pub fn create(proxy: EventLoopProxy<DesktopEvent>) -> Result<Self, Box<dyn std::error::Error>> {
         let menu = Menu::new();

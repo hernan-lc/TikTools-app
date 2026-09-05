@@ -169,6 +169,7 @@ export interface LiveEvent {
 
 export interface PluginDescriptor {
   id: string;
+  source?: 'builtin' | 'user' | 'development';
   name: Localized;
   version: string;
   description: Localized;
@@ -185,6 +186,7 @@ export interface PluginStatus {
   descriptor: PluginDescriptor;
   installed: boolean;
   enabled: boolean;
+  running?: boolean;
   /** False when the dependency cannot be loaded on this machine. */
   available: boolean;
   unavailableReason?: string;
