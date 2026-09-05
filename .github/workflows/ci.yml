@@ -82,6 +82,11 @@ jobs:
       - name: Install current Rust with validation tools
         run: rustup toolchain install "${{ env.RUSTUP_TOOLCHAIN }}" --profile minimal --component rustfmt --component clippy
 
+      - name: Set up Bun for plugin packaging
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
       - name: Cache Cargo dependencies and build output
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -101,6 +106,9 @@ jobs:
 
       - name: Test Rust workspace
         run: cargo test --workspace --locked
+
+      - name: Build all example plugins
+        run: bun run scripts/build-plugin.ts --all --debug
 
   desktop:
     name: desktop (${{ matrix.os }})

@@ -37,6 +37,11 @@ future WASM runtime adapters. The low-level contracts are defined in
 `crates/tiktools-plugin-sdk`; runtime loading is isolated in
 `crates/tiktools-plugin-loader`.
 
+The process adapter wraps each `PluginCall` in the existing framed
+`PluginRequest` envelope. Native ABI v1 receives the serialized `PluginCall`
+directly because the ABI table already carries the protocol version. Both
+adapters return the same typed `PluginCallResult` JSON bytes.
+
 ## Runtime kinds
 
 ### Native
@@ -45,8 +50,11 @@ Native libraries are loaded with `libloading`. They are trusted code and can
 crash the application or access the operating system directly. The C ABI is
 deliberately small: plugins exchange pointers, lengths, status values, and
 serialized JSON bytes. Rust containers, trait objects, and async futures never
-cross the boundary. Libraries remain loaded until shutdown; restart TikTools
-after replacing one.
+cross the boundary. ABI v1 does not pass manifest metadata to `create`, so the
+SDK's native context is explicitly limited to an unknown identity and empty
+declared capability/permission sets; the host manifest remains the policy
+authority. Libraries remain loaded until shutdown; restart TikTools after
+replacing one.
 
 ### Process
 
@@ -59,7 +67,8 @@ be packaged as its own executable or use the bounded `napi-vm` automation
 surface.
 
 The example at `examples/audio-process-plugin` demonstrates a complete process
-plugin. It returns a `playAudio` intent; it does not open the file itself.
+plugin. It returns a typed `audio-play` intent; it does not open the file
+itself.
 
 ### WASM
 
@@ -108,6 +117,22 @@ audio handle:
 ```json
 {
   "summary": "requested host audio playback",
+  "intents": [{
+    "type": "audio-play",
+    "data": {
+      "fileRef": {"path": "/music/alert.wav"},
+      "volume": 0.8,
+      "overlap": "restart"
+    }
+  }]
+}
+```
+
+The host also accepts the legacy single-value `playAudio` shape at the
+compatibility boundary for existing packages:
+
+```json
+{
   "playAudio": {
     "fileRef": {"path": "/music/alert.wav"},
     "volume": 0.8,

@@ -291,10 +291,7 @@ impl AppCore {
         outcomes.sort_by(|left, right| left.0.cmp(&right.0));
         for (plugin_id, declared, response) in outcomes {
             let response = match response {
-                Ok(response) => {
-                    self.record_plugin_success(&plugin_id);
-                    response
-                }
+                Ok(response) => response,
                 Err(error) => {
                     self.record_plugin_failure(&plugin_id, error);
                     continue;
@@ -307,6 +304,7 @@ impl AppCore {
                     continue;
                 }
             };
+            self.record_plugin_success(&plugin_id);
             for (event_type, data) in parse_polled_events(&declared, &response) {
                 self.publish_automation_event(self.make_plugin_event(&source, &event_type, data))
                     .await;

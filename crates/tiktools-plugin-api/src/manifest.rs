@@ -71,14 +71,14 @@ pub enum PluginTrust {
 }
 
 impl PluginTrust {
-    /// Returns the compatibility default for a runtime when a manifest omits
-    /// `trust`. A process boundary is isolation, not a security sandbox, so
-    /// process plugins intentionally retain the trusted label here. The
-    /// serialized trust values remain unchanged for existing packages.
+    /// Returns the schema-v2 compatibility default for a runtime when a
+    /// manifest omits `trust`. The separate `security_model()` API describes
+    /// the actual runtime boundary; this value preserves the old manifest
+    /// interpretation until a deliberate schema revision changes it.
     pub const fn default_for_runtime(runtime: PluginRuntimeKind) -> Self {
         match runtime {
-            PluginRuntimeKind::Wasm => Self::Sandboxed,
-            PluginRuntimeKind::Native | PluginRuntimeKind::Process => Self::Trusted,
+            PluginRuntimeKind::Native => Self::Trusted,
+            PluginRuntimeKind::Wasm | PluginRuntimeKind::Process => Self::Sandboxed,
         }
     }
 }
@@ -613,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn omitted_trust_does_not_call_process_isolation_a_sandbox() {
+    fn omitted_trust_preserves_schema_v2_defaults() {
         let process = PluginManifest::from_json_str(
             r#"{"schemaVersion":2,"id":"process","name":"Process","version":"1.0.0","runtime":"process","entry":"plugin.exe"}"#,
         )
@@ -622,7 +622,7 @@ mod tests {
             r#"{"schemaVersion":2,"id":"wasm","name":"WASM","version":"1.0.0","runtime":"wasm","entry":"plugin.wasm"}"#,
         )
         .unwrap();
-        assert_eq!(process.trust, PluginTrust::Trusted);
+        assert_eq!(process.trust, PluginTrust::Sandboxed);
         assert_eq!(wasm.trust, PluginTrust::Sandboxed);
         assert_eq!(process.security_model(), PluginSecurityModel::Isolated);
         assert_eq!(wasm.security_model(), PluginSecurityModel::Sandboxed);

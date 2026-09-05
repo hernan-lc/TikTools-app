@@ -2,7 +2,7 @@
 
 This is a crash-isolated TikTools process plugin. It never opens or copies an
 audio file. It receives the configured path, returns a typed SDK audio intent
-(encoded as JSON `playAudio`-compatible data), and lets the TikTools host
+(encoded under the JSON `intents` field), and lets the TikTools host
 validate the path and use its native audio backend.
 The executable is still trusted code with the operating-system permissions of
 the user; a process boundary is not an OS sandbox. The implementation uses

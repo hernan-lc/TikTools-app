@@ -64,17 +64,19 @@ The transport is the existing JSON IPC contract:
 The host answers with `media-selected`. Cancellation is represented by an
 omitted `selection` and no `error`.
 
-## Sandboxed runtimes
+## Runtime boundaries
 
 `napi-vm` scripts and the sample process plugin do not get filesystem handles,
 audio objects, or arbitrary host callbacks through the TikTools protocol. They
-return a bounded JSON `playAudio` intent. The core capability broker checks the
-plugin manifest and the host validates the path before invoking the desktop
-provider. A process is a crash boundary, not an OS sandbox: its executable
-still has the user's normal permissions. WASM provides the execution sandbox;
-WASI must be explicitly configured and only grants the system capabilities the
-host chooses to expose. The optional WASM runtime is the place for explicit
-WASI/host imports when untrusted code must be supported.
+return a bounded JSON audio intent. The SDK emits the typed `intents` shape;
+the compatibility boundary also accepts legacy `playAudio` responses. The
+core capability broker checks the plugin manifest and the host validates the
+path before invoking the desktop provider. A process is a crash boundary, not
+an OS sandbox: its executable still has the user's normal permissions. WASM
+provides the execution sandbox; WASI must be explicitly configured and only
+grants the system capabilities the host chooses to expose. The optional WASM
+runtime is the place for explicit WASI/host imports when untrusted code must
+be supported.
 
 Native libraries remain trusted code and are not a sandbox. Use the process or
 WASM runtime for downloadable/untrusted extensions.

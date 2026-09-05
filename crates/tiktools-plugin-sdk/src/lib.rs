@@ -80,27 +80,30 @@ impl PluginIdentity {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PluginContext {
     pub identity: PluginIdentity,
-    pub capabilities: CapabilitySet,
-    pub permissions: PermissionSet,
+    /// Capabilities declared by the plugin manifest. These are not grants.
+    pub declared_capabilities: CapabilitySet,
+    /// Permissions declared by the plugin manifest. User grants are a
+    /// separate policy layer and are intentionally not represented here yet.
+    pub declared_permissions: PermissionSet,
 }
 
 impl PluginContext {
     pub fn new(
         identity: PluginIdentity,
-        capabilities: CapabilitySet,
-        permissions: PermissionSet,
+        declared_capabilities: CapabilitySet,
+        declared_permissions: PermissionSet,
     ) -> Self {
         Self {
             identity,
-            capabilities,
-            permissions,
+            declared_capabilities,
+            declared_permissions,
         }
     }
 
-    /// Builds the process/native context from the existing launcher contract.
+    /// Builds the process context from the existing launcher contract.
     /// WASM adapters can construct the same shape from their manifest and
     /// explicit host policy without relying on environment variables.
-    pub fn from_environment() -> Self {
+    pub fn from_process_environment() -> Self {
         Self::new(
             PluginIdentity::new(
                 env::var("TIKTOOLS_PLUGIN_ID").unwrap_or_else(|_| "unknown".to_owned()),
@@ -108,6 +111,19 @@ impl PluginContext {
             ),
             CapabilitySet::from_strings(environment_list("TIKTOOLS_PLUGIN_CAPABILITIES")),
             PermissionSet::from_strings(environment_list("TIKTOOLS_PLUGIN_PERMISSIONS")),
+        )
+    }
+
+    /// Returns the limited context available through native ABI v1.
+    ///
+    /// ABI v1 does not pass manifest metadata into `create`, so native
+    /// plugins must not mistake this context for a manifest-backed grant.
+    /// A future ABI revision can add an explicit initialization payload.
+    pub fn for_native_abi_v1() -> Self {
+        Self::new(
+            PluginIdentity::new("unknown", "0.0.0"),
+            CapabilitySet::default(),
+            PermissionSet::default(),
         )
     }
 }
@@ -433,10 +449,7 @@ pub enum PluginProtocolError {
 /// compatibility boundary used by the host after a runtime call.
 pub fn decode_plugin_result(value: Value) -> Result<PluginCallResult, PluginProtocolError> {
     let object = value.as_object().ok_or(PluginProtocolError::NotAnObject)?;
-    let summary = object
-        .get("summary")
-        .and_then(Value::as_str)
-        .map(str::to_owned);
+    let summary = decode_summary(object.get("summary"))?;
     let logs = decode_logs(object.get("logs"))?;
     let mut intents = decode_typed_intents(object.get("intents"))?;
     intents.extend(decode_legacy_emit_intents(object.get("emit"))?);
@@ -450,15 +463,29 @@ pub fn decode_plugin_result(value: Value) -> Result<PluginCallResult, PluginProt
     })
 }
 
+fn decode_summary(value: Option<&Value>) -> Result<Option<String>, PluginProtocolError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    value
+        .as_str()
+        .map(|value| Some(value.to_owned()))
+        .ok_or(PluginProtocolError::InvalidField("summary"))
+}
+
 fn decode_logs(value: Option<&Value>) -> Result<Vec<String>, PluginProtocolError> {
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    Ok(as_values(value)
+    as_values(value)
         .into_iter()
-        .filter_map(Value::as_str)
-        .map(ToOwned::to_owned)
-        .collect())
+        .map(|value| {
+            value
+                .as_str()
+                .map(ToOwned::to_owned)
+                .ok_or(PluginProtocolError::InvalidField("logs"))
+        })
+        .collect()
 }
 
 fn decode_typed_intents(value: Option<&Value>) -> Result<Vec<HostIntent>, PluginProtocolError> {
@@ -484,17 +511,23 @@ fn decode_legacy_emit_intents(
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    Ok(as_values(value)
+    as_values(value)
         .into_iter()
-        .filter_map(|value| {
-            let object = value.as_object()?;
-            let event_type = object.get("type")?.as_str()?.to_owned();
-            Some(HostIntent::Emit(EmitIntent::new(
+        .map(|value| {
+            let object = value
+                .as_object()
+                .ok_or(PluginProtocolError::InvalidField("emit"))?;
+            let event_type = object
+                .get("type")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .ok_or(PluginProtocolError::InvalidField("emit"))?;
+            Ok(HostIntent::Emit(EmitIntent::new(
                 event_type,
                 object.get("data").cloned().unwrap_or(Value::Null),
             )))
         })
-        .collect())
+        .collect()
 }
 
 fn decode_legacy_audio_intents(
@@ -503,12 +536,17 @@ fn decode_legacy_audio_intents(
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    Ok(as_values(value)
+    as_values(value)
         .into_iter()
-        .filter_map(|value| {
-            let mut object = value.as_object()?.clone();
+        .map(|value| {
+            let mut object = value
+                .as_object()
+                .cloned()
+                .ok_or(PluginProtocolError::InvalidField("playAudio"))?;
             if object.get("fileRef").is_some_and(Value::is_string) {
-                let file = object.remove("fileRef")?;
+                let file = object
+                    .remove("fileRef")
+                    .ok_or(PluginProtocolError::InvalidField("playAudio"))?;
                 object.insert("fileRef".to_owned(), serde_json::json!({"path": file}));
             } else if object.get("fileRef").is_none() {
                 for key in ["filePath", "file", "path"] {
@@ -525,20 +563,32 @@ fn decode_legacy_audio_intents(
                     }
                 }
             }
-            let intent = serde_json::from_value::<AudioPlayIntent>(Value::Object(object)).ok()?;
-            Some(HostIntent::AudioPlay(intent))
+            let intent = serde_json::from_value::<AudioPlayIntent>(Value::Object(object)).map_err(
+                |error| PluginProtocolError::InvalidValue {
+                    field: "playAudio",
+                    message: error.to_string(),
+                },
+            )?;
+            Ok(HostIntent::AudioPlay(intent))
         })
-        .collect())
+        .collect()
 }
 
 fn decode_events(value: Option<&Value>) -> Result<Vec<PluginEvent>, PluginProtocolError> {
     let Some(value) = value else {
         return Ok(Vec::new());
     };
-    Ok(as_values(value)
+    as_values(value)
         .into_iter()
-        .filter_map(|value| serde_json::from_value(value.clone()).ok())
-        .collect())
+        .map(|value| {
+            serde_json::from_value(value.clone()).map_err(|error| {
+                PluginProtocolError::InvalidValue {
+                    field: "events",
+                    message: error.to_string(),
+                }
+            })
+        })
+        .collect()
 }
 
 fn as_values(value: &Value) -> Vec<&Value> {
@@ -575,7 +625,7 @@ pub fn run_process_plugin<P>() -> PluginResult<()>
 where
     P: Plugin + Default,
 {
-    let context = PluginContext::from_environment();
+    let context = PluginContext::from_process_environment();
     let mut plugin = P::default();
     plugin.initialize(&context)?;
     run_process_plugin_with(&mut plugin, &context)
@@ -654,7 +704,7 @@ pub mod native {
     where
         P: Plugin + Default,
     {
-        let context = PluginContext::from_environment();
+        let context = PluginContext::for_native_abi_v1();
         let mut plugin = P::default();
         let initialization_error = plugin
             .initialize(&context)
@@ -703,7 +753,7 @@ pub mod native {
                 if context.is_null() || response.is_null() {
                     return Err(PluginStatus::InvalidRequest);
                 }
-                if request_len > MAX_FRAME_BYTES || (request_len > 0 && request_ptr.is_null()) {
+                if request_ptr.is_null() || request_len > MAX_FRAME_BYTES {
                     return Err(PluginStatus::InvalidRequest);
                 }
                 // SAFETY: the host supplies the request pointer and length for the
@@ -714,14 +764,10 @@ pub mod native {
                 if state.initialization_error.is_some() {
                     return Err(PluginStatus::InternalError);
                 }
-                let request: PluginRequest =
-                    serde_json::from_slice(request).map_err(|_| PluginStatus::InvalidRequest)?;
-                if request.protocol_version != TIKTOOLS_PLUGIN_PROTOCOL_VERSION
-                    || request.method != METHOD_CALL
-                {
-                    return Err(PluginStatus::InvalidRequest);
-                }
-                let call = serde_json::from_value::<PluginCall>(request.payload)
+                // Native ABI v1 receives the raw typed call. The process
+                // adapter has an outer PluginRequest envelope, but adding
+                // that envelope here would break existing native plugins.
+                let call = serde_json::from_slice::<PluginCall>(request)
                     .map_err(|_| PluginStatus::InvalidRequest)?;
                 let result = dispatch_plugin_call(&mut state.plugin, &state.context, call)
                     .map_err(|error| match error {
@@ -789,6 +835,27 @@ pub mod prelude {
 mod tests {
     use super::*;
 
+    #[derive(Default)]
+    struct TestPlugin;
+
+    impl Plugin for TestPlugin {
+        fn action(
+            &mut self,
+            _context: &PluginContext,
+            _call: ActionCall,
+        ) -> PluginResult<ActionResult> {
+            Ok(ActionResult::summary("action handled"))
+        }
+    }
+
+    fn test_context() -> PluginContext {
+        PluginContext::new(
+            PluginIdentity::new("test.plugin", "1.0.0"),
+            CapabilitySet::default(),
+            PermissionSet::default(),
+        )
+    }
+
     #[test]
     fn typed_plugin_call_preserves_legacy_wire_shape() {
         let call = PluginCall::action(
@@ -817,6 +884,20 @@ mod tests {
     }
 
     #[test]
+    fn compatibility_decoder_rejects_malformed_legacy_fields() {
+        for (field, value) in [
+            ("summary", serde_json::json!(42)),
+            ("logs", serde_json::json!(["ok", 42])),
+            ("emit", serde_json::json!([{"data": {}}])),
+            ("playAudio", serde_json::json!([{"volume": "loud"}])),
+            ("events", serde_json::json!([{"type": "missing-data"}])),
+        ] {
+            let error = decode_plugin_result(serde_json::json!({field: value})).unwrap_err();
+            assert!(error.to_string().contains(field), "{field}: {error}");
+        }
+    }
+
+    #[test]
     fn audio_intent_serializes_with_typed_file_reference() {
         let result = ActionResult::default().intent(HostIntent::audio_play(
             AudioPlayIntent::from_path("/tmp/alert.wav"),
@@ -827,5 +908,55 @@ mod tests {
             value["intents"][0]["data"]["fileRef"]["path"],
             "/tmp/alert.wav"
         );
+    }
+
+    #[test]
+    fn process_request_dispatches_raw_typed_call_inside_the_wire_envelope() {
+        let call = PluginCall::action(
+            serde_json::json!({"typeId": "demo.action"}),
+            serde_json::json!({"type": "demo.event"}),
+        );
+        let request = PluginRequest::new(
+            METHOD_CALL,
+            METHOD_CALL,
+            serde_json::to_value(call).unwrap(),
+        );
+        let response = handle_process_request(&mut TestPlugin, &test_context(), request);
+        assert!(response.ok);
+        assert_eq!(response.id, METHOD_CALL);
+        let result: PluginCallResult = serde_json::from_value(response.result.unwrap()).unwrap();
+        assert_eq!(result.summary.as_deref(), Some("action handled"));
+    }
+
+    #[test]
+    fn process_request_rejects_bad_protocol_method_and_call() {
+        let context = test_context();
+        let mut bad_version = PluginRequest::new(
+            "version",
+            METHOD_CALL,
+            serde_json::json!({
+                "type": "poll"
+            }),
+        );
+        bad_version.protocol_version += 1;
+        assert!(!handle_process_request(&mut TestPlugin, &context, bad_version).ok);
+
+        let bad_method = PluginRequest::new(
+            "method",
+            "other",
+            serde_json::json!({
+                "type": "poll"
+            }),
+        );
+        assert!(!handle_process_request(&mut TestPlugin, &context, bad_method).ok);
+
+        let bad_call = PluginRequest::new(
+            "call",
+            METHOD_CALL,
+            serde_json::json!({
+                "type": "unknown"
+            }),
+        );
+        assert!(!handle_process_request(&mut TestPlugin, &context, bad_call).ok);
     }
 }
