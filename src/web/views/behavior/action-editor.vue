@@ -5,6 +5,7 @@ import { PermissionCards, TestConsole } from '../../components/ui/FieldPanels.vu
 import { SchemaForm, schemaForAction, useFieldSuggestions } from '../../components/ui/SchemaForm.vue';
 import { CodeEditor, formatJsonText } from '../../components/ui/CodeEditor.vue';
 import { TemplateField } from '../../components/node-editor/TemplateField.vue';
+import { TextInput } from '../../components/ui/TextInput.vue';
 import { InfoTip } from '../../components/ui/InfoTip.vue';
 import {
   getFetchUrlTemplates,
@@ -148,14 +149,13 @@ export const ActionEditor = defineVueComponent<ActionEditorProps>(
             {props.error && <div class="plg-alert">{props.error}</div>}
 
             <div class="plg-field">
-              <span class="act-label">{t(props.locale, 'behavior.editor.actionName')}</span>
-              <input
-                class="plg-input act-name-input"
+              <label class="act-label" for="actionName">{t(props.locale, 'behavior.editor.actionName')}</label>
+              <TextInput
+                id="actionName"
                 name="actionName"
                 value={draftValue.name}
-                aria-label={t(props.locale, 'behavior.editor.actionName')}
                 placeholder={typeValue ? i18nText(props.locale, typeValue.title) : undefined}
-                onInput={(event) => { draft.value = { ...draft.value, name: (event.currentTarget as HTMLInputElement).value }; }}
+                onValueChange={(next) => { draft.value = { ...draft.value, name: next }; }}
               />
             </div>
 

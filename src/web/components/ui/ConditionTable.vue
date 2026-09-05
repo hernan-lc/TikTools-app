@@ -15,6 +15,9 @@ import { i18nText, t, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph, OperatorGlyph, OPERATOR_CODE, OPERATOR_LABELS } from '../condition-icons.vue';
 import { GiftPicker, UserPicker } from './GiftPicker.vue';
 import { IconSelect } from './IconSelect.vue';
+import { NumberInput } from './NumberInput.vue';
+import { TagsInput } from './TagsInput.vue';
+import { TextInput } from './TextInput.vue';
 import { InfoTip } from './InfoTip.vue';
 
 const COPY = {
@@ -220,11 +223,10 @@ export const ConditionTable = defineVueComponent<ConditionTableProps>(
             </button>
 
             {!field && (
-              <input
-                class="plg-input plg-input--mono plg-cond__custom"
+              <TextInput
                 value={filter.path}
+                onValueChange={(next) => update(index, { path: next })}
                 placeholder={copy.customPlaceholder}
-                onInput={(event) => update(index, { path: (event.currentTarget as HTMLInputElement).value })}
               />
             )}
 
@@ -308,42 +310,33 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
   if (filter.operator === 'in') {
     const values = filter.values ?? [];
     return (
-      <span class="plg-cond__list">
-        {values.map((value, index) => (
-          <button
-            type="button"
-            class="plg-pill plg-pill--accent ui-picker__chip"
-            key={`${value}-${index}`}
-            onClick={() => onValues(values.filter((_, position) => position !== index))}
-          >
-            {value}
-            <span aria-hidden="true">×</span>
-          </button>
-        ))}
-        <input
-          class={`plg-input plg-cond__inline${missing ? ' is-missing' : ''}`}
-          placeholder={t(locale, 'condition.addValuePlaceholder')}
-          onKeydown={(event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            const input = event.currentTarget as HTMLInputElement;
-            const value = input.value.trim();
-            if (!value) return;
-            onValues([...values, value]);
-            input.value = '';
-          }}
-        />
-      </span>
+      <TagsInput
+        value={values}
+        onValueChange={onValues}
+        placeholder={t(locale, 'condition.addValuePlaceholder')}
+        error={missing ? copy.missing : undefined}
+        ariaLabel={copy.colValue}
+      />
     );
   }
 
+  if (kind === 'number') {
+    const parsed = Number(filter.value);
+    return (
+      <NumberInput
+        value={filter.value.trim() === '' || Number.isNaN(parsed) ? null : parsed}
+        onValueChange={(next) => onValue(next === null ? '' : String(next))}
+        placeholder={missing ? copy.missing : ''}
+        error={missing ? copy.missing : undefined}
+      />
+    );
+  }
   return (
-    <input
-      class={`plg-input${missing ? ' is-missing' : ''}`}
-      type={kind === 'number' ? 'number' : 'text'}
+    <TextInput
       value={filter.value}
+      onValueChange={onValue}
       placeholder={missing ? copy.missing : ''}
-      onInput={(event) => onValue((event.currentTarget as HTMLInputElement).value)}
+      error={missing ? copy.missing : undefined}
     />
   );
 }

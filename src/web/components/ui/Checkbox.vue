@@ -13,13 +13,15 @@ type CheckboxProps = {
   onCheckedChange: (v: boolean) => void;
   label?: string;
   disabled?: boolean;
+  required?: boolean;
+  ariaLabel?: string;
   id?: string;
   name?: string;
   error?: string;
 };
 
 export const Checkbox = defineVueComponent<CheckboxProps>(
-  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'name', 'error'],
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'required', 'ariaLabel', 'id', 'name', 'error'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
   const commitProgrammaticValue = (checked: boolean): void => {
@@ -38,7 +40,7 @@ export const Checkbox = defineVueComponent<CheckboxProps>(
     if (innerRef.value) syncNativeControlValue(innerRef.value, checked);
   });
   return () => {
-    const { checked, label, disabled, id, name, error } = props;
+    const { checked, label, disabled, required, ariaLabel, id, name, error } = props;
     return (
     <label for={id} class={`ui-check ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
@@ -48,6 +50,9 @@ export const Checkbox = defineVueComponent<CheckboxProps>(
         type="checkbox"
         checked={checked}
         disabled={disabled}
+        required={required}
+        aria-label={ariaLabel}
+        aria-invalid={Boolean(error)}
         onChange={(e) => props.onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
       <span class="ui-check__box" aria-hidden />
@@ -59,7 +64,7 @@ export const Checkbox = defineVueComponent<CheckboxProps>(
 );
 
 export const Switch = defineVueComponent<CheckboxProps>(
-  ['checked', 'onCheckedChange', 'label', 'disabled', 'id', 'name', 'error'],
+  ['checked', 'onCheckedChange', 'label', 'disabled', 'required', 'ariaLabel', 'id', 'name', 'error'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
   const commitProgrammaticValue = (checked: boolean): void => {
@@ -78,7 +83,7 @@ export const Switch = defineVueComponent<CheckboxProps>(
     if (innerRef.value) syncNativeControlValue(innerRef.value, checked);
   });
   return () => {
-    const { checked, label, disabled, id, name, error } = props;
+    const { checked, label, disabled, required, ariaLabel, id, name, error } = props;
     return (
     <label for={id} class={`ui-switch ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
       <input
@@ -89,6 +94,9 @@ export const Switch = defineVueComponent<CheckboxProps>(
         role="switch"
         checked={checked}
         disabled={disabled}
+        required={required}
+        aria-label={ariaLabel}
+        aria-invalid={Boolean(error)}
         onChange={(e) => props.onCheckedChange((e.currentTarget as HTMLInputElement).checked)}
       />
       <span class="ui-switch__track" aria-hidden>

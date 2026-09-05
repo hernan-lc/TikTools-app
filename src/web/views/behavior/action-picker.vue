@@ -1,6 +1,7 @@
 <script lang="tsx">
 import { computed, ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
+import { SearchInput } from '../../components/ui/TextInput.vue';
 import type { ActionTypeDefinition, PluginStatus } from '../../../automation/behavior/types.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
@@ -36,13 +37,11 @@ export const ActionPicker = defineVueComponent<ActionPickerProps>(
       </div>
 
       <div class="plg-toolbar">
-        <input
-          class="plg-input"
+        <SearchInput
           name="actionSearch"
-          type="search"
           value={query.value}
+          onValueChange={(next) => { query.value = next; }}
           placeholder={t(props.locale, 'behavior.copy.searchAction')}
-          onInput={(event) => { query.value = (event.currentTarget as HTMLInputElement).value; }}
         />
       </div>
 

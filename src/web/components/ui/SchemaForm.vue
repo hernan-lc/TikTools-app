@@ -14,6 +14,14 @@ import { CodeEditor, formatJsonText } from './CodeEditor.vue';
 import { InfoTip } from './InfoTip.vue';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 import { MediaField } from './MediaField.vue';
+import { DatePicker, TimePicker } from './DatePicker.vue';
+import { PasswordInput } from './PasswordInput.vue';
+import { ColorPicker } from './ColorPicker.vue';
+import { Textarea } from './Textarea.vue';
+import { Range } from './Range.vue';
+import { Rating } from './Rating.vue';
+import { TagsInput } from './TagsInput.vue';
+import { MultiSelect } from './MultiSelect.vue';
 import type { OpenMediaPicker } from '../../../shared/messages.ts';
 
 export type FieldOption = { value: string; label: string };
@@ -282,6 +290,149 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
         suggestions={templateSuggestions}
         onChange={onChange}
       />
+    );
+  }
+
+  if (schema.format === 'date' || hint?.kind === 'date') {
+    return (
+      <div class="plg-field">
+        <DatePicker
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={typeof value === 'string' ? value : ''}
+          onValueChange={onChange}
+          min={typeof schema.minimum === 'string' ? schema.minimum : typeof schema.min === 'string' ? schema.min : undefined}
+          max={typeof schema.maximum === 'string' ? schema.maximum : typeof schema.max === 'string' ? schema.max : undefined}
+        />
+      </div>
+    );
+  }
+
+  if (schema.format === 'time' || hint?.kind === 'time') {
+    return (
+      <div class="plg-field">
+        <TimePicker
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={typeof value === 'string' ? value : ''}
+          onValueChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  if (schema.format === 'color' || hint?.kind === 'color') {
+    const color = typeof value === 'string' && value ? value : '#000000';
+    return (
+      <div class="plg-field">
+        <ColorPicker
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={color}
+          onValueChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  if (schema.format === 'password' || hint?.kind === 'password') {
+    return (
+      <div class="plg-field">
+        <PasswordInput
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={typeof value === 'string' ? value : ''}
+          onValueChange={onChange}
+          autoComplete="current-password"
+        />
+      </div>
+    );
+  }
+
+  if (hint?.kind === 'range' && (schema.type === 'number' || schema.type === 'integer')) {
+    const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+    return (
+      <div class="plg-field">
+        <Range
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={Number.isFinite(numeric) ? numeric : 0}
+          onValueChange={onChange}
+          min={typeof schema.minimum === 'number' ? schema.minimum : typeof schema.min === 'number' ? schema.min : 0}
+          max={typeof schema.maximum === 'number' ? schema.maximum : typeof schema.max === 'number' ? schema.max : 100}
+          step={typeof schema.multipleOf === 'number' ? schema.multipleOf : 1}
+        />
+      </div>
+    );
+  }
+
+  if (hint?.kind === 'rating') {
+    const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+    return (
+      <div class="plg-field">
+        <Rating
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={Number.isFinite(numeric) ? numeric : 0}
+          onValueChange={onChange}
+          max={typeof schema.maximum === 'number' ? schema.maximum : 5}
+        />
+      </div>
+    );
+  }
+
+  if (schema.type === 'array' && schema.items && typeof schema.items === 'object' && !Array.isArray(schema.items) && Array.isArray((schema.items as JsonObject).enum)) {
+    const allowed = ((schema.items as JsonObject).enum as unknown[]).filter((entry): entry is string => typeof entry === 'string');
+    const selected = Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+    return (
+      <div class="plg-field">
+        <MultiSelect
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={selected}
+          options={allowed.map((entry) => ({ value: entry, label: entry }))}
+          onValueChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  if (schema.type === 'array' && (hint?.kind === 'tags' || (schema.items && typeof schema.items === 'object' && (schema.items as JsonObject).type === 'string'))) {
+    const selected = Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+    return (
+      <div class="plg-field">
+        <TagsInput
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={selected}
+          onValueChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  if ((kind === 'textarea' || schema.format === 'multiline') && !hasAutocomplete && schema.type === 'string') {
+    return (
+      <div class="plg-field">
+        <Textarea
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={typeof value === 'string' ? value : ''}
+          onValueChange={onChange}
+          rows={6}
+          maxLength={typeof schema.maxLength === 'number' ? schema.maxLength : undefined}
+          showCount={typeof schema.maxLength === 'number'}
+        />
+      </div>
     );
   }
 

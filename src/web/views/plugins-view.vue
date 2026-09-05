@@ -7,6 +7,7 @@ import type { JsonObject } from '../../automation/types.ts';
 import type { OpenMediaPicker, PluginSettingValues } from '../../shared/messages.ts';
 import type { PluginSettingsState } from '../types.ts';
 import { SchemaForm } from '../components/ui/SchemaForm.vue';
+import { Switch } from '../components/ui/Checkbox.vue';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
 type PluginsViewProps = {
@@ -142,14 +143,11 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
 
                   <div class="plg-plugin__controls">
                     {plugin.installed && (
-                      <button
-                        type="button"
-                        class={`plg-switch${plugin.enabled ? ' is-on' : ''}`}
-                        aria-label={i18nText(props.locale, plugin.descriptor.name)}
-                        onClick={() => props.onSetEnabled(plugin.descriptor.id, !plugin.enabled)}
-                      >
-                        <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
-                      </button>
+                      <Switch
+                        checked={plugin.enabled}
+                        onCheckedChange={() => props.onSetEnabled(plugin.descriptor.id, !plugin.enabled)}
+                        ariaLabel={i18nText(props.locale, plugin.descriptor.name)}
+                      />
                     )}
                     <button
                       type="button"

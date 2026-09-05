@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { defineVueComponent } from '../vue/component.ts';
 import { IconPencil, IconTrash } from '../components/icons.vue';
+import { Switch } from '../components/ui/Checkbox.vue';
+import { SearchInput } from '../components/ui/TextInput.vue';
 import { ActionEditor } from './behavior/action-editor.vue';
 import { ActionPicker } from './behavior/action-picker.vue';
 import { EventEditor } from './behavior/event-editor.vue';
@@ -212,13 +214,11 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
                 <span class="plg-section__count">{snapshot.actions.length}</span>
               </div>
               <div class="plg-section__tools">
-                <input
-                  class="plg-input"
+                <SearchInput
                   name="actionQuery"
-                  type="search"
                   value={actionQuery.value}
+                  onValueChange={(next) => { actionQuery.value = next; }}
                   placeholder={t(locale, 'behavior.copy.searchAction')}
-                  onInput={(event) => { actionQuery.value = (event.currentTarget as HTMLInputElement).value; }}
                 />
                 <SortControl locale={locale} value={actionSort.value} onChange={(value) => { actionSort.value = value; }} />
                 <button type="button" class="plg-btn plg-btn--primary plg-btn--sm" onClick={() => { screen.value = { kind: 'picker' }; }}>
@@ -252,14 +252,11 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
                     class={`plg-table__row${action.enabled ? '' : ' is-off'}${failing && action.enabled ? ' has-error' : ''}`}
                     key={action.id}
                   >
-                    <button
-                      type="button"
-                      class={`plg-switch${action.enabled ? ' is-on' : ''}`}
-                      aria-label={action.name}
-                      onClick={() => props.onSetActionEnabled(action.id, !action.enabled)}
-                    >
-                      <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
-                    </button>
+                    <Switch
+                      checked={action.enabled}
+                      onCheckedChange={() => props.onSetActionEnabled(action.id, !action.enabled)}
+                      ariaLabel={action.name}
+                    />
                     <button
                       type="button"
                       class="plg-table__link"
@@ -329,13 +326,11 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
                 <span class="plg-section__count">{snapshot.events.length}</span>
               </div>
               <div class="plg-section__tools">
-                <input
-                  class="plg-input"
+                <SearchInput
                   name="eventQuery"
-                  type="search"
                   value={eventQuery.value}
+                  onValueChange={(next) => { eventQuery.value = next; }}
                   placeholder={t(locale, 'behavior.copy.searchEvent')}
-                  onInput={(event) => { eventQuery.value = (event.currentTarget as HTMLInputElement).value; }}
                 />
                 <SortControl locale={locale} value={eventSort.value} onChange={(value) => { eventSort.value = value; }} />
                 <button
@@ -360,14 +355,11 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
 
               {sortedEvents.map((event) => (
                 <div class={`plg-table__row${event.enabled ? '' : ' is-off'}`} key={event.id}>
-                  <button
-                    type="button"
-                    class={`plg-switch${event.enabled ? ' is-on' : ''}`}
-                    aria-label={event.name}
-                    onClick={() => props.onSetEventEnabled(event.id, !event.enabled)}
-                  >
-                    <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
-                  </button>
+                  <Switch
+                    checked={event.enabled}
+                    onCheckedChange={() => props.onSetEventEnabled(event.id, !event.enabled)}
+                    ariaLabel={event.name}
+                  />
                   <button
                     type="button"
                     class="plg-table__link"

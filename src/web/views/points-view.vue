@@ -224,7 +224,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                   <NumberInput
                     name="pointsPerCoin"
                     value={config.pointsPerCoin}
-                    onValueChange={(v) => patchConfig('pointsPerCoin', v)}
+                    onValueChange={(v) => patchConfig('pointsPerCoin', v ?? 0)}
                     min={0}
                     step={0.1}
                     disabled={live || !config.pointsPerCoinEnabled}
@@ -243,7 +243,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                   <NumberInput
                     name="pointsPerShare"
                     value={config.pointsPerShare}
-                    onValueChange={(v) => patchConfig('pointsPerShare', v)}
+                    onValueChange={(v) => patchConfig('pointsPerShare', v ?? 0)}
                     min={0}
                     step={0.5}
                     disabled={live || !config.pointsPerShareEnabled}
@@ -262,7 +262,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                   <NumberInput
                     name="pointsPerChat"
                     value={config.pointsPerChat}
-                    onValueChange={(v) => patchConfig('pointsPerChat', v)}
+                    onValueChange={(v) => patchConfig('pointsPerChat', v ?? 0)}
                     min={0}
                     step={0.1}
                     disabled={live || !config.pointsPerChatEnabled}
@@ -281,7 +281,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                   <NumberInput
                     name="pointsPerLike"
                     value={config.pointsPerLike}
-                    onValueChange={(v) => patchConfig('pointsPerLike', v)}
+                    onValueChange={(v) => patchConfig('pointsPerLike', v ?? 0)}
                     min={0}
                     step={0.05}
                     disabled={live || !config.pointsPerLikeEnabled}
@@ -300,7 +300,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                   <NumberInput
                     name="pointsPerFollow"
                     value={config.pointsPerFollow}
-                    onValueChange={(v) => patchConfig('pointsPerFollow', v)}
+                    onValueChange={(v) => patchConfig('pointsPerFollow', v ?? 0)}
                     min={0}
                     step={1}
                     disabled={live || !config.pointsPerFollowEnabled}
@@ -314,7 +314,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                 <NumberInput
                   name="subBonusMultiplier"
                   value={config.subBonusMultiplier}
-                  onValueChange={(v) => patchConfig('subBonusMultiplier', v)}
+                  onValueChange={(v) => patchConfig('subBonusMultiplier', v ?? 0)}
                   min={0}
                   max={500}
                   step={5}
@@ -329,7 +329,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
                 <NumberInput
                   name="pointsPerLevel"
                   value={config.pointsPerLevel}
-                  onValueChange={(v) => patchConfig('pointsPerLevel', Math.max(10, v | 0))}
+                  onValueChange={(v) => patchConfig('pointsPerLevel', Math.max(10, (v ?? 10) | 0))}
                   min={10}
                   step={10}
                   disabled={live}
@@ -383,7 +383,7 @@ export const PointsView = defineVueComponent<PointsViewProps>(
             </h2>
             <form onSubmit={handleAdjustSubmit}>
               <FormField label={deductMode.value ? 'Points to deduct:' : 'Points to add:'}>
-                <NumberInput value={parseFloat(adjustDelta.value) || 0} onValueChange={(value) => { adjustDelta.value = String(Math.abs(value)); }} min={0} step={1} />
+                <NumberInput value={parseFloat(adjustDelta.value) || 0} onValueChange={(value) => { adjustDelta.value = String(Math.abs(value ?? 0)); }} min={0} step={1} />
               </FormField>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
                 <Button variant="soft" onClick={() => { adjustTarget.value = null; }}>

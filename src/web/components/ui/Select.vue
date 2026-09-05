@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 import { InfoTip } from './InfoTip.vue';
 import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from './control-events.ts';
+import type { SelectOption } from './controls.ts';
 
 export type SelectHandle = {
   getValue: () => string;
@@ -10,25 +11,26 @@ export type SelectHandle = {
   focus: () => void;
 };
 
-export type SelectOption = { value: string; label: string };
+export type { SelectOption };
 
 type SelectProps = {
   value: string;
   onValueChange: (v: string) => void;
   options: SelectOption[];
   disabled?: boolean;
+  readonly?: boolean;
+  required?: boolean;
   error?: string;
+  hint?: string;
   id?: string;
   name?: string;
   placeholder?: string;
   /** MUI-style floating label. */
   label?: string;
-  /** Tooltip-only explanation (ⓘ). */
-  hint?: string;
 };
 
 export const Select = defineVueComponent<SelectProps>(
-  ['value', 'onValueChange', 'options', 'disabled', 'error', 'id', 'name', 'placeholder', 'label', 'hint'],
+  ['value', 'onValueChange', 'options', 'disabled', 'readonly', 'required', 'error', 'hint', 'id', 'name', 'placeholder', 'label'],
   (props, context) => {
   const innerRef = ref<HTMLSelectElement | null>(null);
   const commitProgrammaticValue = (value: string): void => {
@@ -51,45 +53,47 @@ export const Select = defineVueComponent<SelectProps>(
   });
 
   return () => {
-    const { options, disabled, error, id, name, placeholder, label, hint } = props;
+    const { options, disabled, readonly, required, error, hint, id, name, placeholder, label } = props;
     const value = normalizeControlString(props.value);
+    const isDisabled = disabled || readonly;
     if (label) {
       const filled = value.trim().length > 0;
       return (
-      <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
+      <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${isDisabled ? 'is-disabled' : ''}`}>
         <div class="ui-float__control">
-          <select ref={innerRef} id={id} name={name} value={value} disabled={disabled} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
+          <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
             {placeholder ? (
               <option value="" disabled>
                 {placeholder}
               </option>
             ) : null}
             {options.map((o) => (
-              <option key={o.value} value={o.value}>
+              <option key={o.value} value={o.value} disabled={o.disabled}>
                 {o.label}
               </option>
             ))}
           </select>
           <label class="ui-float__label" for={id}>
-            {label}
+            {label}{required ? ' *' : ''}
             {hint ? <InfoTip text={hint} position="right" /> : null}
           </label>
           <span class="ui-float__arrow" aria-hidden>▾</span>
         </div>
+        {error ? <span class="ui-float__error">{error}</span> : null}
       </div>
     );
     }
 
     return (
-    <div class={`ui-select ${error ? 'has-error' : ''} ${disabled ? 'is-disabled' : ''}`}>
-      <select ref={innerRef} id={id} name={name} value={value} disabled={disabled} aria-invalid={Boolean(error)} onChange={handleChange}>
+    <div class={`ui-select ${error ? 'has-error' : ''} ${isDisabled ? 'is-disabled' : ''}`}>
+      <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} onChange={handleChange}>
         {placeholder ? (
           <option value="" disabled>
             {placeholder}
           </option>
         ) : null}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
           </option>
         ))}

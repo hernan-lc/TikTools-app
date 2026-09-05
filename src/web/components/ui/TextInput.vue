@@ -25,6 +25,7 @@ type TextInputProps = {
   prefix?: string;
   suffix?: string;
   disabled?: boolean;
+  readonly?: boolean;
   error?: string;
   id?: string;
   name?: string;
@@ -37,7 +38,7 @@ type TextInputProps = {
 };
 
 export const TextInput = defineVueComponent<TextInputProps>(
-  ['value', 'onValueChange', 'placeholder', 'label', 'hint', 'template', 'templateHint', 'prefix', 'suffix', 'disabled', 'error', 'id', 'name', 'type', 'autoComplete', 'spellCheck', 'required', 'clearable', 'onEnter'],
+  ['value', 'onValueChange', 'placeholder', 'label', 'hint', 'template', 'templateHint', 'prefix', 'suffix', 'disabled', 'readonly', 'error', 'id', 'name', 'type', 'autoComplete', 'spellCheck', 'required', 'clearable', 'onEnter'],
   (props, context) => {
   const innerRef = ref<HTMLInputElement | null>(null);
   const commitProgrammaticValue = (value: string): void => {
@@ -66,7 +67,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
   };
 
   return () => {
-    const { placeholder, label, hint, prefix, suffix, disabled, error, id, name, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable } = props;
+    const { placeholder, label, hint, prefix, suffix, disabled, readonly, error, id, name, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable } = props;
     const value = normalizeControlString(props.value);
     if (label) {
       const filled = value.trim().length > 0 || type === 'password' && value.length > 0;
@@ -81,7 +82,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
             type={type}
             value={value}
             placeholder=" "
-            disabled={disabled}
+            disabled={disabled} readonly={readonly}
             autocomplete={autoComplete}
             spellcheck={spellCheck}
             required={required}
@@ -114,7 +115,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
         type={type}
         value={value}
         placeholder={placeholder}
-        disabled={disabled}
+        disabled={disabled} readonly={readonly}
         autocomplete={autoComplete}
         spellcheck={spellCheck}
         required={required}

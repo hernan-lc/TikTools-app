@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import type { VNodeChild } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
+import { Select } from './Select.vue';
 
 export type Column<T> = {
   key: string;
@@ -156,20 +157,18 @@ function PaginationFooter({ pagination, total, totalPages }: { pagination: Pagin
       <div class="ui-pagination__info">
         {total > 0 ? `${start}–${end} of ${total}` : '0 results'}
         {onPageSizeChange ? (
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
+          <label for="pageSizeRows" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Rows:</span>
-            <select
+            <Select
+              id="pageSizeRows"
               name="pageSize"
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(parseInt((e.target as HTMLSelectElement).value, 10))}
-              class="ui-pagination__select"
-            >
-              {pageSizeOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+              value={String(pageSize)}
+              options={pageSizeOptions.map((opt) => ({ value: String(opt), label: String(opt) }))}
+              onValueChange={(next) => {
+                const parsed = parseInt(next, 10);
+                if (Number.isFinite(parsed)) onPageSizeChange(parsed);
+              }}
+            />
           </label>
         ) : null}
       </div>

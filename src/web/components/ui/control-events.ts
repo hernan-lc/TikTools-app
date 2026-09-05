@@ -12,12 +12,17 @@ export const TIKTOOLS_CONTROL_EVENT = 'tiktools:control';
 export type ControlKind =
   | 'text'
   | 'search'
+  | 'password'
   | 'number'
   | 'checkbox'
   | 'radio'
   | 'range'
   | 'select'
-  | 'textarea';
+  | 'textarea'
+  | 'date'
+  | 'time'
+  | 'color'
+  | 'file';
 
 export type ControlValue = string | number | boolean;
 
@@ -58,6 +63,11 @@ export function controlKind(control: NativeControl): ControlKind {
   if (type === 'number') return 'number';
   if (type === 'range') return 'range';
   if (type === 'search') return 'search';
+  if (type === 'password') return 'password';
+  if (type === 'date') return 'date';
+  if (type === 'time') return 'time';
+  if (type === 'color') return 'color';
+  if (type === 'file') return 'file';
   return 'text';
 }
 

@@ -2,6 +2,9 @@
 import { ref, watch } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 import { ConditionTable } from '../../components/ui/ConditionTable.vue';
+import { Switch } from '../../components/ui/Checkbox.vue';
+import { Select } from '../../components/ui/Select.vue';
+import { TextInput } from '../../components/ui/TextInput.vue';
 import { InfoTip } from '../../components/ui/InfoTip.vue';
 import { BEHAVIOR_TRIGGERS } from '../../../automation/behavior/schema.ts';
 import { COOLDOWN_CHOICES, describeFilter, sentenceFor, TRIGGER_LABELS } from './helpers.vue';
@@ -111,25 +114,22 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
               <div class="plg-step__body">
                 <div class="plg-inline">
                   <div class="plg-field">
-                    <label class="plg-label">{t(props.locale, 'behavior.copy.trigger')}</label>
-                    <select
-                      class="plg-select"
+                    <label class="plg-label" for="eventTrigger">{t(props.locale, 'behavior.copy.trigger')}</label>
+                    <Select
+                      id="eventTrigger"
                       name="trigger"
                       value={draftValue.trigger}
-                      onChange={(node) => update({ trigger: (node.currentTarget as HTMLSelectElement).value as AutomationEventType })}
-                    >
-                      {BEHAVIOR_TRIGGERS.map((trigger) => (
-                        <option key={trigger} value={trigger}>{i18nText(props.locale, TRIGGER_LABELS[trigger])}</option>
-                      ))}
-                    </select>
+                      options={BEHAVIOR_TRIGGERS.map((trigger) => ({ value: trigger, label: i18nText(props.locale, TRIGGER_LABELS[trigger]) }))}
+                      onValueChange={(next) => update({ trigger: next as AutomationEventType })}
+                    />
                   </div>
                   <div class="plg-field">
-                    <label class="plg-label">{t(props.locale, 'behavior.copy.name')}</label>
-                    <input
-                      class="plg-input"
+                    <label class="plg-label" for="eventName">{t(props.locale, 'behavior.copy.name')}</label>
+                    <TextInput
+                      id="eventName"
                       name="eventName"
                       value={draftValue.name}
-                      onInput={(node) => update({ name: (node.currentTarget as HTMLInputElement).value })}
+                      onValueChange={(next) => update({ name: next })}
                     />
                   </div>
                 </div>
@@ -180,41 +180,32 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
 
                 {draftValue.actionIds.length > 1 && (
                   <div class="plg-switch-row">
-                    <button
-                      type="button"
-                      class={`plg-switch${draftValue.runMode === 'random' ? ' is-on' : ''}`}
-                      aria-label={t(props.locale, 'behavior.copy.runMode')}
-                      onClick={() => update({ runMode: draftValue.runMode === 'random' ? 'all' : 'random' })}
-                    >
-                      <span class="plg-switch__track"><span class="plg-switch__thumb" /></span>
-                    </button>
-                    <label
-                      class="plg-label"
-                      onClick={() => update({ runMode: draftValue.runMode === 'random' ? 'all' : 'random' })}
-                    >
-                      {t(props.locale, 'behavior.copy.runMode')}
-                    </label>
+                    <Switch
+                      checked={draftValue.runMode === 'random'}
+                      onCheckedChange={(next) => update({ runMode: next ? 'random' : 'all' })}
+                      label={t(props.locale, 'behavior.copy.runMode')}
+                    />
                   </div>
                 )}
 
                 <div class="plg-inline">
                   <div class="plg-field">
-                    <label class="plg-label">{t(props.locale, 'behavior.copy.cooldown')}</label>
-                    <select
-                      class="plg-select"
+                    <label class="plg-label" for="eventCooldown">{t(props.locale, 'behavior.copy.cooldown')}</label>
+                    <Select
+                      id="eventCooldown"
                       name="cooldownMs"
                       value={String(draftValue.cooldownMs)}
-                      onChange={(node) => update({ cooldownMs: Number((node.currentTarget as HTMLSelectElement).value) })}
-                    >
-                      {COOLDOWN_CHOICES.map((ms) => (
-                        <option key={ms} value={String(ms)}>{ms === 0 ? t(props.locale, 'behavior.copy.noCooldown') : `${ms / 1000} s`}</option>
-                      ))}
-                    </select>
+                      options={COOLDOWN_CHOICES.map((ms) => ({ value: String(ms), label: ms === 0 ? t(props.locale, 'behavior.copy.noCooldown') : `${ms / 1000} s` }))}
+                      onValueChange={(next) => {
+                        const parsed = Number(next);
+                        if (Number.isFinite(parsed)) update({ cooldownMs: parsed });
+                      }}
+                    />
                   </div>
                   {draftValue.cooldownMs > 0 && (
                   <div class="plg-field">
                     <div class="plg-label-row">
-                      <label class="plg-label">{t(props.locale, 'behavior.copy.cooldownScope')}</label>
+                      <label class="plg-label" for="eventCooldownScope">{t(props.locale, 'behavior.copy.cooldownScope')}</label>
                       <InfoTip
                         text={props.locale === 'es'
                           ? 'Por usuario: la espera cuenta para cada espectador. Global: una sola espera para todos.'
@@ -222,15 +213,16 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                         position="left"
                       />
                     </div>
-                    <select
-                      class="plg-select"
+                    <Select
+                      id="eventCooldownScope"
                       name="cooldownScope"
                       value={draftValue.cooldownScope}
-                      onChange={(node) => update({ cooldownScope: (node.currentTarget as HTMLSelectElement).value === 'global' ? 'global' : 'user' })}
-                    >
-                      <option value="user">{t(props.locale, 'behavior.copy.perUser')}</option>
-                      <option value="global">{t(props.locale, 'behavior.copy.global')}</option>
-                    </select>
+                      options={[
+                        { value: 'user', label: t(props.locale, 'behavior.copy.perUser') },
+                        { value: 'global', label: t(props.locale, 'behavior.copy.global') },
+                      ]}
+                      onValueChange={(next) => update({ cooldownScope: next === 'global' ? 'global' : 'user' })}
+                    />
                   </div>
                   )}
                 </div>

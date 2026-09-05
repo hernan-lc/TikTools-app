@@ -4,6 +4,7 @@ import type { VNodeChild } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 
 import { Modal } from './Modal.vue';
+import { SearchInput, TextInput } from './TextInput.vue';
 
 export type PickerOption = {
   /** What gets stored in the filter. */
@@ -109,13 +110,11 @@ export const PickerModal = defineVueComponent<PickerModalProps>(
         : undefined}
     >
       <div class="ui-picker__tools">
-        <input
-          class="plg-input"
+        <SearchInput
           name="pickerSearch"
-          type="search"
           value={query.value}
+          onValueChange={(next) => { query.value = next; }}
           placeholder={searchPlaceholder}
-          onInput={(event) => (query.value = (event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
@@ -158,19 +157,15 @@ export const PickerModal = defineVueComponent<PickerModalProps>(
           list has nothing to offer, or nothing matches what is being searched. */}
       {manualLabel && (props.options.length === 0 || (query.value.trim().length > 0 && visible.value.length === 0)) && (
         <div class="ui-picker__manual">
-          <label class="plg-label">{manualLabel}</label>
+          <label class="plg-label" for="pickerManualValue">{manualLabel}</label>
           <div class="ui-picker__manual-row">
-            <input
-              class="plg-input"
+            <TextInput
+              id="pickerManualValue"
               name="manualValue"
               value={manualDraft.value}
+              onValueChange={(next) => { manual.value = next; }}
               placeholder={manualPlaceholder}
-              onInput={(event) => (manual.value = (event.currentTarget as HTMLInputElement).value)}
-              onKeydown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                addManual();
-              }}
+              onEnter={addManual}
             />
             <button type="button" class="plg-btn plg-btn--sm" onClick={addManual} disabled={!manualValue.value}>
               +
