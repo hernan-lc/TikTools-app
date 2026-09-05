@@ -1,11 +1,13 @@
 # Process audio plugin example
 
 This is a crash-isolated TikTools process plugin. It never opens or copies an
-audio file. It receives the configured path, returns a JSON `playAudio` intent,
-and lets the TikTools host validate the path and use its native audio backend.
+audio file. It receives the configured path, returns a typed SDK audio intent
+(encoded as JSON `playAudio`-compatible data), and lets the TikTools host
+validate the path and use its native audio backend.
 The executable is still trusted code with the operating-system permissions of
-the user; a process boundary is not an OS sandbox. The implementation itself
-is `#![forbid(unsafe_code)]` and communicates only through framed JSON.
+the user; a process boundary is not an OS sandbox. The implementation uses
+`tiktools-plugin-sdk` for framing and protocol plumbing and remains
+`#![forbid(unsafe_code)]`.
 
 Build it outside the application workspace:
 

@@ -25,6 +25,17 @@ pub enum PluginRuntimeKind {
     Process,
 }
 
+/// Runtime boundary semantics used for host policy and documentation. This
+/// is intentionally separate from the serialized `trust` field so schema v2
+/// values remain compatible while process isolation is not mislabeled as a
+/// sandbox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PluginSecurityModel {
+    Trusted,
+    Isolated,
+    Sandboxed,
+}
+
 impl PluginRuntimeKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
@@ -34,15 +45,42 @@ impl PluginRuntimeKind {
             _ => None,
         }
     }
+
+    pub const fn security_model(self) -> PluginSecurityModel {
+        match self {
+            Self::Native => PluginSecurityModel::Trusted,
+            Self::Process => PluginSecurityModel::Isolated,
+            Self::Wasm => PluginSecurityModel::Sandboxed,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum PluginTrust {
+    /// Trusted in-process native code, or a process executable whose OS
+    /// permissions remain outside TikTools' protocol policy.
     #[default]
     Trusted,
+    /// A runtime that supplies an actual execution sandbox, currently the
+    /// intended label for WASM. WASI grants still depend on host policy.
     Sandboxed,
+    /// Declarative package metadata; this value is not an OS sandbox by
+    /// itself and is preserved for manifest compatibility.
     Untrusted,
+}
+
+impl PluginTrust {
+    /// Returns the compatibility default for a runtime when a manifest omits
+    /// `trust`. A process boundary is isolation, not a security sandbox, so
+    /// process plugins intentionally retain the trusted label here. The
+    /// serialized trust values remain unchanged for existing packages.
+    pub const fn default_for_runtime(runtime: PluginRuntimeKind) -> Self {
+        match runtime {
+            PluginRuntimeKind::Wasm => Self::Sandboxed,
+            PluginRuntimeKind::Native | PluginRuntimeKind::Process => Self::Trusted,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -90,6 +128,10 @@ pub enum ManifestError {
 }
 
 impl PluginManifest {
+    pub const fn security_model(&self) -> PluginSecurityModel {
+        self.runtime.security_model()
+    }
+
     pub fn from_json_str(input: &str) -> Result<Self, ManifestError> {
         if input.len() > MAX_MANIFEST_BYTES {
             return Err(ManifestError::TooLarge);
@@ -137,11 +179,7 @@ impl PluginManifest {
             .and_then(|value| PluginRuntimeKind::parse(&value))
             .ok_or(ManifestError::MissingField("runtime"))?;
 
-        let default_trust = if runtime == PluginRuntimeKind::Native {
-            PluginTrust::Trusted
-        } else {
-            PluginTrust::Sandboxed
-        };
+        let default_trust = PluginTrust::default_for_runtime(runtime);
         let trust = match optional_string(object, "trust") {
             None => default_trust,
             Some(value) => match value.as_str() {
@@ -572,6 +610,26 @@ mod tests {
         // Missing title default is rejected.
         assert!(validate_event_type(&serde_json::json!({"type": "hotkey.pressed"})).is_err());
         assert!(validate_event_type(&serde_json::json!({"type": "hotkey.pressed", "title": {"default": "Hotkey pressed"}, "fields": [{"path": "event.data.key", "kind": "image"}]})).is_err());
+    }
+
+    #[test]
+    fn omitted_trust_does_not_call_process_isolation_a_sandbox() {
+        let process = PluginManifest::from_json_str(
+            r#"{"schemaVersion":2,"id":"process","name":"Process","version":"1.0.0","runtime":"process","entry":"plugin.exe"}"#,
+        )
+        .unwrap();
+        let wasm = PluginManifest::from_json_str(
+            r#"{"schemaVersion":2,"id":"wasm","name":"WASM","version":"1.0.0","runtime":"wasm","entry":"plugin.wasm"}"#,
+        )
+        .unwrap();
+        assert_eq!(process.trust, PluginTrust::Trusted);
+        assert_eq!(wasm.trust, PluginTrust::Sandboxed);
+        assert_eq!(process.security_model(), PluginSecurityModel::Isolated);
+        assert_eq!(wasm.security_model(), PluginSecurityModel::Sandboxed);
+        assert_eq!(
+            PluginRuntimeKind::Native.security_model(),
+            PluginSecurityModel::Trusted
+        );
     }
 
     #[test]

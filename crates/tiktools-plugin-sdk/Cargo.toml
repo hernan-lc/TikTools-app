@@ -1,0 +1,15 @@
+[package]
+name = "tiktools-plugin-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Developer-friendly, runtime-neutral SDK for TikTools plugins"
+
+[dependencies]
+tiktools-plugin-api = { path = "../tiktools-plugin-api" }
+tiktools-plugin-macros = { path = "../tiktools-plugin-macros" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+

@@ -65,8 +65,9 @@ See [Automations](AUTOMATIONS.md) for the event model, templates, script actions
 Plugins add optional action types and dependencies. Built-in actions are always available. Plugin actions appear only when their plugin is installed, enabled, and its dependency is available.
 
 Review a runtime plugin manifest and its permissions before enabling it. Native
-plugins are trusted in-process code; process and WASM plugins provide stronger
-crash/isolation boundaries.
+plugins are trusted in-process code; process plugins provide crash isolation,
+while WASM provides a sandbox boundary whose WASI and host capabilities are
+explicitly selected by TikTools.
 
 ### Settings
 

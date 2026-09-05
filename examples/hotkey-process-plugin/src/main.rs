@@ -22,16 +22,12 @@
 
 use std::{
     collections::{BTreeSet, VecDeque},
-    io::{self, BufReader, BufWriter},
     sync::{Arc, Mutex},
 };
 
 use rdev::{listen, Event, EventType};
-use serde_json::{json, Value};
-use tiktools_plugin_api::{
-    read_frame, write_frame, FrameError, PluginRequest, PluginResponse, METHOD_CALL,
-    TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
-};
+use serde_json::json;
+use tiktools_plugin_sdk::prelude::*;
 
 /// Rolling history behind `event.data.sequence`.
 const MAX_SEQUENCE_KEYS: usize = 8;
@@ -53,79 +49,64 @@ struct PendingEvent {
     sequence: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let state = Arc::new(Mutex::new(KeyState::default()));
-    let pending: Arc<Mutex<VecDeque<PendingEvent>>> = Arc::new(Mutex::new(VecDeque::new()));
-
-    let listen_state = Arc::clone(&state);
-    let listen_pending = Arc::clone(&pending);
-    std::thread::spawn(move || {
-        if let Err(error) = listen(move |event| {
-            on_input_event(&listen_state, &listen_pending, event);
-        }) {
-            eprintln!("hotkey listener stopped; polls will return no events: {error:?}");
-        }
-    });
-
-    let stdin = io::stdin();
-    let stdout = io::stdout();
-    let mut reader = BufReader::new(stdin.lock());
-    let mut writer = BufWriter::new(stdout.lock());
-
-    loop {
-        let request = match read_frame::<_, PluginRequest>(&mut reader) {
-            Ok(request) => request,
-            Err(FrameError::Io(error)) if error.kind() == io::ErrorKind::UnexpectedEof => break,
-            Err(error) => return Err(error.into()),
-        };
-        let response = handle(request, &pending);
-        write_frame(&mut writer, &response)?;
-    }
-    Ok(())
+struct HotkeyPlugin {
+    pending: Arc<Mutex<VecDeque<PendingEvent>>>,
 }
 
-fn handle(request: PluginRequest, pending: &Mutex<VecDeque<PendingEvent>>) -> PluginResponse {
-    if request.protocol_version != TIKTOOLS_PLUGIN_PROTOCOL_VERSION {
-        return failure(
-            request.id,
-            format!("unsupported protocol version {}", request.protocol_version),
-        );
-    }
-    if request.method != METHOD_CALL {
-        return failure(request.id, format!("unsupported method `{}`", request.method));
-    }
-    match request.payload.get("type").and_then(Value::as_str) {
-        Some("poll") => poll(request.id, pending),
-        Some("action") => ok(
-            request.id,
-            json!({"summary": "hotkey listener has no actions; configure hotkey.pressed events instead"}),
-        ),
-        other => failure(
-            request.id,
-            format!("unsupported call type `{}`", other.unwrap_or("missing")),
-        ),
+impl Default for HotkeyPlugin {
+    fn default() -> Self {
+        let state = Arc::new(Mutex::new(KeyState::default()));
+        let pending = Arc::new(Mutex::new(VecDeque::new()));
+
+        let listen_state = Arc::clone(&state);
+        let listen_pending = Arc::clone(&pending);
+        std::thread::spawn(move || {
+            if let Err(error) = listen(move |event| {
+                on_input_event(&listen_state, &listen_pending, event);
+            }) {
+                eprintln!("hotkey listener stopped; polls will return no events: {error:?}");
+            }
+        });
+
+        Self { pending }
     }
 }
 
-/// Drains presses observed since the previous poll into host events.
-fn poll(id: String, pending: &Mutex<VecDeque<PendingEvent>>) -> PluginResponse {
-    let events: Vec<Value> = pending
-        .lock()
-        .expect("pending hotkey events poisoned")
-        .drain(..)
-        .map(|event| {
-            json!({
-                "type": "hotkey.pressed",
-                "data": {
-                    "key": event.key,
-                    "modifiers": event.modifiers,
-                    "sequence": event.sequence,
-                }
+impl Plugin for HotkeyPlugin {
+    fn action(
+        &mut self,
+        _context: &PluginContext,
+        _call: ActionCall,
+    ) -> PluginResult<ActionResult> {
+        Ok(ActionResult::summary(
+            "hotkey listener has no actions; configure hotkey.pressed events instead",
+        ))
+    }
+
+    fn poll(&mut self, _context: &PluginContext) -> PluginResult<PollResult> {
+        let events = self
+            .pending
+            .lock()
+            .expect("pending hotkey events poisoned")
+            .drain(..)
+            .map(|event| {
+                PluginEvent::new(
+                    "hotkey.pressed",
+                    json!({
+                        "key": event.key,
+                        "modifiers": event.modifiers,
+                        "sequence": event.sequence,
+                    }),
+                )
             })
-        })
-        .collect();
-    ok(id, json!({"events": events}))
+            .collect::<PluginResult<Vec<_>>>()?;
+        Ok(events
+            .into_iter()
+            .fold(PollResult::default(), |result, event| result.event(event)))
+    }
 }
+
+tiktools_process_plugin!(HotkeyPlugin);
 
 fn on_input_event(
     state: &Mutex<KeyState>,
@@ -258,26 +239,6 @@ fn key_name(key: &rdev::Key) -> String {
         name if name.starts_with("Numpad") && name.len() == 7 => name[6..].to_owned(),
         name if name.starts_with("Kp") && name.len() == 3 => name[2..].to_owned(),
         other => other.to_lowercase(),
-    }
-}
-
-fn ok(id: String, result: Value) -> PluginResponse {
-    PluginResponse {
-        protocol_version: TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
-        id,
-        ok: true,
-        result: Some(result),
-        error: None,
-    }
-}
-
-fn failure(id: String, error: String) -> PluginResponse {
-    PluginResponse {
-        protocol_version: TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
-        id,
-        ok: false,
-        result: None,
-        error: Some(error),
     }
 }
 

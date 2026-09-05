@@ -2,9 +2,10 @@
 //!
 //! The discovery/API surface is present from the first migration milestone,
 //! but the WASM engine is deliberately opt-in. This keeps normal core and
-//! desktop iteration free of Wasmtime/Extism compilation. The feature is the
-//! place to add the chosen engine and capability imports without changing the
-//! host/plugin protocol.
+//! desktop iteration free of Wasmtime/Extism compilation. When implemented,
+//! the adapter should target the WASM Component Model with capability-oriented
+//! WASI Preview 2 / WASI 0.2-style interfaces and explicit TikTools imports,
+//! rather than coupling the SDK to WASI Preview 1 file descriptors.
 
 use std::path::Path;
 

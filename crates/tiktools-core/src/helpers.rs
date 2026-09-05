@@ -377,21 +377,23 @@ pub(crate) fn fresh_poll_context(source: &Value) -> Value {
 /// Parses a plugin `poll` response into publishable `(type, data)` pairs.
 /// Unknown types, non-object payloads, and oversized payloads are dropped so
 /// one misbehaving plugin cannot poison the automation pipeline.
-pub(crate) fn parse_polled_events(declared: &[String], response: &Value) -> Vec<(String, Value)> {
+pub(crate) fn parse_polled_events(
+    declared: &[String],
+    response: &tiktools_plugin_sdk::PluginCallResult,
+) -> Vec<(String, Value)> {
     response
-        .get("events")
-        .into_iter()
-        .flat_map(as_values)
-        .filter_map(Value::as_object)
+        .events
+        .iter()
+        .filter_map(|event| {
+            let event_type = event.event_type.as_str();
+            let data = &event.data;
+            let object = data.as_object()?;
+            Some((event_type, object, data))
+        })
         .take(MAX_POLLED_EVENTS_PER_TICK)
-        .filter_map(|intent| {
-            let event_type = intent.get("type").and_then(Value::as_str)?;
+        .filter_map(|(event_type, _object, data)| {
             let event_type = normalize_emit_type(event_type).ok()?;
             if !declared.contains(&event_type) {
-                return None;
-            }
-            let data = intent.get("data").cloned().unwrap_or(Value::Null);
-            if !data.is_object() {
                 return None;
             }
             if serde_json::to_vec(&data)
@@ -400,7 +402,7 @@ pub(crate) fn parse_polled_events(declared: &[String], response: &Value) -> Vec<
             {
                 return None;
             }
-            Some((event_type, data))
+            Some((event_type, data.clone()))
         })
         .collect()
 }

@@ -2,8 +2,8 @@
 //!
 //! The loader owns no GUI objects and has no compile-time plugin registry.
 //! Every plugin is found through a package directory and a manifest at
-//! runtime. Native plugins are trusted code; process plugins are the crash
-//! boundary for standalone executables.
+//! runtime. Native plugins are trusted in-process code; process plugins are
+//! isolated executables with a crash boundary, not an OS sandbox.
 
 #[cfg(feature = "plugin-install")]
 mod installer;

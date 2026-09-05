@@ -3,6 +3,8 @@ members = [
     "crates/tiktools-desktop",
     "crates/tiktools-core",
     "crates/tiktools-plugin-api",
+    "crates/tiktools-plugin-sdk",
+    "crates/tiktools-plugin-macros",
     "crates/tiktools-plugin-loader",
     "crates/tiktools-tiktok",
 ]

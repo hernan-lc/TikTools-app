@@ -18,6 +18,7 @@ native-tiktok = ["dep:tiktools-tiktok"]
 
 [dependencies]
 tiktools-plugin-api = { path = "../tiktools-plugin-api" }
+tiktools-plugin-sdk = { path = "../tiktools-plugin-sdk" }
 tiktools-plugin-loader = { path = "../tiktools-plugin-loader", default-features = false }
 tiktools-tiktok = { path = "../tiktools-tiktok", optional = true }
 serde.workspace = true

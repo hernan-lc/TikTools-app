@@ -10,8 +10,8 @@ The executable watches the OS keyboard through
 tracks modifiers plus a rolling 8-key sequence, and answers the host `poll`
 call with everything observed since the previous tick. It never sends
 keystrokes anywhere; it only reports what was pressed. The implementation
-itself is `#![forbid(unsafe_code)]` and communicates only through framed
-JSON.
+uses `tiktools-plugin-sdk` for framing, typed events, and protocol plumbing;
+it remains `#![forbid(unsafe_code)]`.
 
 Build it outside the application workspace:
 

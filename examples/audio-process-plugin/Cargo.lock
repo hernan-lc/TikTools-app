@@ -111,16 +111,31 @@ name = "tiktools-audio-process-plugin"
 version = "0.1.0"
 dependencies = [
  "serde_json",
- "tiktools-plugin-api",
+ "tiktools-plugin-sdk",
 ]
 
 [[package]]
 name = "tiktools-plugin-api"
-version = "0.1.2"
+version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "tiktools-plugin-macros"
+version = "0.1.5"
+
+[[package]]
+name = "tiktools-plugin-sdk"
+version = "0.1.5"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tiktools-plugin-api",
+ "tiktools-plugin-macros",
 ]
 
 [[package]]

@@ -17,6 +17,7 @@ bun run test
 cargo check -p tiktools-core --locked
 cargo test -p tiktools-core --locked
 cargo check -p tiktools-plugin-api --locked
+cargo test -p tiktools-plugin-sdk --locked
 cargo check -p tiktools-tiktok --locked
 ```
 
@@ -101,6 +102,10 @@ first, then tag. To ship `vX.Y.Z`:
 - `crates/tiktools-tiktok`: native discovery, signing, WebSocket reconnects,
   decode, and stable event values.
 - `crates/tiktools-plugin-api`: manifest, protocol, capability names, and C ABI.
+- `crates/tiktools-plugin-sdk`: typed plugin trait, process adapter, result
+  compatibility boundary, and runtime-neutral developer ergonomics.
+- `crates/tiktools-plugin-macros`: small generated process/native entry-point
+  bridges; unsafe FFI details stay in the SDK implementation.
 - `crates/tiktools-plugin-loader`: runtime scanning, validation, installation,
   dynamic native libraries, process plugins, and the optional WASM boundary.
 - `src/web`: Vue presentation only.
@@ -149,11 +154,14 @@ implementation in core.
 
 ## Plugin development
 
-Use `tiktools-plugin-api` as the small SDK. Native plugins export
-`tiktools_plugin_init` and pass serialized bytes through the C ABI. Do not pass
-Rust `String`, `Vec`, trait objects, or futures across that boundary. Process
-plugins are standalone executables speaking length-prefixed JSON on stdin and
-stdout. JavaScript source files are not silently executed by the desktop host.
+Use `tiktools-plugin-sdk` for Rust plugin ergonomics and
+`tiktools-plugin-api` for low-level bindings. Native plugins export
+`tiktools_plugin_init` through `tiktools_export_native_plugin!`; the bridge
+passes serialized bytes through the C ABI. Do not pass Rust `String`, `Vec`,
+trait objects, or futures across that boundary. Process plugins are standalone
+executables speaking length-prefixed JSON on stdin and stdout; they are
+isolated for crashes, not sandboxed. JavaScript source files are not silently
+executed by the desktop host.
 
 Install a package after compilation:
 

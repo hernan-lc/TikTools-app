@@ -1,0 +1,11 @@
+[package]
+name = "tiktools-plugin-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Small proc macros for TikTools plugin runtime bridges"
+
+[lib]
+proc-macro = true
+

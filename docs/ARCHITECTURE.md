@@ -27,6 +27,8 @@ tiktools-desktop
   ├── winit + wry + tray-icon
   └── tiktools-core
         ├── tiktools-plugin-api
+        ├── tiktools-plugin-sdk
+        ├── tiktools-plugin-macros
         ├── tiktools-plugin-loader
         └── tiktools-tiktok
 ```
@@ -35,6 +37,12 @@ tiktools-desktop
 `HostEmitter`, a small trait that carries serialized `HostMessage` values. The
 desktop implementation sends those messages to the UI thread through
 `EventLoopProxy`; only that thread calls `WebView::evaluate_script`.
+
+Plugin calls converge at the SDK's typed request/result boundary. Core keeps
+plugin lifecycle and polling in `plugin_runtime.rs`, capability-checked host
+effects in `plugin_intents.rs`, and general automation orchestration in
+`automation_runtime.rs`. The SDK compatibility decoder is the only place that
+translates legacy `emit` and `playAudio` response keys.
 
 ## Desktop lifecycle
 

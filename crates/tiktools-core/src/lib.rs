@@ -16,6 +16,8 @@ mod helpers;
 mod ipc_handlers;
 mod live_events;
 mod persistence;
+mod plugin_intents;
+mod plugin_runtime;
 #[cfg(test)]
 mod tests;
 

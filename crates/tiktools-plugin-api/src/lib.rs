@@ -10,7 +10,8 @@ pub mod media;
 pub mod protocol;
 
 pub use abi::{PluginBuffer, PluginInit, PluginStatus, TikToolsPluginApi};
-pub use manifest::{PluginManifest, PluginRuntimeKind, PluginTrust};
+pub use capabilities::{CapabilityId, CapabilitySet, PermissionSet};
+pub use manifest::{PluginManifest, PluginRuntimeKind, PluginSecurityModel, PluginTrust};
 pub use media::{
     AudioOverlap, AudioPlayOptions, AudioPlaybackResult, MediaDirectoryRef, MediaFileRef,
     MediaKind, MediaPickerMode, MediaPickerOptions, MediaSelection, AUDIO_PLAY_INTENT,

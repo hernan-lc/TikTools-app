@@ -71,8 +71,10 @@ audio objects, or arbitrary host callbacks through the TikTools protocol. They
 return a bounded JSON `playAudio` intent. The core capability broker checks the
 plugin manifest and the host validates the path before invoking the desktop
 provider. A process is a crash boundary, not an OS sandbox: its executable
-still has the user's normal permissions. The optional WASM runtime is the
-place for explicit WASI/host imports when untrusted code must be supported.
+still has the user's normal permissions. WASM provides the execution sandbox;
+WASI must be explicitly configured and only grants the system capabilities the
+host chooses to expose. The optional WASM runtime is the place for explicit
+WASI/host imports when untrusted code must be supported.
 
 Native libraries remain trusted code and are not a sandbox. Use the process or
 WASM runtime for downloadable/untrusted extensions.

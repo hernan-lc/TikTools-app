@@ -494,25 +494,25 @@ mod tests {
     #[test]
     fn poll_responses_keep_only_declared_typed_events() {
         let declared = vec!["hotkey.pressed".to_owned()];
-        let events = crate::parse_polled_events(
-            &declared,
-            &json!({"events": [
-                {"type": "hotkey.pressed", "data": {"key": "ctrl+k"}},
-                {"type": "tiktok.chat", "data": {}},
-                {"type": "hotkey.pressed", "data": "nope"},
-                {"type": "other.thing", "data": {}},
-            ]}),
-        );
+        let response = tiktools_plugin_sdk::decode_plugin_result(json!({"events": [
+            {"type": "hotkey.pressed", "data": {"key": "ctrl+k"}},
+            {"type": "tiktok.chat", "data": {}},
+            {"type": "hotkey.pressed", "data": "nope"},
+            {"type": "other.thing", "data": {}},
+        ]}))
+        .unwrap();
+        let events = crate::parse_polled_events(&declared, &response);
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].0, "hotkey.pressed");
         assert_eq!(events[0].1, json!({"key": "ctrl+k"}));
 
         // Oversized payloads are dropped.
         let big = "x".repeat(70 * 1024);
-        let events = crate::parse_polled_events(
-            &declared,
-            &json!({"events": [{"type": "hotkey.pressed", "data": {"blob": big}}]}),
-        );
+        let response = tiktools_plugin_sdk::decode_plugin_result(
+            json!({"events": [{"type": "hotkey.pressed", "data": {"blob": big}}]}),
+        )
+        .unwrap();
+        let events = crate::parse_polled_events(&declared, &response);
         assert!(events.is_empty());
     }
 }

@@ -31,9 +31,10 @@ The manifest is versioned and explicit:
 }
 ```
 
-The same logical plugin protocol is used by the native, process, and optional
-WASM runtime implementations. The API is defined in
-`crates/tiktools-plugin-api`; runtime loading is isolated in
+The same typed request/result boundary is used by the native, process, and
+future WASM runtime adapters. The low-level contracts are defined in
+`crates/tiktools-plugin-api`; the developer-facing Rust SDK is
+`crates/tiktools-plugin-sdk`; runtime loading is isolated in
 `crates/tiktools-plugin-loader`.
 
 ## Runtime kinds
@@ -51,19 +52,30 @@ after replacing one.
 
 Process plugins are standalone executables. The host launches the declared
 entry and exchanges length-prefixed JSON on stdin/stdout. A process crash is
-contained at the process boundary. The host does not interpret or silently
-launch JavaScript source files; a JavaScript plugin must be packaged as its own
-executable or use the bounded `napi-vm` automation surface.
+contained at the process boundary, but the executable still has the normal OS
+permissions of its user and is not a security sandbox. The host does not
+interpret or silently launch JavaScript source files; a JavaScript plugin must
+be packaged as its own executable or use the bounded `napi-vm` automation
+surface.
 
 The example at `examples/audio-process-plugin` demonstrates a complete process
 plugin. It returns a `playAudio` intent; it does not open the file itself.
 
 ### WASM
 
-WASM is an optional runtime boundary for untrusted or cross-platform logic.
-The current workspace exposes the runtime slot without adding Wasmtime or
-Extism to normal builds. When enabled, host capabilities are provided as
-explicit imports and checked against the manifest.
+WASM is an optional execution sandbox boundary for untrusted or cross-platform
+logic. The current workspace exposes the runtime slot without adding Wasmtime
+or Extism to normal builds. WASI is not an automatic safety switch: it is the
+capability-oriented system interface the host chooses to expose inside WASM.
+No WASI imports means a very narrow sandbox; a single preopened plugin-data
+directory is scoped filesystem access; broad filesystem or network imports
+weaken that boundary. The future direction is the WASM Component Model with
+WASI Preview 2 / WASI 0.2-style interfaces plus TikTools host capabilities.
+
+The low-level API exposes this mapping as `PluginSecurityModel`: native is
+`Trusted`, process is `Isolated`, and WASM is `Sandboxed`. The existing
+manifest `trust` strings remain schema-v2 compatible metadata and are not a
+substitute for the runtime boundary.
 
 ## Capabilities and permissions
 
@@ -204,6 +216,22 @@ the package into the user plugin directory. The usual runtime directory is
 
 ## SDK guidance
 
-Plugin authors should depend on `tiktools-plugin-api` only. Do not depend on
-Wry, Winit, SQLite, or the TikTok client. Keep requests and responses JSON
-serializable, cap payload sizes, and make shutdown idempotent.
+Rust plugin authors should depend on `tiktools-plugin-sdk` and use
+`tiktools_plugin_sdk::prelude::*`. The SDK owns framing, protocol validation,
+typed calls/results, common errors, and response helpers. A process plugin can
+be as small as:
+
+```rust
+#[derive(Default)]
+struct ExamplePlugin;
+
+impl Plugin for ExamplePlugin {}
+
+tiktools_process_plugin!(ExamplePlugin);
+```
+
+Native plugins can use `tiktools_export_native_plugin!(ExamplePlugin);` for the
+same reviewed FFI bridge. Do not depend on Wry, Winit, SQLite, or the TikTok
+client. Keep payloads bounded and shutdown idempotent. The low-level
+`tiktools-plugin-api` crate remains available for other languages and custom
+runtime adapters.

@@ -111,6 +111,8 @@ cargo run -p tiktools-desktop --locked -- --install-plugin ./example.plugin --re
 crates/tiktools-desktop/       Winit, Wry, tray, UI-thread bridge
 crates/tiktools-core/          IPC router, services, SQLite, points, events
 crates/tiktools-plugin-api/    Versioned manifest, protocol, capabilities, ABI
+crates/tiktools-plugin-sdk/    Typed plugin trait, adapters, result compatibility
+crates/tiktools-plugin-macros/ Small process/native entry-point macros
 crates/tiktools-plugin-loader/ Runtime discovery and plugin runtimes
 crates/tiktools-tiktok/        Native signer, discovery, WebSocket, event model
 src/web/                       Vue application and styles
