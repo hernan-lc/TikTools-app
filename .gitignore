@@ -1,6 +1,7 @@
 node_modules
 dist
 out
+release/
 .plugin-staging
 .dev-plugins
 target/
@@ -8,6 +9,9 @@ target/
 !plugins/**/dist/**
 .DS_Store
 *.log*
+.env
+.env.*
+!.env.example
 data/*.db
 data/*.db-shm
 data/*.db-wal

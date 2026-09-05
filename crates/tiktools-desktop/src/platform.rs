@@ -43,7 +43,7 @@ pub fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn configure_event_loop<T>(builder: &mut EventLoopBuilder<T>) {
+pub fn configure_event_loop<T>(_builder: &mut EventLoopBuilder<T>) {
     #[cfg(target_os = "linux")]
     if std::env::var_os("DISPLAY").is_some()
         && std::env::var_os("WAYLAND_DISPLAY").is_some()
@@ -51,7 +51,7 @@ pub fn configure_event_loop<T>(builder: &mut EventLoopBuilder<T>) {
     {
         use winit::platform::x11::EventLoopBuilderExtX11;
 
-        builder.with_x11();
+        _builder.with_x11();
         tracing::debug!("using X11/XWayland for the Winit/Wry child WebView");
     }
 }

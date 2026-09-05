@@ -408,7 +408,7 @@ impl AppCore {
                 let diamonds = (*diamond_count).max(1);
                 let total_diamonds = diamonds.saturating_mul(count);
                 let mut options = base_options();
-                if !(*streakable && !*repeat_end) {
+                if !*streakable || *repeat_end {
                     options.diamond_count = Some(total_diamonds as f64);
                 }
                 let event = json!({

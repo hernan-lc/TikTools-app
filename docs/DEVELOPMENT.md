@@ -4,15 +4,20 @@ TikTools has two intentionally separate edit loops: Bun runs Vite/Vue
 builds/tests, and Cargo builds/tests the Rust host. The desktop integration
 is only needed when changing Winit, Wry, the tray, or the final IPC bridge.
 
+Bun 1.4.0 is the supported frontend version and is pinned in `package.json`.
+Use `bun ci` for a clean install from `bun.lock`; run `bun install` only when
+changing dependencies intentionally.
+
 ## Fast checks
 
 ```bash
-cargo check -p tiktools-core
-cargo test -p tiktools-core
-cargo check -p tiktools-plugin-api
-cargo check -p tiktools-tiktok
+bun run lint
 bun run typecheck
 bun run test
+cargo check -p tiktools-core --locked
+cargo test -p tiktools-core --locked
+cargo check -p tiktools-plugin-api --locked
+cargo check -p tiktools-tiktok --locked
 ```
 
 The core checks do not compile Winit, Wry, GTK, or tray integration. The
@@ -23,8 +28,8 @@ TikTok, and WASM boundaries explicit.
 
 ```bash
 bun run build:web
-cargo check -p tiktools-desktop
-cargo run -p tiktools-desktop
+cargo check -p tiktools-desktop --locked
+cargo run -p tiktools-desktop --locked
 ```
 
 The normal `bun run start` command also runs
@@ -40,15 +45,41 @@ For live frontend changes:
 
 ```bash
 bun run serve:web
-TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
 Release builds use the custom `tiktools://app` protocol:
 
 ```bash
 bun run build:web
-cargo build -p tiktools-desktop --release
+cargo build -p tiktools-desktop --release --locked
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 ```
+
+The portable release package is assembled by `scripts/package-release.ts`.
+Set `RELEASE_TAG` and one of `windows-x86_64`, `linux-x86_64`,
+`macos-arm64`, or `macos-x86_64` as `RELEASE_PLATFORM` after building:
+
+```bash
+RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=linux-x86_64 bun run package:release
+```
+
+The resulting archive has this layout and is validated before it is returned:
+
+```text
+TikTools/
+├── LICENSE
+├── README.md
+├── tiktools-desktop[.exe]
+└── web/
+    ├── index.html
+    └── assets/
+```
+
+`bun run check:version` compares `package.json` with the canonical
+`[workspace.package].version` in `Cargo.toml`; pass a tag to validate a
+release, for example `bun run check:version v0.1.0`.
 
 ## Source ownership
 
@@ -116,7 +147,7 @@ stdout. JavaScript source files are not silently executed by the desktop host.
 Install a package after compilation:
 
 ```bash
-cargo run -p tiktools-desktop -- --install-plugin ./my-plugin.plugin
+cargo run -p tiktools-desktop --locked -- --install-plugin ./my-plugin.plugin
 ```
 
 The installer validates manifest schema, checksums, package-relative paths,
@@ -136,11 +167,30 @@ overwrite a user's destination database during path migration.
 ## Verification before commit
 
 ```bash
+bun ci
 cargo fmt --all -- --check
-cargo test --workspace
-cargo check -p tiktools-desktop
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked
+cargo build -p tiktools-desktop --release --locked
+cargo check -p tiktools-desktop --locked
+bun run lint
 bun run typecheck
 bun run test
 bun run build:web
 git diff --check
 ```
+
+## Branch protection recommendation
+
+Repository settings are intentionally managed in GitHub rather than by this
+repository. Protect `remake` by requiring pull requests, up-to-date branches,
+and these checks before merge:
+
+- `frontend`
+- `rust`
+- each desktop cross-platform check
+- CodeQL where available
+- dependency review where available
+
+Also prevent force pushes and branch deletion. Release tags are controlled by
+maintainers.

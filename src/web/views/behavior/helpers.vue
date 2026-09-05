@@ -1,5 +1,4 @@
 <script lang="tsx">
-import { defineVueComponent } from '../../vue/component.ts';
 import { IconSelect } from '../../components/ui/IconSelect.vue';
 import { OPERATOR_LABELS } from '../../components/condition-icons.vue';
 import { findField } from '../../../automation/behavior/fields.ts';
@@ -8,7 +7,6 @@ import {
   createActionId,
   createEventId,
   readString,
-  readStringMap,
 } from '../../../automation/behavior/schema.ts';
 import type {
   ActionTypeDefinition,

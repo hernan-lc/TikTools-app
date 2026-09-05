@@ -1,8 +1,9 @@
 {
   "name": "tiktok-live-appv3",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
   "private": true,
+  "packageManager": "bun@1.4.0",
   "scripts": {
     "start": "bun run scripts/start-dev.ts",
     "prepare:dev-plugins": "bun run scripts/prepare-dev-plugins.ts",
@@ -10,18 +11,31 @@
     "dev": "bun run serve:web",
     "build:web": "vite build",
     "serve:web": "vite --host 127.0.0.1",
+    "lint": "eslint src scripts vite.config.ts --max-warnings=0",
     "typecheck": "vue-tsc --noEmit",
     "test": "bun test src/web src/automation",
-    "check:rust": "cargo check --workspace",
-    "test:rust": "cargo test --workspace",
-    "build:desktop": "cargo build -p tiktools-desktop --release"
+    "check:web": "bun run lint && bun run typecheck && bun run test && bun run build:web",
+    "check:rust": "cargo check --workspace --locked",
+    "lint:rust": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+    "fmt:rust": "cargo fmt --all -- --check",
+    "test:rust": "cargo test --workspace --locked",
+    "build:desktop": "cargo build -p tiktools-desktop --release --locked",
+    "check:version": "bun run scripts/check-version.ts",
+    "package:release": "bun run scripts/package-release.ts",
+    "ci": "bun run check:web"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/bun": "1.4.0",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitejs/plugin-vue-jsx": "^5.1.6",
-    "@types/bun": "latest",
+    "eslint": "^10.10.0",
+    "eslint-plugin-vue": "^10.10.0",
+    "globals": "^17.12.0",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.69.0",
     "vite": "^8.2.2",
+    "vue-eslint-parser": "^10.4.1",
     "vue-tsc": "^3.3.11"
   },
   "dependencies": {

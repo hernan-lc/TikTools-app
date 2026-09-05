@@ -20,15 +20,16 @@ points, and runs local automations. Tauri is not used.
 
 Requirements:
 
-- Rust 1.86 or newer and Cargo.
-- Bun for the Vue/Vite development toolchain and frontend asset build.
+- Rust 1.88 or newer and Cargo.
+- Bun 1.4.0 for the Vue/Vite development toolchain and frontend asset build.
 - Platform WebView dependencies. Linux uses WebKitGTK; see
   [Getting Started](docs/GETTING_STARTED.md).
 
 From a checkout:
 
 ```bash
-bun install
+bun ci
+bun run lint
 bun run typecheck
 bun run test
 bun run start
@@ -43,14 +44,16 @@ the frontend server and point the Rust host at it:
 
 ```bash
 bun run serve:web
-TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
-Release assets are served through the `tiktools://app/...` custom Wry protocol:
+Release assets are served through the `tiktools://app/...` custom Wry protocol.
+Portable packages contain the executable beside a `web/` directory:
 
 ```bash
 bun run build:web
-cargo build -p tiktools-desktop --release
+cargo build -p tiktools-desktop --release --locked
+RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=windows-x86_64 bun run package:release
 ```
 
 ## Commands
@@ -63,16 +66,43 @@ bun run dev               # Run the frontend development server
 bun run build:web         # Build dist/web
 bun run typecheck         # Type-check the Vue/editor source
 bun run test              # Run frontend and editor tests
-bun run check:rust        # Check every Cargo workspace crate
-bun run test:rust         # Run every Rust workspace test
-bun run build:desktop     # Build the release desktop executable
+bun run lint              # Run ESLint for Vue, TypeScript, and Bun scripts
+bun run check:web         # Lint, type-check, test, and build the frontend
+bun run check:rust        # Check every Cargo workspace crate with Cargo.lock
+bun run fmt:rust          # Check Rust formatting
+bun run lint:rust         # Run Clippy with warnings denied
+bun run test:rust         # Run every Rust workspace test with Cargo.lock
+bun run build:desktop     # Build the release desktop executable with Cargo.lock
+bun run check:version     # Validate package and Cargo versions
 ```
+
+## Development / Quality
+
+Use Bun 1.4.0, as pinned in `package.json`. `bun ci` installs exactly from
+`bun.lock`; use `bun install` only when intentionally changing dependencies.
+Before opening a pull request, run:
+
+```bash
+bun ci
+bun run lint
+bun run typecheck
+bun run test
+bun run build:web
+
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked
+```
+
+Pull requests targeting `remake` are expected to pass these checks and the
+desktop cross-platform compilation matrix in CI. See
+[Contributing](CONTRIBUTING.md) for the maintainer release and branch policy.
 
 Install a validated plugin package after the executable has been compiled:
 
 ```bash
-cargo run -p tiktools-desktop -- --install-plugin ./example.plugin
-cargo run -p tiktools-desktop -- --install-plugin ./example.plugin --replace
+cargo run -p tiktools-desktop --locked -- --install-plugin ./example.plugin
+cargo run -p tiktools-desktop --locked -- --install-plugin ./example.plugin --replace
 ```
 
 ## Project layout
@@ -147,6 +177,7 @@ Session cookies stay in memory and must never be committed or logged.
 - [Architecture](docs/ARCHITECTURE.md)
 - [Rust migration](docs/RUST_MIGRATION.md)
 - [Development Guide](docs/DEVELOPMENT.md)
+- [Contributing](CONTRIBUTING.md)
 - [Automations](docs/AUTOMATIONS.md)
 - [Plugins](docs/PLUGINS.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)

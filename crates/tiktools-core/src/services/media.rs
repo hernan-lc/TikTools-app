@@ -360,7 +360,10 @@ mod tests {
             reference.path,
             fs::canonicalize(&path).unwrap().to_string_lossy()
         );
-        assert_eq!(reference.directory, root.to_string_lossy());
+        assert_eq!(
+            reference.directory,
+            fs::canonicalize(&root).unwrap().to_string_lossy()
+        );
         assert_eq!(reference.size_bytes, 16);
         assert!(path.is_file());
         let _ = fs::remove_dir_all(root);

@@ -37,7 +37,6 @@ const OPERATORS: FilterOperator[] = [
   'is-false',
 ];
 
-const MAX_TEXT = 4_096;
 const MAX_CODE = 20_000;
 
 /** Bridge-only normalization for action ids that may belong to an unloaded plugin. */
@@ -173,20 +172,6 @@ export function readStringMap(value: JsonValue | undefined): Record<string, stri
   for (const [key, entry] of Object.entries(value)) {
     if (entry === undefined) continue;
     entries[key] = readString(entry);
-  }
-  return entries;
-}
-
-function stringMap(value: unknown): JsonObject {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const entries: JsonObject = {};
-  let count = 0;
-  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (count >= 24) break;
-    const cleanKey = key.trim().slice(0, 120);
-    if (!cleanKey) continue;
-    entries[cleanKey] = typeof entry === 'string' ? entry.slice(0, MAX_TEXT) : String(entry ?? '');
-    count += 1;
   }
   return entries;
 }

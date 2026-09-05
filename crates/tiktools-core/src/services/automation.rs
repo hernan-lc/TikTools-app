@@ -78,7 +78,7 @@ impl AutomationService {
         self.cooldowns
             .lock()
             .expect("automation cooldowns poisoned")
-            .retain(|key, _| !key.starts_with(&format!("{}:", id)));
+            .retain(|key, _| !key.starts_with(&format!("{id}:")));
     }
 
     pub fn matching_events(&self, event: &Value) -> Vec<Value> {
@@ -123,7 +123,7 @@ impl AutomationService {
                 .unwrap_or("anonymous")
                 .to_owned()
         };
-        let key = format!("{}:{}", id, scope);
+        let key = format!("{id}:{scope}");
         let mut cooldowns = self
             .cooldowns
             .lock()

@@ -113,15 +113,13 @@ impl PluginInstance for NativePluginInstance {
         let status =
             unsafe { handle_message(self.context, request.as_ptr(), request.len(), &mut response) };
         let bytes = if status == PluginStatus::Ok {
-            if response.len > tiktools_plugin_api::MAX_FRAME_BYTES
-                || (response.len > 0 && response.ptr.is_null())
-            {
-                unsafe { free_buffer(&mut response) };
-                return Err(PluginLoaderError::Runtime(
-                    "plugin returned an invalid buffer".to_owned(),
-                ));
+            match copy_plugin_response(&response) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    unsafe { free_buffer(&mut response) };
+                    return Err(error);
+                }
             }
-            unsafe { std::slice::from_raw_parts(response.ptr, response.len).to_vec() }
         } else {
             Vec::new()
         };
@@ -141,5 +139,57 @@ impl PluginInstance for NativePluginInstance {
         }
         self.context = std::ptr::null_mut();
         Ok(())
+    }
+}
+
+#[cfg(feature = "native-plugins")]
+fn copy_plugin_response(
+    response: &tiktools_plugin_api::PluginBuffer,
+) -> Result<Vec<u8>, PluginLoaderError> {
+    if response.len > tiktools_plugin_api::MAX_FRAME_BYTES
+        || (response.len > 0 && response.ptr.is_null())
+    {
+        return Err(PluginLoaderError::Runtime(
+            "plugin returned an invalid buffer".to_owned(),
+        ));
+    }
+    if response.len == 0 {
+        return Ok(Vec::new());
+    }
+
+    // SAFETY: the validation above guarantees a non-null pointer and bounds
+    // the number of bytes copied. The plugin owns the allocation until the
+    // caller invokes its free_buffer function.
+    Ok(unsafe { std::slice::from_raw_parts(response.ptr, response.len).to_vec() })
+}
+
+#[cfg(all(test, feature = "native-plugins"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_empty_response_without_dereferencing_a_null_pointer() {
+        let response = tiktools_plugin_api::PluginBuffer::empty();
+        assert_eq!(copy_plugin_response(&response).unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn rejects_non_empty_response_with_a_null_pointer() {
+        let response = tiktools_plugin_api::PluginBuffer {
+            ptr: std::ptr::null_mut(),
+            len: 1,
+            capacity: 0,
+        };
+        assert!(copy_plugin_response(&response).is_err());
+    }
+
+    #[test]
+    fn rejects_responses_larger_than_the_frame_limit() {
+        let response = tiktools_plugin_api::PluginBuffer {
+            ptr: std::ptr::null_mut(),
+            len: tiktools_plugin_api::MAX_FRAME_BYTES + 1,
+            capacity: 0,
+        };
+        assert!(copy_plugin_response(&response).is_err());
     }
 }

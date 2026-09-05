@@ -573,10 +573,7 @@ impl AppCore {
             Value::String(String::from_utf8_lossy(&bytes).into_owned())
         };
         let elapsed = now_millis().saturating_sub(started);
-        let log = format!(
-            "{} {} → {} ({} ms)",
-            method_name, configured_host, status, elapsed
-        );
+        let log = format!("{method_name} {configured_host} → {status} ({elapsed} ms)");
         tracing::info!(target: "tiktools::automation", message = %log, "HTTP action completed");
         logs.push(log);
 

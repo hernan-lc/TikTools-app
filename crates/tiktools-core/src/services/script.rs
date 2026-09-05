@@ -70,8 +70,7 @@ fn wrapped_source(source: &str) -> Result<String, String> {
     // declarations local to one invocation. The result is serialized inside
     // the VM, so no Rust object or host callback crosses the boundary.
     Ok(format!(
-        "JSON.stringify((function () {{\nfunction log(value) {{ console.log(value); }}\n{}\n}})())",
-        source
+        "JSON.stringify((function () {{\nfunction log(value) {{ console.log(value); }}\n{source}\n}})())"
     ))
 }
 

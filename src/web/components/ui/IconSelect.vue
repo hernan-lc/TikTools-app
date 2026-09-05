@@ -76,7 +76,7 @@ export const IconSelect = defineVueComponent<IconSelectProps>(
   };
 
   return () => {
-    const { value, options, onChange, ariaLabel, className = '', placeholder } = props;
+    const { value, options, ariaLabel, className = '', placeholder } = props;
     const selected = options.find((option) => option.value === value);
     return (
     <div class={`ui-select ${className}`.trim()} ref={rootRef}>

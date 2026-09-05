@@ -19,7 +19,6 @@ import {
   type SortMode,
 } from './behavior/helpers.vue';
 import type {
-  ActionTypeDefinition,
   BehaviorRun,
   BehaviorSnapshot,
   LiveAction,

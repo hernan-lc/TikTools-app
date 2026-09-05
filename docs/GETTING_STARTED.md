@@ -2,8 +2,9 @@
 
 ## Requirements
 
-- Rust 1.86 or newer with Cargo.
-- Bun for the frontend build and development server.
+- Rust 1.88 or newer with Cargo.
+- Bun 1.4.0 for the frontend build and development server. The version is
+  pinned by `package.json`.
 - A system WebView supported by Wry:
   - Windows: WebView2.
   - Linux: GTK and WebKitGTK development/runtime packages.
@@ -18,7 +19,8 @@ install its `-dev` package and retry.
 ## Install and run
 
 ```bash
-bun install
+bun ci
+bun run lint
 bun run typecheck
 bun run test
 bun run start
@@ -36,7 +38,7 @@ For UI-only iteration:
 
 ```bash
 bun run serve:web
-TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop
+TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
 To only rebuild and stage example plugins:
@@ -62,14 +64,16 @@ logs.
 ## Rust commands
 
 ```bash
-cargo check -p tiktools-core
-cargo test -p tiktools-core
-cargo check -p tiktools-desktop
-cargo test --workspace
-cargo build -p tiktools-desktop --release
+cargo check -p tiktools-core --locked
+cargo test -p tiktools-core --locked
+cargo check -p tiktools-desktop --locked
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --locked
+cargo build -p tiktools-desktop --release --locked
 ```
 
-The core-only commands avoid desktop dependencies. `cargo test --workspace`
+The core-only commands avoid desktop dependencies. `cargo test --workspace --locked`
 also exercises SQLite, plugin manifest/ABI, native event normalization, the
 bounded `napi-vm` adapter, and the Wry asset handler.
 
@@ -78,6 +82,7 @@ bounded `napi-vm` adapter, and the Wry asset handler.
 ```bash
 bun run build:web
 bun run serve:web
+bun run lint
 bun run typecheck
 bun run test
 ```
@@ -112,10 +117,30 @@ Build or obtain a validated `.plugin` package, then install it after the app
 binary exists:
 
 ```bash
-cargo run -p tiktools-desktop -- --install-plugin ./my-plugin.plugin
+cargo run -p tiktools-desktop --locked -- --install-plugin ./my-plugin.plugin
 ```
 
 The package must contain a schema-version-2 `plugin.json`. The installer
 rejects path traversal, unsafe symlinks, invalid checksums, incompatible
 protocol/ABI versions, and entries outside the package. Restart the app after
 replacing a native library; native hot-unloading is intentionally unsupported.
+
+## Release package layout
+
+Maintainer-controlled tags such as `v0.1.0` run the full CI quality gate before
+portable archives are published. Each archive contains the desktop executable,
+the packaged frontend, and the license:
+
+```text
+TikTools/
+├── LICENSE
+├── README.md
+├── tiktools-desktop[.exe]
+└── web/
+    ├── index.html
+    └── assets/
+```
+
+The release workflow produces Windows x86_64 ZIP, Linux x86_64 tar.gz, and
+macOS arm64/x86_64 tar.gz artifacts plus `SHA256SUMS.txt`. Release builds use
+the packaged `web/` directory and never depend on `TIKTOOLS_DEV_URL`.

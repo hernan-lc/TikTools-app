@@ -1,6 +1,6 @@
 import { defineComponent, type DefineSetupFnComponent, type SetupContext, type VNodeChild } from 'vue';
 
-export type VueProps = Record<string, any>;
+export type VueProps = object;
 
 type PublicVueProps<Props extends VueProps> = Omit<Props, 'children'> & {
   children?: Props extends { children?: infer Child } ? Child : VNodeChild;

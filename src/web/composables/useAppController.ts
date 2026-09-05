@@ -9,7 +9,7 @@ import type {
   PageMessage,
   PluginSettingValues,
 } from '../../shared/messages.ts';
-import type { AutomationEventType, JsonObject } from '../../automation/types.ts';
+import type { AutomationEventType } from '../../automation/types.ts';
 import type { BehaviorRun, BehaviorSnapshot, LiveAction, LiveEvent } from '../../automation/behavior/types.ts';
 import {
   addRecentUsername,

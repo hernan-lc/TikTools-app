@@ -4,7 +4,7 @@ import { defineVueComponent } from '../../vue/component.ts';
 import { readFormValues, type FormSchema } from './control-events.ts';
 
 import type { AutomationEvent, AutomationEventType, JsonObject, JsonValue } from '../../../automation/types.ts';
-import type { ActionTypeDefinition, Localized } from '../../../automation/behavior/types.ts';
+import type { ActionTypeDefinition } from '../../../automation/behavior/types.ts';
 import { TemplateField } from '../node-editor/TemplateField.vue';
 import { getFetchUrlTemplates, getTemplateSuggestions, type TemplateSuggestion, type TemplateSuggestionScope } from '../node-editor/template-suggestions.ts';
 import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';

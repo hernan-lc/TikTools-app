@@ -11,8 +11,8 @@ use std::{
 
 use serde_json::Value;
 use tiktools_plugin_api::{
-    read_frame, write_frame, PluginManifest, PluginRequest, PluginResponse, PluginRuntimeKind,
-    TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
+    read_frame, write_frame, FrameError, PluginManifest, PluginRequest, PluginResponse,
+    PluginRuntimeKind, TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
 };
 
 use crate::{PluginInstance, PluginLoaderError, PluginRuntime};
@@ -128,18 +128,11 @@ struct ProcessPluginInstance {
 }
 
 impl ProcessPluginInstance {
-    fn terminate_child(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
-impl PluginInstance for ProcessPluginInstance {
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn handle_message(&mut self, request: &[u8]) -> Result<Vec<u8>, PluginLoaderError> {
+    fn handle_message_with_timeout(
+        &mut self,
+        request: &[u8],
+        timeout: Duration,
+    ) -> Result<Vec<u8>, PluginLoaderError> {
         let payload: Value = serde_json::from_slice(request).map_err(|error| {
             PluginLoaderError::Runtime(format!("invalid process request JSON: {error}"))
         })?;
@@ -157,16 +150,16 @@ impl PluginInstance for ProcessPluginInstance {
             let result = write_frame(&mut stdin, &message).and_then(|_| read_frame(&mut stdout));
             let _ = sender.send((result, stdin, stdout));
         });
-        let (result, stdin, stdout) = match receiver.recv_timeout(PROCESS_CALL_TIMEOUT) {
+        let (result, stdin, stdout) = match wait_for_io(receiver, timeout) {
             Ok(result) => result,
-            Err(mpsc::RecvTimeoutError::Timeout) => {
+            Err(ProcessIoWaitError::Timeout) => {
                 self.terminate_child();
                 return Err(PluginLoaderError::Runtime(format!(
                     "plugin process call timed out after {} seconds",
-                    PROCESS_CALL_TIMEOUT.as_secs()
+                    timeout.as_secs()
                 )));
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
+            Err(ProcessIoWaitError::Disconnected) => {
                 self.terminate_child();
                 return Err(PluginLoaderError::Runtime(
                     "plugin process I/O worker stopped unexpectedly".to_owned(),
@@ -175,28 +168,22 @@ impl PluginInstance for ProcessPluginInstance {
         };
         self.stdin = Some(stdin);
         self.stdout = Some(stdout);
-        let response: PluginResponse =
-            result.map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
-        if response.protocol_version != TIKTOOLS_PLUGIN_PROTOCOL_VERSION {
-            return Err(PluginLoaderError::Runtime(format!(
-                "plugin process protocol mismatch: {}",
-                response.protocol_version
-            )));
-        }
-        if response.id != request_id {
-            return Err(PluginLoaderError::Runtime(
-                "plugin process returned a response for a different request".to_owned(),
-            ));
-        }
-        if !response.ok {
-            return Err(PluginLoaderError::Runtime(
-                response
-                    .error
-                    .unwrap_or_else(|| "plugin process rejected request".to_owned()),
-            ));
-        }
-        serde_json::to_vec(&response.result.unwrap_or(Value::Null))
-            .map_err(|error| PluginLoaderError::Runtime(error.to_string()))
+        decode_process_response(result, &request_id)
+    }
+
+    fn terminate_child(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+impl PluginInstance for ProcessPluginInstance {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn handle_message(&mut self, request: &[u8]) -> Result<Vec<u8>, PluginLoaderError> {
+        self.handle_message_with_timeout(request, PROCESS_CALL_TIMEOUT)
     }
 
     fn shutdown(&mut self) -> Result<(), PluginLoaderError> {
@@ -204,5 +191,122 @@ impl PluginInstance for ProcessPluginInstance {
         self.stdout.take();
         self.terminate_child();
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+enum ProcessIoWaitError {
+    Timeout,
+    Disconnected,
+}
+
+fn wait_for_io<T>(receiver: mpsc::Receiver<T>, timeout: Duration) -> Result<T, ProcessIoWaitError> {
+    match receiver.recv_timeout(timeout) {
+        Ok(value) => Ok(value),
+        Err(mpsc::RecvTimeoutError::Timeout) => Err(ProcessIoWaitError::Timeout),
+        Err(mpsc::RecvTimeoutError::Disconnected) => Err(ProcessIoWaitError::Disconnected),
+    }
+}
+
+fn decode_process_response(
+    result: Result<PluginResponse, FrameError>,
+    request_id: &str,
+) -> Result<Vec<u8>, PluginLoaderError> {
+    let response = result.map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
+    if response.protocol_version != TIKTOOLS_PLUGIN_PROTOCOL_VERSION {
+        return Err(PluginLoaderError::Runtime(format!(
+            "plugin process protocol mismatch: {}",
+            response.protocol_version
+        )));
+    }
+    if response.id != request_id {
+        return Err(PluginLoaderError::Runtime(
+            "plugin process returned a response for a different request".to_owned(),
+        ));
+    }
+    if !response.ok {
+        return Err(PluginLoaderError::Runtime(
+            response
+                .error
+                .unwrap_or_else(|| "plugin process rejected request".to_owned()),
+        ));
+    }
+    serde_json::to_vec(&response.result.unwrap_or(Value::Null))
+        .map_err(|error| PluginLoaderError::Runtime(error.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::process::Command;
+
+    use super::*;
+
+    fn response(id: &str) -> PluginResponse {
+        PluginResponse {
+            protocol_version: TIKTOOLS_PLUGIN_PROTOCOL_VERSION,
+            id: id.to_owned(),
+            ok: true,
+            result: Some(serde_json::json!({"accepted": true})),
+            error: None,
+        }
+    }
+
+    #[test]
+    fn accepts_successful_response() {
+        let bytes = decode_process_response(Ok(response("request-1")), "request-1").unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&bytes).unwrap(),
+            serde_json::json!({"accepted": true})
+        );
+    }
+
+    #[test]
+    fn rejects_response_with_wrong_request_id() {
+        let error = decode_process_response(Ok(response("other")), "request-1").unwrap_err();
+        assert!(error.to_string().contains("different request"));
+    }
+
+    #[test]
+    fn rejects_protocol_mismatch() {
+        let mut response = response("request-1");
+        response.protocol_version += 1;
+        let error = decode_process_response(Ok(response), "request-1").unwrap_err();
+        assert!(error.to_string().contains("protocol mismatch"));
+    }
+
+    #[test]
+    fn rejects_invalid_json_from_process() {
+        let json_error = serde_json::from_str::<PluginResponse>("not json").unwrap_err();
+        let error =
+            decode_process_response(Err(FrameError::Json(json_error)), "request-1").unwrap_err();
+        assert!(error.to_string().contains("not valid JSON"));
+    }
+
+    #[test]
+    fn reports_io_timeout_without_waiting_for_a_child() {
+        let (_sender, receiver) = mpsc::sync_channel::<()>(1);
+        let error = wait_for_io(receiver, Duration::from_millis(1)).unwrap_err();
+        assert!(matches!(error, ProcessIoWaitError::Timeout));
+    }
+
+    #[test]
+    fn terminated_child_can_be_reaped_after_failure() {
+        let child = if cfg!(windows) {
+            Command::new("cmd")
+                .args(["/C", "ping -n 30 127.0.0.1 > NUL"])
+                .spawn()
+                .unwrap()
+        } else {
+            Command::new("sh").args(["-c", "sleep 30"]).spawn().unwrap()
+        };
+        let mut instance = ProcessPluginInstance {
+            id: "test".to_owned(),
+            child,
+            stdin: None,
+            stdout: None,
+            next_request_id: 0,
+        };
+        instance.terminate_child();
+        assert!(instance.child.try_wait().unwrap().is_some());
     }
 }

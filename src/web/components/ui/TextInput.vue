@@ -66,7 +66,7 @@ export const TextInput = defineVueComponent<TextInputProps>(
   };
 
   return () => {
-    const { placeholder, label, hint, prefix, suffix, disabled, error, id, name, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable, onEnter } = props;
+    const { placeholder, label, hint, prefix, suffix, disabled, error, id, name, type = 'text', autoComplete = 'off', spellCheck = false, required, clearable } = props;
     const value = normalizeControlString(props.value);
     if (label) {
       const filled = value.trim().length > 0 || type === 'password' && value.length > 0;

@@ -7,7 +7,7 @@ import type { AutocompleteItem } from '../autocomplete/autocomplete.ts';
 import { filterSuggestions, highlightSegments } from '../autocomplete/autocomplete.ts';
 import { AutocompletePortal } from '../node-editor/AutocompletePortal.vue';
 import { t, type Locale } from '../../i18n.ts';
-import { formatJsonText, tokenizeJson, type JsonToken } from './code-editor-logic.ts';
+import { formatJsonText, tokenizeJson } from './code-editor-logic.ts';
 import { dispatchControlEvent, normalizeControlString, syncNativeControlValue } from './control-events.ts';
 
 export { formatJsonText, tokenizeJson };
