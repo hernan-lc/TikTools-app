@@ -12,6 +12,12 @@ use wry::http::{header::CONTENT_TYPE, Request, Response, StatusCode};
 const PACKAGED_ASSET_SCHEME: &str = "tiktools";
 const PACKAGED_ASSET_HOST: &str = "app";
 const WINDOWS_PACKAGED_ASSET_HOST: &str = "tiktools.localhost";
+/// Wry serves custom protocols on Windows through WebView2, which cannot
+/// handle arbitrary schemes. It rewrites `{scheme}://{rest}` to
+/// `http://{scheme}.{rest}` (see `custom_protocol_workaround` in wry), so
+/// `tiktools://app/index.html` reaches the WebView as
+/// `http://tiktools.app/index.html`.
+const WINDOWS_WORKAROUND_HOST: &str = "tiktools.app";
 const PACKAGED_CONTENT_SECURITY_POLICY: &str = concat!(
     "default-src 'self'; ",
     "base-uri 'none'; ",
@@ -120,7 +126,8 @@ impl FrontendSource {
                 (url.scheme() == PACKAGED_ASSET_SCHEME
                     && url.host_str() == Some(PACKAGED_ASSET_HOST))
                     || (url.scheme() == "http"
-                        && url.host_str() == Some(WINDOWS_PACKAGED_ASSET_HOST))
+                        && (url.host_str() == Some(WINDOWS_PACKAGED_ASSET_HOST)
+                            || url.host_str() == Some(WINDOWS_WORKAROUND_HOST)))
             }
         }
     }
@@ -318,6 +325,8 @@ mod tests {
         assert!(packaged.allows_navigation("tiktools://app/index.html"));
         assert!(packaged.allows_navigation("tiktools://app/assets/app.js"));
         assert!(packaged.allows_navigation("http://tiktools.localhost/index.html"));
+        assert!(packaged.allows_navigation("http://tiktools.app/index.html"));
+        assert!(packaged.allows_navigation("http://tiktools.app/assets/app.js"));
         assert!(!packaged.allows_navigation("https://example.com/"));
     }
 }
