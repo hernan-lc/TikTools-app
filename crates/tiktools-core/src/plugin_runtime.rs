@@ -226,16 +226,24 @@ impl AppCore {
             .filter(|plugin| self.plugin_ready(&plugin.manifest.id))
             .filter_map(|plugin| {
                 let declared = declared_event_types(&plugin.manifest);
-                if declared.is_empty() {
+                let reports_progress = self
+                    .capabilities
+                    .require_capability(&plugin.manifest, PLUGIN_PROGRESS_CAPABILITY)
+                    .is_ok();
+                // Progress-only plugins are started by an explicit action
+                // (for example TTS prepare/speak). Do not launch them during
+                // the global poll just to discover that they need a model.
+                if declared.is_empty() && (!reports_progress || !plugin.running) {
                     return None;
                 }
-                if self
-                    .capabilities
-                    .require_capability(
-                        &plugin.manifest,
-                        tiktools_plugin_api::capabilities::EVENTS_PUBLISH,
-                    )
-                    .is_err()
+                if !declared.is_empty()
+                    && self
+                        .capabilities
+                        .require_capability(
+                            &plugin.manifest,
+                            tiktools_plugin_api::capabilities::EVENTS_PUBLISH,
+                        )
+                        .is_err()
                 {
                     return None;
                 }
@@ -317,6 +325,14 @@ impl AppCore {
                 }
             };
             self.record_plugin_success(&plugin_id);
+            if let Some(progress) = parse_plugin_progress(&response) {
+                self.emit(HostMessage::PluginProgress {
+                    plugin_id: plugin_id.clone(),
+                    state: progress.state,
+                    progress: progress.progress,
+                    message: progress.message,
+                });
+            }
             for (event_type, data) in parse_polled_events(&declared, &response) {
                 self.publish_automation_event(self.make_plugin_event(&source, &event_type, data))
                     .await;

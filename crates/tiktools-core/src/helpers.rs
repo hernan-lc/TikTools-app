@@ -340,6 +340,59 @@ pub(crate) const PLUGIN_POLL_INTERVAL: std::time::Duration = std::time::Duration
 pub(crate) const PLUGIN_POLL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
 pub(crate) const MAX_POLLED_EVENTS_PER_TICK: usize = 16;
 pub(crate) const MAX_PLUGIN_EVENT_BYTES: usize = 64 * 1024;
+/// Host capability for plugins that need to report long-running preparation
+/// work without publishing an automation event.
+pub(crate) const PLUGIN_PROGRESS_CAPABILITY: &str = "ui.progress";
+/// Reserved poll event consumed by the host UI instead of the automation bus.
+pub(crate) const PLUGIN_PROGRESS_EVENT_TYPE: &str = "plugin.progress";
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct PluginProgressUpdate {
+    pub(crate) state: crate::ipc::messages::PluginProgressState,
+    pub(crate) progress: Option<f32>,
+    pub(crate) message: String,
+}
+
+/// Parses the reserved progress event used by plugins that download or load
+/// a model. Invalid or oversized updates are ignored at this boundary.
+pub(crate) fn parse_plugin_progress(
+    response: &tiktools_plugin_sdk::PluginCallResult,
+) -> Option<PluginProgressUpdate> {
+    response.events.iter().find_map(|event| {
+        if event.event_type != PLUGIN_PROGRESS_EVENT_TYPE {
+            return None;
+        }
+        let object = event.data.as_object()?;
+        let state = match object.get("status").and_then(Value::as_str)? {
+            "downloading" => crate::ipc::messages::PluginProgressState::Downloading,
+            "loading" => crate::ipc::messages::PluginProgressState::Loading,
+            "ready" => crate::ipc::messages::PluginProgressState::Ready,
+            "failed" => crate::ipc::messages::PluginProgressState::Failed,
+            _ => return None,
+        };
+        let progress = match object.get("progress") {
+            None | Some(Value::Null) => None,
+            Some(value) => {
+                let value = value.as_f64()?;
+                if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                    return None;
+                }
+                Some(value as f32)
+            }
+        };
+        let message = object
+            .get("message")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|message| !message.is_empty())
+            .map(|message| message.chars().take(240).collect::<String>())?;
+        Some(PluginProgressUpdate {
+            state,
+            progress,
+            message,
+        })
+    })
+}
 
 /// Validated event types from one plugin manifest, in manifest order.
 pub(crate) fn declared_event_types(
@@ -405,4 +458,48 @@ pub(crate) fn parse_polled_events(
             Some((event_type, data.clone()))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_plugin_progress_without_treating_it_as_automation() {
+        let response = tiktools_plugin_sdk::PluginCallResult {
+            events: vec![tiktools_plugin_sdk::PluginEvent {
+                event_type: PLUGIN_PROGRESS_EVENT_TYPE.to_owned(),
+                data: json!({
+                    "status": "downloading",
+                    "progress": 0.5,
+                    "message": "Downloading model"
+                }),
+            }],
+            ..Default::default()
+        };
+        let update = parse_plugin_progress(&response).expect("progress event should parse");
+        assert_eq!(
+            update.state,
+            crate::ipc::messages::PluginProgressState::Downloading
+        );
+        assert_eq!(update.progress, Some(0.5));
+        assert_eq!(update.message, "Downloading model");
+        assert!(parse_polled_events(&[], &response).is_empty());
+    }
+
+    #[test]
+    fn rejects_invalid_plugin_progress() {
+        let response = tiktools_plugin_sdk::PluginCallResult {
+            events: vec![tiktools_plugin_sdk::PluginEvent {
+                event_type: PLUGIN_PROGRESS_EVENT_TYPE.to_owned(),
+                data: json!({
+                    "status": "downloading",
+                    "progress": 2.0,
+                    "message": "bad"
+                }),
+            }],
+            ..Default::default()
+        };
+        assert!(parse_plugin_progress(&response).is_none());
+    }
 }

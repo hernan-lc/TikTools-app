@@ -119,8 +119,10 @@ export function useAppController() {
   const pluginSettings = ref<Record<string, PluginSettingsState>>({});
   const actionOptions = ref<Record<string, ActionOptionItem[]>>({});
   const pluginInstallState = ref<PluginInstallState>({ ...initialPluginInstallState });
+  const pluginProgress = ref<Extract<HostMessage, { type: 'plugin-progress' }> | null>(null);
   const mediaSelectionHandlers = new Map<string, MediaSelectionHandler>();
   let mediaRequestSequence = 0;
+  let pluginProgressTimer: ReturnType<typeof setTimeout> | undefined;
 
   const telemetry = ref<StreamTelemetry>({ chats: 0, gifts: 0, likes: 0, members: 0 });
   const autoScroll = ref(true);
@@ -292,6 +294,17 @@ export function useAppController() {
       behaviorError.value = '';
     }
 
+    if (message.type === 'plugin-progress') {
+      pluginProgress.value = message;
+      if (pluginProgressTimer) clearTimeout(pluginProgressTimer);
+      if (message.state === 'ready' || message.state === 'failed') {
+        pluginProgressTimer = setTimeout(() => {
+          pluginProgress.value = null;
+          pluginProgressTimer = undefined;
+        }, message.state === 'failed' ? 10_000 : 4_000);
+      }
+    }
+
     if (message.type === 'action-options') {
       actionOptions.value = { ...actionOptions.value, [message.source]: message.options };
     }
@@ -340,6 +353,7 @@ export function useAppController() {
   onUnmounted(() => {
     if (window.__webview_on_message__ === receive) window.__webview_on_message__ = undefined;
     mediaSelectionHandlers.clear();
+    if (pluginProgressTimer) clearTimeout(pluginProgressTimer);
   });
 
   const handleConnect = (userToConnect?: string): void => {
@@ -503,6 +517,13 @@ export function useAppController() {
     streamContainerRef.value = element instanceof HTMLDivElement ? element : null;
   };
   const openPlugins = (): void => { activeTab.value = 'plugins'; };
+  const dismissPluginProgress = (): void => {
+    pluginProgress.value = null;
+    if (pluginProgressTimer) {
+      clearTimeout(pluginProgressTimer);
+      pluginProgressTimer = undefined;
+    }
+  };
 
   return {
     activeTab,
@@ -530,6 +551,8 @@ export function useAppController() {
     behaviorError,
     pluginSettings,
     actionOptions,
+    pluginProgress,
+    dismissPluginProgress,
     telemetry,
     autoScroll,
     unreadCount,

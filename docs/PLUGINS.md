@@ -222,6 +222,32 @@ stamps identity, timestamp, chain depth, and connection context, then runs
 the normal matching pipeline including the depth guard, so a hotkey can
 trigger actions but can never recurse without bound.
 
+### Long-running preparation progress
+
+Plugins that download or load a model can declare the `ui.progress`
+capability. After an action starts the plugin, the host polls that running
+plugin and recognizes the reserved `plugin.progress` event without exposing it
+as an automation trigger:
+
+```json
+{
+  "events": [{
+    "type": "plugin.progress",
+    "data": {
+      "status": "downloading",
+      "progress": 0.42,
+      "message": "Downloading model: 42%."
+    }
+  }]
+}
+```
+
+`status` is one of `downloading`, `loading`, `ready`, or `failed`;
+`progress` is optional and must be between `0` and `1`; and `message` is
+bounded by the host. TikTools forwards valid updates as a typed UI progress
+notification. Progress-only plugins are not started by the global poll until
+one of their actions explicitly starts them.
+
 ## Installation
 
 Create a `.plugin` archive containing `plugin.json` and the declared entry,

@@ -684,6 +684,15 @@ pub enum HostMessage {
         ui_hints: Option<Value>,
         values: Value,
     },
+    #[serde(rename = "plugin-progress")]
+    PluginProgress {
+        #[serde(rename = "pluginId")]
+        plugin_id: String,
+        state: PluginProgressState,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        progress: Option<f32>,
+        message: String,
+    },
     #[serde(rename = "action-options")]
     ActionOptions { source: String, options: Vec<Value> },
     #[serde(rename = "plugin-install-result")]
@@ -707,6 +716,15 @@ pub enum HostMessage {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         error: Option<String>,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum PluginProgressState {
+    Downloading,
+    Loading,
+    Ready,
+    Failed,
 }
 
 impl HostMessage {
@@ -977,6 +995,22 @@ mod tests {
         assert_eq!(
             classify_plugin_install_error("checksum mismatch in demo: index.js"),
             PluginInstallErrorCode::InvalidPackage
+        );
+    }
+
+    #[test]
+    fn plugin_progress_message_preserves_optional_progress() {
+        let message = HostMessage::PluginProgress {
+            plugin_id: "sonicboom.tts".to_owned(),
+            state: PluginProgressState::Downloading,
+            progress: Some(0.5),
+            message: "Downloading model: 50%.".to_owned(),
+        }
+        .to_json()
+        .unwrap();
+        assert_eq!(
+            message,
+            r#"{"type":"plugin-progress","pluginId":"sonicboom.tts","state":"downloading","progress":0.5,"message":"Downloading model: 50%."}"#
         );
     }
 

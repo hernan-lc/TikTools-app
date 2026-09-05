@@ -9,12 +9,18 @@ import { PointsView } from './views/points-view.vue';
 import { SettingsView } from './views/settings-view.vue';
 import NavigationRail from './components/nav-rail.vue';
 import TopNav from './components/top-nav.vue';
+import PluginProgressNotification from './components/plugin-progress-notification.vue';
 import { useAppController } from './composables/useAppController.ts';
 
 const app = reactive(useAppController());
 </script>
 <template>
   <div class="app-shell">
+    <PluginProgressNotification
+      v-if="app.pluginProgress"
+      :notification="app.pluginProgress"
+      :on-dismiss="app.dismissPluginProgress"
+    />
     <TopNav
       :locale="app.locale"
       :theme="app.theme"

@@ -230,6 +230,13 @@ export type HostMessage =
   | { type: 'behavior-test-result'; runs: BehaviorRun[] }
   | { type: 'behavior-error'; message: string }
   | { type: 'plugin-settings'; id: string; schema: JsonObject; uiHints?: JsonObject; values: JsonObject }
+  | {
+      type: 'plugin-progress';
+      pluginId: string;
+      state: 'downloading' | 'loading' | 'ready' | 'failed';
+      progress?: number;
+      message: string;
+    }
   | { type: 'action-options'; source: string; options: ActionOptionItem[] }
   | { type: 'plugin-install-result'; success: true; id: string; version: string; replaced: boolean }
   | {
