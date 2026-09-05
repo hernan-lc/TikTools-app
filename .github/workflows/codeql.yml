@@ -14,14 +14,12 @@ permissions:
   contents: read
 
 env:
-  RUST_VERSION: 1.98.1
+  RUSTUP_TOOLCHAIN: 1.98.1
 
 jobs:
   analyze:
     name: analyze (${{ matrix.language }})
     runs-on: ubuntu-24.04
-    env:
-      RUSTUP_TOOLCHAIN: ${{ env.RUST_VERSION }}
     permissions:
       contents: read
       packages: read
@@ -47,7 +45,7 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libxdo-dev \
             pkg-config
-          rustup toolchain install "${{ env.RUST_VERSION }}" --profile minimal
+          rustup toolchain install "${{ env.RUSTUP_TOOLCHAIN }}" --profile minimal
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
