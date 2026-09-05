@@ -1,11 +1,12 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 
 import {
   fieldsForTrigger,
   findField,
   operatorsFor,
+  type EventFieldDefinition,
   type FieldValueKind,
 } from '../../../automation/behavior/fields.ts';
 import type { EventFilter, FilterOperator } from '../../../automation/behavior/types.ts';
@@ -14,6 +15,8 @@ import { i18nText, t, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph, OperatorGlyph, OPERATOR_CODE, OPERATOR_LABELS } from '../condition-icons.vue';
 import { GiftPicker, UserPicker } from './GiftPicker.vue';
 import { IconSelect } from './IconSelect.vue';
+import { normalizeCapturedKey } from './key-capture.ts';
+import { Select } from './Select.vue';
 import { NumberInput } from './NumberInput.vue';
 import { TagsInput } from './TagsInput.vue';
 import { TextInput } from './TextInput.vue';
@@ -27,6 +30,10 @@ const COPY = {
   remove: { default: "Remove", i18key: "condition.remove" },
   custom: { default: "Another field (advanced)…", i18key: "condition.custom" },
   customPlaceholder: { default: "event.data.whatever", i18key: "condition.customPlaceholder" },
+  record: { default: "Record shortcut", i18key: "condition.record" },
+  recordHint: { default: "Click, then press the keys to fill this in.", i18key: "condition.recordHint" },
+  recording: { default: "Press keys…", i18key: "condition.recording" },
+  recordingHint: { default: "Press the keys now. Escape cancels.", i18key: "condition.recordingHint" },
   missing: { default: "value missing", i18key: "condition.missing" },
   missingHint: { default: "With no value this condition never passes: fill it in or remove it.", i18key: "condition.missingHint" },
   choose: { default: "Pick…", i18key: "condition.choose" },
@@ -69,6 +76,34 @@ export const ConditionTable = defineVueComponent<ConditionTableProps>(
   ['locale', 'trigger', 'filters', 'gifts', 'viewers', 'onChange'],
   (props) => {
   const picker = ref<PickerState>(null);
+  const recording = ref<{ index: number; path: string } | null>(null);
+
+  const stopRecording = (): void => {
+    recording.value = null;
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', onRecordKey, true);
+  };
+  const onRecordKey = (event: KeyboardEvent): void => {
+    const target = recording.value;
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      stopRecording();
+      return;
+    }
+    const captured = normalizeCapturedKey(event);
+    if (!captured) return;
+    const next = /\.modifiers$/.test(target.path) ? captured.modifiers : captured.key;
+    update(target.index, { value: next });
+    stopRecording();
+  };
+  const startRecording = (index: number): void => {
+    const path = props.filters[index]?.path ?? '';
+    stopRecording();
+    recording.value = { index, path };
+    if (typeof window !== 'undefined') window.addEventListener('keydown', onRecordKey, true);
+  };
+  onBeforeUnmount(stopRecording);
 
   const update = (index: number, patch: Partial<EventFilter>): void => {
     props.onChange(props.filters.map((filter, position) => (position === index ? { ...filter, ...patch } : filter)));
@@ -202,6 +237,9 @@ export const ConditionTable = defineVueComponent<ConditionTableProps>(
                   kind: kind === 'gift' ? 'gift' : 'user',
                   multiple,
                 })}
+                field={field}
+                recording={recording.value?.index === index && recording.value?.path === filter.path}
+                onRecord={() => startRecording(index)}
                 onValue={(value) => update(index, { value })}
                 onValues={(values) => update(index, { values })}
               />
@@ -274,6 +312,9 @@ type ValueProps = {
   locale: Locale;
   filter: EventFilter;
   kind: FieldValueKind;
+  field: EventFieldDefinition | undefined;
+  recording: boolean;
+  onRecord: () => void;
   missing: boolean;
   copy: ConditionCopy;
   onOpenPicker: (multiple: boolean) => void;
@@ -282,7 +323,7 @@ type ValueProps = {
 };
 
 /** The value editor the field's type asks for. */
-function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onValue, onValues }: ValueProps) {
+function ConditionValue({ locale, filter, field, recording, onRecord, kind, missing, copy, onOpenPicker, onValue, onValues }: ValueProps) {
   if (filter.operator === 'is-true' || filter.operator === 'is-false') {
     return <span class="plg-cond__fixed">{filter.operator === 'is-true' ? copy.yes : copy.no}</span>;
   }
@@ -303,6 +344,30 @@ function ConditionValue({ locale, filter, kind, missing, copy, onOpenPicker, onV
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
+    );
+  }
+
+  const options = field?.options;
+  if (options && options.length > 0 && filter.operator !== 'in') {
+    return (
+      <span class="plg-cond__option-value">
+        <Select
+          value={filter.value}
+          onValueChange={onValue}
+          options={options.map((option) => ({ value: option.value, label: i18nText(locale, option.label) }))}
+          ariaLabel={field ? i18nText(locale, field.label) : copy.colValue}
+        />
+        <button
+          type="button"
+          class={`plg-cond__record${recording ? ' is-armed' : ''}`}
+          onClick={onRecord}
+          aria-pressed={recording}
+          aria-label={recording ? copy.recording : copy.record}
+          title={recording ? copy.recordingHint : copy.recordHint}
+        >
+          <span aria-hidden>{recording ? '\u25cf' : '\u2328'}</span>
+        </button>
+      </span>
     );
   }
 

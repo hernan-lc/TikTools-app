@@ -22,6 +22,7 @@ export interface EventFieldDefinition {
   label: Localized;
   icon: FieldIcon;
   kind: FieldValueKind;
+  options?: Array<{ value: string; label: Localized }>;
   /** Shown behind the info icon: what the field means, in plain words. */
   hint: Localized;
 }
@@ -99,6 +100,7 @@ export function fieldsForTrigger(trigger: string): EventFieldDefinition[] {
     const definition: EventFieldDefinition = {
       path: field.path,
       label: { default: field.label.en, i18key: labelKey },
+      options: field.options?.map((option) => ({ value: option.value, label: { default: option.label.en, i18key: '' } })),
       icon: iconForPath(field.path, kind),
       kind,
       hint: { default: hintEn, i18key: hintKey },

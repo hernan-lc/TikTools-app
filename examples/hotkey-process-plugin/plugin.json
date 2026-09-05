@@ -8,35 +8,394 @@
   "trust": "trusted",
   "entry": "tiktools-hotkey-process-plugin",
   "protocolVersion": 1,
-  "capabilities": ["events.publish"],
+  "capabilities": [
+    "events.publish"
+  ],
   "permissions": [],
-  "targets": ["win32", "darwin", "linux"],
+  "targets": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
   "eventTypes": [
     {
       "type": "hotkey.pressed",
-      "title": {"default": "Hotkey pressed", "i18key": "hotkeys.pressed.title"},
-      "description": {"default": "A global keyboard shortcut or key sequence was pressed.", "i18key": "hotkeys.pressed.description"},
+      "title": {
+        "default": "Hotkey pressed",
+        "i18key": "hotkeys.pressed.title"
+      },
+      "description": {
+        "default": "A global keyboard shortcut or key sequence was pressed.",
+        "i18key": "hotkeys.pressed.description"
+      },
       "fields": [
         {
           "path": "event.data.key",
           "kind": "text",
-          "label": {"default": "Key", "i18key": "hotkeys.field.key.label"},
-          "hint": {"default": "Normalized key name: a-z, 0-9, f1-f12, space, enter, tab, esc, arrows.", "i18key": "hotkeys.field.key.hint"}
+          "label": {
+            "default": "Key",
+            "i18key": "hotkeys.field.key.label"
+          },
+          "hint": {
+            "default": "Normalized key name: a-z, 0-9, f1-f12, space, enter, tab, esc, arrows.",
+            "i18key": "hotkeys.field.key.hint"
+          },
+          "options": [
+            {
+              "value": "a"
+            },
+            {
+              "value": "b"
+            },
+            {
+              "value": "c"
+            },
+            {
+              "value": "d"
+            },
+            {
+              "value": "e"
+            },
+            {
+              "value": "f"
+            },
+            {
+              "value": "g"
+            },
+            {
+              "value": "h"
+            },
+            {
+              "value": "i"
+            },
+            {
+              "value": "j"
+            },
+            {
+              "value": "k"
+            },
+            {
+              "value": "l"
+            },
+            {
+              "value": "m"
+            },
+            {
+              "value": "n"
+            },
+            {
+              "value": "o"
+            },
+            {
+              "value": "p"
+            },
+            {
+              "value": "q"
+            },
+            {
+              "value": "r"
+            },
+            {
+              "value": "s"
+            },
+            {
+              "value": "t"
+            },
+            {
+              "value": "u"
+            },
+            {
+              "value": "v"
+            },
+            {
+              "value": "w"
+            },
+            {
+              "value": "x"
+            },
+            {
+              "value": "y"
+            },
+            {
+              "value": "z"
+            },
+            {
+              "value": "0"
+            },
+            {
+              "value": "1"
+            },
+            {
+              "value": "2"
+            },
+            {
+              "value": "3"
+            },
+            {
+              "value": "4"
+            },
+            {
+              "value": "5"
+            },
+            {
+              "value": "6"
+            },
+            {
+              "value": "7"
+            },
+            {
+              "value": "8"
+            },
+            {
+              "value": "9"
+            },
+            {
+              "value": "f1"
+            },
+            {
+              "value": "f2"
+            },
+            {
+              "value": "f3"
+            },
+            {
+              "value": "f4"
+            },
+            {
+              "value": "f5"
+            },
+            {
+              "value": "f6"
+            },
+            {
+              "value": "f7"
+            },
+            {
+              "value": "f8"
+            },
+            {
+              "value": "f9"
+            },
+            {
+              "value": "f10"
+            },
+            {
+              "value": "f11"
+            },
+            {
+              "value": "f12"
+            },
+            {
+              "value": "space"
+            },
+            {
+              "value": "enter"
+            },
+            {
+              "value": "tab"
+            },
+            {
+              "value": "esc"
+            },
+            {
+              "value": "backspace"
+            },
+            {
+              "value": "delete"
+            },
+            {
+              "value": "insert"
+            },
+            {
+              "value": "home"
+            },
+            {
+              "value": "end"
+            },
+            {
+              "value": "pageup"
+            },
+            {
+              "value": "pagedown"
+            },
+            {
+              "value": "up"
+            },
+            {
+              "value": "down"
+            },
+            {
+              "value": "left"
+            },
+            {
+              "value": "right"
+            },
+            {
+              "value": "capslock"
+            },
+            {
+              "value": ","
+            },
+            {
+              "value": "."
+            },
+            {
+              "value": "/"
+            },
+            {
+              "value": ";"
+            },
+            {
+              "value": "'"
+            },
+            {
+              "value": "["
+            },
+            {
+              "value": "]"
+            },
+            {
+              "value": "\\"
+            },
+            {
+              "value": "-"
+            },
+            {
+              "value": "="
+            },
+            {
+              "value": "`"
+            }
+          ]
         },
         {
           "path": "event.data.modifiers",
           "kind": "text",
-          "label": {"default": "Modifiers", "i18key": "hotkeys.field.modifiers.label"},
-          "hint": {"default": "Held modifiers joined with +: ctrl, shift, alt, meta. Empty when none are held.", "i18key": "hotkeys.field.modifiers.hint"}
+          "label": {
+            "default": "Modifiers",
+            "i18key": "hotkeys.field.modifiers.label"
+          },
+          "hint": {
+            "default": "Held modifiers joined with +: ctrl, shift, alt, meta. Empty when none are held.",
+            "i18key": "hotkeys.field.modifiers.hint"
+          },
+          "options": [
+            {
+              "value": "",
+              "label": {
+                "default": "none"
+              }
+            },
+            {
+              "value": "ctrl",
+              "label": {
+                "default": "ctrl"
+              }
+            },
+            {
+              "value": "shift",
+              "label": {
+                "default": "shift"
+              }
+            },
+            {
+              "value": "alt",
+              "label": {
+                "default": "alt"
+              }
+            },
+            {
+              "value": "meta",
+              "label": {
+                "default": "meta"
+              }
+            },
+            {
+              "value": "ctrl+shift",
+              "label": {
+                "default": "ctrl+shift"
+              }
+            },
+            {
+              "value": "ctrl+alt",
+              "label": {
+                "default": "ctrl+alt"
+              }
+            },
+            {
+              "value": "ctrl+meta",
+              "label": {
+                "default": "ctrl+meta"
+              }
+            },
+            {
+              "value": "shift+alt",
+              "label": {
+                "default": "shift+alt"
+              }
+            },
+            {
+              "value": "shift+meta",
+              "label": {
+                "default": "shift+meta"
+              }
+            },
+            {
+              "value": "alt+meta",
+              "label": {
+                "default": "alt+meta"
+              }
+            },
+            {
+              "value": "ctrl+shift+alt",
+              "label": {
+                "default": "ctrl+shift+alt"
+              }
+            },
+            {
+              "value": "ctrl+shift+meta",
+              "label": {
+                "default": "ctrl+shift+meta"
+              }
+            },
+            {
+              "value": "ctrl+alt+meta",
+              "label": {
+                "default": "ctrl+alt+meta"
+              }
+            },
+            {
+              "value": "shift+alt+meta",
+              "label": {
+                "default": "shift+alt+meta"
+              }
+            },
+            {
+              "value": "ctrl+shift+alt+meta",
+              "label": {
+                "default": "ctrl+shift+alt+meta"
+              }
+            }
+          ]
         },
         {
           "path": "event.data.sequence",
           "kind": "text",
-          "label": {"default": "Sequence", "i18key": "hotkeys.field.sequence.label"},
-          "hint": {"default": "Recent keys, oldest first, space separated. Match chords with eq, phrases with contains.", "i18key": "hotkeys.field.sequence.hint"}
+          "label": {
+            "default": "Sequence",
+            "i18key": "hotkeys.field.sequence.label"
+          },
+          "hint": {
+            "default": "Recent keys, oldest first, space separated. Match chords with eq, phrases with contains.",
+            "i18key": "hotkeys.field.sequence.hint"
+          }
         }
       ],
-      "sample": {"key": "k", "modifiers": "ctrl", "sequence": "g k"}
+      "sample": {
+        "key": "k",
+        "modifiers": "ctrl",
+        "sequence": "g k"
+      }
     }
   ]
 }

@@ -326,6 +326,7 @@ const RESERVED_EVENT_PREFIXES: [&str; 3] = ["tiktok.", "points.", "plugin."];
 
 const MAX_EVENT_TYPE_LEN: usize = 64;
 const MAX_EVENT_FIELDS: usize = 64;
+const MAX_EVENT_OPTIONS: usize = 128;
 
 /// Validate one eventTypes entry from a plugin manifest. Shape errors are
 /// reported by the host catalog merge, which skips the entry with a warning.
@@ -387,6 +388,34 @@ fn validate_event_field(field: &Value) -> Result<(), ManifestError> {
         if !matches!(kind, "text" | "number" | "boolean") {
             return Err(ManifestError::InvalidField("eventTypes"));
         }
+    }
+    if let Some(options) = object.get("options") {
+        let options = options
+            .as_array()
+            .ok_or(ManifestError::InvalidField("eventTypes"))?;
+        if options.len() > MAX_EVENT_OPTIONS {
+            return Err(ManifestError::InvalidField("eventTypes"));
+        }
+        for option in options {
+            validate_event_option(option)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_event_option(option: &Value) -> Result<(), ManifestError> {
+    let object = option
+        .as_object()
+        .ok_or(ManifestError::InvalidField("eventTypes"))?;
+    let value = object
+        .get("value")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if value.is_empty() || value.len() > 64 {
+        return Err(ManifestError::InvalidField("eventTypes"));
+    }
+    if object.get("label").is_some_and(|label| !label.is_object()) {
+        return Err(ManifestError::InvalidField("eventTypes"));
     }
     Ok(())
 }
@@ -507,6 +536,20 @@ mod tests {
         .unwrap();
         assert_eq!(manifest.event_types.len(), 1);
         assert!(validate_event_type(&manifest.event_types[0]).is_ok());
+
+        // Fixed field options validate; empty values and bad labels do not.
+        assert!(validate_event_type(&serde_json::json!({
+            "type": "hotkey.pressed",
+            "title": {"default": "Hotkey pressed"},
+            "fields": [{"path": "event.data.key", "options": [{"value": "k"}, {"value": "space", "label": {"default": "Space"}}]}]
+        }))
+        .is_ok());
+        assert!(validate_event_type(&serde_json::json!({
+            "type": "hotkey.pressed",
+            "title": {"default": "Hotkey pressed"},
+            "fields": [{"path": "event.data.key", "options": [{"value": ""}]}]
+        }))
+        .is_err());
 
         // Reserved host namespaces can never be shadowed.
         for reserved in [

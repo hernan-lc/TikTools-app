@@ -96,6 +96,8 @@ export interface PluginEventField {
   kind: 'text' | 'number' | 'boolean';
   label?: Localized;
   hint?: Localized;
+  /** Fixed choices render as a dropdown instead of free text. */
+  options?: Array<{ value: string; label?: Localized }>;
 }
 
 export interface PluginEventType {

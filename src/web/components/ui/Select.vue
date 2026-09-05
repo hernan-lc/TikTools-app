@@ -21,6 +21,7 @@ type SelectProps = {
   disabled?: boolean;
   readonly?: boolean;
   required?: boolean;
+  ariaLabel?: string;
   error?: string;
   hint?: string;
   id?: string;
@@ -31,7 +32,7 @@ type SelectProps = {
 };
 
 export const Select = defineVueComponent<SelectProps>(
-  ['value', 'onValueChange', 'options', 'disabled', 'readonly', 'required', 'error', 'hint', 'id', 'name', 'placeholder', 'label'],
+  ['value', 'onValueChange', 'options', 'disabled', 'readonly', 'required', 'ariaLabel', 'error', 'hint', 'id', 'name', 'placeholder', 'label'],
   (props, context) => {
   const innerRef = ref<HTMLSelectElement | null>(null);
   const commitProgrammaticValue = (value: string): void => {
@@ -65,7 +66,7 @@ export const Select = defineVueComponent<SelectProps>(
   });
 
   return () => {
-    const { options, disabled, readonly, required, error, hint, id, name, placeholder, label } = props;
+    const { options, disabled, readonly, required, ariaLabel, error, hint, id, name, placeholder, label } = props;
     const value = normalizeControlString(props.value);
     const isDisabled = disabled || readonly;
     if (label) {
@@ -73,7 +74,7 @@ export const Select = defineVueComponent<SelectProps>(
       return (
       <div class={`ui-float ${filled ? 'is-filled' : ''} ${error ? 'has-error' : ''} ${isDisabled ? 'is-disabled' : ''}`}>
         <div class="ui-float__control">
-          <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} aria-label={label} onChange={handleChange}>
+          <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} aria-label={ariaLabel ?? label} onChange={handleChange}>
             {placeholder ? (
               <option value="" disabled>
                 {placeholder}
@@ -98,7 +99,7 @@ export const Select = defineVueComponent<SelectProps>(
 
     return (
     <div class={`ui-select ${error ? 'has-error' : ''} ${isDisabled ? 'is-disabled' : ''}`}>
-      <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} onChange={handleChange}>
+      <select ref={innerRef} id={id} name={name} value={value} disabled={isDisabled} required={required} aria-invalid={Boolean(error)} aria-label={ariaLabel} onChange={handleChange}>
         {placeholder ? (
           <option value="" disabled>
             {placeholder}

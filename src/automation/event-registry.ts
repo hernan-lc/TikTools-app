@@ -22,6 +22,8 @@ export interface RegistryField {
   tsType: string;
   kind: RegistryFieldKind;
   optional: boolean;
+  options?: Array<{ value: string; label: { en: string; es: string } }>;
+
   i18key?: string;
   label: { en: string; es: string };
   hint?: { en: string; es: string };
@@ -70,11 +72,18 @@ function overlayEntryFor(type: PluginEventType): RegistryEventEntry {
     .map((field) => {
       const leaf = field.path.split('.').pop() ?? field.path;
       const kind: RegistryFieldKind = field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : 'string';
+      const options = (field.options ?? [])
+        .filter((option) => option && typeof option.value === 'string' && option.value)
+        .map((option) => ({
+          value: option.value,
+          label: { en: option.label?.default ?? option.value, es: option.label?.default ?? option.value },
+        }));
       return {
         path: field.path,
         tsType: kind,
         kind,
         optional: true,
+        options: options.length > 0 ? options : undefined,
         i18key: field.label?.i18key,
         label: { en: field.label?.default ?? leaf, es: field.label?.default ?? leaf },
         hint: field.hint ? { en: field.hint.default, es: field.hint.default } : undefined,

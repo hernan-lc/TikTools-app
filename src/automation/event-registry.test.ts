@@ -98,7 +98,14 @@ describe('event registry', () => {
 const HOTKEY: PluginEventType = {
   type: 'hotkey.pressed',
   title: { default: 'Hotkey pressed', i18key: 'hotkey.pressed' },
-  fields: [{ path: 'event.data.key', kind: 'text', label: { default: 'Key', i18key: 'x' } }],
+  fields: [
+    {
+      path: 'event.data.key',
+      kind: 'text',
+      label: { default: 'Key', i18key: 'x' },
+      options: [{ value: 'k' }, { value: 'space', label: { default: 'Space', i18key: 'y' } }],
+    },
+  ],
   sample: { key: 'ctrl+k' },
   source: { kind: 'plugin', pluginId: 'hotkeys' },
 };
@@ -124,6 +131,10 @@ describe('plugin event-type overlay', () => {
       expect(registryEventTypes()).toContain('hotkey.pressed');
       expect(pluginEventTypes().map((entry) => entry.type)).toEqual(['hotkey.pressed']);
       expect(sampleDataForType('hotkey.pressed')).toMatchObject({ key: 'ctrl+k' });
+      const keyFields = fieldsForTrigger('hotkey.pressed');
+      expect(keyFields.map((field) => field.path)).toEqual(['event.data.key']);
+      expect(keyFields[0]?.options?.map((option) => option.value)).toEqual(['k', 'space']);
+      expect(keyFields[0]?.options?.[1]?.label.default).toBe('Space');
       expect(normalizeEvent(liveEvent('hotkey.pressed'), ['hotkey.pressed']).trigger).toBe('hotkey.pressed');
       expect(() => normalizeEvent(liveEvent('nope.dots'), ['hotkey.pressed'])).toThrow();
     } finally {

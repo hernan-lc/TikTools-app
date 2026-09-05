@@ -155,6 +155,10 @@ Rules:
 - `title.default` is required; `description`, `fields` (text/number/boolean
   paths under `event.data.*` or `event.user.*`), and a `sample` payload are
   optional and bounded like every other descriptor.
+- a field may declare fixed `options: [{value, label?}]` (128 at most).
+  Option-backed fields render as a dropdown in behavior conditions instead
+  of free text, plus a record button that fills the value from keys pressed
+  while it is armed (Escape cancels).
 
 Publishing works two ways. While any action of the plugin runs, its `emit`
 response intents may name one of its own declared types instead of falling

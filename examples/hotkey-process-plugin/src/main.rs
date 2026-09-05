@@ -149,7 +149,7 @@ fn on_input_event(
         while state.sequence.len() > MAX_SEQUENCE_KEYS {
             state.sequence.pop_front();
         }
-        let modifiers = state.modifiers.iter().cloned().collect::<Vec<_>>().join("+");
+        let modifiers = canonical_modifiers(&state.modifiers);
         let sequence = state.sequence.iter().cloned().collect::<Vec<_>>().join(" ");
         let mut pending = pending.lock().expect("pending hotkey events poisoned");
         pending.push_back(PendingEvent {
@@ -167,6 +167,28 @@ fn on_input_event(
 
 fn is_modifier(name: &str) -> bool {
     matches!(name, "shift" | "ctrl" | "alt" | "meta")
+}
+
+/// Conventional chord order (ctrl+shift+alt+meta) so recorded combos match
+/// what users type in filters, independent of set iteration order.
+fn canonical_modifiers(modifiers: &BTreeSet<String>) -> String {
+    let mut ordered: Vec<&String> = modifiers.iter().collect();
+    ordered.sort_by_key(|name| modifier_rank(name));
+    ordered
+        .into_iter()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("+")
+}
+
+fn modifier_rank(name: &str) -> u8 {
+    match name {
+        "ctrl" => 0,
+        "shift" => 1,
+        "alt" => 2,
+        "meta" => 3,
+        _ => 4,
+    }
 }
 
 /// Stable, layout-independent key names derived from the rdev debug label so
@@ -284,6 +306,31 @@ mod tests {
         assert_eq!(pending[0].key, "k");
         assert_eq!(pending[0].modifiers, "ctrl");
         assert_eq!(pending[0].sequence, "k");
+        drop(pending);
+        // Canonical chord order regardless of press order.
+        let state = Mutex::new(KeyState::default());
+        let pending = Mutex::new(VecDeque::new());
+        let press = |key: rdev::Key| {
+            on_input_event(
+                &state,
+                &pending,
+                Event {
+                    time: std::time::SystemTime::now(),
+                    unicode: None,
+                    event_type: EventType::KeyPress(key),
+                    platform_code: 0,
+                    position_code: 0,
+                    usb_hid: 0,
+                    extra_data: Default::default(),
+                },
+            );
+        };
+        press(rdev::Key::MetaRight);
+        press(rdev::Key::Alt);
+        press(rdev::Key::KeyX);
+        let pending = pending.lock().expect("pending poisoned");
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].modifiers, "alt+meta");
     }
 
     #[test]
