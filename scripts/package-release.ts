@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dir, '..');
@@ -89,6 +89,12 @@ await rm(archivePath, { force: true });
 await mkdir(bundleDirectory, { recursive: true });
 
 await cp(binaryPath, join(bundleDirectory, platform.binaryName));
+await mkdir(join(bundleDirectory, 'plugins'), { recursive: true });
+// Keep the portable plugin root visible in the archive even when empty.
+// `.gitkeep` is not a plugin directory: the runtime scanner only treats
+// subdirectories with a `plugin.json` manifest as plugins, so this file is
+// ignored naturally during discovery.
+await writeFile(join(bundleDirectory, 'plugins', '.gitkeep'), '');
 await cp(webRoot, join(bundleDirectory, 'web'), { recursive: true });
 for (const file of ['LICENSE', 'README.md']) {
   const source = resolve(repositoryRoot, file);
@@ -105,9 +111,25 @@ if (platformValue === 'windows-x86_64') {
 const archiveListing = platformValue === 'windows-x86_64'
   ? run('tar', ['-tf', archivePath])
   : run('tar', ['-tzf', archivePath]);
-const expectedEntry = `${bundleName}/web/index.html`;
-if (!archiveListing.split(/\r?\n/).some((entry) => entry.replaceAll('\\', '/') === expectedEntry)) {
-  fail(`archive ${archivePath} does not contain ${expectedEntry}`);
+const listingEntries = archiveListing.split(/\r?\n/).map((entry) => entry.replaceAll('\\', '/'));
+const expectedEntries = [
+  `${bundleName}/${platform.binaryName}`,
+  `${bundleName}/web/index.html`,
+  `${bundleName}/LICENSE`,
+  `${bundleName}/README.md`,
+];
+for (const expectedEntry of expectedEntries) {
+  if (!listingEntries.some((entry) => entry === expectedEntry)) {
+    fail(`archive ${archivePath} does not contain ${expectedEntry}`);
+  }
+}
+const hasPluginsDir = listingEntries.some((entry) =>
+  entry === `${bundleName}/plugins/` ||
+  entry === `${bundleName}/plugins` ||
+  entry === `${bundleName}/plugins/.gitkeep`,
+);
+if (!hasPluginsDir) {
+  fail(`archive ${archivePath} does not contain ${bundleName}/plugins/`);
 }
 
 console.log(`Created ${basename(archivePath)}`);

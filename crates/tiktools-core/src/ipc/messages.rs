@@ -13,6 +13,11 @@ use tiktools_plugin_api::{MediaKind, MediaPickerMode, MediaSelection};
 
 pub type JsonObject = BTreeMap<String, Value>;
 
+/// Sensible upper bound for a native `.plugin` archive path. Windows extended
+/// paths max out at 32_767 characters; the 2 MB IPC envelope is the other
+/// bound. The installer itself remains responsible for canonicalization.
+pub const MAX_PLUGIN_PACKAGE_PATH_LEN: usize = 32_767;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PartialPointsConfig {
@@ -305,8 +310,18 @@ pub enum PageMessage {
     SetEventEnabled { id: String, enabled: bool },
     #[serde(rename = "test-event")]
     TestEvent { event: Value },
+    // Logical installed-state toggle only. It never touches the filesystem;
+    // real `.plugin` package installation uses `install-plugin-package`.
     #[serde(rename = "set-plugin-install")]
     SetPluginInstall { id: String, installed: bool },
+    // Real package installation. The frontend supplies only the archive path;
+    // plugin identity always comes from `plugin.json` via `PluginInstaller`.
+    #[serde(rename = "install-plugin-package")]
+    InstallPluginPackage {
+        path: String,
+        #[serde(default, rename = "replaceExisting")]
+        replace_existing: bool,
+    },
     #[serde(rename = "set-plugin-enabled")]
     SetPluginEnabled { id: String, enabled: bool },
     #[serde(rename = "get-plugin-settings")]
@@ -362,6 +377,7 @@ impl PageMessage {
             Self::SetEventEnabled { .. } => "set-event-enabled",
             Self::TestEvent { .. } => "test-event",
             Self::SetPluginInstall { .. } => "set-plugin-install",
+            Self::InstallPluginPackage { .. } => "install-plugin-package",
             Self::SetPluginEnabled { .. } => "set-plugin-enabled",
             Self::GetPluginSettings { .. } => "get-plugin-settings",
             Self::SavePluginSettings { .. } => "save-plugin-settings",
@@ -439,6 +455,17 @@ impl PageMessage {
                     return Err(IpcMessageError::InvalidField("values"));
                 }
             }
+            Self::InstallPluginPackage { path, .. } => {
+                // Never trust a frontend-supplied plugin id or destination: only
+                // the canonical path to the `.plugin` archive is accepted here.
+                // Identity always comes from `plugin.json` inside the installer.
+                if path.is_empty() || path.len() > MAX_PLUGIN_PACKAGE_PATH_LEN {
+                    return Err(IpcMessageError::InvalidField("path"));
+                }
+                if path.contains('\0') {
+                    return Err(IpcMessageError::InvalidField("path"));
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -478,6 +505,75 @@ pub enum ConnectionStatus {
 pub enum ErrorPhase {
     Connect,
     Live,
+}
+
+/// Machine-readable plugin installation failure reason. The frontend replace
+/// flow must depend on `code`, never on substring-matching `error`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum PluginInstallErrorCode {
+    #[serde(rename = "already-installed")]
+    AlreadyInstalled,
+    #[serde(rename = "invalid-package")]
+    InvalidPackage,
+    #[serde(rename = "incompatible")]
+    Incompatible,
+    #[serde(rename = "io-error")]
+    IoError,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+
+/// Classifies installer failures at the IPC boundary so the UI does not parse
+/// arbitrary Rust error strings. Only `already-installed` drives the replace
+/// confirmation; every other failure is shown as a plain error.
+pub fn classify_plugin_install_error(message: &str) -> PluginInstallErrorCode {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("already installed") {
+        return PluginInstallErrorCode::AlreadyInstalled;
+    }
+    if lower.contains("compatib")
+        || lower.contains("protocolversion")
+        || lower.contains("protocol version")
+        || lower.contains("abi")
+        || lower.contains("unsupported schema")
+        || lower.contains("schema version")
+        || lower.contains("signature")
+        || lower.contains("requires ")
+        || lower.contains("no build for this platform")
+    {
+        return PluginInstallErrorCode::Incompatible;
+    }
+    if lower.contains("permission")
+        || lower.contains("read-only")
+        || lower.contains("read only")
+        || lower.contains("disk")
+        || lower.contains("os error")
+    {
+        return PluginInstallErrorCode::IoError;
+    }
+    if lower.contains("archive")
+        || lower.contains("checksum")
+        || lower.contains("manifest")
+        || lower.contains("plugin.json")
+        || lower.contains("extension")
+        || lower.contains("traversal")
+        || lower.contains("symlink")
+        || lower.contains("symbolic link")
+        || lower.contains("unsafe")
+        || lower.contains("duplicate")
+        || lower.contains("too many")
+        || lower.contains("exceeds")
+        || lower.contains("invalid")
+        || lower.contains("missing")
+        || lower.contains("mismatch")
+        || lower.contains("not a file")
+        || lower.contains("not valid")
+        || lower.contains("could not")
+    {
+        return PluginInstallErrorCode::InvalidPackage;
+    }
+    PluginInstallErrorCode::Unknown
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -586,6 +682,20 @@ pub enum HostMessage {
     },
     #[serde(rename = "action-options")]
     ActionOptions { source: String, options: Vec<Value> },
+    #[serde(rename = "plugin-install-result")]
+    PluginInstallResult {
+        success: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        version: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replaced: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        code: Option<PluginInstallErrorCode>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+    },
 }
 
 impl HostMessage {
@@ -596,6 +706,28 @@ impl HostMessage {
             title: None,
             room_id: None,
             avatar_url: None,
+        }
+    }
+
+    pub fn plugin_install_success(id: String, version: String, replaced: bool) -> Self {
+        Self::PluginInstallResult {
+            success: true,
+            id: Some(id),
+            version: Some(version),
+            replaced: Some(replaced),
+            code: None,
+            error: None,
+        }
+    }
+
+    pub fn plugin_install_failure(code: PluginInstallErrorCode, error: String) -> Self {
+        Self::PluginInstallResult {
+            success: false,
+            id: None,
+            version: None,
+            replaced: None,
+            code: Some(code),
+            error: Some(error),
         }
     }
 
@@ -733,6 +865,91 @@ mod tests {
         assert_eq!(
             response,
             r#"{"type":"media-selected","requestId":"media-1"}"#
+        );
+    }
+
+    #[test]
+    fn install_plugin_package_round_trips_and_validates_path() {
+        let message = PageMessage::parse(
+            r#"{"type":"install-plugin-package","path":"C:\\Temp\\demo.plugin","replaceExisting":false}"#,
+        )
+        .unwrap();
+        assert_eq!(message.type_name(), "install-plugin-package");
+        match message {
+            PageMessage::InstallPluginPackage {
+                path,
+                replace_existing,
+            } => {
+                assert_eq!(path, r"C:\Temp\demo.plugin");
+                assert!(!replace_existing);
+            }
+            other => panic!("unexpected message: {other:?}"),
+        }
+        let with_replace = PageMessage::parse(
+            r#"{"type":"install-plugin-package","path":"/tmp/demo.plugin","replaceExisting":true}"#,
+        )
+        .unwrap();
+        match with_replace {
+            PageMessage::InstallPluginPackage {
+                replace_existing, ..
+            } => assert!(replace_existing),
+            other => panic!("unexpected message: {other:?}"),
+        }
+        // replaceExisting defaults to false so the first install never
+        // silently replaces an existing plugin.
+        let defaulted =
+            PageMessage::parse(r#"{"type":"install-plugin-package","path":"/tmp/demo.plugin"}"#)
+                .unwrap();
+        match defaulted {
+            PageMessage::InstallPluginPackage {
+                replace_existing, ..
+            } => assert!(!replace_existing),
+            other => panic!("unexpected message: {other:?}"),
+        }
+
+        assert!(PageMessage::parse(r#"{"type":"install-plugin-package","path":""}"#).is_err());
+        assert!(PageMessage::parse(r#"{"type":"install-plugin-package","path":"a\0b"}"#,).is_err());
+        let oversized = "x".repeat(MAX_PLUGIN_PACKAGE_PATH_LEN + 1);
+        assert!(PageMessage::parse(&format!(
+            r#"{{"type":"install-plugin-package","path":"{oversized}"}}"#
+        ))
+        .is_err());
+    }
+
+    #[test]
+    fn plugin_install_result_uses_structured_codes() {
+        let success =
+            HostMessage::plugin_install_success("demo".to_owned(), "1.0.0".to_owned(), false)
+                .to_json()
+                .unwrap();
+        assert!(success.contains(r#""type":"plugin-install-result""#));
+        assert!(success.contains(r#""success":true"#));
+        assert!(success.contains(r#""id":"demo""#));
+
+        let failure = HostMessage::plugin_install_failure(
+            PluginInstallErrorCode::AlreadyInstalled,
+            "plugin is already installed: demo".to_owned(),
+        )
+        .to_json()
+        .unwrap();
+        assert!(failure.contains(r#""success":false"#));
+        assert!(failure.contains("already-installed"));
+
+        assert_eq!(
+            classify_plugin_install_error("plugin is already installed: demo"),
+            PluginInstallErrorCode::AlreadyInstalled
+        );
+        assert_eq!(
+            classify_plugin_install_error("plugin manifest field `id` is invalid"),
+            PluginInstallErrorCode::InvalidPackage
+        );
+        assert_eq!(
+            classify_plugin_install_error("plugin manifest field `protocolVersion` is invalid"),
+            PluginInstallErrorCode::Incompatible
+        );
+        assert_eq!(
+            classify_plugin_install_error("checksum mismatch in demo: index.js"),
+            PluginInstallErrorCode::InvalidPackage
         );
     }
 }

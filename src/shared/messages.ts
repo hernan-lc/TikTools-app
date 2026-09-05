@@ -168,6 +168,7 @@ export type PageMessage =
   | { type: 'set-event-enabled'; id: string; enabled: boolean }
   | { type: 'test-event'; event: LiveEvent }
   | { type: 'set-plugin-install'; id: string; installed: boolean }
+  | { type: 'install-plugin-package'; path: string; replaceExisting?: boolean }
   | { type: 'set-plugin-enabled'; id: string; enabled: boolean }
   | { type: 'get-plugin-settings'; id: string }
   | { type: 'save-plugin-settings'; id: string; values: PluginSettingValues }
@@ -228,4 +229,11 @@ export type HostMessage =
   | { type: 'behavior-test-result'; runs: BehaviorRun[] }
   | { type: 'behavior-error'; message: string }
   | { type: 'plugin-settings'; id: string; schema: JsonObject; uiHints?: JsonObject; values: JsonObject }
-  | { type: 'action-options'; source: string; options: ActionOptionItem[] };
+  | { type: 'action-options'; source: string; options: ActionOptionItem[] }
+  | { type: 'plugin-install-result'; success: true; id: string; version: string; replaced: boolean }
+  | {
+      type: 'plugin-install-result';
+      success: false;
+      code: 'already-installed' | 'invalid-package' | 'incompatible' | 'io-error' | 'unknown';
+      error: string;
+    };

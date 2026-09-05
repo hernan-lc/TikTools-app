@@ -339,6 +339,12 @@ impl AppCore {
                 }
                 self.emit_persisted_behavior();
             }
+            PageMessage::InstallPluginPackage {
+                path,
+                replace_existing,
+            } => {
+                self.handle_install_plugin_package(path, replace_existing);
+            }
             PageMessage::GetActionOptions { source } => {
                 self.emit(HostMessage::ActionOptions {
                     source,
@@ -390,6 +396,43 @@ impl AppCore {
                     runs: vec![self.test_event(&event).await],
                 });
             }
+        }
+    }
+
+    fn handle_install_plugin_package(&self, path: String, replace_existing: bool) {
+        #[cfg(feature = "plugin-install")]
+        {
+            // The installer owns canonicalization, validation, staging, and
+            // atomic replacement. The frontend never supplies a plugin id or
+            // destination: identity always comes from `plugin.json`.
+            match self.install_plugin(std::path::PathBuf::from(&path), replace_existing) {
+                Ok(installed) => {
+                    // `install_plugin` already rescanned; refresh the behavior
+                    // snapshot so the Plugins UI updates without a restart.
+                    self.emit_persisted_behavior();
+                    self.emit(HostMessage::plugin_install_success(
+                        installed.manifest.id,
+                        installed.manifest.version,
+                        replace_existing,
+                    ));
+                }
+                Err(error) => {
+                    let message = error.to_string();
+                    // Never expose sensitive filesystem internals beyond the
+                    // installer message itself; classify for structured UI flow.
+                    let code = crate::ipc::messages::classify_plugin_install_error(&message);
+                    tracing::warn!(%message, ?code, "plugin package installation failed");
+                    self.emit(HostMessage::plugin_install_failure(code, message));
+                }
+            }
+        }
+        #[cfg(not(feature = "plugin-install"))]
+        {
+            let _ = (path, replace_existing);
+            self.emit(HostMessage::plugin_install_failure(
+                crate::ipc::messages::PluginInstallErrorCode::Unknown,
+                "plugin installation was disabled in this build".to_owned(),
+            ));
         }
     }
 }

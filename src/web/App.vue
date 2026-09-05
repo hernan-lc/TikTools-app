@@ -105,6 +105,10 @@ const app = reactive(useAppController());
         :on-get-settings="app.handleGetPluginSettings"
         :on-save-settings="app.handleSavePluginSettings"
         :on-open-media-picker="app.openMediaPicker"
+        :on-install-plugin="app.handleInstallPlugin"
+        :plugin-install-state="app.pluginInstallState"
+        :on-confirm-replace="app.handleConfirmPluginReplace"
+        :on-cancel-replace="app.handleCancelPluginReplace"
       />
 
       <ConnectView

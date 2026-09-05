@@ -76,6 +76,18 @@ function normalizeUsername(value: string): string {
   return value.trim().replace(/^@/, '');
 }
 
+import {
+  applyPluginInstallResult,
+  createInitialPluginInstallState,
+  installPackageMessage,
+  pluginPickerOptions,
+  type PluginInstallState,
+} from './plugin-install.ts';
+
+export type { PluginInstallState };
+
+export const initialPluginInstallState = createInitialPluginInstallState();
+
 export function useAppController() {
   const activeTab = ref<AppTab>('feed');
   const uniqueId = ref(initialUsername);
@@ -106,6 +118,7 @@ export function useAppController() {
   const behaviorError = ref('');
   const pluginSettings = ref<Record<string, PluginSettingsState>>({});
   const actionOptions = ref<Record<string, ActionOptionItem[]>>({});
+  const pluginInstallState = ref<PluginInstallState>({ ...initialPluginInstallState });
   const mediaSelectionHandlers = new Map<string, MediaSelectionHandler>();
   let mediaRequestSequence = 0;
 
@@ -283,6 +296,15 @@ export function useAppController() {
       actionOptions.value = { ...actionOptions.value, [message.source]: message.options };
     }
 
+    if (message.type === 'plugin-install-result') {
+      // The behavior snapshot emitted by the backend refreshes the list.
+      pluginInstallState.value = applyPluginInstallResult(
+        pluginInstallState.value,
+        message,
+        (key) => t(locale.value, key),
+      );
+    }
+
     if (message.type === 'gift-debug') {
       console.warn(
         `[gift-debug] giftId=${message.giftId} hasIcon=${message.hasIcon} totalGifts=${message.totalGifts} icon=${message.iconUrl?.slice(0, 80) || 'MISSING'}`,
@@ -420,6 +442,50 @@ export function useAppController() {
     send(message);
   };
 
+  const sendInstallPackage = (path: string, replaceExisting: boolean): void => {
+    pluginInstallState.value = {
+      installing: true,
+      error: '',
+      success: '',
+      pendingPath: path,
+      needsReplace: false,
+    };
+    send(installPackageMessage(path, replaceExisting));
+  };
+
+  const handleInstallPlugin = (): void => {
+    if (pluginInstallState.value.installing) return;
+    pluginInstallState.value = createInitialPluginInstallState();
+    openMediaPicker(
+      pluginPickerOptions(t(locale.value, 'pluginInstallPickerTitle')),
+      (selection, pickerError) => {
+        if (pickerError) {
+          pluginInstallState.value = {
+            installing: false,
+            error: pickerError,
+            success: '',
+            pendingPath: '',
+            needsReplace: false,
+          };
+          return;
+        }
+        // Picker cancellation sends nothing.
+        if (!selection || selection.type !== 'file') return;
+        sendInstallPackage(selection.file.path, false);
+      },
+    );
+  };
+
+  const handleConfirmPluginReplace = (): void => {
+    const pending = pluginInstallState.value.pendingPath;
+    if (!pending || pluginInstallState.value.installing) return;
+    sendInstallPackage(pending, true);
+  };
+
+  const handleCancelPluginReplace = (): void => {
+    pluginInstallState.value = createInitialPluginInstallState();
+  };
+
   const setActiveTab = (value: AppTab): void => { activeTab.value = value; };
   const setUniqueId = (value: string): void => { uniqueId.value = value; };
   const setCookie = (value: string): void => { cookie.value = value; };
@@ -495,6 +561,10 @@ export function useAppController() {
     handleGetPluginSettings,
     handleSavePluginSettings,
     handleGetActionOptions,
+    pluginInstallState,
+    handleInstallPlugin,
+    handleConfirmPluginReplace,
+    handleCancelPluginReplace,
     openMediaPicker,
     handleAnalyzeScript: (nodeId: string, source: string, offset: number, eventType?: AutomationEventType): void => {
       send({ type: 'analyze-automation-script', nodeId, source, offset, eventType });

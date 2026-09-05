@@ -381,15 +381,42 @@ mod tests {
     use super::*;
 
     fn temp_root() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("tiktools-plugin-installer-{suffix}"))
+        let count = COUNTER.fetch_add(1, Ordering::AcqRel);
+        std::env::temp_dir().join(format!(
+            "tiktools-plugin-installer-{}-{}-{count}",
+            std::process::id(),
+            suffix
+        ))
     }
 
     fn digest_bytes(bytes: &[u8]) -> String {
         format!("{:x}", Sha256::digest(bytes))
+    }
+
+    fn write_archive(path: &Path, files: &[(&str, &[u8])]) {
+        let file = File::create(path).unwrap();
+        let mut writer = ZipWriter::new(file);
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+        for (name, bytes) in files {
+            writer.start_file(*name, options).unwrap();
+            writer.write_all(bytes).unwrap();
+        }
+        writer.finish().unwrap();
+    }
+
+    fn demo_package(manifest: &[u8], entry: &[u8]) -> (Vec<u8>, Vec<u8>, String) {
+        let checksums = format!(
+            r#"{{"plugin.json":"{}","index.js":"{}"}}"#,
+            digest_bytes(manifest),
+            digest_bytes(entry)
+        );
+        (manifest.to_vec(), entry.to_vec(), checksums)
     }
 
     #[test]
@@ -437,6 +464,153 @@ mod tests {
         assert!(installed.directory.join("plugin.json").is_file());
         assert!(installed.directory.join("index.js").is_file());
         assert!(!root.join("staging").join("plugin.json").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_wrong_extension() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let archive_path = root.join("demo.zip");
+        let manifest = br#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"1.0.0","runtime":"process","entry":"index.js"}"#;
+        let entry = br#"{"ready":true}"#;
+        let (_, _, checksums) = demo_package(manifest, entry);
+        write_archive(
+            &archive_path,
+            &[
+                ("plugin.json", manifest),
+                ("index.js", entry),
+                ("checksums.json", checksums.as_bytes()),
+            ],
+        );
+
+        let result = PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: false,
+        }
+        .install(&archive_path);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains(".plugin extension"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_missing_manifest_and_cleans_staging() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let archive_path = root.join("demo.plugin");
+        write_archive(&archive_path, &[("index.js", b"{}")]);
+
+        let staging = root.join("staging");
+        let result = PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: staging.clone(),
+            replace_existing: false,
+        }
+        .install(&archive_path);
+        assert!(result.is_err());
+        assert!(!root.join("plugins/demo").exists());
+        // Staging extracts are removed on failure; only the staging root may remain.
+        let leftover: Vec<_> = fs::read_dir(&staging)
+            .map(|entries| entries.filter_map(Result::ok).collect())
+            .unwrap_or_default();
+        assert!(leftover.is_empty(), "staging was not cleaned: {leftover:?}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn rejects_unsafe_traversal_entries() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let archive_path = root.join("evil.plugin");
+        let manifest = br#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"1.0.0","runtime":"process","entry":"index.js"}"#;
+        let entry = br#"{}"#;
+        let (_, _, checksums) = demo_package(manifest, entry);
+        write_archive(
+            &archive_path,
+            &[
+                ("plugin.json", manifest),
+                ("../evil.txt", b"evil"),
+                ("index.js", entry),
+                ("checksums.json", checksums.as_bytes()),
+            ],
+        );
+
+        let result = PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: false,
+        }
+        .install(&archive_path);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unsafe path"));
+        assert!(!root.join("plugins/demo").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn existing_plugin_requires_replace_flag() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let manifest_v1 = br#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"1.0.0","runtime":"process","entry":"index.js"}"#.as_slice();
+        let manifest_v2 = br#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"2.0.0","runtime":"process","entry":"index.js"}"#.as_slice();
+        let entry = br#"{"ready":true}"#.as_slice();
+        let (_, _, checksums_v1) = demo_package(manifest_v1, entry);
+        let (_, _, checksums_v2) = demo_package(manifest_v2, entry);
+
+        let first = root.join("demo-v1.plugin");
+        write_archive(
+            &first,
+            &[
+                ("plugin.json", manifest_v1),
+                ("index.js", entry),
+                ("checksums.json", checksums_v1.as_bytes()),
+            ],
+        );
+        PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: false,
+        }
+        .install(&first)
+        .unwrap();
+
+        let second = root.join("demo-v2.plugin");
+        write_archive(
+            &second,
+            &[
+                ("plugin.json", manifest_v2),
+                ("index.js", entry),
+                ("checksums.json", checksums_v2.as_bytes()),
+            ],
+        );
+        let without_replace = PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: false,
+        }
+        .install(&second);
+        let message = without_replace.unwrap_err().to_string();
+        assert!(message.contains("already installed"), "{message}");
+        // The original install is untouched until replacement is confirmed.
+        let installed_manifest = fs::read_to_string(root.join("plugins/demo/plugin.json")).unwrap();
+        assert!(installed_manifest.contains("1.0.0"));
+
+        let replaced = PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: true,
+        }
+        .install(&second)
+        .unwrap();
+        assert_eq!(replaced.manifest.version, "2.0.0");
+        let installed_manifest = fs::read_to_string(root.join("plugins/demo/plugin.json")).unwrap();
+        assert!(installed_manifest.contains("2.0.0"));
 
         fs::remove_dir_all(root).unwrap();
     }

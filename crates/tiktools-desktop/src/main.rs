@@ -1,3 +1,8 @@
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 mod app;
 mod event;
 mod media;
@@ -13,6 +18,12 @@ fn main() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
 
+    // TODO: route tracing to a bounded/rotated file under
+    // `%LOCALAPPDATA%\TikTools\logs\tiktools.log` in release builds. The
+    // Windows GUI subsystem hides the console, so startup failures must not
+    // depend on stdout. Plugin installation failures are already surfaced in
+    // the GUI via `plugin-install-result`; file logging remains future work.
+    // Never log session cookies.
     tracing_subscriber::fmt()
         .with_target(false)
         .with_env_filter(

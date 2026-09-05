@@ -10,6 +10,14 @@ import { SchemaForm } from '../components/ui/SchemaForm.vue';
 import { Switch } from '../components/ui/Checkbox.vue';
 import { i18nText, t, type Locale } from '../i18n.ts';
 
+export type PluginInstallViewState = {
+  installing: boolean;
+  error: string;
+  success: string;
+  pendingPath: string;
+  needsReplace: boolean;
+};
+
 type PluginsViewProps = {
   locale: Locale;
   plugins: PluginStatus[];
@@ -22,6 +30,10 @@ type PluginsViewProps = {
   onGetSettings: (id: string) => void;
   onSaveSettings: (id: string, values: PluginSettingValues) => void;
   onOpenMediaPicker?: OpenMediaPicker;
+  onInstallPlugin?: () => void;
+  pluginInstallState?: PluginInstallViewState;
+  onConfirmReplace?: () => void;
+  onCancelReplace?: () => void;
 };
 
 function pluginCopy(locale: Locale) {
@@ -31,7 +43,7 @@ function pluginCopy(locale: Locale) {
     builtInLabel: t(locale, 'builtInActions'),
     builtInNote: t(locale, 'builtInActionsNote'),
     installed: t(locale, 'pluginsInstalled'),
-    store: t(locale, 'pluginsBrowse'),
+    store: t(locale, 'pluginsAvailable'),
     actionsLabel: t(locale, 'pluginActionsLabel'),
     install: t(locale, 'pluginInstall'),
     uninstall: t(locale, 'pluginUninstall'),
@@ -39,17 +51,24 @@ function pluginCopy(locale: Locale) {
     disabled: t(locale, 'pluginDisabled'),
     unavailable: t(locale, 'pluginUnavailable'),
     emptyInstalled: t(locale, 'pluginsEmpty'),
-    explore: t(locale, 'pluginsBrowse'),
+    explore: t(locale, 'pluginsAvailable'),
     usedBy: (count: number) => t(locale, 'pluginUsedBy', { count }),
     confirm: t(locale, 'pluginUninstallConfirm'),
     settings: t(locale, 'pluginSettings'),
     saveSettings: t(locale, 'pluginSettingsSave'),
     settingsHint: t(locale, 'pluginSettingsHint'),
+    installPackage: t(locale, 'pluginInstallPackage'),
+    installing: t(locale, 'pluginInstalling'),
+    installSuccess: t(locale, 'pluginInstallSuccess'),
+    installFailed: t(locale, 'pluginInstallFailed'),
+    replaceConfirm: t(locale, 'pluginReplaceConfirm'),
+    replaceAction: t(locale, 'pluginReplace'),
+    cancel: t(locale, 'cancel'),
   };
 }
 
 export const PluginsView = defineVueComponent<PluginsViewProps>(
-  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker'],
+  ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'onOpenMediaPicker', 'onInstallPlugin', 'pluginInstallState', 'onConfirmReplace', 'onCancelReplace'],
   (props) => {
   const tab = ref<'installed' | 'store'>('installed');
 
@@ -58,6 +77,9 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
   const installed = props.plugins.filter((plugin) => plugin.installed);
   const visible = tab.value === 'installed' ? installed : props.plugins;
 
+  const installState = props.pluginInstallState;
+  const installing = installState?.installing ?? false;
+
   return (
     <div class="plg">
       <div class="plg-topbar">
@@ -65,6 +87,16 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
           <h2 class="plg-topbar__title">{copy.title}</h2>
           <span class="plg-topbar__subtitle">{copy.lead}</span>
         </div>
+        {props.onInstallPlugin && (
+          <button
+            type="button"
+            class="plg-btn plg-btn--primary"
+            disabled={installing}
+            onClick={() => props.onInstallPlugin?.()}
+          >
+            {installing ? copy.installing : copy.installPackage}
+          </button>
+        )}
       </div>
 
       <div class="plg-tabs" style="padding: 0 16px;">
@@ -85,6 +117,31 @@ export const PluginsView = defineVueComponent<PluginsViewProps>(
       </div>
 
       {props.error && <div class="plg-stack"><div class="plg-alert">{props.error}</div></div>}
+      {installState?.success && <div class="plg-stack"><div class="plg-banner"><span class="plg-dot is-ok" /><span>{installState.success}</span></div></div>}
+      {installState?.error && !installState.needsReplace && <div class="plg-stack"><div class="plg-alert">{installState.error}</div></div>}
+      {installState?.needsReplace && (
+        <div class="plg-stack"><div class="plg-alert">
+          <span>{copy.replaceConfirm}</span>
+          <div class="plg-row">
+            <button
+              type="button"
+              class="plg-btn plg-btn--primary plg-btn--sm"
+              disabled={installing}
+              onClick={() => props.onConfirmReplace?.()}
+            >
+              {copy.replaceAction}
+            </button>
+            <button
+              type="button"
+              class="plg-btn plg-btn--sm"
+              disabled={installing}
+              onClick={() => props.onCancelReplace?.()}
+            >
+              {copy.cancel}
+            </button>
+          </div>
+        </div></div>
+      )}
 
       <div class="plg-scroll">
         <div class="plg-stack">
