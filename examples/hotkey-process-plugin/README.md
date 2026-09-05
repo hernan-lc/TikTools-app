@@ -44,6 +44,18 @@ event.data.modifiers  eq        ctrl
 event.data.sequence   contains  g o
 ```
 
+Testing notes:
+
+- the host starts this plugin automatically on its first poll tick; no
+  manual start is needed after install/enable.
+- the editor Run test button checks filters against the manifest sample
+  (`key "k"`) or the most recent live press of the same trigger — not
+  against keys pressed while the dialog is open. To verify live behavior,
+  save the event, press the keys for real, and watch the Runs list.
+- a mismatch names the sample data it tested, for example
+  `sample data: {"key":"k",...}`, so a wrong guess reads as a data
+  problem instead of a broken trigger.
+
 Platform notes:
 
 - Windows: works in a normal user session, no admin needed.

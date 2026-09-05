@@ -38,14 +38,33 @@ impl AppCore {
             });
 
         if !self.automation.event_record_matches(record, &event) {
-            let summary = "Event filters did not match the sample event.";
+            // Name the sample data so a mismatch against a plugin sample
+            // (hotkey.pressed ships key "k") reads as a data problem, not a
+            // broken trigger.
+            let preview = event.get("data").map(|data| {
+                const MAX_PREVIEW: usize = 120;
+                let text = serde_json::to_string(data).unwrap_or_default();
+                if text.len() > MAX_PREVIEW {
+                    format!("{}…", &text[..MAX_PREVIEW])
+                } else {
+                    text
+                }
+            });
+            let summary = match preview {
+                Some(preview) if !preview.is_empty() => {
+                    format!(
+                        "Event filters did not match the sample event (sample data: {preview})."
+                    )
+                }
+                _ => "Event filters did not match the sample event.".to_owned(),
+            };
             return json!({
                 "id": self.automation.next_run_id("test-event", started),
                 "at": started,
                 "status": "error",
                 "eventName": trigger,
                 "actionName": record.get("name").and_then(Value::as_str).unwrap_or("Event"),
-                "summary": summary,
+                "summary": summary.clone(),
                 "durationMs": now_millis().saturating_sub(started),
                 "test": true,
                 "logs": [],
@@ -900,10 +919,12 @@ impl AppCore {
         None
     }
 
-    /// Starts the background poll that lets running plugins publish
-    /// spontaneous events (hotkeys, timers, watchers). Ticks are cheap no-ops
-    /// while no plugin declares event types; shutdown stops the plugins, which
-    /// empties every later tick until the process exits.
+    /// Starts the background poll that lets plugins publish spontaneous
+    /// events (hotkeys, timers, watchers). The first tick starts every
+    /// event-declaring plugin, so action-less plugins work without anyone
+    /// executing them first; later ticks are cheap no-ops until a plugin
+    /// answers with events, and shutdown stops the plugins, which empties
+    /// every remaining tick until the process exits.
     pub fn spawn_plugin_event_poll(self: &Arc<Self>) {
         let core = Arc::clone(self);
         tokio::spawn(async move {
@@ -921,7 +942,7 @@ impl AppCore {
             .plugins
             .list()
             .into_iter()
-            .filter(|plugin| plugin.running && self.plugin_ready(&plugin.manifest.id))
+            .filter(|plugin| self.plugin_ready(&plugin.manifest.id))
             .filter_map(|plugin| {
                 let declared = declared_event_types(&plugin.manifest);
                 if declared.is_empty() {
@@ -950,6 +971,10 @@ impl AppCore {
             .clone()
             .unwrap_or_else(|| json!({}));
         for (plugin_id, declared) in candidates {
+            if let Err(error) = self.plugins.start(&plugin_id) {
+                tracing::debug!(plugin = %plugin_id, %error, "plugin event source could not start");
+                continue;
+            }
             let plugins = Arc::clone(&self.plugins);
             let request = serde_json::json!({"type": "poll"});
             let plugin_id_for_call = plugin_id.clone();

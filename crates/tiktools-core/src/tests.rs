@@ -322,3 +322,69 @@ async fn plugin_typed_event_runs_while_its_plugin_is_enabled() {
 
     assert_eq!(core.automation.recent_runs().len(), 1);
 }
+
+#[tokio::test]
+async fn plugin_typed_event_respects_declaration_and_capability() {
+    use tiktools_plugin_api::manifest::PluginManifest;
+
+    let emitter = Arc::new(RecordingEmitter::default());
+    let core = Arc::new(AppCore::new(emitter));
+    let manifest = PluginManifest::from_json_str(
+        r#"{"schemaVersion":2,"id":"hotkeys","name":"Hotkeys","version":"1.0.0","runtime":"process","entry":"hotkeys","capabilities":["events.publish"],"eventTypes":[{"type":"hotkey.pressed","title":{"default":"Hotkey pressed"}}]}"#,
+    )
+    .expect("fixture manifest should parse");
+
+    let source = serde_json::json!({"id": "src-1"});
+    let typed = core
+        .plugin_typed_event(
+            &manifest,
+            "hotkey.pressed",
+            &serde_json::json!({"key": "k"}),
+            &source,
+        )
+        .expect("declared type with capability should publish")
+        .expect("declared type should not fall back to plugin.emit");
+    assert_eq!(typed["type"], "hotkey.pressed");
+    assert_eq!(typed["data"]["key"], "k");
+    assert_eq!(typed["sourceEventId"], "src-1");
+    assert_eq!(typed["data"]["depth"], 1);
+
+    // Undeclared types keep the internal plugin.emit channel.
+    assert!(core
+        .plugin_typed_event(&manifest, "other.thing", &serde_json::json!({}), &source)
+        .expect("undeclared type should not error")
+        .is_none());
+
+    // Declared but unpermitted types fail loudly instead of misrouting.
+    let bare = PluginManifest::from_json_str(
+        r#"{"schemaVersion":2,"id":"hotkeys","name":"Hotkeys","version":"1.0.0","runtime":"process","entry":"hotkeys","eventTypes":[{"type":"hotkey.pressed","title":{"default":"Hotkey pressed"}}]}"#,
+    )
+    .expect("fixture manifest should parse");
+    let error = core
+        .plugin_typed_event(&bare, "hotkey.pressed", &serde_json::json!({}), &source)
+        .expect_err("missing capability should error");
+    assert!(error.contains("events.publish"), "{error}");
+}
+
+#[tokio::test]
+async fn test_event_names_sample_data_on_mismatch() {
+    let emitter = Arc::new(RecordingEmitter::default());
+    let core = Arc::new(AppCore::new(emitter));
+    let result = core
+        .test_event(&serde_json::json!({
+            "id": "evt-1",
+            "name": "Mismatch",
+            "enabled": true,
+            "trigger": "tiktok.chat",
+            "filters": [{"path": "event.data.comment", "operator": "eq", "value": "zzz-no-match"}],
+            "cooldownMs": 0,
+            "cooldownScope": "user",
+            "actionIds": [],
+            "runMode": "all"
+        }))
+        .await;
+    assert_eq!(result["status"], "error");
+    let summary = result["summary"].as_str().unwrap_or_default();
+    assert!(summary.contains("sample data:"), "{summary}");
+    assert!(summary.contains("hello"), "{summary}");
+}
