@@ -5,6 +5,7 @@
 
 mod app;
 mod event;
+mod icon;
 mod media;
 mod platform;
 mod tray;

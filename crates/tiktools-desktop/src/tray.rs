@@ -6,7 +6,10 @@ use tray_icon::{
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use winit::event_loop::EventLoopProxy;
 
-use crate::event::{DesktopCommand, DesktopEvent};
+use crate::{
+    event::{DesktopCommand, DesktopEvent},
+    icon,
+};
 
 pub struct TrayController {
     _icon: TrayIcon,
@@ -32,7 +35,7 @@ impl TrayController {
         let quit_id = quit.id().clone();
 
         let icon = TrayIconBuilder::new()
-            .with_icon(Icon::from_rgba(icon_rgba(), 32, 32)?)
+            .with_icon(Icon::from_rgba(icon::rgba(), icon::SIZE, icon::SIZE)?)
             .with_tooltip("TikTools")
             .with_menu(Box::new(menu))
             .build()?;
@@ -88,29 +91,4 @@ fn send_command(
     if let Err(error) = proxy.send_event(DesktopEvent::Command(command)) {
         tracing::debug!(%error, source, "could not forward system tray command");
     }
-}
-
-fn icon_rgba() -> Vec<u8> {
-    let mut pixels = vec![0_u8; 32 * 32 * 4];
-    for y in 0..32 {
-        for x in 0..32 {
-            let offset = (y * 32 + x) * 4;
-            let dx = x as f32 - 15.5;
-            let dy = y as f32 - 15.5;
-            if dx * dx + dy * dy > 14.5 * 14.5 {
-                continue;
-            }
-            let amount = (x + y) as f32 / 62.0;
-            pixels[offset] = (254.0 - 80.0 * amount) as u8;
-            pixels[offset + 1] = (44.0 + 200.0 * amount) as u8;
-            pixels[offset + 2] = (85.0 + 150.0 * amount) as u8;
-            pixels[offset + 3] = 255;
-            if (9..=22).contains(&x) && (9..=20).contains(&y) {
-                pixels[offset] = 255;
-                pixels[offset + 1] = 255;
-                pixels[offset + 2] = 255;
-            }
-        }
-    }
-    pixels
 }

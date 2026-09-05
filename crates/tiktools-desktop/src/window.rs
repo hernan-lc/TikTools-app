@@ -7,7 +7,7 @@ use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::WindowEvent,
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
-    window::{Window, WindowId},
+    window::{Icon as WindowIcon, Window, WindowId},
 };
 use wry::{
     dpi::{PhysicalPosition as WryPhysicalPosition, PhysicalSize as WryPhysicalSize},
@@ -57,10 +57,14 @@ impl DesktopApp {
     }
 
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<(), String> {
+        let window_icon =
+            WindowIcon::from_rgba(crate::icon::rgba(), crate::icon::SIZE, crate::icon::SIZE)
+                .map_err(|error| format!("could not create window icon: {error}"))?;
         let attributes = Window::default_attributes()
             .with_title("TikTools")
             .with_inner_size(LogicalSize::new(900_u32, 680_u32))
             .with_resizable(true)
+            .with_window_icon(Some(window_icon))
             .with_visible(true);
         let window = event_loop
             .create_window(attributes)
