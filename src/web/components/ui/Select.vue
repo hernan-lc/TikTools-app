@@ -68,7 +68,7 @@ export const Select = defineVueComponent<SelectProps>(
               </option>
             ) : null}
             {options.map((o) => (
-              <option key={o.value} value={o.value} disabled={o.disabled}>
+              <option key={o.value} value={o.value} disabled={o.disabled} title={o.hint ?? o.label}>
                 {o.label}
               </option>
             ))}
@@ -93,7 +93,7 @@ export const Select = defineVueComponent<SelectProps>(
           </option>
         ) : null}
         {options.map((o) => (
-          <option key={o.value} value={o.value} disabled={o.disabled}>
+          <option key={o.value} value={o.value} disabled={o.disabled} title={o.hint ?? o.label}>
             {o.label}
           </option>
         ))}

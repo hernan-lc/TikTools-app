@@ -6,6 +6,7 @@ import { IconDice, IconRadio, IconUsers } from '../components/icons.vue';
 import { Alert, Badge, Card, Chip, ChipGroup, EmptyState } from '../components/ui/Card.vue';
 import { Button } from '../components/ui/Button.vue';
 import { TextInput } from '../components/ui/TextInput.vue';
+import { PasswordInput } from '../components/ui/PasswordInput.vue';
 import { Page } from '../components/ui/Page.vue';
 import { t, type Locale } from '../i18n.ts';
 import type { ConnectionStatus } from '../types.ts';
@@ -57,15 +58,15 @@ export const ConnectView = defineVueComponent<ConnectViewProps>(
             />
 
             {showCookie.value ? (
-                <TextInput
-                  id="connect-cookie"
-                  name="cookie"
-                type="password"
+              <PasswordInput
+                id="connect-cookie"
+                name="cookie"
                 value={cookie}
                 onValueChange={onCookieChange}
                 label={`${t(locale, 'authenticatedCookie')} ${t(locale, 'optional')}`}
                 hint={t(locale, 'guestCookieHint')}
                 disabled={isLive || isBusy}
+                autoComplete="off"
               />
             ) : (
               <div style={{ marginBottom: 4 }}>

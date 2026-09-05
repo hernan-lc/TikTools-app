@@ -9,6 +9,8 @@ export type SelectOption = {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Tooltip shown on the option title. */
+  hint?: string;
 };
 
 export function fieldIds(props: { id?: string; name?: string }, fallback: string): { id: string; describedBy: (parts: Array<string | undefined | false>) => string | undefined } {

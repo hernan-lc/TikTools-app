@@ -14,6 +14,10 @@ import { CodeEditor, formatJsonText } from './CodeEditor.vue';
 import { InfoTip } from './InfoTip.vue';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 import { MediaField } from './MediaField.vue';
+import { NumberInput } from './NumberInput.vue';
+import { Select } from './Select.vue';
+import { TextInput } from './TextInput.vue';
+import type { SelectOption } from './controls.ts';
 import { DatePicker, TimePicker } from './DatePicker.vue';
 import { PasswordInput } from './PasswordInput.vue';
 import { ColorPicker } from './ColorPicker.vue';
@@ -454,7 +458,7 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
         hintText={hintText}
         template={template}
         value={displayValue}
-        options={options as Array<{ value: string; label: string; hint?: string }>}
+        options={options as SelectOption[]}
         onChange={onChange}
       />
     );
@@ -522,27 +526,19 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
   }
 
   if (kind === 'number' || schema.type === 'number' || schema.type === 'integer') {
+    const numeric = displayValue.trim() === '' ? null : Number(displayValue);
     return (
       <div class="plg-field">
-        <div class="plg-float is-filled">
-          <div class="plg-float__control">
-            <input
-              name={name}
-              type="number"
-              value={displayValue}
-              placeholder=" "
-              aria-label={label}
-              onInput={(event) => {
-                const next = (event.currentTarget as HTMLInputElement).value;
-                onChange(next === '' ? '' : Number(next));
-              }}
-            />
-            <label class="plg-float__label">
-              {label}
-              {hintText ? <InfoTip text={hintText} position="right" /> : null}
-            </label>
-          </div>
-        </div>
+        <NumberInput
+          name={name}
+          label={label}
+          hint={hintText || undefined}
+          value={numeric !== null && Number.isFinite(numeric) ? numeric : null}
+          onValueChange={(next) => onChange(next === null ? '' : next)}
+          min={typeof schema.minimum === 'number' ? schema.minimum : typeof schema.min === 'number' ? schema.min : undefined}
+          max={typeof schema.maximum === 'number' ? schema.maximum : typeof schema.max === 'number' ? schema.max : undefined}
+          step={typeof schema.multipleOf === 'number' ? schema.multipleOf : undefined}
+        />
       </div>
     );
   }
@@ -572,22 +568,13 @@ function SchemaField({ locale, name, schema, hint, value, onChange, templateSugg
 
   return (
     <div class="plg-field">
-      <div class={`plg-float ${displayValue.trim().length > 0 ? 'is-filled' : ''}`}>
-        <div class="plg-float__control">
-          <input
-            name={name}
-            type="text"
-            value={displayValue}
-            placeholder=" "
-            aria-label={label}
-            onInput={(event) => onChange((event.currentTarget as HTMLInputElement).value)}
-          />
-          <label class="plg-float__label">
-            {label}
-            {hintText ? <InfoTip text={hintText} position="right" /> : null}
-          </label>
-        </div>
-      </div>
+      <TextInput
+        name={name}
+        label={label}
+        hint={hintText || undefined}
+        value={displayValue}
+        onValueChange={onChange}
+      />
     </div>
   );
 }
@@ -606,33 +593,19 @@ function SelectField({
   hintText: string;
   template?: boolean;
   value: string;
-  options: Array<{ value: string; label: string; hint?: string }>;
+  options: SelectOption[];
   onChange: (value: JsonValue) => void;
 }) {
-  const filled = value.trim().length > 0;
   return (
     <div class="plg-field">
-      <div class={`plg-float ${filled ? 'is-filled' : ''}`}>
-        <div class="plg-float__control">
-          <select
-            name={name}
-            value={value}
-            aria-label={label}
-            onChange={(event) => onChange((event.currentTarget as HTMLSelectElement).value)}
-          >
-            {options.map((option) => (
-              <option key={option.value} value={option.value} title={option.hint ?? option.label}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <label class="plg-float__label">
-            {label}
-            {hintText ? <InfoTip text={hintText} position="right" /> : null}
-          </label>
-          <span class="plg-float__arrow" aria-hidden>▾</span>
-        </div>
-      </div>
+      <Select
+        name={name}
+        label={label}
+        hint={hintText || undefined}
+        value={value}
+        options={options}
+        onValueChange={(next) => onChange(next)}
+      />
     </div>
   );
 }
