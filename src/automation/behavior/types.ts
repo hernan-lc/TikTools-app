@@ -34,6 +34,7 @@ export type ActionFieldKind =
   | 'text'
   | 'textarea'
   | 'number'
+  | 'range'
   | 'select'
   | 'boolean'
   | 'keyvalue'
@@ -57,6 +58,10 @@ export interface ActionField {
   kind: ActionFieldKind;
   /** Default used when the action is created from this type. */
   value: string;
+  /** Bounds for `range` fields (slider); ignored by other kinds. */
+  min?: number;
+  max?: number;
+  step?: number;
   placeholder?: string;
   options?: Array<{ value: string; label: Localized }>;
   /** True when `{{ event.* }}` placeholders are rendered before use. */

@@ -737,7 +737,7 @@ function formatJson(value: JsonValue | undefined): string {
 
 function schemaFromFields(type: ActionTypeDefinition): JsonObject {
   const properties: JsonObject = {};
-  for (const field of type.fields ?? []) properties[field.key] = { type: field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string', title: field.label, default: field.value };
+  for (const field of type.fields ?? []) properties[field.key] = { type: field.kind === 'number' || field.kind === 'range' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string', title: field.label, default: field.value, minimum: field.min, maximum: field.max, multipleOf: field.step };
   return { type: 'object', properties };
 }
 

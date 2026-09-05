@@ -88,8 +88,9 @@ pub fn builtin_action_types() -> Vec<Value> {
                 field("file", "Audio file", "media", "", "automation.action.audio.play.field.file.label", json!({
                     "hint": text("Select an existing audio file. TikTools stores a path-backed reference and validates it again when it plays.", "automation.action.audio.play.field.file.hint")
                 })),
-                field("volume", "Volume", "number", "1", "automation.action.audio.play.field.volume.label", json!({
-                    "hint": text("A value from 0 (silent) to 1 (full volume).", "automation.action.audio.play.field.volume.hint")
+                field("volume", "Volume", "range", "1", "automation.action.audio.play.field.volume.label", json!({
+                    "hint": text("A value from 0 (silent) to 1 (full volume).", "automation.action.audio.play.field.volume.hint"),
+                    "min": 0, "max": 1, "step": 0.05
                 })),
                 field("overlap", "If already playing", "select", "allow", "automation.action.audio.play.field.overlap.label", json!({
                     "options": [

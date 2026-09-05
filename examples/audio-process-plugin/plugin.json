@@ -29,8 +29,12 @@
         {
           "key": "volume",
           "label": {"default": "Volume", "i18key": "audio.play.process.volume.label"},
-          "kind": "number",
-          "value": "1"
+          "kind": "range",
+          "value": "1",
+          "min": 0,
+          "max": 1,
+          "step": 0.05,
+          "hint": {"default": "Silent on the left, full volume on the right.", "i18key": "audio.play.process.volume.hint"}
         },
         {
           "key": "overlap",

@@ -11,10 +11,13 @@ export function schemaForActionType(type: ActionTypeDefinition): JsonObject {
   const properties: JsonObject = {};
   for (const field of type.fields ?? []) {
     properties[field.key] = {
-      type: field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string',
+      type: field.kind === 'number' || field.kind === 'range' ? 'number' : field.kind === 'boolean' ? 'boolean' : field.kind === 'keyvalue' ? 'object' : 'string',
       title: jsonLocalized(field.label),
       default: defaultFieldValue(field),
       enum: field.options?.map((option) => option.value),
+      minimum: field.min,
+      maximum: field.max,
+      multipleOf: field.step,
     };
   }
   return { type: 'object', properties };
@@ -78,7 +81,7 @@ export function normalizeActionConfig(type: ActionTypeDefinition, value: unknown
       }
       const fallback = defaultFieldValue(field);
       const limit = field.kind === 'code' || field.kind === 'textarea' ? MAX_CODE : MAX_TEXT;
-      if (field.kind === 'number') {
+      if (field.kind === 'number' || field.kind === 'range') {
         result[field.key] = typeof entry === 'number' && Number.isFinite(entry)
           ? entry
           : typeof entry === 'string' && entry.trim() !== '' && Number.isFinite(Number(entry))
@@ -133,7 +136,7 @@ export function resolveActionConfig(type: ActionTypeDefinition, config: JsonObje
 function defaultFieldValue(field: ActionField): JsonValue {
   if (field.kind === 'keyvalue') return stringMap(parseKeyValueDefault(field.value));
   if (field.kind === 'boolean') return field.value === 'true';
-  if (field.kind === 'number' && field.value.trim() !== '' && Number.isFinite(Number(field.value))) return Number(field.value);
+  if ((field.kind === 'number' || field.kind === 'range') && field.value.trim() !== '' && Number.isFinite(Number(field.value))) return Number(field.value);
   return field.value;
 }
 
