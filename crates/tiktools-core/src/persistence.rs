@@ -158,10 +158,12 @@ impl AppCore {
         }
 
         object.insert("actionTypes".to_owned(), Value::Array(action_types));
-        object.insert(
-            "eventTypes".to_owned(),
-            Value::Array(event_types.into_values().collect()),
+        let event_types: Vec<Value> = event_types.into_values().collect();
+        tracing::debug!(
+            count = event_types.len(),
+            "merged plugin event types into behavior snapshot"
         );
+        object.insert("eventTypes".to_owned(), Value::Array(event_types));
         object.insert("plugins".to_owned(), Value::Array(plugins));
         object.insert("translations".to_owned(), builtin_translations());
     }
