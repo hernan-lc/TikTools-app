@@ -407,7 +407,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-plugin-api"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -416,11 +416,11 @@ dependencies = [
 
 [[package]]
 name = "tiktools-plugin-macros"
-version = "0.1.5"
+version = "0.2.0"
 
 [[package]]
 name = "tiktools-plugin-sdk"
-version = "0.1.5"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
