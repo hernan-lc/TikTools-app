@@ -84,6 +84,15 @@ impl PluginRuntime for ProcessPluginRuntime {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
+        #[cfg(target_os = "windows")]
+        {
+            // Process plugins talk over piped stdio and never need a
+            // console. Without this flag every console-subsystem plugin
+            // (for example the hotkey listener) pops a visible window.
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
         let mut child = command.spawn().map_err(|error| {
             PluginLoaderError::Runtime(format!("could not start plugin host: {error}"))
         })?;

@@ -1,4 +1,10 @@
 #![forbid(unsafe_code)]
+// Release plugin executables must not allocate a console on Windows; the
+// host launches them with CREATE_NO_WINDOW and talks over piped stdio.
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
 
 //! Global hotkey / key-sequence process plugin for TikTools.
 //!
