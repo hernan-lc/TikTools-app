@@ -3,13 +3,22 @@
 use super::*;
 use serde::Deserialize;
 
-const PLUGIN_CALL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
-
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct PluginActionDescriptor {
     pub(crate) id: String,
     #[serde(default, rename = "requiredCapabilities")]
     pub(crate) required_capabilities: Vec<String>,
+    #[serde(default, rename = "timeoutMs")]
+    pub(crate) timeout_ms: Option<u64>,
+}
+
+impl PluginActionDescriptor {
+    fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(
+            self.timeout_ms
+                .unwrap_or(tiktools_plugin_api::manifest::DEFAULT_PLUGIN_ACTION_TIMEOUT_MS),
+        )
+    }
 }
 
 impl AppCore {
@@ -62,6 +71,7 @@ impl AppCore {
             .start(&plugin.manifest.id)
             .map_err(|error| error.to_string())?;
         let plugin_id = plugin.manifest.id.clone();
+        let action_timeout = descriptor.timeout();
         let request = serde_json::to_value(tiktools_plugin_sdk::PluginCall::action(
             action.clone(),
             event.clone(),
@@ -70,15 +80,17 @@ impl AppCore {
         let plugins = Arc::clone(&self.plugins);
         let request_for_call = request.clone();
         let response = tokio::time::timeout(
-            PLUGIN_CALL_DEADLINE,
-            tokio::task::spawn_blocking(move || plugins.call(&plugin_id, &request_for_call)),
+            action_timeout,
+            tokio::task::spawn_blocking(move || {
+                plugins.call_with_timeout(&plugin_id, &request_for_call, action_timeout)
+            }),
         )
         .await
         .map_err(|_| {
             format!(
                 "plugin `{}` timed out after {} seconds",
                 plugin.manifest.id,
-                PLUGIN_CALL_DEADLINE.as_secs()
+                action_timeout.as_secs()
             )
         })?
         .map_err(|error| format!("plugin task failed: {error}"))?
@@ -361,5 +373,29 @@ impl AppCore {
         if was_unhealthy {
             tracing::info!(plugin = %id, "plugin recovered");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_timeout_defaults_to_thirty_seconds() {
+        let descriptor: PluginActionDescriptor = serde_json::from_value(json!({
+            "id": "demo.action"
+        }))
+        .unwrap();
+        assert_eq!(descriptor.timeout(), std::time::Duration::from_secs(30));
+    }
+
+    #[test]
+    fn action_timeout_uses_manifest_milliseconds() {
+        let descriptor: PluginActionDescriptor = serde_json::from_value(json!({
+            "id": "demo.action",
+            "timeoutMs": 120000
+        }))
+        .unwrap();
+        assert_eq!(descriptor.timeout(), std::time::Duration::from_secs(120));
     }
 }

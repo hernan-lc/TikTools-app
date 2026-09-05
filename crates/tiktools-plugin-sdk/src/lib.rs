@@ -138,6 +138,46 @@ fn environment_list(name: &str) -> Vec<String> {
         .collect()
 }
 
+/// Process-runtime helpers for paths supplied by the TikTools launcher.
+///
+/// These are intentionally outside `PluginContext`: WASM and native ABI
+/// plugins do not necessarily have meaningful process paths.
+pub mod process {
+    use std::{env, ffi::OsString, path::PathBuf};
+
+    use super::{PluginError, PluginResult};
+
+    const DATA_DIR: &str = "TIKTOOLS_PLUGIN_DATA_DIR";
+    const STORAGE_FILE: &str = "TIKTOOLS_PLUGIN_STORAGE_FILE";
+
+    pub fn data_dir() -> PluginResult<PathBuf> {
+        path_from_environment(DATA_DIR)
+    }
+
+    pub fn storage_file() -> PluginResult<PathBuf> {
+        path_from_environment(STORAGE_FILE)
+    }
+
+    fn path_from_environment(name: &str) -> PluginResult<PathBuf> {
+        path_from_os(name, env::var_os(name))
+    }
+
+    pub(crate) fn path_from_os(name: &str, value: Option<OsString>) -> PluginResult<PathBuf> {
+        let value = value.ok_or_else(|| {
+            PluginError::other(format!(
+                "required process environment variable {name} is missing"
+            ))
+        })?;
+        let path = PathBuf::from(value);
+        if path.as_os_str().is_empty() {
+            return Err(PluginError::other(format!(
+                "required process environment variable {name} is empty"
+            )));
+        }
+        Ok(path)
+    }
+}
+
 /// A typed action call. The action descriptor remains a JSON value so plugin
 /// authors can define their own config schema without host-side registration.
 #[derive(Debug, Clone, PartialEq)]
@@ -908,6 +948,16 @@ mod tests {
             value["intents"][0]["data"]["fileRef"]["path"],
             "/tmp/alert.wav"
         );
+    }
+
+    #[test]
+    fn process_path_helpers_reject_missing_and_empty_values() {
+        assert!(process::path_from_os("TIKTOOLS_PLUGIN_DATA_DIR", None).is_err());
+        assert!(process::path_from_os(
+            "TIKTOOLS_PLUGIN_STORAGE_FILE",
+            Some(std::ffi::OsString::new())
+        )
+        .is_err());
     }
 
     #[test]

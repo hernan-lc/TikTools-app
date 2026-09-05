@@ -17,6 +17,9 @@ const MAX_MANIFEST_BYTES: usize = 256 * 1024;
 const MAX_LIST_ENTRIES: usize = 128;
 const MAX_DESCRIPTOR_BYTES: usize = 64 * 1024;
 
+pub const DEFAULT_PLUGIN_ACTION_TIMEOUT_MS: u64 = 30_000;
+pub const MAX_PLUGIN_ACTION_TIMEOUT_MS: u64 = 180_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PluginRuntimeKind {
@@ -204,6 +207,9 @@ impl PluginManifest {
         }
 
         let action_types = json_list(object, "actionTypes")?;
+        for action_type in &action_types {
+            validate_action_type(action_type)?;
+        }
         let event_types = json_list(object, "eventTypes")?;
         let (settings_schema, settings_ui_hints) = settings(object)?;
 
@@ -241,6 +247,9 @@ impl PluginManifest {
                 .is_some_and(|version| version != TIKTOOLS_PLUGIN_ABI_VERSION)
         {
             return Err(ManifestError::InvalidField("abiVersion"));
+        }
+        for action_type in &self.action_types {
+            validate_action_type(action_type)?;
         }
         Ok(())
     }
@@ -365,6 +374,23 @@ const RESERVED_EVENT_PREFIXES: [&str; 3] = ["tiktok.", "points.", "plugin."];
 const MAX_EVENT_TYPE_LEN: usize = 64;
 const MAX_EVENT_FIELDS: usize = 64;
 const MAX_EVENT_OPTIONS: usize = 128;
+
+/// Validate manifest fields that affect host-side plugin action execution.
+/// Descriptor payloads remain JSON so plugin-defined fields stay extensible.
+pub fn validate_action_type(entry: &Value) -> Result<(), ManifestError> {
+    let object = entry
+        .as_object()
+        .ok_or(ManifestError::InvalidField("actionTypes"))?;
+    if let Some(timeout) = object.get("timeoutMs") {
+        let timeout = timeout
+            .as_u64()
+            .ok_or(ManifestError::InvalidField("actionTypes"))?;
+        if timeout == 0 || timeout > MAX_PLUGIN_ACTION_TIMEOUT_MS {
+            return Err(ManifestError::InvalidField("actionTypes"));
+        }
+    }
+    Ok(())
+}
 
 /// Validate one eventTypes entry from a plugin manifest. Shape errors are
 /// reported by the host catalog merge, which skips the entry with a warning.
@@ -642,5 +668,23 @@ mod tests {
         assert!(!is_safe_relative_path("../../secret"));
         assert!(!is_safe_relative_path("native/../secret"));
         assert!(is_safe_relative_path("native/plugin.dll"));
+    }
+
+    #[test]
+    fn validates_optional_action_timeout_bounds() {
+        let manifest = |timeout: &str| {
+            format!(
+                r#"{{"schemaVersion":2,"id":"timeout","name":"Timeout","version":"1.0.0","runtime":"process","entry":"plugin.exe","actionTypes":[{{"id":"timeout.action","timeoutMs":{timeout}}}]}}"#
+            )
+        };
+
+        assert!(PluginManifest::from_json_str(&manifest("120000")).is_ok());
+        assert!(PluginManifest::from_json_str(&manifest("180000")).is_ok());
+        for invalid in ["0", "180001", "-1", "\"120000\""] {
+            assert!(
+                PluginManifest::from_json_str(&manifest(invalid)).is_err(),
+                "timeout {invalid} should be rejected"
+            );
+        }
     }
 }
