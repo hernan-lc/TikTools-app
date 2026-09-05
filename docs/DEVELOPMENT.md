@@ -81,6 +81,17 @@ TikTools/
 `[workspace.package].version` in `Cargo.toml`; pass a tag to validate a
 release, for example `bun run check:version v0.1.0`.
 
+## Cutting a release
+
+The release workflow refuses tags that do not match the code, so bump
+first, then tag. To ship `vX.Y.Z`:
+
+1. set the same version in `package.json` and `Cargo.toml`
+   `[workspace.package]`, plus the refreshed `Cargo.lock`
+2. commit and push to `remake`
+3. create the GitHub release (or push tag `vX.Y.Z`) — the workflow
+   validates the tag, builds, packages, and publishes idempotently
+
 ## Source ownership
 
 - `crates/tiktools-desktop`: UI-thread lifecycle, Wry IPC callback, custom

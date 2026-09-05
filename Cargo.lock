@@ -4293,7 +4293,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fastrand",
  "napi-vm",
@@ -4312,7 +4312,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "gtk",
  "percent-encoding",
@@ -4334,7 +4334,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-plugin-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -4343,7 +4343,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-plugin-loader"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "libloading 0.8.9",
  "serde",
@@ -4357,7 +4357,7 @@ dependencies = [
 
 [[package]]
 name = "tiktools-tiktok"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "reqwest 0.13.4",
  "rustls",
