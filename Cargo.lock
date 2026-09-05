@@ -4367,9 +4367,11 @@ version = "0.1.5"
 dependencies = [
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 2.0.20",
  "tiktools-plugin-api",
  "tiktools-plugin-macros",
+ "zip",
 ]
 
 [[package]]

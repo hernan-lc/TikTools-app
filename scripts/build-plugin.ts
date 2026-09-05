@@ -1,11 +1,9 @@
-import { chmod, cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
-import { basename, dirname, join, resolve } from 'node:path';
+import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 
 const repositoryRoot = resolve(import.meta.dir, '..');
 const examplesRoot = join(repositoryRoot, 'examples');
 const defaultOutDirectory = join(repositoryRoot, 'dist', 'plugins');
-const stagingRoot = join(defaultOutDirectory, '.staging');
 
 type ExampleManifest = {
   id?: unknown;
@@ -28,18 +26,6 @@ function runInherit(command: string, args: string[]): void {
   if (!result.success) fail(`${command} ${args.join(' ')} exited with code ${result.exitCode}`);
 }
 
-function runCapture(command: string, args: string[]): string {
-  const result = Bun.spawnSync({
-    cmd: [command, ...args],
-    cwd: repositoryRoot,
-    stdout: 'pipe',
-    stderr: 'inherit',
-  });
-  const output = result.stdout ? new TextDecoder().decode(result.stdout) : '';
-  if (!result.success) fail(`${command} ${args.join(' ')} exited with code ${result.exitCode}`);
-  return output;
-}
-
 function requiredString(value: unknown, field: string, file: string): string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     fail(`${file} has no valid ${field}`);
@@ -54,20 +40,6 @@ async function exists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function collectFiles(directory: string, base: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const full = join(directory, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...(await collectFiles(full, base)));
-    } else if (entry.isFile()) {
-      files.push(full.slice(base.length + 1).replaceAll('\\', '/'));
-    }
-  }
-  return files;
 }
 
 function printHelp(): void {
@@ -163,7 +135,6 @@ const targets = buildAll
 if (targets.length === 0) fail('no plugins found under examples/');
 
 await mkdir(outDirectory, { recursive: true });
-await mkdir(stagingRoot, { recursive: true });
 
 const built: string[] = [];
 for (const { directory, manifestPath, manifest } of targets) {
@@ -182,69 +153,32 @@ for (const { directory, manifestPath, manifest } of targets) {
     join(directory, 'Cargo.toml'),
   ]);
 
-  const sourceEntryName = basename(sourceEntry);
-  const stagedEntry =
-    process.platform === 'win32' && !sourceEntryName.toLowerCase().endsWith('.exe')
+  const builtEntry =
+    process.platform === 'win32' && !sourceEntry.toLowerCase().endsWith('.exe')
       ? `${sourceEntry}.exe`
       : sourceEntry;
-  const builtEntryPath = join(directory, 'target', profile, stagedEntry);
+  const builtEntryPath = join(directory, 'target', profile, builtEntry);
   if (!(await exists(builtEntryPath))) {
     fail(`cargo built ${id}, but its declared entry was not found at ${builtEntryPath}`);
   }
 
-  const packageDirectory = join(stagingRoot, id);
-  const stagedEntryPath = join(packageDirectory, stagedEntry);
-  await rm(packageDirectory, { recursive: true, force: true });
-  await mkdir(dirname(stagedEntryPath), { recursive: true });
-  await cp(builtEntryPath, stagedEntryPath);
-  if (process.platform !== 'win32') {
-    await chmod(stagedEntryPath, 0o755);
-  }
-  await writeFile(
-    join(packageDirectory, 'plugin.json'),
-    `${JSON.stringify({ ...manifest, entry: stagedEntry }, null, 2)}\n`,
-    'utf8',
-  );
-  for (const assetDirectory of ['assets', 'dist', 'locales']) {
-    const sourceDirectory = join(directory, assetDirectory);
-    if (await exists(sourceDirectory)) {
-      await cp(sourceDirectory, join(packageDirectory, assetDirectory), { recursive: true });
-    }
-  }
-
-  // checksums.json is mandatory for PluginInstaller: every packaged file
-  // except checksums.json/signature.json needs a SHA-256 hex digest.
-  const checksums: Record<string, string> = {};
-  for (const relative of (await collectFiles(packageDirectory, packageDirectory)).sort()) {
-    if (relative === 'checksums.json' || relative === 'signature.json') continue;
-    const digest = createHash('sha256')
-      .update(await readFile(join(packageDirectory, relative)))
-      .digest('hex');
-    checksums[relative] = digest;
-  }
-  if (Object.keys(checksums).length === 0) fail(`nothing to package for ${id}`);
-  await writeFile(
-    join(packageDirectory, 'checksums.json'),
-    `${JSON.stringify(checksums, null, 2)}\n`,
-    'utf8',
-  );
-
-  // .plugin files are ZIP archives; tar infers the container format from the
-  // extension, so stage a .zip and rename it to .plugin afterwards.
-  const temporaryZip = join(stagingRoot, `${id}.zip`);
   const archivePath = join(outDirectory, `${id}.plugin`);
-  await rm(temporaryZip, { force: true });
-  await rm(archivePath, { force: true });
-  runCapture('tar', ['-a', '-c', '-f', temporaryZip, '-C', stagingRoot, id]);
-  await cp(temporaryZip, archivePath);
-  await rm(temporaryZip, { force: true });
-
-  const listing = runCapture('tar', ['-tf', archivePath])
-    .split(/\r?\n/)
-    .map((entry) => entry.replaceAll('\\', '/'));
-  for (const expected of [`${id}/plugin.json`, `${id}/checksums.json`]) {
-    if (!listing.includes(expected)) fail(`archive ${archivePath} does not contain ${expected}`);
-  }
+  runInherit('cargo', [
+    'run',
+    '-p',
+    'tiktools-plugin-sdk',
+    '--features',
+    'packager',
+    '--bin',
+    'tiktools-plugin-pack',
+    '--',
+    '--manifest',
+    manifestPath,
+    '--entry',
+    builtEntryPath,
+    '--output',
+    archivePath,
+  ]);
 
   console.log(`Created ${basename(archivePath)}`);
   built.push(archivePath);

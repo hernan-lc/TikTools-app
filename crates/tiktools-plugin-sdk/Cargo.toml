@@ -6,10 +6,20 @@ license.workspace = true
 rust-version.workspace = true
 description = "Developer-friendly, runtime-neutral SDK for TikTools plugins"
 
+[features]
+default = []
+packager = ["dep:sha2", "dep:zip"]
+
+[[bin]]
+name = "tiktools-plugin-pack"
+path = "src/bin/tiktools-plugin-pack.rs"
+required-features = ["packager"]
+
 [dependencies]
 tiktools-plugin-api = { path = "../tiktools-plugin-api" }
 tiktools-plugin-macros = { path = "../tiktools-plugin-macros" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-
+sha2 = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }

@@ -284,5 +284,19 @@ tiktools_process_plugin!(ExamplePlugin);
 Native plugins can use `tiktools_export_native_plugin!(ExamplePlugin);` for the
 same reviewed FFI bridge. Do not depend on Wry, Winit, SQLite, or the TikTok
 client. Keep payloads bounded and shutdown idempotent. The low-level
+packaging path is also available without Bun or Node:
+
+```bash
+cargo install --git https://github.com/nglmercer/TikTools-app \
+  --branch remake --package tiktools-plugin-sdk \
+  --features packager --bin tiktools-plugin-pack --locked
+tiktools-plugin-pack --manifest plugin.json --entry target/release/plugin \
+  --output dist/plugin.plugin
+```
+
+The packager validates the schema-v2 manifest, stages the declared entry and
+standard asset directories, writes SHA-256 checksums, and creates the ZIP-based
+`.plugin` archive. Project repositories only need to build their entry and
+invoke this common CLI.
 `tiktools-plugin-api` crate remains available for other languages and custom
 runtime adapters.
