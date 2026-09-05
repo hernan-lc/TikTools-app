@@ -360,6 +360,20 @@ pub(crate) fn declared_event_types(
         .collect()
 }
 
+/// Context for spontaneous polled events. A polled keypress starts a new
+/// chain, it never continues the previous one: connection/user identity is
+/// borrowed from the last event, but any inherited emit depth is dropped.
+/// Without this, sequential presses poison each other (`depth + 1` per
+/// press) until every new event exceeds the depth limit and is dropped
+/// forever, since even dropped events are remembered as the last event.
+pub(crate) fn fresh_poll_context(source: &Value) -> Value {
+    let mut context = source.clone();
+    if let Some(data) = context.get_mut("data").and_then(Value::as_object_mut) {
+        data.remove("depth");
+    }
+    context
+}
+
 /// Parses a plugin `poll` response into publishable `(type, data)` pairs.
 /// Unknown types, non-object payloads, and oversized payloads are dropped so
 /// one misbehaving plugin cannot poison the automation pipeline.

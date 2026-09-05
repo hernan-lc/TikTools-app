@@ -367,6 +367,59 @@ async fn plugin_typed_event_respects_declaration_and_capability() {
 }
 
 #[tokio::test]
+async fn sequential_polled_presses_start_fresh_chains() {
+    // Regression test: poll ticks used to derive each new event's depth from
+    // the previously remembered event, so after a couple of keypresses every
+    // further press exceeded the emit depth limit and was dropped forever.
+    let emitter = Arc::new(RecordingEmitter::default());
+    let core = Arc::new(AppCore::new(emitter));
+    core.automation.replace_snapshot(&json!({
+        "actions": [{
+            "id": "say-key",
+            "name": "Say key",
+            "typeId": "core.log",
+            "enabled": true,
+            "config": {"message": "key {{ event.data.key }}"}
+        }],
+        "events": [{
+            "id": "hotkey-event",
+            "name": "Hotkey event",
+            "enabled": true,
+            "trigger": "hotkey.pressed",
+            "filters": [],
+            "cooldownMs": 0,
+            "cooldownScope": "user",
+            "actionIds": ["say-key"],
+            "runMode": "all"
+        }],
+        "eventTypes": [{
+            "type": "hotkey.pressed",
+            "title": {"default": "Hotkey pressed"},
+            "source": {"kind": "plugin", "pluginId": "hotkeys"}
+        }],
+        "plugins": [{
+            "descriptor": {"id": "hotkeys"},
+            "installed": true,
+            "enabled": true,
+            "available": true
+        }]
+    }));
+
+    // Simulate sequential poll ticks, each building context from the last
+    // published event exactly like poll_plugin_events does.
+    let mut source = json!({});
+    for _ in 0..5 {
+        let context = crate::fresh_poll_context(&source);
+        let event = core.make_plugin_event(&context, "hotkey.pressed", json!({"key": "k"}));
+        assert_eq!(event["data"]["depth"], json!(1));
+        source = event.clone();
+        core.publish_automation_event(event).await;
+    }
+
+    assert_eq!(core.automation.recent_runs().len(), 5);
+}
+
+#[tokio::test]
 async fn test_event_names_sample_data_on_mismatch() {
     let emitter = Arc::new(RecordingEmitter::default());
     let core = Arc::new(AppCore::new(emitter));

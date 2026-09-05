@@ -964,12 +964,14 @@ impl AppCore {
         if candidates.is_empty() {
             return;
         }
-        let source = self
-            .last_automation_event
-            .read()
-            .expect("automation event lock poisoned")
-            .clone()
-            .unwrap_or_else(|| json!({}));
+        let source = fresh_poll_context(
+            &self
+                .last_automation_event
+                .read()
+                .expect("automation event lock poisoned")
+                .clone()
+                .unwrap_or_else(|| json!({})),
+        );
         for (plugin_id, declared) in candidates {
             if let Err(error) = self.plugins.start(&plugin_id) {
                 tracing::debug!(plugin = %plugin_id, %error, "plugin event source could not start");
