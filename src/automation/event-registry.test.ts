@@ -105,6 +105,11 @@ const HOTKEY: PluginEventType = {
       label: { default: 'Key', i18key: 'x' },
       options: [{ value: 'k' }, { value: 'space', label: { default: 'Space', i18key: 'y' } }],
     },
+    {
+      path: 'event.data.modifiers',
+      kind: 'text',
+      options: [{ value: '' }, { value: 'ctrl' }],
+    },
   ],
   sample: { key: 'ctrl+k' },
   source: { kind: 'plugin', pluginId: 'hotkeys' },
@@ -132,9 +137,11 @@ describe('plugin event-type overlay', () => {
       expect(pluginEventTypes().map((entry) => entry.type)).toEqual(['hotkey.pressed']);
       expect(sampleDataForType('hotkey.pressed')).toMatchObject({ key: 'ctrl+k' });
       const keyFields = fieldsForTrigger('hotkey.pressed');
-      expect(keyFields.map((field) => field.path)).toEqual(['event.data.key']);
+      expect(keyFields.map((field) => field.path)).toEqual(['event.data.key', 'event.data.modifiers']);
       expect(keyFields[0]?.options?.map((option) => option.value)).toEqual(['k', 'space']);
       expect(keyFields[0]?.options?.[1]?.label.default).toBe('Space');
+      // Empty-string options ("none") survive the overlay.
+      expect(keyFields[1]?.options?.map((option) => option.value)).toEqual(['', 'ctrl']);
       expect(normalizeEvent(liveEvent('hotkey.pressed'), ['hotkey.pressed']).trigger).toBe('hotkey.pressed');
       expect(() => normalizeEvent(liveEvent('nope.dots'), ['hotkey.pressed'])).toThrow();
     } finally {

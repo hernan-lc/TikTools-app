@@ -411,7 +411,8 @@ fn validate_event_option(option: &Value) -> Result<(), ManifestError> {
         .get("value")
         .and_then(Value::as_str)
         .unwrap_or_default();
-    if value.is_empty() || value.len() > 64 {
+    // Empty values are legitimate ("none" options); only bound the length.
+    if value.len() > 64 {
         return Err(ManifestError::InvalidField("eventTypes"));
     }
     if object.get("label").is_some_and(|label| !label.is_object()) {
@@ -547,7 +548,7 @@ mod tests {
         assert!(validate_event_type(&serde_json::json!({
             "type": "hotkey.pressed",
             "title": {"default": "Hotkey pressed"},
-            "fields": [{"path": "event.data.key", "options": [{"value": ""}]}]
+            "fields": [{"path": "event.data.key", "options": [{"value": ""}, {"value": "k", "label": "oops"}]}]
         }))
         .is_err());
 

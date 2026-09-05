@@ -73,7 +73,7 @@ function overlayEntryFor(type: PluginEventType): RegistryEventEntry {
       const leaf = field.path.split('.').pop() ?? field.path;
       const kind: RegistryFieldKind = field.kind === 'number' ? 'number' : field.kind === 'boolean' ? 'boolean' : 'string';
       const options = (field.options ?? [])
-        .filter((option) => option && typeof option.value === 'string' && option.value)
+        .filter((option) => option && typeof option.value === 'string')
         .map((option) => ({
           value: option.value,
           label: { en: option.label?.default ?? option.value, es: option.label?.default ?? option.value },

@@ -349,6 +349,8 @@ function ConditionValue({ locale, filter, field, recording, onRecord, kind, miss
 
   const options = field?.options;
   if (options && options.length > 0 && filter.operator !== 'in') {
+    // An empty value counts as filled when it is a listed option ("none").
+    const effectivelyMissing = missing && !options.some((option) => option.value === filter.value);
     return (
       <span class="plg-cond__option-value">
         <Select
@@ -356,6 +358,7 @@ function ConditionValue({ locale, filter, field, recording, onRecord, kind, miss
           onValueChange={onValue}
           options={options.map((option) => ({ value: option.value, label: i18nText(locale, option.label) }))}
           ariaLabel={field ? i18nText(locale, field.label) : copy.colValue}
+          error={effectivelyMissing ? copy.missing : undefined}
         />
         <button
           type="button"
