@@ -21,6 +21,8 @@
     "test:rust": "cargo test --workspace --locked",
     "build:desktop": "cargo build -p tiktools-desktop --release --locked",
     "check:version": "bun run scripts/check-version.ts",
+    "build:plugin": "bun run scripts/build-plugin.ts",
+    "build:plugins": "bun run scripts/build-plugin.ts --all",
     "package:release": "bun run scripts/package-release.ts",
     "ci": "bun run check:web"
   },
