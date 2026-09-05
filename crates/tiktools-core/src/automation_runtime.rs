@@ -32,7 +32,10 @@ impl AppCore {
             .expect("automation event lock poisoned")
             .clone()
             .filter(|event| event.get("type").and_then(Value::as_str) == Some(trigger))
-            .unwrap_or_else(|| sample_automation_event(trigger));
+            .unwrap_or_else(|| {
+                self.plugin_event_sample(trigger)
+                    .unwrap_or_else(|| sample_automation_event(trigger))
+            });
 
         if !self.automation.event_record_matches(record, &event) {
             let summary = "Event filters did not match the sample event.";
@@ -101,7 +104,7 @@ impl AppCore {
     }
 
     pub(super) async fn run_automation_event(self: &Arc<Self>, event: Value) {
-        if AutomationService::emit_depth(&event) >= 3 {
+        if self.automation.emit_depth(&event) >= 3 {
             tracing::warn!(event_type = ?event.get("type"), "automation emit depth limit reached");
             return;
         }
@@ -739,14 +742,25 @@ impl AppCore {
                 continue;
             };
             let event_type = normalize_emit_type(event_type)?;
-            let payload = intent
-                .get("data")
-                .map(|value| render_json_map(value, event))
-                .unwrap_or_default();
+            let payload = Value::Object(
+                intent
+                    .get("data")
+                    .map(|value| render_json_map(value, event))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect(),
+            );
+            if let Some(typed) =
+                self.plugin_typed_event(&plugin.manifest, &event_type, &payload, event)?
+            {
+                self.publish_automation_event(typed).await;
+                parts.push(format!("emit {event_type}"));
+                continue;
+            }
             self.publish_automation_event(self.make_internal_automation_event(
                 event,
                 &event_type,
-                Value::Object(payload.into_iter().collect()),
+                payload,
             ))
             .await;
             parts.push(format!("emit {event_type}"));
@@ -798,6 +812,174 @@ impl AppCore {
         true
     }
 
+    /// Builds a typed event for one of the calling plugin's declared event
+    /// types. The host stamps identity, timing, depth, and connection context;
+    /// the plugin only supplies the type and its data payload.
+    pub(super) fn make_plugin_event(&self, source: &Value, event_type: &str, data: Value) -> Value {
+        let mut event = json!({
+            "id": format!("plugin-event-{}", self.next_sequence()),
+            "type": event_type,
+            "timestamp": now_millis(),
+            "data": data,
+        });
+        if let Some(data) = event.get_mut("data").and_then(Value::as_object_mut) {
+            data.insert(
+                "depth".to_owned(),
+                Value::from(self.automation.emit_depth(source).saturating_add(1)),
+            );
+        }
+        for key in ["connectionId", "creator", "user"] {
+            if let Some(value) = source.get(key) {
+                event[key] = value.clone();
+            }
+        }
+        if let Some(source_id) = source.get("id") {
+            event["sourceEventId"] = source_id.clone();
+        }
+        event
+    }
+
+    /// Resolves a plugin `emit` intent to a typed event when the type is one
+    /// of that plugin's declared event types. Returns `Ok(None)` for anything
+    /// else so the caller keeps the internal `plugin.emit` channel, and an
+    /// error when the plugin did not declare the `events.publish` capability.
+    pub(super) fn plugin_typed_event(
+        &self,
+        manifest: &tiktools_plugin_api::manifest::PluginManifest,
+        event_type: &str,
+        data: &Value,
+        source: &Value,
+    ) -> Result<Option<Value>, String> {
+        if !declared_event_types(manifest).contains(&event_type.to_owned()) {
+            return Ok(None);
+        }
+        self.capabilities
+            .require_capability(manifest, tiktools_plugin_api::capabilities::EVENTS_PUBLISH)
+            .map_err(|error| error.to_string())?;
+        if !data.is_object()
+            || serde_json::to_vec(&data)
+                .map(|bytes| bytes.len() > MAX_PLUGIN_EVENT_BYTES)
+                .unwrap_or(true)
+        {
+            return Err(format!(
+                "Plugin event `{event_type}` needs an object payload under 64 KB."
+            ));
+        }
+        Ok(Some(self.make_plugin_event(
+            source,
+            event_type,
+            data.clone(),
+        )))
+    }
+
+    /// Sample event for a plugin-owned trigger, taken from the declaring
+    /// plugin's manifest sample so `test-event` previews realistic data.
+    pub(super) fn plugin_event_sample(&self, trigger: &str) -> Option<Value> {
+        for plugin in self.plugins.list() {
+            for entry in &plugin.manifest.event_types {
+                if tiktools_plugin_api::manifest::validate_event_type(entry).is_err() {
+                    continue;
+                }
+                if entry.get("type").and_then(Value::as_str) != Some(trigger) {
+                    continue;
+                }
+                let data = entry
+                    .get("sample")
+                    .and_then(Value::as_object)
+                    .cloned()
+                    .unwrap_or_default();
+                return Some(json!({
+                    "id": "sample-event",
+                    "type": trigger,
+                    "timestamp": now_millis(),
+                    "user": {"uniqueId": "viewer_demo", "nickname": "Viewer Demo", "userId": "1"},
+                    "data": Value::Object(data),
+                }));
+            }
+        }
+        None
+    }
+
+    /// Starts the background poll that lets running plugins publish
+    /// spontaneous events (hotkeys, timers, watchers). Ticks are cheap no-ops
+    /// while no plugin declares event types; shutdown stops the plugins, which
+    /// empties every later tick until the process exits.
+    pub fn spawn_plugin_event_poll(self: &Arc<Self>) {
+        let core = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(PLUGIN_POLL_INTERVAL);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                ticker.tick().await;
+                core.poll_plugin_events().await;
+            }
+        });
+    }
+
+    pub(super) async fn poll_plugin_events(self: &Arc<Self>) {
+        let candidates: Vec<(String, Vec<String>)> = self
+            .plugins
+            .list()
+            .into_iter()
+            .filter(|plugin| plugin.running && self.plugin_ready(&plugin.manifest.id))
+            .filter_map(|plugin| {
+                let declared = declared_event_types(&plugin.manifest);
+                if declared.is_empty() {
+                    return None;
+                }
+                if self
+                    .capabilities
+                    .require_capability(
+                        &plugin.manifest,
+                        tiktools_plugin_api::capabilities::EVENTS_PUBLISH,
+                    )
+                    .is_err()
+                {
+                    return None;
+                }
+                Some((plugin.manifest.id.clone(), declared))
+            })
+            .collect();
+        if candidates.is_empty() {
+            return;
+        }
+        let source = self
+            .last_automation_event
+            .read()
+            .expect("automation event lock poisoned")
+            .clone()
+            .unwrap_or_else(|| json!({}));
+        for (plugin_id, declared) in candidates {
+            let plugins = Arc::clone(&self.plugins);
+            let request = serde_json::json!({"type": "poll"});
+            let plugin_id_for_call = plugin_id.clone();
+            let outcome = tokio::time::timeout(
+                PLUGIN_POLL_DEADLINE,
+                tokio::task::spawn_blocking(move || plugins.call(&plugin_id_for_call, &request)),
+            )
+            .await;
+            let response = match outcome {
+                Ok(Ok(Ok(response))) => response,
+                Ok(Ok(Err(error))) => {
+                    tracing::debug!(plugin = %plugin_id, %error, "plugin poll failed");
+                    continue;
+                }
+                Ok(Err(error)) => {
+                    tracing::debug!(plugin = %plugin_id, %error, "plugin poll task failed");
+                    continue;
+                }
+                Err(_) => {
+                    tracing::debug!(plugin = %plugin_id, "plugin poll timed out");
+                    continue;
+                }
+            };
+            for (event_type, data) in parse_polled_events(&declared, &response) {
+                self.publish_automation_event(self.make_plugin_event(&source, &event_type, data))
+                    .await;
+            }
+        }
+    }
+
     pub(super) fn make_internal_automation_event(
         &self,
         source: &Value,
@@ -810,7 +992,7 @@ impl AppCore {
             "timestamp": now_millis(),
             "data": {
                 "emitType": event_type,
-                "depth": AutomationService::emit_depth(source).saturating_add(1),
+                "depth": self.automation.emit_depth(source).saturating_add(1),
                 "payload": payload
             }
         });

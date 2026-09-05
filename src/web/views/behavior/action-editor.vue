@@ -24,7 +24,7 @@ import type {
   BehaviorRun,
   LiveAction,
 } from '../../../automation/behavior/types.ts';
-import type { AutomationEventType, JsonObject } from '../../../automation/types.ts';
+import type { JsonObject } from '../../../automation/types.ts';
 import type { ActionOptionItem, OpenMediaPicker } from '../../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
@@ -41,7 +41,7 @@ type ActionEditorProps = {
   onCancel: () => void;
   onSave: (action: LiveAction) => void;
   onDelete: (id: string) => void;
-  onTest: (action: LiveAction, trigger?: AutomationEventType) => void;
+  onTest: (action: LiveAction, trigger?: string) => void;
 };
 
 export const ActionEditor = defineVueComponent<ActionEditorProps>(

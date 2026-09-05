@@ -17,7 +17,7 @@ import {
   relativeTime,
   SortControl,
   SortHeader,
-  TRIGGER_LABELS,
+  triggerLabel,
   type SortMode,
 } from './behavior/helpers.vue';
 import type {
@@ -26,9 +26,8 @@ import type {
   LiveAction,
   LiveEvent,
 } from '../../automation/behavior/types.ts';
-import type { AutomationEventType } from '../../automation/types.ts';
 import type { ActionOptionItem, GiftCatalogEntry, OpenMediaPicker, ViewerRecord } from '../../shared/messages.ts';
-import { i18nText, t, type Locale } from '../i18n.ts';
+import { t, type Locale } from '../i18n.ts';
 
 type BehaviorViewProps = {
   locale: Locale;
@@ -42,7 +41,7 @@ type BehaviorViewProps = {
   onSaveAction: (action: LiveAction) => void;
   onDeleteAction: (id: string) => void;
   onSetActionEnabled: (id: string, enabled: boolean) => void;
-  onTestAction: (action: LiveAction, trigger?: AutomationEventType) => void;
+  onTestAction: (action: LiveAction, trigger?: string) => void;
   onSaveEvent: (event: LiveEvent) => void;
   onDeleteEvent: (id: string) => void;
   onSetEventEnabled: (id: string, enabled: boolean) => void;
@@ -156,6 +155,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
         event={currentScreen.event}
         isNew={currentScreen.isNew}
         actions={snapshot.actions}
+        eventTypes={snapshot.eventTypes ?? []}
         gifts={props.gifts}
         viewers={props.viewers}
         error={error}
@@ -367,7 +367,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
                   >
                     {event.name}
                   </button>
-                  <span class="plg-table__origin">{i18nText(locale, TRIGGER_LABELS[event.trigger])}</span>
+                  <span class="plg-table__origin">{triggerLabel(event.trigger, snapshot.eventTypes ?? [], locale)}</span>
                   <span class="plg-table__chips">
                     {event.filters.length === 0 && <span class="plg-pill">{t(locale, 'behavior.copy.always')}</span>}
                     {event.filters.map((filter, index) => (

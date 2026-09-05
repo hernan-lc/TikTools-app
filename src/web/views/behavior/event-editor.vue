@@ -6,16 +6,15 @@ import { Switch } from '../../components/ui/Checkbox.vue';
 import { Select } from '../../components/ui/Select.vue';
 import { TextInput } from '../../components/ui/TextInput.vue';
 import { InfoTip } from '../../components/ui/InfoTip.vue';
-import { BEHAVIOR_TRIGGERS } from '../../../automation/behavior/schema.ts';
-import { COOLDOWN_CHOICES, describeFilter, sentenceFor, TRIGGER_LABELS } from './helpers.vue';
+import { COOLDOWN_CHOICES, describeFilter, sentenceFor, triggerLabel, triggerSelectOptions } from './helpers.vue';
 import type {
   BehaviorRun,
   LiveAction,
   LiveEvent,
+  PluginEventType,
 } from '../../../automation/behavior/types.ts';
-import type { AutomationEventType } from '../../../automation/types.ts';
 import type { GiftCatalogEntry, ViewerRecord } from '../../../shared/messages.ts';
-import { i18nText, t, type Locale } from '../../i18n.ts';
+import { t, type Locale } from '../../i18n.ts';
 
 type EventEditorProps = {
   locale: Locale;
@@ -26,6 +25,7 @@ type EventEditorProps = {
   viewers: ViewerRecord[];
   error?: string;
   testRuns: BehaviorRun[];
+  eventTypes?: PluginEventType[];
   onCancel: () => void;
   onSave: (event: LiveEvent) => void;
   onDelete: (id: string) => void;
@@ -33,7 +33,7 @@ type EventEditorProps = {
 };
 
 export const EventEditor = defineVueComponent<EventEditorProps>(
-  ['locale', 'event', 'isNew', 'actions', 'gifts', 'viewers', 'error', 'testRuns', 'onCancel', 'onSave', 'onDelete', 'onTest'],
+  ['locale', 'event', 'isNew', 'actions', 'gifts', 'viewers', 'error', 'testRuns', 'eventTypes', 'onCancel', 'onSave', 'onDelete', 'onTest'],
   (props) => {
   const draft = ref<LiveEvent>(props.event);
   const step = ref(1);
@@ -49,7 +49,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
     .filter((name): name is string => Boolean(name));
 
   const steps = [
-    { number: 1, label: t(props.locale, 'behavior.copy.stepWhen'), sub: i18nText(props.locale, TRIGGER_LABELS[draftValue.trigger]) },
+    { number: 1, label: t(props.locale, 'behavior.copy.stepWhen'), sub: triggerLabel(draftValue.trigger, props.eventTypes ?? [], props.locale) },
     {
       number: 2,
       label: t(props.locale, 'behavior.copy.stepFilters'),
@@ -91,7 +91,7 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
           <div class="plg-form__main">
             {props.error && <div class="plg-alert">{props.error}</div>}
 
-            <p class="plg-sentence">{sentenceFor(draftValue, props.actions, props.locale)}</p>
+            <p class="plg-sentence">{sentenceFor(draftValue, props.actions, props.locale, props.eventTypes ?? [])}</p>
 
             <div class="plg-steps">
               {steps.map((entry) => (
@@ -119,8 +119,8 @@ export const EventEditor = defineVueComponent<EventEditorProps>(
                       id="eventTrigger"
                       name="trigger"
                       value={draftValue.trigger}
-                      options={BEHAVIOR_TRIGGERS.map((trigger) => ({ value: trigger, label: i18nText(props.locale, TRIGGER_LABELS[trigger]) }))}
-                      onValueChange={(next) => update({ trigger: next as AutomationEventType })}
+                      options={triggerSelectOptions(props.locale, props.eventTypes ?? [])}
+                      onValueChange={(next) => update({ trigger: next as LiveEvent['trigger'] })}
                     />
                   </div>
                   <div class="plg-field">

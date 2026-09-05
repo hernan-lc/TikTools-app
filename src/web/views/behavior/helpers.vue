@@ -4,6 +4,7 @@ import { OPERATOR_LABELS } from '../../components/condition-icons.vue';
 import { findField } from '../../../automation/behavior/fields.ts';
 import { defaultActionConfig } from '../../../automation/behavior/action-config.ts';
 import {
+  BEHAVIOR_TRIGGERS,
   createActionId,
   createEventId,
   readString,
@@ -14,6 +15,7 @@ import type {
   I18nText,
   LiveAction,
   LiveEvent,
+  PluginEventType,
   PluginStatus,
 } from '../../../automation/behavior/types.ts';
 import type { AutomationEventType, JsonObject, JsonValue } from '../../../automation/types.ts';
@@ -52,6 +54,25 @@ export const TRIGGER_LABELS: Record<AutomationEventType, I18nText> = {
 };
 
 export const COOLDOWN_CHOICES = [0, 3_000, 5_000, 10_000, 30_000, 60_000];
+
+/** Flat trigger options for the event picker: built-ins first, then plugin types. */
+export function triggerSelectOptions(locale: Locale, eventTypes: PluginEventType[]): Array<{ value: string; label: string }> {
+  const builtin = BEHAVIOR_TRIGGERS.map((trigger) => ({ value: trigger, label: i18nText(locale, TRIGGER_LABELS[trigger]) }));
+  const plugin = eventTypes.map((entry) => ({
+    value: entry.type,
+    label: i18nText(locale, entry.title) + ' (' + (entry.source.kind === 'plugin' ? entry.source.pluginId : 'plugin') + ')',
+  }));
+  return [...builtin, ...plugin];
+}
+
+/** Display label for any trigger: built-in, plugin-declared, or raw fallback. */
+export function triggerLabel(trigger: string, eventTypes: PluginEventType[], locale: Locale): string {
+  const builtin = (TRIGGER_LABELS as Partial<Record<string, I18nText>>)[trigger];
+  if (builtin) return i18nText(locale, builtin);
+  const declared = eventTypes.find((entry) => entry.type === trigger);
+  if (declared) return i18nText(locale, declared.title);
+  return trigger;
+}
 
 /** Helpers to slice a form schema down to the fields a tab owns. */
 export function objectPropertiesOf(value: JsonValue | undefined): Record<string, JsonObject> {
@@ -262,7 +283,7 @@ export function describeAction(action: LiveAction): string {
   }
 }
 
-export function describeFilter(filter: EventFilter, locale: Locale, trigger?: AutomationEventType): string {
+export function describeFilter(filter: EventFilter, locale: Locale, trigger?: string): string {
   const operator = i18nText(locale, OPERATOR_LABELS[filter.operator]);
   const field = (trigger && findField(trigger, filter.path) && i18nText(locale, findField(trigger, filter.path)!.label))
     ?? filter.path.replace(/^event\.(data|user)\./, '');
@@ -272,8 +293,8 @@ export function describeFilter(filter: EventFilter, locale: Locale, trigger?: Au
   return `${field} ${operator} ${value || '…'}`;
 }
 
-export function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale): string {
-  const trigger = i18nText(locale, TRIGGER_LABELS[event.trigger]).toLowerCase();
+export function sentenceFor(event: LiveEvent, actions: LiveAction[], locale: Locale, eventTypes: PluginEventType[] = []): string {
+  const trigger = triggerLabel(event.trigger, eventTypes, locale).toLowerCase();
   const filters = event.filters.map((filter) => describeFilter(filter, locale, event.trigger));
   const names = event.actionIds
     .map((id) => actions.find((action) => action.id === id)?.name)

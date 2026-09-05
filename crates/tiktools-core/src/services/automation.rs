@@ -19,6 +19,8 @@ pub struct AutomationService {
     script: ScriptService,
     actions: RwLock<BTreeMap<String, Value>>,
     events: RwLock<BTreeMap<String, Value>>,
+    trigger_owners: RwLock<BTreeMap<String, String>>,
+    enabled_plugins: RwLock<std::collections::BTreeSet<String>>,
     cooldowns: Mutex<BTreeMap<String, u64>>,
     runs: Mutex<Vec<Value>>,
     sequence: AtomicU64,
@@ -30,6 +32,8 @@ impl Default for AutomationService {
             script: ScriptService,
             actions: RwLock::new(BTreeMap::new()),
             events: RwLock::new(BTreeMap::new()),
+            trigger_owners: RwLock::new(BTreeMap::new()),
+            enabled_plugins: RwLock::new(std::collections::BTreeSet::new()),
             cooldowns: Mutex::new(BTreeMap::new()),
             runs: Mutex::new(Vec::new()),
             sequence: AtomicU64::new(0),
@@ -43,6 +47,15 @@ impl AutomationService {
         let events = records_by_id(snapshot.get("events"));
         *self.actions.write().expect("automation actions poisoned") = actions;
         *self.events.write().expect("automation events poisoned") = events;
+        let (trigger_owners, enabled_plugins) = plugin_trigger_ownership(snapshot);
+        *self
+            .trigger_owners
+            .write()
+            .expect("automation trigger owners poisoned") = trigger_owners;
+        *self
+            .enabled_plugins
+            .write()
+            .expect("automation enabled plugins poisoned") = enabled_plugins;
     }
 
     pub fn upsert_action(&self, action: Value) {
@@ -83,6 +96,14 @@ impl AutomationService {
 
     pub fn matching_events(&self, event: &Value) -> Vec<Value> {
         let event_type = event.get("type").and_then(Value::as_str);
+        let trigger_owners = self
+            .trigger_owners
+            .read()
+            .expect("automation trigger owners poisoned");
+        let enabled_plugins = self
+            .enabled_plugins
+            .read()
+            .expect("automation enabled plugins poisoned");
         self.events
             .read()
             .expect("automation events poisoned")
@@ -90,6 +111,11 @@ impl AutomationService {
             .filter(|record| {
                 record.get("enabled").and_then(Value::as_bool) == Some(true)
                     && record.get("trigger").and_then(Value::as_str) == event_type
+                    && trigger_allowed(
+                        record.get("trigger").and_then(Value::as_str),
+                        &trigger_owners,
+                        &enabled_plugins,
+                    )
                     && event_record_matches(record, event)
             })
             .cloned()
@@ -185,8 +211,19 @@ impl AutomationService {
         self.runs.lock().expect("automation runs poisoned").clear();
     }
 
-    pub fn emit_depth(event: &Value) -> u64 {
-        if event.get("type").and_then(Value::as_str) != Some("plugin.emit") {
+    pub fn emit_depth(&self, event: &Value) -> u64 {
+        let tracked = event
+            .get("type")
+            .and_then(Value::as_str)
+            .is_some_and(|event_type| {
+                event_type == "plugin.emit"
+                    || self
+                        .trigger_owners
+                        .read()
+                        .expect("automation trigger owners poisoned")
+                        .contains_key(event_type)
+            });
+        if !tracked {
             return 0;
         }
         event
@@ -207,6 +244,61 @@ impl AutomationService {
 
     pub fn validate_script(&self, source: &str) -> Result<(), String> {
         self.script.validate(source)
+    }
+}
+
+/// Plugin-owned triggers from a behavior snapshot: trigger type -> plugin id,
+/// plus the set of plugins that are installed, enabled, and available.
+fn plugin_trigger_ownership(
+    snapshot: &Value,
+) -> (BTreeMap<String, String>, std::collections::BTreeSet<String>) {
+    let mut trigger_owners = BTreeMap::new();
+    if let Some(entries) = snapshot.get("eventTypes").and_then(Value::as_array) {
+        for entry in entries {
+            let event_type = entry.get("type").and_then(Value::as_str);
+            let plugin_id = entry
+                .get("source")
+                .and_then(|source| source.get("pluginId"))
+                .and_then(Value::as_str);
+            if let (Some(event_type), Some(plugin_id)) = (event_type, plugin_id) {
+                trigger_owners.insert(event_type.to_owned(), plugin_id.to_owned());
+            }
+        }
+    }
+    let mut enabled_plugins = std::collections::BTreeSet::new();
+    if let Some(plugins) = snapshot.get("plugins").and_then(Value::as_array) {
+        for plugin in plugins {
+            let id = plugin
+                .get("descriptor")
+                .and_then(|descriptor| descriptor.get("id"))
+                .and_then(Value::as_str)
+                .or_else(|| plugin.get("id").and_then(Value::as_str));
+            let active = plugin.get("installed").and_then(Value::as_bool) == Some(true)
+                && plugin.get("enabled").and_then(Value::as_bool) == Some(true)
+                && plugin.get("available").and_then(Value::as_bool) != Some(false);
+            if let Some(id) = id {
+                if active {
+                    enabled_plugins.insert(id.to_owned());
+                }
+            }
+        }
+    }
+    (trigger_owners, enabled_plugins)
+}
+
+/// Built-in triggers always match; plugin triggers only match while their
+/// owning plugin is active, so disabling a plugin pauses its events.
+fn trigger_allowed(
+    trigger: Option<&str>,
+    trigger_owners: &BTreeMap<String, String>,
+    enabled_plugins: &std::collections::BTreeSet<String>,
+) -> bool {
+    let Some(trigger) = trigger else {
+        return false;
+    };
+    match trigger_owners.get(trigger) {
+        None => true,
+        Some(plugin_id) => enabled_plugins.contains(plugin_id),
     }
 }
 
@@ -356,5 +448,71 @@ mod tests {
         assert!(!service.claim_event(&record, &event, 500));
         assert!(service.claim_event(&record, &event, 1_100));
         assert_eq!(service.actions_for_event(&record).len(), 1);
+    }
+    #[test]
+    fn plugin_triggers_match_only_while_their_plugin_is_active() {
+        let service = AutomationService::default();
+        service.replace_snapshot(&json!({
+            "actions": [{"id":"action","enabled":true}],
+            "events": [{
+                "id":"event","enabled":true,"trigger":"hotkey.pressed",
+                "filters":[{"path":"event.data.key","operator":"eq","value":"ctrl+k"}],
+                "cooldownMs":0,"cooldownScope":"user","actionIds":["action"]
+            }],
+            "eventTypes": [{
+                "type":"hotkey.pressed","title":{"default":"Hotkey pressed"},
+                "source":{"kind":"plugin","pluginId":"hotkeys"}
+            }],
+            "plugins": [{
+                "descriptor":{"id":"hotkeys"},"installed":true,"enabled":true,"available":true
+            }]
+        }));
+        let event =
+            json!({"type":"hotkey.pressed","user":{"uniqueId":"alice"},"data":{"key":"ctrl+k"}});
+        assert_eq!(service.matching_events(&event).len(), 1);
+
+        // Disabled plugin pauses its triggers; built-ins keep matching.
+        service.replace_snapshot(&json!({
+            "actions": [{"id":"action","enabled":true}],
+            "events": [
+                {"id":"event","enabled":true,"trigger":"hotkey.pressed","filters":[],"actionIds":["action"]},
+                {"id":"builtin","enabled":true,"trigger":"tiktok.chat","filters":[],"actionIds":["action"]}
+            ],
+            "eventTypes": [{
+                "type":"hotkey.pressed","title":{"default":"Hotkey pressed"},
+                "source":{"kind":"plugin","pluginId":"hotkeys"}
+            }],
+            "plugins": [{
+                "descriptor":{"id":"hotkeys"},"installed":true,"enabled":false,"available":true
+            }]
+        }));
+        assert!(service.matching_events(&event).is_empty());
+        let chat = json!({"type":"tiktok.chat","user":{"uniqueId":"alice"},"data":{}});
+        assert_eq!(service.matching_events(&chat).len(), 1);
+    }
+
+    #[test]
+    fn poll_responses_keep_only_declared_typed_events() {
+        let declared = vec!["hotkey.pressed".to_owned()];
+        let events = crate::parse_polled_events(
+            &declared,
+            &json!({"events": [
+                {"type": "hotkey.pressed", "data": {"key": "ctrl+k"}},
+                {"type": "tiktok.chat", "data": {}},
+                {"type": "hotkey.pressed", "data": "nope"},
+                {"type": "other.thing", "data": {}},
+            ]}),
+        );
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "hotkey.pressed");
+        assert_eq!(events[0].1, json!({"key": "ctrl+k"}));
+
+        // Oversized payloads are dropped.
+        let big = "x".repeat(70 * 1024);
+        let events = crate::parse_polled_events(
+            &declared,
+            &json!({"events": [{"type": "hotkey.pressed", "data": {"blob": big}}]}),
+        );
+        assert!(events.is_empty());
     }
 }

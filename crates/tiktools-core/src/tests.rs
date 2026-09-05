@@ -254,3 +254,71 @@ async fn native_live_event_reaches_the_host_message_boundary() {
         .iter()
         .any(|message| matches!(message, HostMessage::Leaderboard { .. })));
 }
+
+#[tokio::test]
+async fn plugin_typed_event_runs_while_its_plugin_is_enabled() {
+    let emitter = Arc::new(RecordingEmitter::default());
+    let core = Arc::new(AppCore::new(emitter.clone()));
+    let snapshot = serde_json::json!({
+        "actions": [{
+            "id": "say-key",
+            "name": "Say key",
+            "typeId": "core.log",
+            "enabled": true,
+            "config": {"message": "key {{ event.data.key }}"}
+        }],
+        "events": [{
+            "id": "hotkey-event",
+            "name": "Hotkey event",
+            "enabled": true,
+            "trigger": "hotkey.pressed",
+            "filters": [],
+            "cooldownMs": 0,
+            "cooldownScope": "user",
+            "actionIds": ["say-key"],
+            "runMode": "all"
+        }],
+        "eventTypes": [{
+            "type": "hotkey.pressed",
+            "title": {"default": "Hotkey pressed"},
+            "source": {"kind": "plugin", "pluginId": "hotkeys"}
+        }],
+        "plugins": [{
+            "descriptor": {"id": "hotkeys"},
+            "installed": true,
+            "enabled": true,
+            "available": true
+        }]
+    });
+    core.automation.replace_snapshot(&snapshot);
+
+    core.publish_automation_event(serde_json::json!({
+        "id": "hk-1",
+        "type": "hotkey.pressed",
+        "timestamp": 1,
+        "user": {"uniqueId": "alice"},
+        "data": {"key": "ctrl+k", "depth": 1}
+    }))
+    .await;
+
+    let runs = core.automation.recent_runs();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0]["status"], "ok");
+    assert_eq!(runs[0]["summary"], "key ctrl+k");
+
+    // Disabling the plugin pauses its triggers without touching the record.
+    let mut disabled = snapshot.clone();
+    disabled["plugins"][0]["enabled"] = serde_json::Value::Bool(false);
+    core.automation.replace_snapshot(&disabled);
+
+    core.publish_automation_event(serde_json::json!({
+        "id": "hk-2",
+        "type": "hotkey.pressed",
+        "timestamp": 2,
+        "user": {"uniqueId": "alice"},
+        "data": {"key": "ctrl+k", "depth": 1}
+    }))
+    .await;
+
+    assert_eq!(core.automation.recent_runs().len(), 1);
+}

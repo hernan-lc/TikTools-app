@@ -5,7 +5,6 @@ import type {
   LiveEvent,
 } from '../automation/behavior/types.ts';
 import type {
-  AutomationEventType,
   AutomationEvent,
   AutomationScriptAnalysis,
   JsonObject,
@@ -156,14 +155,14 @@ export type PageMessage =
       nodeId: string;
       source: string;
       offset: number;
-      eventType?: AutomationEventType;
+      eventType?: string;
     }
   | { type: 'get-gift-catalog' }
   | { type: 'get-behavior' }
   | { type: 'save-action'; action: LiveAction }
   | { type: 'delete-action'; id: string }
   | { type: 'set-action-enabled'; id: string; enabled: boolean }
-  | { type: 'test-action'; action: LiveAction; trigger?: AutomationEventType }
+  | { type: 'test-action'; action: LiveAction; trigger?: string }
   | { type: 'save-event'; event: LiveEvent }
   | { type: 'delete-event'; id: string }
   | { type: 'set-event-enabled'; id: string; enabled: boolean }

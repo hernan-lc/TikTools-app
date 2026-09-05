@@ -123,6 +123,62 @@ Keep action identifiers stable. Protocol and ABI versions are independent:
 
 The host rejects incompatible versions before loading a native library.
 
+## Event triggers
+
+A plugin can declare its own event types (global hotkeys, timers, file
+watchers) in `eventTypes`. Declared types appear in the event picker next
+to the built-in triggers, work with filters/cooldowns/actions like any
+other trigger, and stop matching while the plugin is disabled or
+unavailable.
+
+```json
+{
+  "capabilities": ["events.publish"],
+  "eventTypes": [
+    {
+      "type": "hotkey.pressed",
+      "title": {"default": "Hotkey pressed"},
+      "fields": [
+        {"path": "event.data.key", "kind": "text"}
+      ],
+      "sample": {"key": "ctrl+k"}
+    }
+  ]
+}
+```
+
+Rules:
+
+- type names are dotted lowercase (`hotkey.pressed`, `timer.tick`);
+- the `tiktok.`, `points.`, and `plugin.` namespaces stay host-owned, so a
+  plugin can never shadow a built-in trigger or the `plugin.emit` channel;
+- `title.default` is required; `description`, `fields` (text/number/boolean
+  paths under `event.data.*` or `event.user.*`), and a `sample` payload are
+  optional and bounded like every other descriptor.
+
+Publishing works two ways. While any action of the plugin runs, its `emit`
+response intents may name one of its own declared types instead of falling
+back to `plugin.emit`:
+
+```json
+{ "emit": [{ "type": "hotkey.pressed", "data": {"key": "ctrl+k"} }] }
+```
+
+For spontaneous events the host polls every running plugin that declares
+event types once per second with `{"type": "poll"}`. The plugin answers with
+the events observed since the previous poll:
+
+```json
+{ "events": [{ "type": "hotkey.pressed", "data": {"key": "ctrl+k"} }] }
+```
+
+Both paths require the `events.publish` capability and only accept types
+from the plugin own manifest. Payloads must be objects under 64 KB (16
+events per poll at most); anything else is dropped with a warning. The host
+stamps identity, timestamp, chain depth, and connection context, then runs
+the normal matching pipeline including the depth guard, so a hotkey can
+trigger actions but can never recurse without bound.
+
 ## Installation
 
 Create a `.plugin` archive containing `plugin.json` and the declared entry,

@@ -1,5 +1,8 @@
 import type { AutomationEventType, JsonObject } from '../types.ts';
 
+/** A built-in trigger or a plugin-declared event type (hotkey.pressed). */
+export type TriggerType = AutomationEventType | (string & {});
+
 /**
  * Behavior is two records, not one.
  *
@@ -87,6 +90,25 @@ export interface ActionTypeDefinition {
   requiredCapabilities: string[];
 }
 
+export interface PluginEventField {
+  /** Dotted path, exactly what filters store. */
+  path: string;
+  kind: 'text' | 'number' | 'boolean';
+  label?: Localized;
+  hint?: Localized;
+}
+
+export interface PluginEventType {
+  /** Dotted lowercase name, never in a host namespace (hotkey.pressed). */
+  type: string;
+  title: Localized;
+  description?: Localized;
+  fields?: PluginEventField[];
+  /** Example payload merged into test-event samples. */
+  sample?: JsonObject;
+  source: ActionSource;
+}
+
 export interface LiveAction {
   /** Version 2 is the descriptor/JSON-schema action format; v1 is migrated on read. */
   schemaVersion: 1 | 2;
@@ -129,7 +151,7 @@ export interface LiveEvent {
   id: string;
   name: string;
   enabled: boolean;
-  trigger: AutomationEventType;
+  trigger: TriggerType;
   /** All of them must pass. Empty means the event always fires. */
   filters: EventFilter[];
   cooldownMs: number;
@@ -147,6 +169,7 @@ export interface PluginDescriptor {
   dependency: Localized;
   permissions: string[];
   actionTypeIds: string[];
+  eventTypeIds: string[];
   /** True when the plugin declares a JSON settings schema for the Plugins UI. */
   hasSettings?: boolean;
 }
@@ -182,6 +205,8 @@ export interface BehaviorSnapshot {
   events: LiveEvent[];
   plugins: PluginStatus[];
   actionTypes: ActionTypeDefinition[];
+  /** Plugin-declared event types merged by the host; absent on old hosts. */
+  eventTypes?: PluginEventType[];
   /** Host and loaded plugin translations, keyed by locale and i18key. */
   translations: TranslationCatalog;
 }

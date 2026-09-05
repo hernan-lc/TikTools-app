@@ -6,6 +6,7 @@ pub(crate) fn empty_behavior_snapshot() -> serde_json::Value {
         "events": [],
         "plugins": [],
         "actionTypes": builtin_action_types(),
+        "eventTypes": [],
         "translations": builtin_translations()
     })
 }
@@ -331,4 +332,61 @@ pub(crate) fn now_millis() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
         .unwrap_or_default()
+}
+
+/// How often running plugins with declared event types are asked for fresh
+/// spontaneous events (global hotkeys, timers, watchers).
+pub(crate) const PLUGIN_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+pub(crate) const PLUGIN_POLL_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+pub(crate) const MAX_POLLED_EVENTS_PER_TICK: usize = 16;
+pub(crate) const MAX_PLUGIN_EVENT_BYTES: usize = 64 * 1024;
+
+/// Validated event types from one plugin manifest, in manifest order.
+pub(crate) fn declared_event_types(
+    manifest: &tiktools_plugin_api::manifest::PluginManifest,
+) -> Vec<String> {
+    manifest
+        .event_types
+        .iter()
+        .filter_map(|entry| {
+            if tiktools_plugin_api::manifest::validate_event_type(entry).is_err() {
+                return None;
+            }
+            entry
+                .get("type")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        })
+        .collect()
+}
+
+/// Parses a plugin `poll` response into publishable `(type, data)` pairs.
+/// Unknown types, non-object payloads, and oversized payloads are dropped so
+/// one misbehaving plugin cannot poison the automation pipeline.
+pub(crate) fn parse_polled_events(declared: &[String], response: &Value) -> Vec<(String, Value)> {
+    response
+        .get("events")
+        .into_iter()
+        .flat_map(as_values)
+        .filter_map(Value::as_object)
+        .take(MAX_POLLED_EVENTS_PER_TICK)
+        .filter_map(|intent| {
+            let event_type = intent.get("type").and_then(Value::as_str)?;
+            let event_type = normalize_emit_type(event_type).ok()?;
+            if !declared.contains(&event_type) {
+                return None;
+            }
+            let data = intent.get("data").cloned().unwrap_or(Value::Null);
+            if !data.is_object() {
+                return None;
+            }
+            if serde_json::to_vec(&data)
+                .map(|bytes| bytes.len() > MAX_PLUGIN_EVENT_BYTES)
+                .unwrap_or(true)
+            {
+                return None;
+            }
+            Some((event_type, data))
+        })
+        .collect()
 }

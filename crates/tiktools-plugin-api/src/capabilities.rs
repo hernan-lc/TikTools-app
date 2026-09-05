@@ -12,6 +12,8 @@ pub const TTS: &str = "tts";
 pub const POINTS_READ: &str = "points.read";
 pub const POINTS_WRITE: &str = "points.write";
 pub const STORAGE: &str = "storage";
+/// Lets a plugin publish its own declared event types (hotkeys, timers).
+pub const EVENTS_PUBLISH: &str = "events.publish";
 pub const APP_STATE: &str = "app.state";
 
 /// Returns true when a manifest explicitly declares a capability or a

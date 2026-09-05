@@ -62,6 +62,10 @@ pub struct PluginManifest {
     pub targets: Vec<String>,
     /// JSON action descriptors exposed by the plugin, if any.
     pub action_types: Vec<Value>,
+    /// JSON event-type descriptors a plugin can publish (hotkeys, timers).
+    /// Entries are validated when the host merges its catalog; the raw list
+    /// is kept here so discovery never fails on a single bad entry.
+    pub event_types: Vec<Value>,
     /// Host-rendered settings schema, kept as data and never executed.
     pub settings_schema: Option<Value>,
     pub settings_ui_hints: Option<Value>,
@@ -162,6 +166,7 @@ impl PluginManifest {
         }
 
         let action_types = json_list(object, "actionTypes")?;
+        let event_types = json_list(object, "eventTypes")?;
         let (settings_schema, settings_ui_hints) = settings(object)?;
 
         Ok(Self {
@@ -179,6 +184,7 @@ impl PluginManifest {
             abi_version,
             targets,
             action_types,
+            event_types,
             settings_schema,
             settings_ui_hints,
         })
@@ -314,6 +320,91 @@ fn settings(object: &Map<String, Value>) -> Result<(Option<Value>, Option<Value>
     Ok((schema, ui_hints))
 }
 
+/// Prefixes owned by the host. Plugins declare their own event types under
+/// any other dotted name (for example hotkey.pressed or timer.tick).
+const RESERVED_EVENT_PREFIXES: [&str; 3] = ["tiktok.", "points.", "plugin."];
+
+const MAX_EVENT_TYPE_LEN: usize = 64;
+const MAX_EVENT_FIELDS: usize = 64;
+
+/// Validate one eventTypes entry from a plugin manifest. Shape errors are
+/// reported by the host catalog merge, which skips the entry with a warning.
+pub fn validate_event_type(entry: &Value) -> Result<(), ManifestError> {
+    let object = entry
+        .as_object()
+        .ok_or(ManifestError::InvalidField("eventTypes"))?;
+    let event_type = object
+        .get("type")
+        .and_then(Value::as_str)
+        .ok_or(ManifestError::InvalidField("eventTypes"))?;
+    if !is_valid_event_type(event_type) {
+        return Err(ManifestError::InvalidField("eventTypes"));
+    }
+    let title = object
+        .get("title")
+        .and_then(Value::as_object)
+        .ok_or(ManifestError::InvalidField("eventTypes"))?;
+    let default = title
+        .get("default")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if default.trim().is_empty() || default.len() > 120 {
+        return Err(ManifestError::InvalidField("eventTypes"));
+    }
+    if let Some(fields) = object.get("fields") {
+        let fields = fields
+            .as_array()
+            .ok_or(ManifestError::InvalidField("eventTypes"))?;
+        if fields.len() > MAX_EVENT_FIELDS {
+            return Err(ManifestError::InvalidField("eventTypes"));
+        }
+        for field in fields {
+            validate_event_field(field)?;
+        }
+    }
+    if object
+        .get("sample")
+        .is_some_and(|sample| !sample.is_object())
+    {
+        return Err(ManifestError::InvalidField("eventTypes"));
+    }
+    Ok(())
+}
+
+fn validate_event_field(field: &Value) -> Result<(), ManifestError> {
+    let object = field
+        .as_object()
+        .ok_or(ManifestError::InvalidField("eventTypes"))?;
+    let path = object
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if path.trim().is_empty() || path.len() > 200 || path.chars().any(char::is_whitespace) {
+        return Err(ManifestError::InvalidField("eventTypes"));
+    }
+    if let Some(kind) = object.get("kind") {
+        let kind = kind.as_str().unwrap_or_default();
+        if !matches!(kind, "text" | "number" | "boolean") {
+            return Err(ManifestError::InvalidField("eventTypes"));
+        }
+    }
+    Ok(())
+}
+
+/// Event type names are dotted lowercase: hotkey.pressed, timer.tick.
+/// Host namespaces stay reserved so a plugin can never shadow built-in
+/// triggers or the internal plugin.emit channel.
+pub fn is_valid_event_type(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    (2..=MAX_EVENT_TYPE_LEN).contains(&bytes.len())
+        && bytes.iter().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-')
+        })
+        && !RESERVED_EVENT_PREFIXES
+            .iter()
+            .any(|prefix| value.starts_with(prefix))
+}
+
 pub fn is_valid_plugin_id(value: &str) -> bool {
     let bytes = value.as_bytes();
     (2..=128).contains(&bytes.len())
@@ -406,6 +497,37 @@ mod tests {
             ),
             Err(ManifestError::UnsafeEntry)
         ));
+    }
+
+    #[test]
+    fn reads_event_types_and_validates_them() {
+        let manifest = PluginManifest::from_json_str(
+            r#"{"schemaVersion": 2, "id": "hotkeys", "name": "Hotkeys", "version": "1.0.0", "runtime": "process", "entry": "hotkeys", "capabilities": ["events.publish"], "eventTypes": [{"type": "hotkey.pressed", "title": {"default": "Hotkey pressed"}, "fields": [{"path": "event.data.key", "kind": "text"}], "sample": {"key": "ctrl+k"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(manifest.event_types.len(), 1);
+        assert!(validate_event_type(&manifest.event_types[0]).is_ok());
+
+        // Reserved host namespaces can never be shadowed.
+        for reserved in [
+            "tiktok.chat",
+            "points.awarded",
+            "plugin.emit",
+            "plugin.custom",
+        ] {
+            assert!(
+                !is_valid_event_type(reserved),
+                "{reserved} should be reserved"
+            );
+        }
+        assert!(is_valid_event_type("hotkey.pressed"));
+        assert!(is_valid_event_type("dom.match"));
+        assert!(!is_valid_event_type("SHOUTY"));
+        assert!(!is_valid_event_type("x"));
+
+        // Missing title default is rejected.
+        assert!(validate_event_type(&serde_json::json!({"type": "hotkey.pressed"})).is_err());
+        assert!(validate_event_type(&serde_json::json!({"type": "hotkey.pressed", "title": {"default": "Hotkey pressed"}, "fields": [{"path": "event.data.key", "kind": "image"}]})).is_err());
     }
 
     #[test]

@@ -56,6 +56,8 @@ impl AppCore {
         };
 
         let mut action_types = builtin_action_types();
+        let mut event_types: std::collections::BTreeMap<String, Value> =
+            std::collections::BTreeMap::new();
         let mut plugins = Vec::new();
         let persisted_plugins = object
             .get("plugins")
@@ -89,6 +91,21 @@ impl AppCore {
                 .filter_map(|value| value.get("id").and_then(serde_json::Value::as_str))
                 .map(ToOwned::to_owned)
                 .collect::<Vec<_>>();
+            let mut event_type_ids = Vec::new();
+            for descriptor in &plugin.manifest.event_types {
+                let Some((event_type, entry)) =
+                    stamp_plugin_event_type(&plugin.manifest.id, descriptor.clone())
+                else {
+                    tracing::warn!(plugin = %plugin.manifest.id, "plugin event type is invalid; skipped");
+                    continue;
+                };
+                if event_types.insert(event_type.clone(), entry).is_some() {
+                    tracing::warn!(plugin = %plugin.manifest.id, event_type = %event_type, "plugin event type overrides an earlier declaration");
+                }
+                if !event_type_ids.contains(&event_type) {
+                    event_type_ids.push(event_type);
+                }
+            }
             plugins.push(json!({
                 "descriptor": {
                     "id": plugin.manifest.id,
@@ -98,6 +115,7 @@ impl AppCore {
                     "dependency": localized(&dependency, "plugin.dependency"),
                     "permissions": plugin.manifest.permissions,
                     "actionTypeIds": action_ids,
+                    "eventTypeIds": event_type_ids,
                     "hasSettings": plugin.manifest.settings_schema.is_some()
                 },
                 "installed": installed,
@@ -140,6 +158,10 @@ impl AppCore {
         }
 
         object.insert("actionTypes".to_owned(), Value::Array(action_types));
+        object.insert(
+            "eventTypes".to_owned(),
+            Value::Array(event_types.into_values().collect()),
+        );
         object.insert("plugins".to_owned(), Value::Array(plugins));
         object.insert("translations".to_owned(), builtin_translations());
     }
@@ -261,5 +283,50 @@ impl AppCore {
                 message: "Rust persistence is disabled in this build.".to_owned(),
             });
         }
+    }
+}
+
+/// Validates one manifest `eventTypes` entry and stamps its plugin source.
+/// Returns the event type plus the snapshot-ready entry, or `None` when the
+/// entry is invalid (the catalog merge warns and skips it).
+pub(super) fn stamp_plugin_event_type(
+    plugin_id: &str,
+    descriptor: Value,
+) -> Option<(String, Value)> {
+    if tiktools_plugin_api::manifest::validate_event_type(&descriptor).is_err() {
+        return None;
+    }
+    let mut entry = descriptor.as_object()?.clone();
+    let event_type = entry.get("type").and_then(Value::as_str)?.to_owned();
+    entry.insert(
+        "source".to_owned(),
+        json!({"kind": "plugin", "pluginId": plugin_id}),
+    );
+    Some((event_type, Value::Object(entry)))
+}
+
+#[cfg(test)]
+mod persistence_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn stamps_valid_event_types_and_rejects_reserved_ones() {
+        let (event_type, entry) = stamp_plugin_event_type(
+            "hotkeys",
+            json!({"type": "hotkey.pressed", "title": {"default": "Hotkey pressed"}}),
+        )
+        .expect("valid entry should stamp");
+        assert_eq!(event_type, "hotkey.pressed");
+        assert_eq!(
+            entry.get("source"),
+            Some(&json!({"kind": "plugin", "pluginId": "hotkeys"}))
+        );
+        assert!(stamp_plugin_event_type(
+            "hotkeys",
+            json!({"type": "tiktok.chat", "title": {"default": "Chat"}}),
+        )
+        .is_none());
+        assert!(stamp_plugin_event_type("hotkeys", json!({"type": "hotkey.pressed"}),).is_none());
     }
 }

@@ -57,10 +57,11 @@ export function normalizeUnresolvedAction(value: unknown): LiveAction {
   };
 }
 
-export function normalizeEvent(value: unknown): LiveEvent {
+/** `extraTriggers` carries the plugin-declared types from the snapshot. */
+export function normalizeEvent(value: unknown, extraTriggers: string[] = []): LiveEvent {
   const raw = record(value, 'event');
   const trigger = raw.trigger;
-  if (typeof trigger !== 'string' || !BEHAVIOR_TRIGGERS.includes(trigger as AutomationEventType)) {
+  if (typeof trigger !== 'string' || (!BEHAVIOR_TRIGGERS.includes(trigger as AutomationEventType) && !extraTriggers.includes(trigger))) {
     throw new Error(`Unknown event trigger: ${String(trigger)}`);
   }
 

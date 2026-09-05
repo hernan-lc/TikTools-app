@@ -24,6 +24,7 @@ import {
   type Theme,
 } from '../preferences.ts';
 import { setPluginTranslations, t, type Locale } from '../i18n.ts';
+import { setPluginEventTypes } from '../../automation/event-registry.ts';
 import type {
   AppTab,
   ConnectionStatus,
@@ -261,6 +262,7 @@ export function useAppController() {
 
     if (message.type === 'behavior') {
       setPluginTranslations(message.snapshot.translations);
+      setPluginEventTypes(message.snapshot.eventTypes ?? []);
       behavior.value = message.snapshot;
       behaviorError.value = '';
     }
@@ -379,7 +381,7 @@ export function useAppController() {
   const handleSaveAction = (action: LiveAction): void => { clearBehaviorError(); send({ type: 'save-action', action }); };
   const handleDeleteAction = (id: string): void => { clearBehaviorError(); send({ type: 'delete-action', id }); };
   const handleSetActionEnabled = (id: string, enabled: boolean): void => { clearBehaviorError(); send({ type: 'set-action-enabled', id, enabled }); };
-  const handleTestAction = (action: LiveAction, trigger?: AutomationEventType): void => {
+  const handleTestAction = (action: LiveAction, trigger?: string): void => {
     clearBehaviorError();
     behaviorTestRuns.value = [];
     send({ type: 'test-action', action, trigger });

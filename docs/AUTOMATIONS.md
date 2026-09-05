@@ -41,6 +41,12 @@ tiktok.connected     tiktok.disconnected
 points.awarded       plugin.emit
 ```
 
+Plugins may declare extra trigger types (for example `hotkey.pressed`); they
+arrive in the behavior snapshot, appear in the event picker while their
+plugin is installed and enabled, and match through the same
+trigger/filters/cooldown pipeline. See `docs/PLUGINS.md` for the manifest
+contract.
+
 Filters use dotted JSON paths such as `event.data.diamondCount` and
 `event.user.uniqueId`. The registry at
 `src/automation/event-registry.json` is aligned with the Rust event model and

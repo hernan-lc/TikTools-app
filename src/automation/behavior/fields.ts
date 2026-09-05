@@ -1,5 +1,5 @@
 import { fieldsForEventType as registryFieldsFor } from '../event-registry.ts';
-import type { AutomationEventType } from '../types.ts';
+
 import type { FilterOperator, Localized } from './types.ts';
 
 /**
@@ -82,7 +82,7 @@ function iconForPath(path: string, kind: FieldValueKind): FieldIcon {
 }
 
 /** Trigger-specific data fields first, then the per-viewer identity fields. */
-export function fieldsForTrigger(trigger: AutomationEventType): EventFieldDefinition[] {
+export function fieldsForTrigger(trigger: string): EventFieldDefinition[] {
   const data: EventFieldDefinition[] = [];
   const identity: EventFieldDefinition[] = [];
   for (const field of registryFieldsFor(trigger)) {
@@ -109,11 +109,11 @@ export function fieldsForTrigger(trigger: AutomationEventType): EventFieldDefini
   return [...data, ...identity];
 }
 
-export function findField(trigger: AutomationEventType, path: string): EventFieldDefinition | undefined {
+export function findField(trigger: string, path: string): EventFieldDefinition | undefined {
   return fieldsForTrigger(trigger).find((field) => field.path === path);
 }
 
 /** A path the user wrote by hand still has to render: treat it as free text. */
-export function fieldKindFor(trigger: AutomationEventType, path: string): FieldValueKind {
+export function fieldKindFor(trigger: string, path: string): FieldValueKind {
   return findField(trigger, path)?.kind ?? 'text';
 }

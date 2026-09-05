@@ -9,7 +9,6 @@ import {
   type FieldValueKind,
 } from '../../../automation/behavior/fields.ts';
 import type { EventFilter, FilterOperator } from '../../../automation/behavior/types.ts';
-import type { AutomationEventType } from '../../../automation/types.ts';
 import type { GiftCatalogEntry, ViewerRecord } from '../../../shared/messages.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 import { FieldIconGlyph, OperatorGlyph, OPERATOR_CODE, OPERATOR_LABELS } from '../condition-icons.vue';
@@ -52,7 +51,7 @@ const CUSTOM = '__custom__';
 
 type ConditionTableProps = {
   locale: Locale;
-  trigger: AutomationEventType;
+  trigger: string;
   filters: EventFilter[];
   gifts: GiftCatalogEntry[];
   viewers: ViewerRecord[];

@@ -21,6 +21,14 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let media = Arc::new(crate::media::DesktopMediaHost::default());
     let core = Arc::new(AppCore::with_media_host(emitter, media));
     let router = Arc::new(IpcRouter::new(core.clone()));
+    {
+        // Lets running plugins publish spontaneous events (hotkeys, timers).
+        // Ticks are no-ops until a plugin declares event types.
+        let poll_core = core.clone();
+        runtime.spawn(async move {
+            poll_core.spawn_plugin_event_poll();
+        });
+    }
     let source = FrontendSource::from_environment().map_err(std::io::Error::other)?;
     let mut app = DesktopApp::new(core, router, source, runtime.handle().clone(), proxy);
     event_loop.run_app(&mut app)?;

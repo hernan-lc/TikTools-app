@@ -1,4 +1,4 @@
-import type { AutomationEvent, AutomationEventType, JsonValue } from '../../../automation/types.ts';
+import type { AutomationEvent, JsonValue } from '../../../automation/types.ts';
 import {
   allRegistryFields,
   fieldsForEventType,
@@ -45,7 +45,7 @@ export const TEMPLATE_INPUT_DEFINITIONS: Record<TemplateSuggestionScope, { obser
 };
 
 export function getTemplateSuggestions(
-  eventType: AutomationEventType | undefined,
+  eventType: string | undefined,
   locale: Locale,
   lastEvent?: AutomationEvent,
   scope: TemplateSuggestionScope = 'message',
@@ -87,7 +87,7 @@ export function getTemplateSuggestions(
 function toSuggestion(
   field: RegistryField,
   locale: Locale,
-  eventType: AutomationEventType | undefined,
+  eventType: string | undefined,
   liveValue: JsonValue | undefined,
 ): TemplateSuggestion {
   const label = field.label[locale === 'es' ? 'es' : 'en'];
@@ -104,7 +104,7 @@ function toSuggestion(
 }
 
 /** Which native event field a registry entry derives from, for the hover card. */
-function sourceDetail(eventType: AutomationEventType | undefined, field: RegistryField): string | undefined {
+function sourceDetail(eventType: string | undefined, field: RegistryField): string | undefined {
   if (!eventType || !field.sourceField) return undefined;
   const entry = registryEntryFor(eventType);
   if (!entry || entry.sourceInterface === '-') return undefined;

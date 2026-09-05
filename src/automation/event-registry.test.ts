@@ -3,15 +3,19 @@ import { describe, expect, test } from 'bun:test';
 import {
   allRegistryFields,
   fieldsForEventType,
+  pluginEventTypes,
   registryEventTypes,
   registryHasPath,
   sampleDataForType,
   sampleEventForType,
+  setPluginEventTypes,
 } from './event-registry.ts';
 import { fieldsForTrigger } from './behavior/fields.ts';
 import { matchesFilter } from './behavior/filters.ts';
 import { sampleEventFor } from './behavior/samples.ts';
 import type { AutomationEventType, JsonValue } from './types.ts';
+import { normalizeEvent } from './behavior/schema.ts';
+import type { PluginEventType } from './behavior/types.ts';
 
 const ALL_TYPES: AutomationEventType[] = [
   'tiktok.chat',
@@ -87,5 +91,45 @@ describe('event registry', () => {
     expect(Object.keys(sampleDataForType('tiktok.gift'))).toContain('giftName');
     expect(Object.keys(sampleDataForType('tiktok.chat'))).toContain('comment');
     expect(allRegistryFields().some((field) => field.path === 'event.user.uniqueId')).toBe(true);
+  });
+});
+
+
+const HOTKEY: PluginEventType = {
+  type: 'hotkey.pressed',
+  title: { default: 'Hotkey pressed', i18key: 'hotkey.pressed' },
+  fields: [{ path: 'event.data.key', kind: 'text', label: { default: 'Key', i18key: 'x' } }],
+  sample: { key: 'ctrl+k' },
+  source: { kind: 'plugin', pluginId: 'hotkeys' },
+};
+
+function liveEvent(trigger: string): Record<string, unknown> {
+  return {
+    id: 'evt-1',
+    name: 'HK',
+    enabled: true,
+    trigger,
+    filters: [],
+    cooldownMs: 0,
+    cooldownScope: 'user',
+    actionIds: [],
+    runMode: 'all',
+  };
+}
+
+describe('plugin event-type overlay', () => {
+  test('merges declared types without touching builtins', () => {
+    try {
+      setPluginEventTypes([HOTKEY]);
+      expect(registryEventTypes()).toContain('hotkey.pressed');
+      expect(pluginEventTypes().map((entry) => entry.type)).toEqual(['hotkey.pressed']);
+      expect(sampleDataForType('hotkey.pressed')).toMatchObject({ key: 'ctrl+k' });
+      expect(normalizeEvent(liveEvent('hotkey.pressed'), ['hotkey.pressed']).trigger).toBe('hotkey.pressed');
+      expect(() => normalizeEvent(liveEvent('nope.dots'), ['hotkey.pressed'])).toThrow();
+    } finally {
+      setPluginEventTypes([]);
+    }
+    expect(registryEventTypes()).toEqual(ALL_TYPES);
+    expect(pluginEventTypes()).toEqual([]);
   });
 });
