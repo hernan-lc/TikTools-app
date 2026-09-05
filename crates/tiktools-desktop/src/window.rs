@@ -178,6 +178,33 @@ impl DesktopApp {
         }
     }
 
+    fn on_keyboard_input(&self, event: winit::event::KeyEvent) {
+        use winit::event::ElementState;
+        use winit::keyboard::{KeyCode, PhysicalKey};
+        if event.state != ElementState::Pressed || event.repeat {
+            return;
+        }
+        // F12 is the conventional inspector shortcut. WebView2 also handles
+        // it natively when devtools are enabled; this covers the other
+        // backends and guarantees the shortcut exists.
+        if !matches!(event.physical_key, PhysicalKey::Code(KeyCode::F12)) {
+            return;
+        }
+        self.open_devtools();
+    }
+
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    fn open_devtools(&self) {
+        if let Some(webview) = self.webview.as_ref() {
+            webview.open_devtools();
+        }
+    }
+
+    /// Release builds without the `devtools` feature have no inspector API;
+    /// the shortcut and tray item stay compiled but are intentional no-ops.
+    #[cfg(not(any(debug_assertions, feature = "devtools")))]
+    fn open_devtools(&self) {}
+
     fn set_window_visible(&self, visible: bool) {
         if let Some(webview) = self.webview.as_ref() {
             if let Err(error) = webview.set_visible(visible) {
@@ -240,6 +267,7 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
                 tracing::debug!("window close requested; hiding TikTools in the tray");
                 self.set_window_visible(false);
             }
+            WindowEvent::KeyboardInput { event, .. } => self.on_keyboard_input(event),
             WindowEvent::Resized(size) => self.resize_webview(size),
             WindowEvent::Destroyed => {
                 tracing::debug!("window was destroyed; tray restore will recreate it");
@@ -270,6 +298,7 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
             DesktopEvent::Command(DesktopCommand::HideWindow) => {
                 self.set_window_visible(false);
             }
+            DesktopEvent::Command(DesktopCommand::OpenDevtools) => self.open_devtools(),
             DesktopEvent::Command(DesktopCommand::Quit) => self.shutdown(event_loop),
             DesktopEvent::Command(DesktopCommand::ShutdownComplete) => {
                 self.finalize_shutdown(event_loop)

@@ -9,6 +9,7 @@ pub enum DesktopCommand {
     EmitToWebview(String),
     ShowWindow,
     HideWindow,
+    OpenDevtools,
     Quit,
     ShutdownComplete,
 }

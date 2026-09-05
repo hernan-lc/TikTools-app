@@ -18,6 +18,15 @@ impl TrayController {
         let show = MenuItem::with_id("show", "Show TikTools", true, None);
         let quit = MenuItem::with_id("quit", "Quit", true, None);
         menu.append(&show)?;
+        // The inspector is only offered when it can actually open (debug
+        // builds or the `devtools` cargo feature); release menus stay clean.
+        let devtools_id = if cfg!(debug_assertions) || cfg!(feature = "devtools") {
+            let devtools = MenuItem::with_id("devtools", "Open Developer Tools", true, None);
+            menu.append(&devtools)?;
+            Some(devtools.id().clone())
+        } else {
+            None
+        };
         menu.append(&quit)?;
         let show_id = show.id().clone();
         let quit_id = quit.id().clone();
@@ -55,6 +64,8 @@ impl TrayController {
             tracing::debug!(id = ?event.id(), "system tray menu event");
             let command = if event.id() == &show_id {
                 Some(DesktopCommand::ShowWindow)
+            } else if Some(event.id()) == devtools_id.as_ref() {
+                Some(DesktopCommand::OpenDevtools)
             } else if event.id() == &quit_id {
                 Some(DesktopCommand::Quit)
             } else {
