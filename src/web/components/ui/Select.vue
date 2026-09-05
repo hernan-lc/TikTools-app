@@ -9,6 +9,7 @@ export type SelectHandle = {
   getValue: () => string;
   setValue: (v: string) => void;
   focus: () => void;
+  open: () => void;
 };
 
 export type { SelectOption };
@@ -41,11 +42,22 @@ export const Select = defineVueComponent<SelectProps>(
     }
     props.onValueChange(value);
   };
+  const openPicker = (): void => {
+    const control = innerRef.value as (HTMLSelectElement & { showPicker?: () => void }) | null;
+    if (!control || control.disabled) return;
+    try {
+      if (typeof control.showPicker === 'function') control.showPicker();
+      else control.focus();
+    } catch {
+      control.focus();
+    }
+  };
   context.expose({
     getValue: () => innerRef.value?.value ?? normalizeControlString(props.value),
     setValue: commitProgrammaticValue,
     focus: () => innerRef.value?.focus(),
-  });
+    open: openPicker,
+  } satisfies SelectHandle);
 
   const handleChange = (e: Event) => props.onValueChange((e.currentTarget as HTMLSelectElement).value);
   watch(() => props.value, (value) => {

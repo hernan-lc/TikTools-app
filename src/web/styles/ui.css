@@ -128,7 +128,6 @@
 .ui-table-with-pagination { display:flex; flex-direction:column; }
 .ui-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 10px; border-top:1px solid var(--line); background:var(--panel-elevated); font-size:11px; }
 .ui-pagination__info { color:var(--text-muted); display:flex; align-items:center; gap:8px; }
-.ui-pagination__select { height:26px; padding:0 6px; border-radius:6px; border:1px solid var(--line); background:var(--input-bg); color:var(--text); font-size:11px; }
 .ui-pagination__controls { display:flex; align-items:center; gap:4px; }
 .ui-pagination__btn { min-width:26px; height:26px; padding:0 6px; border-radius:6px; border:1px solid var(--line); background:var(--input-bg); color:var(--text-secondary); font-size:11px; font-weight:700; cursor:pointer; }
 .ui-pagination__btn:hover:not(:disabled) { border-color:var(--line-focus); color:var(--text); }
@@ -328,7 +327,7 @@
 .ui-date:focus-within, .ui-time:focus-within { border-color:var(--line-focus); box-shadow:0 0 0 3px rgba(37,244,238,0.13); }
 .ui-date.has-error, .ui-time.has-error { border-color:rgba(239,71,111,0.45); }
 .ui-date.is-disabled, .ui-time.is-disabled { opacity:0.45; pointer-events:none; }
-.ui-date input, .ui-time input { flex:1; border:none; outline:none; background:transparent; color:var(--text); font-size:13px; padding:0 12px; color-scheme:light dark; }
+.ui-date input, .ui-time input { flex:1; border:none; outline:none; background:transparent; color:var(--text); font-size:13px; padding:0 12px; }
 .ui-color { display:flex; align-items:center; gap:8px; }
 .ui-color.is-disabled { opacity:0.45; pointer-events:none; }
 .ui-color input[type="color"] { width:44px; height:32px; padding:2px; border-radius:8px; border:1px solid var(--line); background:var(--input-bg); cursor:pointer; }
@@ -427,3 +426,14 @@
 .plg-cond__cell--value > .ui-number { width: auto; }
 .plg-cond__row > .ui-input { grid-column: 1 / -1; }
 .plg-table__row > .ui-switch { grid-column: 1; grid-row: 1; align-self: center; justify-self: center; }
+
+/* Native <option> popups are OS-rendered and do not reliably inherit the
+   page color-scheme, so give them explicit theme colors. Without this the
+   dark-mode popup keeps a light background while options inherit the
+   near-white control text and become unreadable. */
+.ui-select select option,
+.ui-float__control select option,
+.plg-select option {
+  background-color: var(--panel-solid);
+  color: var(--text);
+}

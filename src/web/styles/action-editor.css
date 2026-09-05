@@ -50,7 +50,7 @@
   padding: 0 6px 0 12px;
   cursor: pointer;
 }
-.act-method option { color: initial; font-weight: 400; }
+.act-method option { background-color: var(--panel-solid); color: var(--text); font-weight: 400; }
 .act-endpoint > .node-editor-template-field { flex: 1 1 0%; min-width: 0; width: auto; }
 .act-endpoint .node-editor-template-control-wrap,
 .act-endpoint .tpl-edit { min-width: 0; }
