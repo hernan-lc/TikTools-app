@@ -3,7 +3,7 @@
 ## Requirements
 
 - Rust 1.88 or newer with Cargo.
-- Bun 1.4.0 for the frontend build and development server. The version is
+- Bun 1.4.1 for the frontend build and development server. The version is
   pinned by `package.json`.
 - A system WebView supported by Wry:
   - Windows: WebView2.
@@ -141,6 +141,6 @@ TikTools/
     └── assets/
 ```
 
-The release workflow produces Windows x86_64 ZIP, Linux x86_64 tar.gz, and
-macOS arm64/x86_64 tar.gz artifacts plus `SHA256SUMS.txt`. Release builds use
+The release workflow produces Windows x86_64 ZIP and Linux x86_64 tar.gz
+artifacts plus `SHA256SUMS.txt`. Release builds use
 the packaged `web/` directory and never depend on `TIKTOOLS_DEV_URL`.

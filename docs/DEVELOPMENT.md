@@ -4,7 +4,7 @@ TikTools has two intentionally separate edit loops: Bun runs Vite/Vue
 builds/tests, and Cargo builds/tests the Rust host. The desktop integration
 is only needed when changing Winit, Wry, the tray, or the final IPC bridge.
 
-Bun 1.4.0 is the supported frontend version and is pinned in `package.json`.
+Bun 1.4.1 is the supported frontend version and is pinned in `package.json`.
 Use `bun ci` for a clean install from `bun.lock`; run `bun install` only when
 changing dependencies intentionally.
 

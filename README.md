@@ -21,7 +21,7 @@ points, and runs local automations. Tauri is not used.
 Requirements:
 
 - Rust 1.88 or newer and Cargo.
-- Bun 1.4.0 for the Vue/Vite development toolchain and frontend asset build.
+- Bun 1.4.1 for the Vue/Vite development toolchain and frontend asset build.
 - Platform WebView dependencies. Linux uses WebKitGTK; see
   [Getting Started](docs/GETTING_STARTED.md).
 
@@ -78,7 +78,7 @@ bun run check:version     # Validate package and Cargo versions
 
 ## Development / Quality
 
-Use Bun 1.4.0, as pinned in `package.json`. `bun ci` installs exactly from
+Use Bun 1.4.1, as pinned in `package.json`. `bun ci` installs exactly from
 `bun.lock`; use `bun install` only when intentionally changing dependencies.
 Before opening a pull request, run:
 

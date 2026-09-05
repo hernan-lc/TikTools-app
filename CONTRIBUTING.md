@@ -5,8 +5,8 @@ Please keep changes focused and avoid unrelated architecture or UI rewrites.
 
 ## Supported toolchain
 
-- Rust 1.88.0 (the workspace MSRV is 1.88).
-- Bun 1.4.0, pinned in `package.json`.
+- Rust 1.88.0 or newer (the workspace MSRV is 1.88; CI uses Rust 1.98.1).
+- Bun 1.4.1, pinned in `package.json`.
 - Linux desktop builds require GTK/WebKitGTK and audio development packages;
   see [Getting Started](docs/GETTING_STARTED.md).
 
