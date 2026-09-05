@@ -139,11 +139,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --generate-notes
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --generate-notes
+          fi
 
       - name: Publish prerelease GitHub release
         if: ${{ contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --generate-notes --prerelease
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/TikTools-* release-assets/SHA256SUMS.txt --generate-notes --prerelease
+          fi
