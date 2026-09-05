@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "id": "hotkeys",
+  "name": "Global Hotkeys",
+  "version": "0.1.0",
+  "description": "Publishes global shortcut and key-sequence events (hotkey.pressed) that behaviors can trigger on.",
+  "runtime": "process",
+  "trust": "trusted",
+  "entry": "tiktools-hotkey-process-plugin",
+  "protocolVersion": 1,
+  "capabilities": ["events.publish"],
+  "permissions": [],
+  "targets": ["win32", "darwin", "linux"],
+  "eventTypes": [
+    {
+      "type": "hotkey.pressed",
+      "title": {"default": "Hotkey pressed", "i18key": "hotkeys.pressed.title"},
+      "description": {"default": "A global keyboard shortcut or key sequence was pressed.", "i18key": "hotkeys.pressed.description"},
+      "fields": [
+        {
+          "path": "event.data.key",
+          "kind": "text",
+          "label": {"default": "Key", "i18key": "hotkeys.field.key.label"},
+          "hint": {"default": "Normalized key name: a-z, 0-9, f1-f12, space, enter, tab, esc, arrows.", "i18key": "hotkeys.field.key.hint"}
+        },
+        {
+          "path": "event.data.modifiers",
+          "kind": "text",
+          "label": {"default": "Modifiers", "i18key": "hotkeys.field.modifiers.label"},
+          "hint": {"default": "Held modifiers joined with +: ctrl, shift, alt, meta. Empty when none are held.", "i18key": "hotkeys.field.modifiers.hint"}
+        },
+        {
+          "path": "event.data.sequence",
+          "kind": "text",
+          "label": {"default": "Sequence", "i18key": "hotkeys.field.sequence.label"},
+          "hint": {"default": "Recent keys, oldest first, space separated. Match chords with eq, phrases with contains.", "i18key": "hotkeys.field.sequence.hint"}
+        }
+      ],
+      "sample": {"key": "k", "modifiers": "ctrl", "sequence": "g k"}
+    }
+  ]
+}

@@ -6,7 +6,7 @@ members = [
     "crates/tiktools-plugin-loader",
     "crates/tiktools-tiktok",
 ]
-exclude = ["examples/audio-process-plugin"]
+exclude = ["examples/audio-process-plugin", "examples/hotkey-process-plugin"]
 resolver = "2"
 
 [workspace.package]

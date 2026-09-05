@@ -1,0 +1,12 @@
+[package]
+name = "tiktools-hotkey-process-plugin"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde_json = "1.0"
+tiktools-plugin-api = { path = "../../crates/tiktools-plugin-api" }
+# Actively maintained rdev fork (RustDesk): global key listening on
+# Windows, macOS, and Linux/X11. Pinned like every other git dependency.
+rdev = { git = "https://github.com/rustdesk-org/rdev", rev = "23e24dd6b35452a495dae0ae6d99395e9755ab0f" }
