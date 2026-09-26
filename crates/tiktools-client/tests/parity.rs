@@ -70,6 +70,11 @@ fn validate_accepts_well_formed_params() {
     );
     assert!(tiktools_client::validate_params("automation.list", &serde_json::json!({})).is_ok());
     assert!(tiktools_client::validate_params(
+        "automation.fire",
+        &serde_json::json!({"trigger": "tiktok.gift"})
+    )
+    .is_ok());
+    assert!(tiktools_client::validate_params(
         "points.adjust",
         &serde_json::json!({"uniqueId": "x", "delta": 1.5})
     )

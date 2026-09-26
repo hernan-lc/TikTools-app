@@ -8,8 +8,8 @@ use serde::Deserialize;
 use tiktools_control_api::modules::analytics::AnalyticsSummaryParams;
 use tiktools_control_api::modules::app::{AppStateGetParams, AppStateSetParams};
 use tiktools_control_api::modules::automation::{
-    AutomationCreateParams, AutomationGetParams, AutomationListParams, AutomationScriptParams,
-    AutomationTestParams, AutomationUpdateParams,
+    AutomationCreateParams, AutomationFireParams, AutomationGetParams, AutomationListParams,
+    AutomationScriptParams, AutomationTestParams, AutomationUpdateParams,
 };
 use tiktools_control_api::modules::creators::{CreatorGetParams, CreatorsRecentParams};
 use tiktools_control_api::modules::gifts::GiftDebugParams;
@@ -71,6 +71,9 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
             .map_err(invalid),
         "automation.context" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "automation.test" => AutomationTestParams::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "automation.fire" => AutomationFireParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),
         "automation.nodes.list" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
