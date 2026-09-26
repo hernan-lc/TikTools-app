@@ -272,9 +272,7 @@ pub fn parse_rule_template(value: &Value) -> Result<RuleTemplate, TemplateErrors
                     actions.push(RuleTemplateAction {
                         name,
                         type_id,
-                        enabled: item
-                            .get("enabled")
-                            .map_or(true, |v| v == &Value::Bool(true)),
+                        enabled: item.get("enabled").is_none_or(|v| v == &Value::Bool(true)),
                         config,
                     });
                 }
@@ -323,7 +321,7 @@ pub fn parse_rule_template(value: &Value) -> Result<RuleTemplate, TemplateErrors
             if let (Some(name), Some(trigger)) = (name, trigger) {
                 event = Some(RuleTemplateEvent {
                     name,
-                    enabled: raw.get("enabled").map_or(true, |v| v == &Value::Bool(true)),
+                    enabled: raw.get("enabled").is_none_or(|v| v == &Value::Bool(true)),
                     trigger,
                     filters,
                     cooldown_ms,
@@ -679,6 +677,18 @@ pub fn instantiate_template(
     InstantiatedRule { actions, event }
 }
 
+/// Action type ids plus the trigger a template needs from the host.
+pub fn template_requirements(template: &RuleTemplate) -> (Vec<String>, String) {
+    let mut type_ids: Vec<String> = template
+        .actions
+        .iter()
+        .map(|action| action.type_id.clone())
+        .collect();
+    type_ids.sort();
+    type_ids.dedup();
+    (type_ids, template.event.trigger.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -864,16 +874,4 @@ mod tests {
             (vec!["core.log".to_owned()], "tiktok.chat".to_owned())
         );
     }
-}
-
-/// Action type ids plus the trigger a template needs from the host.
-pub fn template_requirements(template: &RuleTemplate) -> (Vec<String>, String) {
-    let mut type_ids: Vec<String> = template
-        .actions
-        .iter()
-        .map(|action| action.type_id.clone())
-        .collect();
-    type_ids.sort();
-    type_ids.dedup();
-    (type_ids, template.event.trigger.clone())
 }

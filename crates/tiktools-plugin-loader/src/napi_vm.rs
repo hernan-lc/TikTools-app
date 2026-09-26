@@ -450,7 +450,7 @@ fn spawn_owner(
     let worker = thread::Builder::new()
         .name(format!("tiktools-napi-vm-{thread_id}"))
         .spawn(move || {
-            run_vm_owner(
+            run_vm_owner(VmOwnerArgs {
                 name,
                 directory,
                 context,
@@ -458,8 +458,8 @@ fn spawn_owner(
                 events,
                 rx,
                 wake_tx,
-                ready_tx,
-            )
+                ready: ready_tx,
+            })
         })
         .map_err(|error| {
             PluginLoaderError::Runtime(format!("could not start napi-vm thread: {error}"))
@@ -473,6 +473,19 @@ fn spawn_owner(
     Ok((tx, worker))
 }
 
+/// Arguments for the VM owner-thread entry point, bundled so the thread
+/// body takes one parameter instead of a long positional list.
+struct VmOwnerArgs {
+    name: String,
+    directory: PathBuf,
+    context: serde_json::Value,
+    native_addons: Vec<NativeAddonDeclaration>,
+    events: Option<EventsPush>,
+    rx: mpsc::UnboundedReceiver<WorkerMsg>,
+    wake_tx: mpsc::UnboundedSender<WorkerMsg>,
+    ready: std_mpsc::Sender<Result<(), PluginLoaderError>>,
+}
+
 /// VM owner-thread main loop. Creates the `RustPluginHost` here so the VM
 /// never exists anywhere else, authorizes declared native addons, reports
 /// the `onLoad` outcome through the handshake channel, then serves the
@@ -483,16 +496,17 @@ fn spawn_owner(
 /// The host never terminates threads an addon detached itself: persistent
 /// addon resources must expose their own stop API, which the guest calls
 /// from `onUnload`.
-fn run_vm_owner(
-    name: String,
-    directory: PathBuf,
-    context: serde_json::Value,
-    native_addons: Vec<NativeAddonDeclaration>,
-    events: Option<EventsPush>,
-    mut rx: mpsc::UnboundedReceiver<WorkerMsg>,
-    wake_tx: mpsc::UnboundedSender<WorkerMsg>,
-    ready: std_mpsc::Sender<Result<(), PluginLoaderError>>,
-) -> Result<(), PluginLoaderError> {
+fn run_vm_owner(args: VmOwnerArgs) -> Result<(), PluginLoaderError> {
+    let VmOwnerArgs {
+        name,
+        directory,
+        context,
+        native_addons,
+        events,
+        mut rx,
+        wake_tx,
+        ready,
+    } = args;
     // Deny-by-default: no filesystem, no `node:path`, no capability modules
     // in this slice. TikTools-owned host APIs arrive as Rust capability
     // modules granted per plugin in a follow-up. Native selection is

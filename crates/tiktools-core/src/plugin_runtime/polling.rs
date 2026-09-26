@@ -175,7 +175,7 @@ impl AppCore {
             // never depends on automation success.
             self.publish_automation_event(self.make_plugin_event(
                 &plugin_id,
-                &source,
+                source,
                 &event_type,
                 data,
             ))
