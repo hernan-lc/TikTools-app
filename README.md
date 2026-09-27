@@ -76,6 +76,7 @@ bun run lint:rust         # Run Clippy with warnings denied
 bun run test:rust         # Run every Rust workspace test with Cargo.lock
 bun run build:desktop     # Build the release desktop executable with Cargo.lock
 bun run check:version     # Validate package and Cargo versions
+bun run version:bump      # Bump package, Cargo, and Cargo.lock versions
 ```
 
 ## Development / Quality

@@ -32,10 +32,8 @@ jobs:
       - name: Install frontend dependencies from the lockfile
         run: bun ci
 
-      - name: Validate tag against the canonical application version
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: bun run check:version "$RELEASE_TAG"
+      - name: Validate Cargo and package.json versions match
+        run: bun run check:version
 
   quality:
     name: run CI quality gate

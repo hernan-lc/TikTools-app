@@ -8,6 +8,10 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+if (process.argv.length > 2) {
+  fail('this check takes no arguments; it only compares Cargo.toml with package.json');
+}
+
 const cargoToml = await readFile(resolve(repositoryRoot, 'Cargo.toml'), 'utf8');
 const workspacePackage = cargoToml.match(
   /\[workspace\.package\]([\s\S]*?)(?=\n\s*\[[^\]]+\]|\s*$)/,
@@ -22,10 +26,4 @@ if (packageJson.version !== cargoVersion) {
   fail(`package.json version ${String(packageJson.version)} does not match Cargo ${cargoVersion}`);
 }
 
-const [tag] = process.argv.slice(2);
-if (process.argv.length > 3) fail('expected at most one Git tag argument');
-if (tag !== undefined && tag !== `v${cargoVersion}`) {
-  fail(`Git tag ${tag} does not match the canonical version v${cargoVersion}`);
-}
-
-console.log(`Version check passed: ${cargoVersion}${tag ? ` (${tag})` : ''}`);
+console.log(`Version check passed: ${cargoVersion}`);

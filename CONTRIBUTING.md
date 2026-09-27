@@ -53,11 +53,12 @@ are trusted native code; process boundaries are not OS sandboxes.
 
 ## Releases and branch policy
 
-Release tags are maintainer-controlled. A tag must match the canonical Cargo
-workspace version, for example:
+Release tags are maintainer-controlled. Before tagging, bump the app
+version in one step so `package.json`, `Cargo.toml`, and `Cargo.lock`
+stay in sync:
 
 ```bash
-bun run check:version v0.1.0
+bun run version:bump v0.1.0
 ```
 
 The release workflow builds portable packages with the executable beside

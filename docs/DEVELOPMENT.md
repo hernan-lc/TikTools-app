@@ -108,20 +108,20 @@ TikTools/
     └── assets/
 ```
 
-`bun run check:version` compares `package.json` with the canonical
-`[workspace.package].version` in `Cargo.toml`; pass a tag to validate a
-release, for example `bun run check:version v0.1.0`.
+`bun run check:version` verifies that `package.json` matches the
+canonical `[workspace.package].version` in `Cargo.toml`. It takes no
+arguments; Git tags are not compared against the code.
 
 ## Cutting a release
 
-The release workflow refuses tags that do not match the code, so bump
-first, then tag. To ship `vX.Y.Z`:
+Bump first, then tag. To ship `vX.Y.Z`:
 
-1. set the same version in `package.json` and `Cargo.toml`
-   `[workspace.package]`, plus the refreshed `Cargo.lock`
+1. run `bun run version:bump vX.Y.Z` — it updates `package.json`,
+   `Cargo.toml` `[workspace.package]`, and the workspace entries in
+   `Cargo.lock` in one step
 2. commit and push to `remake`
 3. create the GitHub release (or push tag `vX.Y.Z`) — the workflow
-   validates the tag, builds, packages, and publishes idempotently
+   validates the versions, builds, packages, and publishes idempotently
 
 ## Source ownership
 

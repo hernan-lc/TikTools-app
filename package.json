@@ -1,6 +1,6 @@
 {
   "name": "tiktok-live-appv3",
-  "version": "0.2.0",
+  "version": "0.3.2",
   "type": "module",
   "private": true,
   "packageManager": "bun@1.4.1",
@@ -49,6 +49,7 @@
     "rust:test": "npm run test:rust",
     "rust:validate": "npm run rust:check && npm run rust:clippy && npm run rust:test",
     "check:version": "bun run scripts/check-version.ts",
+    "version:bump": "bun run scripts/bump-version.ts",
     "build:plugin": "bun run scripts/build-plugin.ts",
     "build:plugins": "bun run scripts/build-plugin.ts --all",
     "package:release": "bun run scripts/package-release.ts",
