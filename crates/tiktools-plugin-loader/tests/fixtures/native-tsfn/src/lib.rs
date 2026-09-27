@@ -3,7 +3,7 @@
 //! It stands in for a real device package such as `rdev-node`: synchronous
 //! native calls plus a threadsafe-function listener with its own stop API,
 //! so shutdown and reload stay deterministic. Built by the integration test
-//! with `cargo build --offline --release`; the committed `Cargo.lock` pins
+//! with `cargo build --locked --release`; the committed `Cargo.lock` pins
 //! the exact dependency closure the test rebuilds.
 
 use std::sync::atomic::{AtomicBool, Ordering};

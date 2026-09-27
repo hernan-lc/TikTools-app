@@ -95,12 +95,13 @@ fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 /// Builds the napi-rs fixture cdylib once per test binary and returns its
-/// path. The build is offline and pinned by the fixture's own lockfile.
+/// path. The build is pinned by the fixture's own lockfile; missing crates
+/// download on cold caches exactly like any other cargo build.
 fn native_library() -> &'static Path {
     BUILD_ONCE.get_or_init(|| {
         let target_dir = scratch_root("fixture-target");
         let output = std::process::Command::new("cargo")
-            .args(["build", "--offline", "--release", "--manifest-path"])
+            .args(["build", "--locked", "--release", "--manifest-path"])
             .arg(fixture_crate_dir().join("Cargo.toml"))
             .arg("--target-dir")
             .arg(&target_dir)
@@ -295,7 +296,6 @@ fn musl_target_selects_musl_binary() {
     let output = std::process::Command::new("cargo")
         .args([
             "build",
-            "--offline",
             "--locked",
             "--target",
             "x86_64-unknown-linux-musl",
