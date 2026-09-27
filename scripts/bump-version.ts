@@ -110,8 +110,49 @@ export function setCargoLockVersions(
   return { text, updated, missing };
 }
 
+/**
+ * Standalone crates with their own lockfiles (test fixtures and examples
+ * excluded from the workspace). Their locks pin workspace crates by version,
+ * so a bump must refresh them too or `--locked` builds fail.
+ */
+const STANDALONE_LOCK_PATTERNS = ['crates/*/tests/fixtures/*/Cargo.lock', 'examples/*/Cargo.lock'];
+
+export interface StandaloneLockResult {
+  /** Repo-relative lockfile path with forward slashes. */
+  path: string;
+  updated: string[];
+}
+
+/**
+ * Refresh workspace-crate pins in every standalone lockfile. Locks without
+ * a matching entry (e.g. fixtures with no path dependencies) are left alone.
+ */
+export async function updateStandaloneLockfiles(
+  root: string,
+  packageNames: string[],
+  oldVersion: string,
+  newVersion: string,
+): Promise<StandaloneLockResult[]> {
+  const results: StandaloneLockResult[] = [];
+  for (const pattern of STANDALONE_LOCK_PATTERNS) {
+    const glob = new Bun.Glob(pattern);
+    for await (const found of glob.scan({ cwd: root, onlyFiles: true })) {
+      const relative = found.replaceAll('\\', '/');
+      const absolute = resolve(root, relative);
+      const text = await readFile(absolute, 'utf8');
+      const update = setCargoLockVersions(text, packageNames, oldVersion, newVersion);
+      if (update.text !== text) {
+        await writeFile(absolute, update.text);
+        results.push({ path: relative, updated: update.updated });
+      }
+    }
+  }
+  return results.sort((a, b) => (a.path < b.path ? -1 : 1));
+}
+
 function printHelp(): void {
-  console.log(`Update the application version in Cargo.toml, Cargo.lock, and package.json.
+  console.log(`Update the application version in Cargo.toml, Cargo.lock, package.json,
+and standalone fixture/example lockfiles.
 
 Usage:
   bun run version:bump <version>
@@ -179,9 +220,13 @@ async function main(): Promise<void> {
     writeFile(cargoLockPath, lockUpdate.text),
     writeFile(packageJsonPath, setPackageJsonVersion(packageJsonText, version)),
   ]);
+  const standalone = await updateStandaloneLockfiles(repositoryRoot, packageNames, current, version);
 
   console.log(`Bumped version: ${current} -> ${version}`);
   console.log('Updated Cargo.toml, Cargo.lock, and package.json.');
+  for (const entry of standalone) {
+    console.log(`Updated ${entry.path} (${entry.updated.join(', ')}).`);
+  }
   if (lockUpdate.missing.length > 0) {
     console.warn(
       `Warning: no Cargo.lock entry at ${current} for: ${lockUpdate.missing.join(', ')}. ` +

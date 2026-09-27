@@ -117,8 +117,8 @@ arguments; Git tags are not compared against the code.
 Bump first, then tag. To ship `vX.Y.Z`:
 
 1. run `bun run version:bump vX.Y.Z` — it updates `package.json`,
-   `Cargo.toml` `[workspace.package]`, and the workspace entries in
-   `Cargo.lock` in one step
+   `Cargo.toml` `[workspace.package]`, the workspace entries in
+   `Cargo.lock`, and standalone fixture/example lockfiles in one step
 2. commit and push to `remake`
 3. create the GitHub release (or push tag `vX.Y.Z`) — the workflow
    validates the versions, builds, packages, and publishes idempotently

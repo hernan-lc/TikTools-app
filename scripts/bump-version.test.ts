@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 import {
   normalizeVersion,
@@ -7,6 +10,7 @@ import {
   setCargoLockVersions,
   setPackageJsonVersion,
   setWorkspaceVersion,
+  updateStandaloneLockfiles,
   usesWorkspaceVersion,
 } from './bump-version.ts';
 
@@ -122,5 +126,51 @@ version = "0.2.0"
     const result = setCargoLockVersions(lock, ['tiktools-desktop'], '9.9.9', '0.3.1');
     expect(result.text).toBe(lock);
     expect(result.missing).toEqual(['tiktools-desktop']);
+  });
+});
+
+describe('updateStandaloneLockfiles', () => {
+  test('refreshes standalone locks and skips locks without workspace pins', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'bump-version-test-'));
+    try {
+      const stale = join(root, 'examples/foo');
+      const clean = join(root, 'examples/bar');
+      const fixture = join(root, 'crates/loader/tests/fixtures/probe');
+      await mkdir(stale, { recursive: true });
+      await mkdir(clean, { recursive: true });
+      await mkdir(fixture, { recursive: true });
+      await writeFile(
+        join(stale, 'Cargo.lock'),
+        '[[package]]\nname = "tiktools-plugin-api"\nversion = "0.2.0"\n\n[[package]]\nname = "other"\nversion = "0.2.0"\n',
+      );
+      await writeFile(join(clean, 'Cargo.lock'), '[[package]]\nname = "other"\nversion = "0.2.0"\n');
+      await writeFile(
+        join(fixture, 'Cargo.lock'),
+        '[[package]]\nname = "tiktools-plugin-sdk"\nversion = "0.2.0"\n',
+      );
+
+      const results = await updateStandaloneLockfiles(
+        root,
+        ['tiktools-plugin-api', 'tiktools-plugin-sdk'],
+        '0.2.0',
+        '0.3.2',
+      );
+
+      expect(results).toEqual([
+        {
+          path: 'crates/loader/tests/fixtures/probe/Cargo.lock',
+          updated: ['tiktools-plugin-sdk'],
+        },
+        { path: 'examples/foo/Cargo.lock', updated: ['tiktools-plugin-api'] },
+      ]);
+      const staleText = await readFile(join(stale, 'Cargo.lock'), 'utf8');
+      expect(staleText).toContain('name = "tiktools-plugin-api"\nversion = "0.3.2"');
+      expect(staleText).toContain('name = "other"\nversion = "0.2.0"');
+      await expect(readFile(join(clean, 'Cargo.lock'), 'utf8')).resolves.toContain(
+        'version = "0.2.0"',
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
