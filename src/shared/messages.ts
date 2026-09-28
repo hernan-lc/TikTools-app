@@ -52,7 +52,14 @@ export type MediaSelection =
 export type MediaSelectionHandler = (selection: MediaSelection | null, error?: string) => void;
 export type OpenMediaPicker = (options: MediaPickerOptions, onSelected: MediaSelectionHandler) => void;
 
-export type ActionOptionItem = { value: string; label: string };
+/** Display metadata carried by host-owned option sources (`host.gifts`). */
+export type ActionOptionMeta = {
+  giftId?: string;
+  diamondCount?: number;
+  iconUrl?: string;
+};
+
+export type ActionOptionItem = { value: string; label: string; meta?: ActionOptionMeta };
 
 export type UiEvent = {
   kind: 'chat' | 'gift' | 'like' | 'member' | 'social';

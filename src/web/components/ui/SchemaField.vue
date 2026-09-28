@@ -2,6 +2,8 @@
 import { Icon, readIconName } from '../icons/index.ts';
 import { IconSelect, type IconSelectOption } from './IconSelect.vue';
 import { InfoTip } from './InfoTip.vue';
+import { GiftField } from './GiftField.vue';
+import { isGiftPickerHint } from './gift-field-options.ts';
 import { MediaField } from './MediaField.vue';
 import { NumberInput } from './NumberInput.vue';
 import { Select } from './Select.vue';
@@ -100,6 +102,26 @@ function renderSchemaField({ locale, name, schema, hint, value, onChange, templa
   const template = hint?.template === true;
   const displayValue = toDisplayValue(value, schema.type);
   const hasAutocomplete = template || templateSuggestions.length > 0;
+
+  // Validated gift hint (`picker: 'gift'` or `kind: 'gift'`): the shared
+  // GiftPicker fed by the field's dynamic options (`host.gifts`), with
+  // free-text manual entry. Ahead of the select branch so gift fields
+  // never render as a plain dropdown.
+  if (isGiftPickerHint(hint)) {
+    return (
+      <GiftField
+        locale={locale}
+        name={name}
+        label={label}
+        hint={hintText || undefined}
+        value={displayValue}
+        placeholder={typeof hint?.placeholder === 'string' ? hint.placeholder : undefined}
+        error={error}
+        fieldOptions={fieldOptions}
+        onValueChange={onChange}
+      />
+    );
+  }
 
   if (kind === 'media') {
     return (

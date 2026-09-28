@@ -7,7 +7,12 @@ import { resolveAutocompleteSources as mergeAutocompleteSources, suggestionsFrom
 import { globalSuggestionItems } from '../../features/globals.ts';
 import { i18nText, type Locale } from '../../i18n.ts';
 
-export type FieldOption = { value: string; label: string };
+export type FieldOption = {
+  value: string;
+  label: string;
+  /** Display metadata from host-owned sources (`host.gifts`): gift id, diamond price, icon. */
+  meta?: { giftId?: string; diamondCount?: number; iconUrl?: string };
+};
 /** Default scope per field name so Call-URL-like forms work with zero config. */
 export function defaultScopeFor(name: string, template: boolean): TemplateSuggestionScope {
   const key = name.toLowerCase();
@@ -166,6 +171,6 @@ export function schemaFromFields(type: ActionTypeDefinition): JsonObject {
 
 export function hintsFromFields(type: ActionTypeDefinition): JsonObject {
   const fields: JsonObject = {};
-  for (const field of type.fields ?? []) fields[field.key] = { kind: field.kind, placeholder: field.placeholder, template: field.template, advanced: field.advanced, hint: field.hint, showIf: field.showIf, options: field.options, optionsFrom: field.optionsFrom } as unknown as JsonValue;
+  for (const field of type.fields ?? []) fields[field.key] = { kind: field.kind, placeholder: field.placeholder, template: field.template, advanced: field.advanced, hint: field.hint, showIf: field.showIf, options: field.options, optionsFrom: field.optionsFrom, picker: field.picker } as unknown as JsonValue;
   return { fields };
 }

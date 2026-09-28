@@ -17,6 +17,19 @@ import { normalizeUiDescriptor } from '../../plugin-ui/normalize.ts';
 /** Prefix for host-resolved plugin option sources. */
 export const OPTION_SOURCE_PREFIX = 'plugin-action-options:';
 
+/**
+ * Host-owned, read-only gift catalog source. Resolved internally from the
+ * persisted `gifts.list` catalog — never through a plugin-controlled fetch.
+ * The only `host.*` source; the resolver and the validators below reject
+ * anything else under the prefix.
+ */
+export const HOST_GIFTS_SOURCE = 'host.gifts';
+
+/** True for allowlisted host-owned option sources (only `host.gifts` today). */
+export function isHostOptionSource(source: string): boolean {
+  return source === HOST_GIFTS_SOURCE;
+}
+
 /** Placeholder the host emits for secret settings; round-trips untouched. */
 export const SECRET_PLACEHOLDER = '••••••••';
 
@@ -55,11 +68,16 @@ const FIELD_PATTERN = /^[a-zA-Z][a-zA-Z0-9._-]{0,127}$/;
  * `{ source: 'plugin-action-options', actionType, field }`. A page-supplied
  * `optionsUrl` is deliberately ignored: only manifest-declared endpoints are
  * ever fetched, so the WebView cannot steer the host at arbitrary URLs.
+ * The `host.*` namespace is allowlisted, not token-matched: only
+ * `host.gifts` (string or `{ source: 'host.gifts' }`) passes, everything
+ * else under the prefix fails closed — mirroring the Rust validator.
  */
 export function normalizeOptionsFrom(value: JsonValue | undefined): string | undefined {
   if (typeof value === 'string') {
     const source = value.trim();
     if (!source || source.length > 256) return undefined;
+    if (isHostOptionSource(source)) return source;
+    if (source.startsWith('host.')) return undefined;
     if (TOKEN_PATTERN.test(source)) return source;
     const parsed = parseOptionSourceId(source);
     if (!parsed) return undefined;
@@ -68,6 +86,7 @@ export function normalizeOptionsFrom(value: JsonValue | undefined): string | und
   }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const record = value as JsonObject;
+    if (record.source === HOST_GIFTS_SOURCE) return HOST_GIFTS_SOURCE;
     if (record.source !== 'plugin-action-options') return undefined;
     const actionType = record.actionType;
     const field = record.field;

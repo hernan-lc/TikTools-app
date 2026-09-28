@@ -194,3 +194,11 @@ tiktools automation list --kind all
 Caveat: streakable gifts emit one event per combo tick with the running
 `repeatCount`, so a ×5 Rose streak fires five commands. Tune with per-rule
 `cooldownMs` if your server economy minds.
+
+`examples/profiles/minecraft-giftwall.tikprofile.json` is the same idea
+built on the `minecraft.server` plugin instead of raw `core.fetch`
+actions: 14 gift rules (TNT tower, mobs, kills, teleports, jail, super
+chest) plus follow/share announcements, every rule flashing a `/title` +
+subtitle naming the sender. It imports as a normal profile and refuses
+with a clear error unless the plugin is installed and enabled; gift
+names are starting points to remap in the event editor.

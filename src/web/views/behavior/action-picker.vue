@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 import { SearchInput } from '../../components/ui/TextInput.vue';
-import { IconChevronLeft } from '../../components/icons/index.ts';
+import { Icon, IconChevronLeft } from '../../components/icons/index.ts';
+import { matchesActionTypeQuery, resolveActionTypeIcon } from '../../components/plugin-cards.ts';
 import type { ActionTypeDefinition, PluginStatus } from '../../../automation/behavior/types.ts';
 import { i18nText, t, type Locale } from '../../i18n.ts';
 
@@ -20,7 +21,7 @@ export const ActionPicker = defineVueComponent<ActionPickerProps>(
   (props) => {
   const query = ref('');
   const matches = (type: ActionTypeDefinition): boolean =>
-    !query.value.trim() || i18nText(props.locale, type.title).toLowerCase().includes(query.value.trim().toLowerCase());
+    matchesActionTypeQuery(props.locale, type, query.value);
 
   const installed = computed(() => props.plugins.filter((plugin) => plugin.installed && plugin.enabled));
 
@@ -109,9 +110,13 @@ function ActionTypeCard({
   return (
     <button type="button" class="plg-action-card" onClick={onPick}>
       <span class="plg-action-card__head">
+        <span class="plg-action-card__icon" aria-hidden="true">
+          <Icon name={resolveActionTypeIcon(type)} size={16} />
+        </span>
         <span class="plg-action-card__title">{i18nText(locale, type.title)}</span>
         <span class="plg-pill plg-pill--mono">{type.tag}</span>
       </span>
+      {type.category ? <span class="plg-action-card__category">{type.category}</span> : null}
       <span class="plg-action-card__desc">{i18nText(locale, type.description)}</span>
     </button>
   );

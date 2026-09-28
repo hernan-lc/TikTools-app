@@ -187,6 +187,58 @@ export function pluginTags(
   return derived;
 }
 
+/** Fixed icons for the builtin action tags, which predate the icon field. */
+const ACTION_TAG_ICONS: Partial<Record<string, IconName>> = {
+  fetch: 'http',
+  emit: 'sparkles',
+  points: 'points',
+  audio: 'audio',
+  flow: 'play',
+  'napi-vm': 'code',
+};
+
+/**
+ * Picker card icon for one action type: a declared registry name wins,
+ * then the builtin tag map, then the shared keyword heuristic over id and
+ * tag — otherwise the generic plugin glyph. Unknown names never draw a
+ * misleading glyph; plugins can only name icons, never supply artwork.
+ */
+export function resolveActionTypeIcon(
+  type: Pick<ActionTypeDefinition, 'id' | 'tag' | 'icon'>,
+): IconName {
+  const named = readIconName(type.icon);
+  if (named) return named;
+  const tag = (type.tag ?? '').toLowerCase();
+  const mapped = tag ? ACTION_TAG_ICONS[tag] : undefined;
+  if (mapped) return mapped;
+  const haystack = `${type.id} ${tag}`.toLowerCase();
+  for (const { match, icon } of HEURISTIC_ICONS) {
+    if (match.test(haystack)) return icon;
+  }
+  return 'plugin';
+}
+
+/** Every query word must appear somewhere in the action's searchable text. */
+export function matchesActionTypeQuery(
+  locale: Locale,
+  type: ActionTypeDefinition,
+  query: string,
+): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = [
+    type.id,
+    type.tag ?? '',
+    type.category ?? '',
+    i18nText(locale, type.title),
+    i18nText(locale, type.description),
+    type.source.kind === 'plugin' ? type.source.pluginId : '',
+  ]
+    .join(' ')
+    .toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
 /** Every query word must appear somewhere in the plugin's searchable text. */
 export function matchesPluginQuery(
   locale: Locale,

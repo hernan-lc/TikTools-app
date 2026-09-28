@@ -874,4 +874,54 @@ mod tests {
             (vec!["core.log".to_owned()], "tiktok.chat".to_owned())
         );
     }
+
+    #[test]
+    fn minecraft_giftwall_preset_parses_with_titles_on_every_rule() {
+        let raw: Value = serde_json::from_str(include_str!(
+            "../../../../examples/profiles/minecraft-giftwall.tikprofile.json"
+        ))
+        .expect("preset must be valid JSON");
+        let profile = parse_profile(&raw).expect("preset must parse");
+        assert_eq!(profile.id, "minecraft-giftwall");
+        assert_eq!(profile.entries.len(), 16);
+        for entry in &profile.entries {
+            let template = &entry.template;
+            // Every rule runs only Minecraft plugin actions.
+            assert!(!template.actions.is_empty(), "{}", template.id);
+            for action in &template.actions {
+                assert!(
+                    action.type_id.starts_with("minecraft.server."),
+                    "{} uses {}",
+                    template.id,
+                    action.type_id
+                );
+            }
+            // Every gift, follow, and share flashes a title + subtitle.
+            let commands: Vec<&str> = template
+                .actions
+                .iter()
+                .filter_map(|action| action.config.get("command"))
+                .filter_map(Value::as_str)
+                .collect();
+            for needle in [
+                "/title @a times ",
+                "/title @a subtitle ",
+                "/title @a title ",
+            ] {
+                assert!(
+                    commands.iter().any(|command| command.contains(needle)),
+                    "{} is missing `{needle}`",
+                    template.id
+                );
+            }
+        }
+        let triggers: Vec<&str> = profile
+            .entries
+            .iter()
+            .map(|entry| entry.template.event.trigger.as_str())
+            .collect();
+        assert!(triggers.contains(&"tiktok.gift"));
+        assert!(triggers.contains(&"tiktok.follow"));
+        assert!(triggers.contains(&"tiktok.share"));
+    }
 }

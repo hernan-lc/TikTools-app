@@ -20,6 +20,11 @@ use tiktools_plugin_api::sync::recover_mutex;
 /// `<actionType>:<field>`; action type ids never contain a colon, so the
 /// split is unambiguous.
 pub const OPTION_SOURCE_PREFIX: &str = "plugin-action-options:";
+/// Host-owned, read-only gift catalog source. Resolved internally from the
+/// persisted `gifts.list` catalog — never through a plugin-controlled fetch.
+/// This is the only `host.*` source; anything else under the prefix is
+/// rejected by validation so plugins cannot probe for host internals.
+pub const HOST_GIFTS_SOURCE: &str = "host.gifts";
 /// Cache lifetime for one fetched option list.
 pub const OPTION_SOURCE_TTL: Duration = Duration::from_secs(60);
 pub(crate) const MAX_OPTION_ITEMS: usize = 500;
@@ -116,6 +121,66 @@ pub fn parse_option_source(source: &str) -> Option<(String, String)> {
         return None;
     }
     Some((action_type.to_owned(), field.to_owned()))
+}
+
+/// True for allowlisted host-owned sources. Only [`HOST_GIFTS_SOURCE`]
+/// exists today; the allowlist (not a prefix rule) keeps future `host.*`
+/// names from resolving until they are deliberately added here.
+pub fn is_host_option_source(source: &str) -> bool {
+    source == HOST_GIFTS_SOURCE
+}
+
+/// Maps the persisted gift catalog to `{value, label, meta}` option items.
+///
+/// Values are gift names, matching what event filters store. Duplicate
+/// names collapse first-wins in catalog order, exactly like the event
+/// `GiftPicker`, so both surfaces agree on which entry a name means.
+/// Entries without a usable name are skipped; the list is capped at
+/// [`MAX_OPTION_ITEMS`]. An empty catalog yields empty options, never an
+/// error — callers render their empty state plus manual entry.
+pub fn map_host_gift_options(catalog: &[Value]) -> Vec<Value> {
+    let mut seen = std::collections::HashSet::new();
+    let mut options = Vec::new();
+    for gift in catalog {
+        let Some(entry) = gift.as_object() else {
+            continue;
+        };
+        let name = entry
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default();
+        if name.is_empty() || name.len() > MAX_OPTION_VALUE_LEN || !seen.insert(name.to_owned()) {
+            continue;
+        }
+        let mut meta = serde_json::Map::new();
+        if let Some(id) = entry
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|id| !id.is_empty())
+        {
+            meta.insert("giftId".to_owned(), Value::String(id.to_owned()));
+        }
+        if let Some(diamonds) = entry.get("diamondCount").and_then(Value::as_u64) {
+            meta.insert("diamondCount".to_owned(), Value::Number(diamonds.into()));
+        }
+        if let Some(icon) = entry
+            .get("iconUrl")
+            .and_then(Value::as_str)
+            .filter(|icon| !icon.is_empty())
+        {
+            meta.insert("iconUrl".to_owned(), Value::String(icon.to_owned()));
+        }
+        let mut option = serde_json::Map::new();
+        option.insert("value".to_owned(), Value::String(name.to_owned()));
+        option.insert("label".to_owned(), Value::String(name.to_owned()));
+        option.insert("meta".to_owned(), Value::Object(meta));
+        options.push(Value::Object(option));
+        if options.len() >= MAX_OPTION_ITEMS {
+            break;
+        }
+    }
+    options
 }
 
 /// Maps one fetched document to `{value, label}` option items.
@@ -294,6 +359,14 @@ impl crate::AppCore {
                 return (options, selected, None);
             }
         }
+        if is_host_option_source(source) {
+            // Host-owned data: the same persisted catalog `gifts.list`
+            // serves, mapped to the standard option envelope. No plugin
+            // lookup, no fetch, no selection to report.
+            let options = map_host_gift_options(&self.gift_catalog());
+            self.option_sources.store(source, options.clone(), None);
+            return (options, None, None);
+        }
         let Some((action_type, field)) = parse_option_source(source) else {
             return fail(format!("Unknown option source `{source}`."));
         };
@@ -439,6 +512,80 @@ mod tests {
         assert!(map_option_items(&json!({"status": "ok"}), None, None, None).is_err());
         assert!(map_option_items(&json!({"items": {}}), None, None, None).is_err());
         assert!(map_option_items(&json!({}), Some("missing"), None, None).is_err());
+    }
+
+    #[test]
+    fn host_source_allowlist_holds_one_entry() {
+        assert!(is_host_option_source(HOST_GIFTS_SOURCE));
+        assert!(!is_host_option_source("host.gifts2"));
+        assert!(!is_host_option_source("host.state"));
+        assert!(!is_host_option_source("plugin-action-options:a:b"));
+        assert!(!is_host_option_source("voices"));
+    }
+
+    #[test]
+    fn maps_gift_catalog_to_host_options() {
+        let catalog = vec![
+            json!({"id": "1", "name": "Rose", "diamondCount": 1, "iconUrl": "https://example.com/rose.png"}),
+            json!({"id": "2", "name": "Galaxy", "diamondCount": 1000}),
+        ];
+        let options = map_host_gift_options(&catalog);
+        assert_eq!(
+            options,
+            vec![
+                json!({
+                    "value": "Rose",
+                    "label": "Rose",
+                    "meta": {"giftId": "1", "diamondCount": 1, "iconUrl": "https://example.com/rose.png"},
+                }),
+                json!({
+                    "value": "Galaxy",
+                    "label": "Galaxy",
+                    "meta": {"giftId": "2", "diamondCount": 1000},
+                }),
+            ]
+        );
+        // Empty catalogs yield empty options, never an error.
+        assert!(map_host_gift_options(&[]).is_empty());
+    }
+
+    #[test]
+    fn host_gift_options_dedupe_first_wins_and_skip_bad_entries() {
+        // Duplicate names collapse first-wins in catalog order, exactly
+        // like the event GiftPicker, so both surfaces agree on one entry.
+        let catalog = vec![
+            json!({"id": "1", "name": "Rose", "diamondCount": 1}),
+            json!({"id": "9", "name": "Rose", "diamondCount": 50}),
+            json!({"id": "2", "name": "  ", "diamondCount": 5}),
+            json!({"id": "3", "diamondCount": 5}),
+            json!("not-an-object"),
+            json!({"id": "4", "name": "x".repeat(300), "diamondCount": 5}),
+            json!({"id": "5", "name": " GG ", "diamondCount": 2}),
+        ];
+        let options = map_host_gift_options(&catalog);
+        assert_eq!(
+            options,
+            vec![
+                json!({
+                    "value": "Rose",
+                    "label": "Rose",
+                    "meta": {"giftId": "1", "diamondCount": 1},
+                }),
+                json!({
+                    "value": "GG",
+                    "label": "GG",
+                    "meta": {"giftId": "5", "diamondCount": 2},
+                }),
+            ]
+        );
+    }
+
+    #[test]
+    fn host_gift_options_cap_at_max_items() {
+        let catalog: Vec<Value> = (0..MAX_OPTION_ITEMS + 50)
+            .map(|index| json!({"id": index.to_string(), "name": format!("Gift {index}"), "diamondCount": 1}))
+            .collect();
+        assert_eq!(map_host_gift_options(&catalog).len(), MAX_OPTION_ITEMS);
     }
 
     #[test]
@@ -603,5 +750,44 @@ mod tests {
         assert!(options.is_empty());
         assert!(selected.is_none());
         assert!(error.unwrap().contains("not available"));
+    }
+
+    #[tokio::test]
+    async fn resolves_host_gifts_without_a_plugin_lookup() {
+        // The source resolves from the persisted catalog without an error
+        // and without requiring any plugin to be installed. The catalog
+        // contents are machine state, so only the envelope is asserted
+        // here; the mapping itself is covered by the pure tests above.
+        let core = std::sync::Arc::new(crate::AppCore::new(std::sync::Arc::new(Emitter)));
+        let (options, selected, error) =
+            core.resolve_action_options(HOST_GIFTS_SOURCE, false).await;
+        assert!(error.is_none());
+        assert!(selected.is_none());
+        assert_eq!(options, map_host_gift_options(&core.gift_catalog()));
+        // Anything else under the host namespace still fails closed.
+        let (options, _, error) = core.resolve_action_options("host.state", false).await;
+        assert!(options.is_empty());
+        assert!(error.unwrap().contains("Unknown option source"));
+    }
+
+    #[tokio::test]
+    async fn host_gifts_share_the_option_cache_and_refresh() {
+        let core = std::sync::Arc::new(crate::AppCore::new(std::sync::Arc::new(Emitter)));
+        core.option_sources.store(
+            HOST_GIFTS_SOURCE,
+            vec![json!({"value": "Rose", "label": "Rose"})],
+            None,
+        );
+        // Normal read serves the cached catalog snapshot.
+        let (options, _, error) = core.resolve_action_options(HOST_GIFTS_SOURCE, false).await;
+        assert!(error.is_none());
+        assert_eq!(options.len(), 1);
+        // Forced read re-reads the live catalog instead of serving the
+        // snapshot, then caches the fresh result.
+        let (options, _, error) = core.resolve_action_options(HOST_GIFTS_SOURCE, true).await;
+        assert!(error.is_none());
+        assert_eq!(options, map_host_gift_options(&core.gift_catalog()));
+        let (cached, _) = core.option_sources.cached(HOST_GIFTS_SOURCE).unwrap();
+        assert_eq!(cached, options);
     }
 }

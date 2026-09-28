@@ -1266,3 +1266,49 @@ fn host_target_reports_real_libc_and_napi_spelling() {
         assert_eq!(napi, current_target());
     }
 }
+
+#[test]
+fn minecraft_example_manifest_parses_as_declarative() {
+    let manifest = PluginManifest::from_json_str(include_str!(
+        "../../../../examples/minecraft-server/plugin.json"
+    ))
+    .expect("minecraft example must parse");
+    assert_eq!(manifest.schema_version, 3);
+    assert_eq!(manifest.id, "minecraft.server");
+    assert_eq!(manifest.runtime, PluginRuntimeKind::Declarative);
+    // Loopback trust: no permissions, no auth, and no assumed health probe.
+    assert!(manifest.permissions.is_empty());
+    let http = manifest.http.as_ref().expect("http integration");
+    assert!(http.get("health").is_none());
+    assert!(http.get("auth").is_none());
+    let ids: Vec<&str> = manifest
+        .action_types
+        .iter()
+        .filter_map(|descriptor| descriptor.get("id").and_then(Value::as_str))
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "minecraft.server.give-item",
+            "minecraft.server.spawn-mob",
+            "minecraft.server.apply-effect",
+            "minecraft.server.change-weather",
+            "minecraft.server.send-message",
+            "minecraft.server.run-command",
+        ]
+    );
+    for descriptor in &manifest.action_types {
+        validate_action_type(descriptor).expect("action shape");
+        validate_declarative_action(descriptor).expect("declarative http block");
+        let block = descriptor.get("http").expect("http block");
+        assert_eq!(block.get("path").and_then(Value::as_str), Some("/api/chat"));
+        // Every action renders as a picker card with presentation metadata.
+        assert!(descriptor.get("icon").and_then(Value::as_str).is_some());
+        assert!(descriptor.get("category").and_then(Value::as_str).is_some());
+        assert_eq!(
+            descriptor.get("requiredCapabilities"),
+            Some(&serde_json::json!(["http.request"]))
+        );
+    }
+    assert!(manifest.settings_schema.is_some());
+}

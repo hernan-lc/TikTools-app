@@ -1,0 +1,906 @@
+{
+  "profileVersion": 1,
+  "id": "minecraft-giftwall",
+  "name": "Minecraft gift wall",
+  "description": "Gift wall on the Minecraft Server plugin: 14 gift rules (TNT tower, mobs, kills, teleports, jail, super chest) plus follow/share announcements. Every rule flashes a /title + subtitle naming the sender. Requires the minecraft.server plugin installed and enabled, with its Server URL pointing at the CommandAPI mod. Adjust gift names in the event editor to match your catalog.",
+  "params": {},
+  "templates": [
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-tnt-tower",
+        "title": "Rose = TNT Tower",
+        "description": "Rose builds a TNT tower next to the nearest player, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: TNT tower title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡TNT TOWER!\",\"color\":\"red\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Build TNT tower",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute at @p run fill ~2 ~ ~2 ~2 ~8 ~2 minecraft:tnt"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Rose",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Rose" }],
+          "cooldownMs": 10000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-random-mobs",
+        "title": "GG = Mobs aleatorios",
+        "description": "GG spawns a zombie, a skeleton, and a creeper near the nearest player, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: mobs title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡MOBS ALEATORIOS!\",\"color\":\"green\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Spawn zombie",
+            "typeId": "minecraft.server.spawn-mob",
+            "enabled": true,
+            "config": {
+              "entity": "minecraft:zombie",
+              "target": "@p"
+            }
+          },
+          {
+            "name": "Spawn skeleton",
+            "typeId": "minecraft.server.spawn-mob",
+            "enabled": true,
+            "config": {
+              "entity": "minecraft:skeleton",
+              "target": "@p"
+            }
+          },
+          {
+            "name": "Spawn creeper",
+            "typeId": "minecraft.server.spawn-mob",
+            "enabled": true,
+            "config": {
+              "entity": "minecraft:creeper",
+              "target": "@p"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: GG",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "GG" }],
+          "cooldownMs": 10000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-kills-3",
+        "title": "Heart = +3 Kills",
+        "description": "Heart removes the 3 nearest non-player entities, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: kills title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"+3 KILLS\",\"color\":\"gold\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Kill 3 entities",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/kill @e[type=!player,type=!item,limit=3,sort=nearest]"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Heart",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Heart" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-cobweb",
+        "title": "Fire = Telaraña",
+        "description": "Fire traps the nearest player in a cobweb, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: cobweb title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡TELARAÑA!\",\"color\":\"gray\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Place cobweb",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute at @p run setblock ~ ~1 ~ minecraft:cobweb keep"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Fire",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Fire" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-waterdrop",
+        "title": "Donut = Waterdrop",
+        "description": "Donut hands the nearest player a water bucket and launches them sky-high for an MLG waterdrop, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: waterdrop title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡WATERDROP!\",\"color\":\"aqua\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Give water bucket",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/give @p minecraft:water_bucket 1"
+            }
+          },
+          {
+            "name": "Launch player up",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute at @p run tp @p ~ 120 ~"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Donut",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Donut" }],
+          "cooldownMs": 10000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-clear-inventory",
+        "title": "Star = Vaciar inventario",
+        "description": "Star clears the nearest player's inventory, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: cleared title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡INVENTARIO VACÍO!\",\"color\":\"red\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Clear inventory",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/clear @p"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Star",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Star" }],
+          "cooldownMs": 15000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-nether-tp",
+        "title": "Sunglasses = TP al Nether",
+        "description": "Sunglasses teleports the nearest player to the Nether, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: nether title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"TP AL NETHER\",\"color\":\"dark_purple\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Teleport to Nether",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute in minecraft:the_nether run tp @p ~ ~ ~"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Sunglasses",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Sunglasses" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-super-chest",
+        "title": "Money Gun = Super cofre",
+        "description": "Money Gun drops a super chest: diamonds, golden apples, and a totem, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: chest title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡SUPER COFRE!\",\"color\":\"gold\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Give diamonds",
+            "typeId": "minecraft.server.give-item",
+            "enabled": true,
+            "config": {
+              "item": "minecraft:diamond",
+              "amount": 10,
+              "target": "@p"
+            }
+          },
+          {
+            "name": "Give golden apples",
+            "typeId": "minecraft.server.give-item",
+            "enabled": true,
+            "config": {
+              "item": "minecraft:golden_apple",
+              "amount": 5,
+              "target": "@p"
+            }
+          },
+          {
+            "name": "Give totem",
+            "typeId": "minecraft.server.give-item",
+            "enabled": true,
+            "config": {
+              "item": "minecraft:totem_of_undying",
+              "amount": 1,
+              "target": "@p"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Money Gun",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Money Gun" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-kills-5",
+        "title": "Ice Cream = +5 Kills",
+        "description": "Ice Cream removes the 5 nearest non-player entities, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: kills title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"+5 KILLS\",\"color\":\"gold\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Kill 5 entities",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/kill @e[type=!player,type=!item,limit=5,sort=nearest]"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Ice Cream",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Ice Cream" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-instakill",
+        "title": "Galaxy = Instakill",
+        "description": "Galaxy instantly defeats the nearest player, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: instakill title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"INSTAKILL\",\"color\":\"dark_red\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Kill player",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/kill @p"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Galaxy",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Galaxy" }],
+          "cooldownMs": 15000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-end-tp",
+        "title": "Rocket = TP al End",
+        "description": "Rocket teleports the nearest player to the End, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: end title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"TP AL END\",\"color\":\"light_purple\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Teleport to End",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute in minecraft:the_end run tp @p ~ ~ ~"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Rocket",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Rocket" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-jail",
+        "title": "Lion = Cárcel",
+        "description": "Lion locks the nearest player in a dirt hut they can punch out of, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: jail title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡CÁRCEL!\",\"color\":\"dark_gray\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Build dirt jail",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/execute at @p run fill ~-1 ~ ~-1 ~1 ~2 ~1 minecraft:dirt hollow"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Lion",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Lion" }],
+          "cooldownMs": 15000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-kills-10",
+        "title": "Crown = +10 Kills",
+        "description": "Crown removes the 10 nearest non-player entities, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: kills title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"+10 KILLS\",\"color\":\"gold\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Kill 10 entities",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/kill @e[type=!player,type=!item,limit=10,sort=nearest]"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Crown",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Crown" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-kills-15",
+        "title": "Gem = +15 Kills",
+        "description": "Gem removes the 15 nearest non-player entities, announced with a title + subtitle.",
+        "icon": "gift",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias, {{ event.user.nickname }}!\",\"color\":\"white\"}"
+            }
+          },
+          {
+            "name": "Announce: kills title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"+15 KILLS\",\"color\":\"gold\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Kill 15 entities",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/kill @e[type=!player,type=!item,limit=15,sort=nearest]"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: Gem",
+          "enabled": true,
+          "trigger": "tiktok.gift",
+          "filters": [{ "path": "event.data.giftName", "operator": "eq", "value": "Gem" }],
+          "cooldownMs": 5000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-follow-shout",
+        "title": "Follow = Title + subtitle",
+        "description": "Every follow flashes a title + subtitle naming the new follower, plus a welcome chat message.",
+        "icon": "users",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias por seguir!\",\"color\":\"gray\"}"
+            }
+          },
+          {
+            "name": "Announce: follower title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡NUEVO SEGUIDOR!\",\"color\":\"green\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Welcome follower in chat",
+            "typeId": "minecraft.server.send-message",
+            "enabled": true,
+            "config": {
+              "message": "Welcome {{ event.user.nickname }} to the stream!"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: follow",
+          "enabled": true,
+          "trigger": "tiktok.follow",
+          "filters": [],
+          "cooldownMs": 10000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    },
+    {
+      "template": {
+        "templateVersion": 1,
+        "id": "minecraft-share-shout",
+        "title": "Share = Title + subtitle",
+        "description": "Every share flashes a title + subtitle naming the sharer, plus a thanks chat message.",
+        "icon": "share",
+        "actions": [
+          {
+            "name": "Announce: title timer",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a times 10 50 10"
+            }
+          },
+          {
+            "name": "Announce: subtitle thanks",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a subtitle {\"text\":\"¡Gracias por compartir!\",\"color\":\"gray\"}"
+            }
+          },
+          {
+            "name": "Announce: share title",
+            "typeId": "minecraft.server.run-command",
+            "enabled": true,
+            "config": {
+              "command": "/title @a title {\"text\":\"¡GRACIAS POR COMPARTIR!\",\"color\":\"aqua\",\"bold\":true}"
+            }
+          },
+          {
+            "name": "Thank sharer in chat",
+            "typeId": "minecraft.server.send-message",
+            "enabled": true,
+            "config": {
+              "message": "Thanks {{ event.user.nickname }} for sharing the LIVE!"
+            }
+          }
+        ],
+        "event": {
+          "name": "Gift wall: share",
+          "enabled": true,
+          "trigger": "tiktok.share",
+          "filters": [],
+          "cooldownMs": 10000,
+          "cooldownScope": "global",
+          "runMode": "all"
+        }
+      },
+      "params": {}
+    }
+  ]
+}

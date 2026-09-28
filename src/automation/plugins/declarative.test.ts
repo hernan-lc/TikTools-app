@@ -2,12 +2,15 @@ import { expect, test } from 'bun:test';
 
 import type { JsonValue } from '../types.ts';
 import {
+  HOST_GIFTS_SOURCE,
   isConnectionOnlyPage,
+  isHostOptionSource,
   mergePluginAutocomplete,
   mergePluginPages,
   mergePluginTemplates,
   mergePluginUis,
   normalizeOptionsFrom,
+  optionFields,
   optionSourceId,
   parseOptionSourceId,
   parsePluginNavId,
@@ -47,6 +50,27 @@ test('optionsFrom accepts strings and the object form', () => {
   expect(normalizeOptionsFrom('plugin-action-options:a:b:c')).toBeUndefined();
   expect(normalizeOptionsFrom('https://evil.example/x')).toBeUndefined();
   expect(normalizeOptionsFrom(undefined)).toBeUndefined();
+});
+
+test('host gift source is allowlisted in both marker forms', () => {
+  expect(HOST_GIFTS_SOURCE).toBe('host.gifts');
+  expect(isHostOptionSource('host.gifts')).toBe(true);
+  expect(isHostOptionSource('host.state')).toBe(false);
+  expect(isHostOptionSource('voices')).toBe(false);
+  expect(normalizeOptionsFrom('host.gifts')).toBe('host.gifts');
+  expect(normalizeOptionsFrom('  host.gifts  ')).toBe('host.gifts');
+  expect(normalizeOptionsFrom({ source: 'host.gifts' })).toBe('host.gifts');
+  // The host.* namespace fails closed: anything else is rejected even
+  // though it matches the legacy token charset.
+  expect(normalizeOptionsFrom('host.state')).toBeUndefined();
+  expect(normalizeOptionsFrom('host.gifts.evil')).toBeUndefined();
+  expect(normalizeOptionsFrom({ source: 'host.state' })).toBeUndefined();
+  // Existing sources keep working unchanged.
+  expect(normalizeOptionsFrom('voices')).toBe('voices');
+  expect(optionFields({ fields: { giftName: { optionsFrom: 'host.gifts' } } })).toEqual([
+    { key: 'giftName', source: 'host.gifts' },
+  ]);
+  expect(optionFields({ fields: { giftName: { optionsFrom: 'host.state' } } })).toEqual([]);
 });
 
 test('secret detection reads schema and hints', () => {

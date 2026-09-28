@@ -7,9 +7,11 @@ import type {
 } from '../../automation/behavior/types.ts';
 import {
   connectionIconFor,
+  matchesActionTypeQuery,
   matchesPluginQuery,
   pluginIconTone,
   pluginTags,
+  resolveActionTypeIcon,
   resolvePluginIcon,
 } from './plugin-cards.ts';
 
@@ -160,6 +162,73 @@ describe('pluginTags', () => {
 
   test('returns no chips when there is nothing to derive', () => {
     expect(pluginTags(descriptor(), [])).toEqual([]);
+  });
+});
+
+describe('resolveActionTypeIcon', () => {
+  test('declared registry names win', () => {
+    expect(resolveActionTypeIcon({ id: 'minecraft.server.give-item', tag: 'minecraft', icon: 'gift' })).toBe('gift');
+    expect(resolveActionTypeIcon({ id: 'minecraft.server.run-command', tag: 'minecraft', icon: 'terminal' })).toBe('terminal');
+  });
+
+  test('unknown names fall back instead of drawing a misleading glyph', () => {
+    expect(resolveActionTypeIcon({ id: 'mystery.action', tag: 'mystery', icon: 'no-such-icon' })).toBe('plugin');
+    expect(resolveActionTypeIcon({ id: 'mystery.action', tag: 'mystery' })).toBe('plugin');
+    // Prototype keys never resolve to artwork either.
+    expect(resolveActionTypeIcon({ id: 'x', tag: 'y', icon: '__proto__' })).toBe('plugin');
+  });
+
+  test('builtin tags and keyword heuristics predate the icon field', () => {
+    expect(resolveActionTypeIcon({ id: 'core.fetch', tag: 'fetch' })).toBe('http');
+    expect(resolveActionTypeIcon({ id: 'core.delay', tag: 'flow' })).toBe('play');
+    expect(resolveActionTypeIcon({ id: 'audio.play', tag: 'audio' })).toBe('audio');
+    expect(resolveActionTypeIcon({ id: 'sonicboom.server.speak', tag: 'tts' })).toBe('voice');
+  });
+});
+
+describe('matchesActionTypeQuery', () => {
+  const type: ActionTypeDefinition = {
+    id: 'minecraft.server.spawn-mob',
+    title: { default: 'Spawn Mob', i18key: 'x' },
+    description: { default: 'Spawn a Minecraft entity.', i18key: 'x' },
+    tag: 'minecraft',
+    category: 'Mobs',
+    icon: 'sparkles',
+    source: { kind: 'plugin', pluginId: 'minecraft.server' },
+    requiredCapabilities: [],
+  };
+
+  test('empty query matches everything', () => {
+    expect(matchesActionTypeQuery('en', type, '  ')).toBe(true);
+  });
+
+  test('matches across title, description, tag, id, category, and plugin', () => {
+    expect(matchesActionTypeQuery('en', type, 'spawn')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'ENTITY')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'minecraft')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'spawn-mob')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'mobs')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'minecraft.server')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'discord')).toBe(false);
+  });
+
+  test('every word must match somewhere', () => {
+    expect(matchesActionTypeQuery('en', type, 'minecraft spawn')).toBe(true);
+    expect(matchesActionTypeQuery('en', type, 'minecraft discord')).toBe(false);
+  });
+
+  test('older descriptors without icon or category still match', () => {
+    const legacy: ActionTypeDefinition = {
+      id: 'core.fetch',
+      title: { default: 'Call a URL', i18key: 'x' },
+      description: { default: 'POST event data.', i18key: 'x' },
+      tag: 'fetch',
+      source: { kind: 'builtin' },
+      requiredCapabilities: [],
+    };
+    expect(matchesActionTypeQuery('en', legacy, 'call')).toBe(true);
+    expect(matchesActionTypeQuery('en', legacy, 'fetch')).toBe(true);
+    expect(resolveActionTypeIcon(legacy)).toBe('http');
   });
 });
 

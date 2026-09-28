@@ -55,10 +55,17 @@ export interface ActionField {
   options?: Array<{ value: string; label: Localized }>;
   /**
    * Host-provided option source for `select` fields
-   * (`plugin-action-options:<actionType>:<field>`). Requested on demand via
+   * (`plugin-action-options:<actionType>:<field>`, or the host-owned
+   * `host.gifts` catalog). Requested on demand via
    * `get-action-options`; static `options` stay as the fallback.
    */
   optionsFrom?: string;
+  /**
+   * Validated picker hint for the configuration renderer. Only `gift`
+   * is honored today: it opens the shared gift picker fed by
+   * `optionsFrom` instead of a plain select. Unknown values are ignored.
+   */
+  picker?: string;
   /** True when `{{ event.* }}` placeholders are rendered before use. */
   template?: boolean;
   /** Kept behind the "advanced options" disclosure so the form stays short. */
@@ -80,6 +87,14 @@ export interface ActionTypeDefinition {
   description: Localized;
   /** Short machine-ish label shown on the card: fetch, emit, audio… */
   tag: string;
+  /**
+   * Host-registry icon name for the picker card (`gift`, `terminal`, …).
+   * Unknown names fall back to a heuristic icon — plugins can only name
+   * icons, never supply artwork.
+   */
+  icon?: string;
+  /** Optional grouping label shown on the picker card: Items, Mobs, … */
+  category?: string;
   source: ActionSource;
   /** Optional field descriptors for small runtimes that do not need JSON Schema. */
   fields?: ActionField[];

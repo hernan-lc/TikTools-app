@@ -77,6 +77,13 @@ fn declarative_messages_use_stable_wire_names() {
         r#"{"type":"get-action-options","source":"plugin-action-options:a:b:c"}"#
     )
     .is_err());
+    // The host gift catalog is allowlisted; the rest of the host.*
+    // namespace fails closed even though it matches the token charset.
+    assert!(PageMessage::parse(r#"{"type":"get-action-options","source":"host.gifts"}"#).is_ok());
+    assert!(PageMessage::parse(r#"{"type":"get-action-options","source":"host.state"}"#).is_err());
+    assert!(
+        PageMessage::parse(r#"{"type":"get-action-options","source":"host.gifts.evil"}"#).is_err()
+    );
 
     let json = HostMessage::PluginConnectionResult {
         id: "sonicboom.server".to_owned(),

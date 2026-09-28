@@ -345,7 +345,8 @@ impl AppCore {
     /// Scoped option read for untrusted callers (plugin UI broker): the
     /// requesting plugin may only read option sources owned by its own
     /// actions. Ownership resolves through the action catalog, never by
-    /// trusting name prefixes.
+    /// trusting name prefixes. Host-owned sources (`host.gifts`) belong to
+    /// no plugin and are readable by every caller.
     pub async fn plugin_action_options_scoped(
         self: &Arc<Self>,
         requesting_plugin: &str,
@@ -358,6 +359,9 @@ impl AppCore {
             return Err(OperationError::invalid(
                 "option source must be 1..=256 characters",
             ));
+        }
+        if crate::services::option_sources::is_host_option_source(source) {
+            return self.plugin_action_options(source, refresh).await;
         }
         let Some((action_type, _)) = crate::services::option_sources::parse_option_source(source)
         else {
@@ -631,6 +635,94 @@ mod tests {
             .await
             .expect_err("undeclared options must fail resolution");
         assert_ne!(error.code(), "forbidden");
+        cleanup(&root);
+    }
+
+    /// Stages the real Minecraft example bytes (not an inline fixture)
+    /// so discovery runs against exactly what ships in `examples/`.
+    fn core_with_minecraft_example() -> (Arc<AppCore>, std::path::PathBuf) {
+        static COUNTER: AtomicU64 = AtomicU64::new(2000);
+        let root = std::env::temp_dir().join(format!(
+            "tiktools-minecraft-test-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::SeqCst)
+        ));
+        let dir = root.join("minecraft.server");
+        std::fs::create_dir_all(&dir).expect("test plugin dir");
+        std::fs::write(
+            dir.join("plugin.json"),
+            include_str!("../../../../examples/minecraft-server/plugin.json"),
+        )
+        .expect("manifest");
+        let manager = PluginManager::new(vec![PluginRoot {
+            path: root.clone(),
+            source: PluginSource::Development,
+        }]);
+        manager.scan().expect("test scan");
+        assert_eq!(manager.list().len(), 1);
+        let mut core = AppCore::new(Arc::new(NullEmitter));
+        core.plugins = Arc::new(manager);
+        (Arc::new(core), root)
+    }
+
+    #[test]
+    fn minecraft_example_merges_into_behavior_snapshot() {
+        let (core, root) = core_with_minecraft_example();
+        let snapshot = core.load_merged_behavior_snapshot();
+        let action_types = snapshot
+            .get("actionTypes")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let minecraft: Vec<&Value> = action_types
+            .iter()
+            .filter(|descriptor| {
+                descriptor
+                    .get("source")
+                    .and_then(|source| source.get("pluginId"))
+                    .and_then(Value::as_str)
+                    == Some("minecraft.server")
+            })
+            .collect();
+        // The six structured actions surface as picker cards with their
+        // presentation metadata and plugin origin stamp intact.
+        assert_eq!(minecraft.len(), 6);
+        for descriptor in minecraft {
+            assert_eq!(
+                descriptor.get("source"),
+                Some(&serde_json::json!({"kind": "plugin", "pluginId": "minecraft.server"}))
+            );
+            assert!(descriptor
+                .get("icon")
+                .and_then(Value::as_str)
+                .is_some_and(|icon| !icon.is_empty()));
+            assert!(descriptor
+                .get("category")
+                .and_then(Value::as_str)
+                .is_some_and(|category| !category.is_empty()));
+            assert!(descriptor
+                .get("fields")
+                .and_then(Value::as_array)
+                .is_some_and(|fields| !fields.is_empty()));
+        }
+        cleanup(&root);
+    }
+
+    #[tokio::test]
+    async fn scoped_options_allow_host_sources_for_any_plugin() {
+        let (core, root) = core_with_two_plugins();
+        // Host-owned data belongs to no plugin: either caller may read it.
+        for requesting in ["plugina", "pluginb"] {
+            let (options, selected) = core
+                .plugin_action_options_scoped(requesting, "host.gifts", false)
+                .await
+                .expect("host source must resolve for any plugin");
+            assert!(selected.is_none());
+            assert_eq!(
+                options,
+                crate::services::option_sources::map_host_gift_options(&core.gift_catalog())
+            );
+        }
         cleanup(&root);
     }
 

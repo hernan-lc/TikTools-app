@@ -56,8 +56,16 @@ pub(crate) fn valid_token(value: &str) -> bool {
 /// Accepts legacy option sources plus the canonical plugin shape
 /// `plugin-action-options:<actionType>:<field>`. Segments keep the token
 /// charset so a page can never smuggle a URL or path into the resolver.
+/// The `host.*` namespace is allowlisted, not token-matched: only
+/// `host.gifts` resolves, everything else under the prefix fails closed.
 pub(crate) fn valid_option_source(value: &str) -> bool {
     if value.len() > 256 {
+        return false;
+    }
+    if value == crate::services::option_sources::HOST_GIFTS_SOURCE {
+        return true;
+    }
+    if value.starts_with("host.") {
         return false;
     }
     if valid_token(value) {

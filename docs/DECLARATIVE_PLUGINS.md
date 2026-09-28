@@ -130,6 +130,48 @@ operator instead of a retry storm.
 A page-supplied `optionsUrl` is always ignored: only manifest-declared
 endpoints are fetched, so the WebView cannot steer the host at new URLs.
 
+## Host option sources
+
+Plugins can also consume host-owned, read-only data through an allowlisted
+source id. The only host source today is the persisted gift catalog:
+
+```json
+"optionsFrom": "host.gifts"
+```
+
+```json
+"optionsFrom": { "source": "host.gifts" }
+```
+
+The host resolves it internally from the same catalog `gifts.list`
+serves — no plugin fetch, no endpoint, no extra catalog. Values are gift
+names (what event filters store); labels match; `meta` carries `giftId`,
+`diamondCount`, and `iconUrl` for rich rendering. Duplicate names collapse
+first-wins in catalog order, exactly like the event gift picker, and an
+empty catalog yields empty options (never an error), so forms degrade to
+their empty state plus manual entry. Anything else under `host.*` is
+rejected by validation on both sides, so plugins cannot probe host state.
+
+A field that names `host.gifts` can render the shared gift picker instead
+of a plain select through a validated UI hint — either the explicit
+marker or the kind shorthand:
+
+```json
+"giftName": { "kind": "select", "optionsFrom": "host.gifts", "picker": "gift" }
+```
+
+```json
+"giftName": { "kind": "gift", "optionsFrom": "host.gifts" }
+```
+
+The picker is the existing event `GiftPicker` (icon, name, diamond price,
+search, manual entry) fed by the field's dynamic options. Unknown `picker`
+values are ignored. Compact `fields` descriptors use the same keys:
+
+```json
+{ "key": "giftName", "kind": "select", "optionsFrom": "host.gifts", "picker": "gift", "value": "" }
+```
+
 ## Actions
 
 An action descriptor with an `http` block runs in the host; the
@@ -177,6 +219,38 @@ run with the given config:
 The same descriptor also surfaces in automations, where the `device`
 field renders as a select fed by the live endpoint — workflows can
 switch outputs mid-stream without touching settings.
+
+Action descriptors double as picker cards. Two optional presentation
+keys control the card; both are display-only and ignored by older hosts:
+
+```json
+{
+  "id": "minecraft.server.spawn-mob",
+  "title": {"default": "Spawn Mob"},
+  "description": {"default": "Spawn a Minecraft entity near a player."},
+  "tag": "minecraft",
+  "icon": "sparkles",
+  "category": "Mobs"
+}
+```
+
+`icon` names a host-registry icon (`gift`, `terminal`, `chat`, …);
+unknown names fall back to a heuristic glyph — plugins can only name
+icons, never supply artwork, markup, or components. `category` is a short
+grouping label rendered under the title. The picker searches titles,
+descriptions, tags, ids, categories, and plugin ids, so one plugin with
+several actions reads as a browsable template gallery with no extra
+manifest format.
+
+`examples/minecraft-server/plugin.json` is the reference package: six
+structured CommandAPI actions (give-item, spawn-mob, apply-effect,
+change-weather, send-message, run-command) with curated selects, bounded
+numbers, and connection settings — no health probe, because the
+CommandAPI documents no health endpoint. It stages as a development
+plugin automatically (`bun run prepare:dev-plugins`).
+`examples/profiles/minecraft-giftwall.tikprofile.json` is a ready-made
+rule pack on top of it: 14 gift rules plus follow/share announcements,
+every rule flashing a `/title` + subtitle.
 
 ## Templates
 
