@@ -1312,3 +1312,42 @@ fn minecraft_example_manifest_parses_as_declarative() {
     }
     assert!(manifest.settings_schema.is_some());
 }
+
+#[test]
+fn l4d2_first_party_manifest_declares_the_rcon_contract() {
+    let raw = include_str!("../../../../plugins/l4d2/plugin.json");
+    let manifest = PluginManifest::from_json_str(raw).expect("l4d2 manifest must parse");
+    assert_eq!(manifest.id, "l4d2.interactive");
+    assert_eq!(manifest.runtime, PluginRuntimeKind::Process);
+    assert_eq!(manifest.entry, "tiktools-l4d2");
+    let ids: Vec<&str> = manifest
+        .action_types
+        .iter()
+        .filter_map(|descriptor| descriptor.get("id").and_then(Value::as_str))
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "l4d2.test_connection",
+            "l4d2.spawn_common",
+            "l4d2.spawn_infected",
+            "l4d2.spawn_item",
+        ]
+    );
+    for descriptor in &manifest.action_types {
+        validate_action_type(descriptor).expect("action shape");
+        // The backend opens its own RCON socket: no host capability gates.
+        assert_eq!(
+            descriptor.get("requiredCapabilities"),
+            Some(&serde_json::json!([]))
+        );
+    }
+    // RCON credential stays a secret setting with no manifest default.
+    let settings: Value = serde_json::from_str(raw).expect("manifest json");
+    let password = &settings["settings"]["schema"]["properties"]["password"];
+    assert_eq!(password.get("secret"), Some(&Value::Bool(true)));
+    assert!(password.get("default").is_none());
+    assert!(settings["settings"]["schema"]["required"]
+        .as_array()
+        .is_some_and(|required| required.contains(&Value::String("password".into()))));
+}

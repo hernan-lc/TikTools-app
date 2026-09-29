@@ -4581,6 +4581,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiktools-l4d2"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tiktools-plugin-sdk",
+]
+
+[[package]]
 name = "tiktools-plugin-api"
 version = "0.3.3"
 dependencies = [
