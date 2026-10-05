@@ -30,6 +30,7 @@ use tiktools_control_api::modules::points::{
 use tiktools_control_api::modules::processors::ProcessorTestParams;
 use tiktools_control_api::modules::rpc::SchemaParams;
 use tiktools_control_api::modules::settings::{PluginSettingsGet, PluginSettingsSet};
+use tiktools_control_api::modules::system::SaveFileParams;
 use tiktools_control_api::modules::widgets::WidgetsCopyParams;
 use tiktools_control_api::modules::workflows::{WorkflowIdParams, WorkflowSaveParams};
 use tiktools_control_api::modules::Empty;
@@ -203,6 +204,9 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
         "system.shutdown" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "system.ping" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "system.requestInputAccess" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
+        "system.saveFile" => SaveFileParams::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
         "widgets.status" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "widgets.copyObsUrl" => WidgetsCopyParams::deserialize(params)
             .map(|_| ())

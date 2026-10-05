@@ -2,7 +2,9 @@
 
 use super::TikToolsClient;
 use serde_json::Value;
-use tiktools_control_api::modules::system::{DoctorReport, InputAccessResult, ShutdownResult};
+use tiktools_control_api::modules::system::{
+    DoctorReport, InputAccessResult, SaveFileParams, SaveFileResult, ShutdownResult,
+};
 use tiktools_control_api::modules::Empty;
 use tiktools_control_api::modules::OkResult;
 use tiktools_control_api::ClientError;
@@ -18,6 +20,7 @@ pub(crate) const METHODS: &[&str] = &[
     SYSTEM_SHUTDOWN,
     SYSTEM_PING,
     SYSTEM_REQUEST_INPUT_ACCESS,
+    SYSTEM_SAVE_FILE,
 ];
 
 const SYSTEM_INFO: &str = "system.info";
@@ -27,6 +30,7 @@ const SYSTEM_DOCTOR: &str = "system.doctor";
 const SYSTEM_SHUTDOWN: &str = "system.shutdown";
 const SYSTEM_PING: &str = "system.ping";
 const SYSTEM_REQUEST_INPUT_ACCESS: &str = "system.requestInputAccess";
+const SYSTEM_SAVE_FILE: &str = "system.saveFile";
 
 impl TikToolsClient {
     /// Host info: version, features, paths, pid.
@@ -65,5 +69,13 @@ impl TikToolsClient {
     pub async fn system_request_input_access(&self) -> Result<InputAccessResult, ClientError> {
         self.call(SYSTEM_REQUEST_INPUT_ACCESS, Empty::default())
             .await
+    }
+    /// Writes one text file into the user's Downloads folder.
+    /// RPC method `system.saveFile`.
+    pub async fn system_save_file(
+        &self,
+        params: SaveFileParams,
+    ) -> Result<SaveFileResult, ClientError> {
+        self.call(SYSTEM_SAVE_FILE, params).await
     }
 }
