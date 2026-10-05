@@ -78,6 +78,10 @@ export type UiEvent = {
     imageUrl?: string;
   };
   likeCount?: number;
+  /** Stable TikTok message identity (string: snowflake ids exceed JS safe ints). */
+  msgId?: string;
+  /** True when TikTok replays the message as room history (reconnect replay). */
+  isHistory?: boolean;
   // raw i18n keys + params for the renderer to localize
   i18nKey?: string;
   i18nParams?: Record<string, string | number>;

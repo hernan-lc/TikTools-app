@@ -21,6 +21,55 @@ export interface GiftCatalogResult {
 }
 
 /** Live feed: events, room stats, gift catalog, and scroll state. */
+
+/**
+ * Replay guard. TikTok re-sends recent messages as history when the
+ * connection drops and rejoins, so the same event can arrive twice.
+ * Live events carry the backend's `msgId` (stable per TikTok message);
+ * synthetic events without one fall back to a content checksum with a
+ * short time window. Both caches are bounded, and intentionally survive
+ * `resetEvents` — a reconnect replay must not re-trigger events the
+ * feed already showed before the disconnect.
+ */
+const DEDUP_WINDOW_MS = 5000;
+const DEDUP_CACHE_LIMIT = 256;
+const seenMsgIds = new Map<string, number>();
+const seenChecksums = new Map<string, number>();
+
+function eventChecksum(event: UiEvent): string {
+  const gift = event.giftDetails;
+  return [
+    event.kind,
+    event.author,
+    event.text,
+    event.likeCount ?? '',
+    gift ? `${gift.name}:${gift.count}:${gift.diamonds}` : '',
+  ].join('|');
+}
+
+/** Records the event identity and reports whether it was already seen. */
+function isDuplicateEvent(event: UiEvent, now: number): boolean {
+  const msgId = event.msgId;
+  if (msgId !== undefined) {
+    if (seenMsgIds.has(msgId)) return true;
+    seenMsgIds.set(msgId, now);
+    if (seenMsgIds.size > DEDUP_CACHE_LIMIT) {
+      const oldest = seenMsgIds.keys().next().value;
+      if (oldest !== undefined) seenMsgIds.delete(oldest);
+    }
+    return false;
+  }
+  const checksum = eventChecksum(event);
+  const firstSeen = seenChecksums.get(checksum);
+  if (firstSeen !== undefined && now - firstSeen < DEDUP_WINDOW_MS) return true;
+  seenChecksums.set(checksum, now);
+  if (seenChecksums.size > DEDUP_CACHE_LIMIT) {
+    const oldest = seenChecksums.keys().next().value;
+    if (oldest !== undefined) seenChecksums.delete(oldest);
+  }
+  return false;
+}
+
 export function useLive(control: ControlClient, callbacks: LiveCallbacks) {
   const events = ref<DisplayEvent[]>([]);
   const filter = ref<EventFilter>('all');
@@ -51,6 +100,10 @@ export function useLive(control: ControlClient, callbacks: LiveCallbacks) {
   // longer subscribed (backend keeps them solely for compatibility).
   control.onTopic<{ event: UiEvent }>('live.ui-event', (data) => {
     const event = data.event;
+    // Drop replays before they reach the feed: a reconnect
+    // replay must not re-render, count as unread, or re-fire
+    // the chat observer.
+    if (isDuplicateEvent(event, Date.now())) return;
     events.value = [
       ...events.value,
       { ...event, id: nextEventId.value++, receivedAt: Date.now() },

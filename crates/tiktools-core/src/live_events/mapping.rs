@@ -129,6 +129,15 @@ impl AppCore {
         if let Some(avatar_url) = user.avatar_url.as_ref() {
             ui_event["avatarUrl"] = json!(avatar_url);
         }
+        // Stable message identity: TikTok replays recent messages as
+        // history when the connection drops and rejoins, so the same
+        // event can arrive twice. The frontend keys its dedup cache on
+        // `msgId` to drop the replay instead of re-triggering the
+        // event. String form keeps large snowflake ids JS-safe.
+        if let Some(object) = ui_event.as_object_mut() {
+            object.insert("msgId".to_owned(), json!(event.msg_id().to_string()));
+            object.insert("isHistory".to_owned(), json!(event.is_history()));
+        }
         Some((ui_event, action, options, reason))
     }
     #[cfg(feature = "native-tiktok")]

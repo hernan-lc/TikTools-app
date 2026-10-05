@@ -7,9 +7,10 @@ import { IconArrowDown, IconBolt, IconChat, IconChevronLeft, IconChevronRight, I
 import { Button } from '../components/ui/Button.vue';
 import { SearchInput } from '../components/ui/TextInput.vue';
 import { Tooltip } from '../components/ui/Tooltip.vue';
+import { UserCard } from '../components/user-card.vue';
 import { defineVueComponent } from '../vue/component.ts';
 import { t, type Locale } from '../i18n.ts';
-import type { DisplayEvent, EventFilter, TopViewerPayload, ViewerRecord } from '../types.ts';
+import type { DisplayEvent, EventFilter, TopViewerPayload, UserCardUser, ViewerRecord } from '../types.ts';
 import { TopViewersRibbon } from '../components/top-viewers.vue';
 
 type FeedViewProps = {
@@ -28,6 +29,9 @@ type FeedViewProps = {
   onClearFeed: () => void;
   streamContainerRef: (el: Element | null) => void;
 };
+
+/** Identity fields every feed section can offer to the user card. */
+type UserSource = { uniqueId: string; nickname?: string; avatarUrl?: string };
 
 const VIEWERS_COLLAPSED_KEY = 'tiktok-live-viewers-collapsed';
 
@@ -56,9 +60,15 @@ function renderFeedView({
   streamContainerRef,
   viewersCollapsed,
   onToggleViewers,
+  selectedUser,
+  onOpenUser,
+  onCloseUser,
 }: FeedViewProps & {
   viewersCollapsed: boolean;
   onToggleViewers: () => void;
+  selectedUser: UserCardUser | null;
+  onOpenUser: (source: UserSource) => void;
+  onCloseUser: () => void;
 }) {
   const filterButtons: Array<{ key: EventFilter; tooltip: string; icon: VNode }> = [
     { key: 'all', tooltip: t(locale, 'filterAll'), icon: <IconBolt /> },
@@ -121,7 +131,9 @@ function renderFeedView({
                 <p>{t(locale, 'messagesEmpty')}</p>
               </div>
             ) : (
-              filteredEvents.map((ev) => <EventCard key={ev.id} event={ev} locale={locale} />)
+              filteredEvents.map((ev) => (
+                <EventCard key={ev.id} event={ev} locale={locale} onAuthorClick={onOpenUser} />
+              ))
             )}
           </div>
 
@@ -181,11 +193,23 @@ function renderFeedView({
           </div>
           {viewersCollapsed ? null : (
             <div class="feed-side__body">
-              <TopViewersRibbon locale={locale} topViewers={topViewers} leaderboard={leaderboard} liveViewers={liveViewers} />
+              <TopViewersRibbon
+                locale={locale}
+                topViewers={topViewers}
+                leaderboard={leaderboard}
+                liveViewers={liveViewers}
+                onSelect={onOpenUser}
+              />
             </div>
           )}
         </aside>
       </div>
+
+      {selectedUser ? (
+        <div class="tt-user-card-overlay">
+          <UserCard user={selectedUser} locale={locale} onClose={onCloseUser} />
+        </div>
+      ) : null}
 
       {!autoScroll && unreadCount > 0 ? (
         <div class="feed-floating-bar">
@@ -217,6 +241,7 @@ export const FeedView = defineVueComponent<FeedViewProps>(
   ],
   (props) => {
     const viewersCollapsed = ref(readViewersCollapsed());
+    const selectedUser = ref<UserCardUser | null>(null);
     const onToggleViewers = (): void => {
       viewersCollapsed.value = !viewersCollapsed.value;
       try {
@@ -225,7 +250,37 @@ export const FeedView = defineVueComponent<FeedViewProps>(
         // Collapse preference is best-effort when storage is unavailable.
       }
     };
-    return () => renderFeedView({ ...props, viewersCollapsed: viewersCollapsed.value, onToggleViewers });
+    // Feed sections only carry identity fields; the leaderboard
+    // fills in the engagement stats for tracked viewers.
+    const onOpenUser = (source: UserSource): void => {
+      const record = props.leaderboard?.find((entry) => entry.uniqueId === source.uniqueId);
+      selectedUser.value = {
+        uniqueId: source.uniqueId,
+        nickname: source.nickname ?? record?.nickname,
+        avatarUrl: source.avatarUrl ?? record?.avatarUrl,
+        points: record?.points,
+        level: record?.level,
+        isSubscriber: record?.isSubscriber,
+        totalChats: record?.totalChats,
+        totalCoins: record?.totalCoins,
+        totalLikes: record?.totalLikes,
+        totalShares: record?.totalShares,
+        firstSeen: record?.firstSeen,
+        lastSeen: record?.lastSeen,
+      };
+    };
+    const onCloseUser = (): void => {
+      selectedUser.value = null;
+    };
+    return () =>
+      renderFeedView({
+        ...props,
+        viewersCollapsed: viewersCollapsed.value,
+        onToggleViewers,
+        selectedUser: selectedUser.value,
+        onOpenUser,
+        onCloseUser,
+      });
   },
 );
 

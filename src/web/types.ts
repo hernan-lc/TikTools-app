@@ -27,6 +27,26 @@ export type DisplayEvent = UiEvent & {
 
 export type EventFilter = 'all' | 'chat' | 'gift' | 'like' | 'social';
 
+/**
+ * Enriched viewer profile for the user card. Feed events carry
+ * only identity fields; the leaderboard (when the viewer is
+ * tracked) fills in the engagement stats.
+ */
+export type UserCardUser = {
+  uniqueId: string;
+  nickname?: string;
+  avatarUrl?: string;
+  points?: number;
+  level?: number;
+  isSubscriber?: boolean;
+  totalChats?: number;
+  totalCoins?: number;
+  totalLikes?: number;
+  totalShares?: number;
+  firstSeen?: number;
+  lastSeen?: number;
+};
+
 export type PluginSettingsState = {
   schema: JsonObject;
   uiHints?: JsonObject;
