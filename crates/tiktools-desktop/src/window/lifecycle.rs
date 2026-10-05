@@ -178,6 +178,19 @@ impl DesktopApp {
                 tracing::debug!(url = %url, "blocked WebView new-window request");
                 wry::NewWindowResponse::Deny
             })
+            // Anchor downloads (the rule-profile export, plugin asset
+            // dumps) surface through WebKit's download signal, which
+            // wry only wires up when a handler is registered. Without
+            // this, `download`-attribute clicks in the WebView fail
+            // silently: the blob URL is never written anywhere.
+            .with_download_started_handler(move |url, destination| {
+                tracing::debug!(
+                    url = %url,
+                    destination = %destination.display(),
+                    "WebView download started"
+                );
+                true
+            })
             .with_on_page_load_handler(|event, url| {
                 match event {
                     PageLoadEvent::Started => {

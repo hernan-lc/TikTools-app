@@ -1,5 +1,4 @@
 <script lang="tsx">
-import { ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 
 import { IconPencil, IconTrash } from '../../components/icons.vue';
@@ -29,6 +28,13 @@ type EventsTableProps = {
   events: LiveEvent[];
   actions: LiveAction[];
   eventTypes: PluginEventType[];
+  /** Search and sort state is owned by the parent: the editor
+   * screens replace the whole list, so table-local refs would drop
+   * the user's filters on every edit round-trip. */
+  query: string;
+  sort: SortMode;
+  onQueryChange: (next: string) => void;
+  onSortChange: (next: SortMode) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
   onDelete: (id: string) => void;
   onEdit: (event: LiveEvent) => void;
@@ -37,19 +43,30 @@ type EventsTableProps = {
 
 /** Searchable, sortable events section: header tools, rows table, and empty state. */
 export const EventsTable = defineVueComponent<EventsTableProps>(
-  ['locale', 'events', 'actions', 'eventTypes', 'onSetEnabled', 'onDelete', 'onEdit', 'onNew'],
+  [
+    'locale',
+    'events',
+    'actions',
+    'eventTypes',
+    'query',
+    'sort',
+    'onQueryChange',
+    'onSortChange',
+    'onSetEnabled',
+    'onDelete',
+    'onEdit',
+    'onNew',
+  ],
   (props) => {
-  const query = ref('');
-  const sort = ref<SortMode>('name');
   const dialogs = useDialogs();
 
   return () => {
   const locale = props.locale;
   const visibleEvents = props.events.filter((event) =>
-    !query.value.trim()
-    || event.name.toLowerCase().includes(query.value.trim().toLowerCase())
-    || event.trigger.includes(query.value.trim().toLowerCase()));
-  const sortedEvents = sortBehaviorRows(visibleEvents, sort.value);
+    !props.query.trim()
+    || event.name.toLowerCase().includes(props.query.trim().toLowerCase())
+    || event.trigger.includes(props.query.trim().toLowerCase()));
+  const sortedEvents = sortBehaviorRows(visibleEvents, props.sort);
 
   return (
     <div class="plg-section">
@@ -66,12 +83,12 @@ export const EventsTable = defineVueComponent<EventsTableProps>(
         <div class="plg-section__tools">
           <SearchInput
             name="eventQuery"
-            value={query.value}
-            onValueChange={(next) => { query.value = next; }}
+            value={props.query}
+            onValueChange={(next) => props.onQueryChange(next)}
             placeholder={t(locale, 'behavior.copy.searchEvent')}
           />
           <span class="plg-section__sort">
-            <SortControl locale={locale} value={sort.value} onChange={(value) => { sort.value = value; }} />
+            <SortControl locale={locale} value={props.sort} onChange={(value) => props.onSortChange(value)} />
           </span>
           <Tooltip text={t(locale, 'behavior.copy.newEvent')} position="left">
             <button
@@ -88,8 +105,8 @@ export const EventsTable = defineVueComponent<EventsTableProps>(
 
       <div class="plg-table plg-table--events">
         <div class="plg-table__head">
-          <SortHeader label={t(locale, 'behavior.copy.colActive')} sort={sort.value} onSort={(value) => { sort.value = value; }} by="enabled" />
-          <SortHeader label={t(locale, 'behavior.copy.colName')} sort={sort.value} onSort={(value) => { sort.value = value; }} by="name" />
+          <SortHeader label={t(locale, 'behavior.copy.colActive')} sort={props.sort} onSort={(value) => props.onSortChange(value)} by="enabled" />
+          <SortHeader label={t(locale, 'behavior.copy.colName')} sort={props.sort} onSort={(value) => props.onSortChange(value)} by="name" />
           <span>{t(locale, 'behavior.copy.colTrigger')}</span>
           <span>{t(locale, 'behavior.copy.colFilters')}</span>
           <span>{t(locale, 'behavior.copy.colActions')}</span>
@@ -97,7 +114,7 @@ export const EventsTable = defineVueComponent<EventsTableProps>(
         </div>
 
         {sortedEvents.map((event) => (
-          <div class={`plg-table__row${event.enabled ? '' : ' is-off'}`} key={event.id}>
+          <div class={`plg-table__row${event.enabled ? '' : ' is-off'}`} key={event.id} data-row-id={event.id}>
             <Switch
               checked={event.enabled}
               onCheckedChange={() => props.onSetEnabled(event.id, !event.enabled)}
@@ -132,6 +149,7 @@ export const EventsTable = defineVueComponent<EventsTableProps>(
                   type="button"
                   class="plg-iconbtn"
                   aria-label={t(locale, 'behavior.copy.edit')}
+                  data-edit-id={event.id}
                   onClick={() => props.onEdit(event)}
                 >
                   <IconPencil />

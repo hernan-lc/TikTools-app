@@ -1,5 +1,4 @@
 <script lang="tsx">
-import { ref } from 'vue';
 import { defineVueComponent } from '../../vue/component.ts';
 
 import { IconPencil, IconTrash } from '../../components/icons.vue';
@@ -30,6 +29,13 @@ type ActionsTableProps = {
   actionTypes: ActionTypeDefinition[];
   availableTypes: Set<string>;
   lastRunByAction: Map<string, BehaviorRun>;
+  /** Search and sort state is owned by the parent: the editor
+   * screens replace the whole list, so table-local refs would drop
+   * the user's filters on every edit round-trip. */
+  query: string;
+  sort: SortMode;
+  onQueryChange: (next: string) => void;
+  onSortChange: (next: SortMode) => void;
   onSetEnabled: (id: string, enabled: boolean) => void;
   onDelete: (id: string) => void;
   onEdit: (action: LiveAction) => void;
@@ -38,17 +44,29 @@ type ActionsTableProps = {
 
 /** Searchable, sortable actions section: header tools, rows table, and empty state. */
 export const ActionsTable = defineVueComponent<ActionsTableProps>(
-  ['locale', 'actions', 'actionTypes', 'availableTypes', 'lastRunByAction', 'onSetEnabled', 'onDelete', 'onEdit', 'onNew'],
+  [
+    'locale',
+    'actions',
+    'actionTypes',
+    'availableTypes',
+    'lastRunByAction',
+    'query',
+    'sort',
+    'onQueryChange',
+    'onSortChange',
+    'onSetEnabled',
+    'onDelete',
+    'onEdit',
+    'onNew',
+  ],
   (props) => {
-  const query = ref('');
-  const sort = ref<SortMode>('name');
   const dialogs = useDialogs();
 
   return () => {
   const locale = props.locale;
   const visibleActions = props.actions.filter((action) =>
-    !query.value.trim() || action.name.toLowerCase().includes(query.value.trim().toLowerCase()));
-  const sortedActions = sortBehaviorRows(visibleActions, sort.value);
+    !props.query.trim() || action.name.toLowerCase().includes(props.query.trim().toLowerCase()));
+  const sortedActions = sortBehaviorRows(visibleActions, props.sort);
 
   return (
     <div class="plg-section">
@@ -65,12 +83,12 @@ export const ActionsTable = defineVueComponent<ActionsTableProps>(
         <div class="plg-section__tools">
           <SearchInput
             name="actionQuery"
-            value={query.value}
-            onValueChange={(next) => { query.value = next; }}
+            value={props.query}
+            onValueChange={(next) => props.onQueryChange(next)}
             placeholder={t(locale, 'behavior.copy.searchAction')}
           />
           <span class="plg-section__sort">
-            <SortControl locale={locale} value={sort.value} onChange={(value) => { sort.value = value; }} />
+            <SortControl locale={locale} value={props.sort} onChange={(value) => props.onSortChange(value)} />
           </span>
           <Tooltip text={t(locale, 'behavior.copy.newAction')} position="left">
             <button type="button" class="plg-btn plg-btn--primary plg-btn--sm plg-section__new" onClick={() => props.onNew()}>
@@ -85,11 +103,11 @@ export const ActionsTable = defineVueComponent<ActionsTableProps>(
         <div class="plg-table__head">
           <SortHeader
             label={t(locale, 'behavior.copy.colActive')}
-            sort={sort.value}
-            onSort={(value) => { sort.value = value; }}
+            sort={props.sort}
+            onSort={(value) => props.onSortChange(value)}
             by="enabled"
           />
-          <SortHeader label={t(locale, 'behavior.copy.colName')} sort={sort.value} onSort={(value) => { sort.value = value; }} by="name" />
+          <SortHeader label={t(locale, 'behavior.copy.colName')} sort={props.sort} onSort={(value) => props.onSortChange(value)} by="name" />
           <span>{t(locale, 'behavior.copy.colOrigin')}</span>
           <span>{t(locale, 'behavior.copy.colDoes')}</span>
           <span>{t(locale, 'behavior.copy.colLast')}</span>
@@ -105,6 +123,7 @@ export const ActionsTable = defineVueComponent<ActionsTableProps>(
             <div
               class={`plg-table__row${action.enabled ? '' : ' is-off'}${failing && action.enabled ? ' has-error' : ''}`}
               key={action.id}
+              data-row-id={action.id}
             >
               <Switch
                 checked={action.enabled}
@@ -140,6 +159,7 @@ export const ActionsTable = defineVueComponent<ActionsTableProps>(
                     type="button"
                     class="plg-iconbtn"
                     aria-label={t(locale, 'behavior.copy.edit')}
+                    data-edit-id={action.id}
                     onClick={() => props.onEdit(action)}
                   >
                     <IconPencil />

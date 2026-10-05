@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { defineVueComponent } from '../vue/component.ts';
 import { Icon } from '../components/icons/index.ts';
 import { ActionEditor } from './behavior/action-editor.vue';
@@ -18,6 +18,7 @@ import {
   availableActionTypes,
   createActionFromType,
   relativeTime,
+  type SortMode,
 } from './behavior/helpers.vue';
 import type {
   BehaviorRun,
@@ -130,6 +131,75 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
   const templateModalOpen = ref(false);
   const profileImportOpen = ref(false);
 
+  // Search and sort state lives here, not in the tables: the editor
+  // screens replace the whole list, so table-local refs would drop the
+  // user's filters on every edit round-trip (the "similar approach to
+  // query params" for a webview with no router — the parent outlives
+  // the screen swap and restores the list exactly as it was left).
+  const actionQuery = ref('');
+  const actionSort = ref<SortMode>('name');
+  const eventQuery = ref('');
+  const eventSort = ref<SortMode>('name');
+  const scrollRef = ref<HTMLElement | null>(null);
+  const savedScrollTop = ref(0);
+  const returnFocusId = ref<string | null>(null);
+
+  /** Snapshots the list scroll position before an editor screen replaces it. */
+  const captureListState = (): void => {
+    savedScrollTop.value = scrollRef.value?.scrollTop ?? 0;
+  };
+
+  /**
+   * Returns to the list from any editor screen, restoring the saved
+   * scroll position and focusing the edit control of the row that was
+   * edited, so the user lands back exactly where they started instead
+   * of at the top of a reloaded list with focus lost.
+   */
+  const returnToList = (): void => {
+    screen.value = { kind: 'list' };
+    const focusId = returnFocusId.value;
+    returnFocusId.value = null;
+    void nextTick(() => {
+      const container = scrollRef.value;
+      if (!container) return;
+      container.scrollTop = savedScrollTop.value;
+      if (focusId) {
+        for (const control of Array.from(
+          container.querySelectorAll<HTMLElement>('[data-edit-id]'),
+        )) {
+          if (control.dataset.editId === focusId) {
+            control.focus();
+            break;
+          }
+        }
+      }
+    });
+  };
+
+  const openActionEditor = (action: LiveAction): void => {
+    captureListState();
+    returnFocusId.value = action.id;
+    screen.value = { kind: 'action', action, isNew: false };
+  };
+
+  const openEventEditor = (event: LiveEvent): void => {
+    captureListState();
+    returnFocusId.value = event.id;
+    screen.value = { kind: 'event', event, isNew: false };
+  };
+
+  const openActionPicker = (): void => {
+    captureListState();
+    returnFocusId.value = null;
+    screen.value = { kind: 'picker' };
+  };
+
+  const openNewEvent = (event: LiveEvent): void => {
+    captureListState();
+    returnFocusId.value = null;
+    screen.value = { kind: 'event', event, isNew: true };
+  };
+
   onMounted(() => {
     void props.onLoadRuleTemplateCustom();
   });
@@ -182,7 +252,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
       <ActionPicker
         locale={locale}
         plugins={snapshot.plugins}
-        onCancel={() => { screen.value = { kind: 'list' }; }}
+        onCancel={returnToList}
         onOpenPlugins={props.onOpenPlugins}
         actionTypes={snapshot.actionTypes}
         onPick={(type) => { screen.value = { kind: 'action', action: createActionFromType(type, locale), isNew: true }; }}
@@ -205,14 +275,14 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
         actionOptionErrors={props.actionOptionErrors}
         onGetActionOptions={props.onGetActionOptions}
         onOpenMediaPicker={props.onOpenMediaPicker}
-        onCancel={() => { screen.value = { kind: 'list' }; }}
+        onCancel={returnToList}
         onSave={(action) => {
           props.onSaveAction(action);
-          screen.value = { kind: 'list' };
+          returnToList();
         }}
         onDelete={(id) => {
           props.onDeleteAction(id);
-          screen.value = { kind: 'list' };
+          returnToList();
         }}
         onTest={props.onTestAction}
       />
@@ -233,14 +303,14 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
         viewers={props.viewers}
         error={error}
         testRuns={testRuns}
-        onCancel={() => { screen.value = { kind: 'list' }; }}
+        onCancel={returnToList}
         onSave={(event) => {
           props.onSaveEvent(event);
-          screen.value = { kind: 'list' };
+          returnToList();
         }}
         onDelete={(id) => {
           props.onDeleteEvent(id);
-          screen.value = { kind: 'list' };
+          returnToList();
         }}
         onTest={props.onTestEvent}
         onFire={props.onFireEvent}
@@ -262,7 +332,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
       />
 
       <div class="plg-body">
-        <div class="plg-scroll">
+        <div class="plg-scroll" ref={scrollRef}>
           <div class="plg-section">
             <div class="plg-section__head">
               <div class="plg-section__title">
@@ -301,20 +371,28 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
             actionTypes={snapshot.actionTypes}
             availableTypes={availableTypes.value}
             lastRunByAction={lastRunByAction.value}
+            query={actionQuery.value}
+            sort={actionSort.value}
+            onQueryChange={(next) => { actionQuery.value = next; }}
+            onSortChange={(next) => { actionSort.value = next; }}
             onSetEnabled={props.onSetActionEnabled}
             onDelete={props.onDeleteAction}
-            onEdit={(action) => { screen.value = { kind: 'action', action, isNew: false }; }}
-            onNew={() => { screen.value = { kind: 'picker' }; }}
+            onEdit={openActionEditor}
+            onNew={openActionPicker}
           />
           <EventsTable
             locale={locale}
             events={visibleEvents.value}
             actions={visibleActions.value}
             eventTypes={snapshot.eventTypes ?? []}
+            query={eventQuery.value}
+            sort={eventSort.value}
+            onQueryChange={(next) => { eventQuery.value = next; }}
+            onSortChange={(next) => { eventSort.value = next; }}
             onSetEnabled={props.onSetEventEnabled}
             onDelete={props.onDeleteEvent}
-            onEdit={(event) => { screen.value = { kind: 'event', event, isNew: false }; }}
-            onNew={(event) => { screen.value = { kind: 'event', event, isNew: true }; }}
+            onEdit={openEventEditor}
+            onNew={openNewEvent}
           />
         </div>
 
