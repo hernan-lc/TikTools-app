@@ -871,7 +871,18 @@ mod tests {
 
     #[test]
     fn status_reports_missing_for_unknown_plugins() {
-        let core = AppCore::new(Arc::new(NullEmitter));
+        // An empty plugin root keeps the test hermetic: the
+        // operator's real plugin directory can carry an installed
+        // gateway, which would resolve to Stopped instead of
+        // Missing on any machine that has run the app.
+        let root = temp_root("missing");
+        let manager = PluginManager::new(vec![PluginRoot {
+            path: root.join("packages"),
+            source: PluginSource::Development,
+        }]);
+        manager.scan().expect("test scan");
+        let mut core = AppCore::new(Arc::new(NullEmitter));
+        core.plugins = Arc::new(manager);
         let status = block_on_current_thread(core.widgets_status()).unwrap();
         assert_eq!(status.state, WidgetsState::Missing);
         assert_eq!(status.port, GATEWAY_DEFAULT_PORT);

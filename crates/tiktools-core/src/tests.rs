@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::Mutex,
+    sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -8,6 +8,27 @@ use super::*;
 use tiktools_plugin_api::{
     AudioPlayOptions, AudioPlaybackResult, MediaFileRef, MediaPickerOptions,
 };
+
+/// Isolates the test process data root. `AppCore::new` resolves
+/// every writable path from the environment, so tests that
+/// exercise the points store must not read or write the
+/// operator's real `~/.local/share/TikTools` (an installed app
+/// leaves plugins and a points database behind, which changes
+/// what these tests observe). Initialized once per process and
+/// never unset: every later `AppCore::new` in the test binary
+/// shares the same empty root, matching a clean CI runner.
+fn isolated_test_home() -> PathBuf {
+    static TEST_HOME: OnceLock<PathBuf> = OnceLock::new();
+    TEST_HOME
+        .get_or_init(|| {
+            let home = std::env::temp_dir()
+                .join(format!("tiktools-core-test-home-{}", std::process::id()));
+            std::fs::create_dir_all(&home).expect("isolated test home");
+            std::env::set_var("TIKTOOLS_HOME", &home);
+            home
+        })
+        .clone()
+}
 
 #[derive(Default)]
 struct RecordingEmitter {
@@ -650,6 +671,7 @@ async fn test_event_replays_last_live_event_of_its_trigger() {
 
 #[tokio::test]
 async fn fire_synthetic_event_executes_actions_for_real() {
+    isolated_test_home();
     let emitter = Arc::new(RecordingEmitter::default());
     let core = Arc::new(AppCore::new(emitter));
     // Unique viewer per run: the points store persists across runs.
@@ -724,6 +746,7 @@ async fn fire_synthetic_event_reports_zero_matches() {
 
 #[tokio::test]
 async fn fire_synthetic_event_runs_disabled_draft_once() {
+    isolated_test_home();
     let emitter = Arc::new(RecordingEmitter::default());
     let core = Arc::new(AppCore::new(emitter));
     let unique_id = format!(

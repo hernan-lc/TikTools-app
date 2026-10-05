@@ -79,6 +79,7 @@ jobs:
             libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
             libxdo-dev \
+            mold \
             pkg-config
 
       - name: Install current Rust
