@@ -473,6 +473,11 @@ export const spanish: Record<TranslationKey, string> = {
   addPoints: '+ Añadir',
   subtractPoints: '- Restar',
   ptsEarned: '+{amount} pts',
+  userCardSubscriber: 'Suscriptor',
+  userCardNoStats: 'Sin estadísticas aún',
+  userCardFirstSeen: 'Primera vez {time}',
+  userCardLastSeen: 'Última vez {time}',
+  userCardShares: 'Compartidos',
   actions: 'Acciones',
   // TikTok LIVE chat event render strings
   joinedLive: 'se unió al LIVE',

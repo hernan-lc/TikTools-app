@@ -469,6 +469,11 @@ export const english = {
   addPoints: '+ Add',
   subtractPoints: '- Deduct',
   ptsEarned: '+{amount} pts',
+  userCardSubscriber: 'Subscriber',
+  userCardNoStats: 'No stats recorded yet',
+  userCardFirstSeen: 'First seen {time}',
+  userCardLastSeen: 'Last seen {time}',
+  userCardShares: 'Shares',
   copySuccess: 'Copied to clipboard!',
   actions: 'Actions',
   // TikTok LIVE chat event render strings

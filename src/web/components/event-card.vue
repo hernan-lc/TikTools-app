@@ -27,6 +27,12 @@ function getAvatarColor(username: string): string {
 type EventCardProps = {
   event: DisplayEvent;
   locale?: Locale;
+  /** Opens the user card for the event author. */
+  onAuthorClick?: (user: {
+    uniqueId: string;
+    nickname?: string;
+    avatarUrl?: string;
+  }) => void;
 };
 
 function localizedText(event: DisplayEvent, locale: Locale): string {
@@ -60,9 +66,16 @@ function localizedText(event: DisplayEvent, locale: Locale): string {
   }
 }
 
-export function EventCard({ event, locale = 'en' }: EventCardProps) {
+export function EventCard({ event, locale = 'en', onAuthorClick }: EventCardProps) {
   const cleanHandle = event.author.replace(/^@+/, '');
   const level = event.level ?? 1;
+  const openAuthor = (): void => {
+    onAuthorClick?.({
+      uniqueId: cleanHandle,
+      nickname: event.nickname,
+      avatarUrl: event.avatarUrl,
+    });
+  };
 
   const displayName =
     event.nickname && event.nickname !== cleanHandle ? event.nickname : `@${cleanHandle}`;
@@ -76,12 +89,20 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
 
   return (
     <div class={`tiktok-chat-row ${event.kind}`}>
-      <UserAvatar
-        uniqueId={cleanHandle}
-        nickname={event.nickname}
-        avatarUrl={event.avatarUrl}
-        fallbackStyle={{ background: getAvatarColor(cleanHandle) }}
-      />
+      <button
+        type="button"
+        class="tt-user-chip"
+        title={`@${cleanHandle}`}
+        aria-label={`@${cleanHandle}`}
+        onClick={onAuthorClick ? openAuthor : undefined}
+      >
+        <UserAvatar
+          uniqueId={cleanHandle}
+          nickname={event.nickname}
+          avatarUrl={event.avatarUrl}
+          fallbackStyle={{ background: getAvatarColor(cleanHandle) }}
+        />
+      </button>
 
       {/* Message Content Container */}
       <div class="tt-content-wrap">
@@ -95,9 +116,14 @@ export function EventCard({ event, locale = 'en' }: EventCardProps) {
           </span>
 
           {/* Author handle/nickname */}
-          <span class="tt-author" title={`@${cleanHandle}`}>
+          <button
+            type="button"
+            class="tt-author tt-author-link"
+            title={`@${cleanHandle}`}
+            onClick={onAuthorClick ? openAuthor : undefined}
+          >
             {displayName}
-          </span>
+          </button>
 
           {/* Content text depending on event kind */}
           {event.kind === 'chat' ? (

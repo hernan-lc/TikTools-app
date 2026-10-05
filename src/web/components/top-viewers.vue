@@ -11,6 +11,8 @@ type Props = {
   leaderboard?: ViewerRecord[];
   // Live viewer count from WebcastRoomUserSeqMessage
   liveViewers?: number;
+  /** Opens the user card for the clicked viewer. */
+  onSelect?: (viewer: { uniqueId: string; nickname?: string; avatarUrl?: string }) => void;
 };
 
 /**
@@ -20,7 +22,7 @@ type Props = {
  * toggle) lives in FeedView so this component stays a pure list that can
  * also render inline without chrome.
  */
-export function TopViewersRibbon({ locale, topViewers = [], leaderboard = [], liveViewers = 0 }: Props) {
+export function TopViewersRibbon({ locale, topViewers = [], leaderboard = [], liveViewers = 0, onSelect }: Props) {
   const hasNative = topViewers.length > 0;
   // Native top 0-5, fallback to points top 3
   const ribbonItems: Array<{
@@ -62,7 +64,14 @@ export function TopViewersRibbon({ locale, topViewers = [], leaderboard = [], li
         const scoreLabel = viewer.score > 0 ? String(viewer.score) : hasNative ? '' : String(viewer.score);
         const rankTone = rankNum <= 3 ? ` rank-${rankNum}` : '';
         return (
-          <div key={viewer.key} role="listitem" class={`tt-viewer-row${rankTone}`}>
+          <button
+            key={viewer.key}
+            type="button"
+            role="listitem"
+            class={`tt-viewer-row tt-viewer-row--selectable${rankTone}`}
+            title={viewer.nickname || viewer.uniqueId}
+            onClick={onSelect ? () => onSelect(viewer) : undefined}
+          >
             <span class="tt-rank-num">{displayRank}</span>
             <UserAvatar
               uniqueId={viewer.uniqueId}
@@ -75,7 +84,7 @@ export function TopViewersRibbon({ locale, topViewers = [], leaderboard = [], li
               {viewer.nickname && viewer.nickname !== viewer.uniqueId ? viewer.nickname : `@${viewer.uniqueId}`}
             </span>
             {scoreLabel ? <span class="tt-rank-pts">{scoreLabel}</span> : null}
-          </div>
+          </button>
         );
       })}
     </div>
