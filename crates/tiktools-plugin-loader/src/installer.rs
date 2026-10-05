@@ -169,6 +169,7 @@ impl PluginInstaller {
             }
             let mut output = File::create(&destination).map_err(io_error)?;
             io::copy(&mut entry, &mut output).map_err(io_error)?;
+            apply_stored_unix_mode(&destination, entry.unix_mode()).map_err(io_error)?;
         }
 
         let root = find_package_root(staging)?;
@@ -180,6 +181,7 @@ impl PluginInstaller {
         manifest
             .validate_compatibility()
             .map_err(|error| PluginLoaderError::Runtime(error.to_string()))?;
+        ensure_entry_executable(&root, &manifest).map_err(io_error)?;
         verify_checksums(&root, &manifest)?;
         self.backfill_native_libs(&manifest, &root, staging)?;
         if root.join("signature.json").is_file() {
@@ -609,6 +611,59 @@ fn unique_suffix() -> u128 {
         .unwrap_or_default()
 }
 
+/// Applies the permission bits an archive stored for an entry.
+/// Archives written before the packager recorded modes carry `None`;
+/// the executable entry is then authorized separately by
+/// [`ensure_entry_executable`]. Only the 0o777 permission bits are
+/// applied — setuid/setgid/sticky are never restored.
+#[cfg(unix)]
+fn apply_stored_unix_mode(destination: &Path, mode: Option<u32>) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(mode) = mode else {
+        return Ok(());
+    };
+    let bits = mode & 0o777;
+    if bits == 0 {
+        return Ok(());
+    }
+    fs::set_permissions(destination, fs::Permissions::from_mode(bits))
+}
+
+#[cfg(not(unix))]
+fn apply_stored_unix_mode(_destination: &Path, _mode: Option<u32>) -> io::Result<()> {
+    Ok(())
+}
+
+/// Native and process plugins are spawned directly by the host, so
+/// their entry must be executable. The packager records the mode in
+/// the archive, but archives built by older packagers (and archives
+/// from third-party tools) carry no Unix mode, leaving the entry at
+/// the extraction default of 0644 — the host then fails to start it
+/// with `Permission denied`. This restores the execute bit regardless
+/// of what the archive stored, while keeping any restrictive read
+/// bits the archive did record.
+#[cfg(unix)]
+fn ensure_entry_executable(root: &Path, manifest: &PluginManifest) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    use tiktools_plugin_api::PluginRuntimeKind;
+    if !matches!(
+        manifest.runtime,
+        PluginRuntimeKind::Native | PluginRuntimeKind::Process
+    ) {
+        return Ok(());
+    }
+    let entry = root.join(manifest.entry.as_str());
+    let mut permissions = fs::metadata(&entry)?.permissions();
+    let mode = permissions.mode();
+    permissions.set_mode(mode | 0o111);
+    fs::set_permissions(&entry, permissions)
+}
+
+#[cfg(not(unix))]
+fn ensure_entry_executable(_root: &Path, _manifest: &PluginManifest) -> io::Result<()> {
+    Ok(())
+}
+
 fn io_error(error: io::Error) -> PluginLoaderError {
     PluginLoaderError::Runtime(error.to_string())
 }
@@ -714,6 +769,54 @@ mod tests {
         assert!(installed.directory.join("plugin.json").is_file());
         assert!(installed.directory.join("index.js").is_file());
         assert!(!root.join("staging").join("plugin.json").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn installs_executable_entry_from_modeless_archive() {
+        let root = temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let archive_path = root.join("demo.plugin");
+        // Archives from older packagers record no Unix mode; the
+        // entry must still install executable so the host can spawn it.
+        let manifest = br#"{"schemaVersion":2,"id":"demo","name":"Demo","version":"1.0.0","runtime":"process","entry":"demo-host"}"#;
+        let entry = b"binary";
+        let checksums = format!(
+            r#"{{"plugin.json":"{}","demo-host":"{}"}}"#,
+            digest_bytes(manifest),
+            digest_bytes(entry)
+        );
+
+        let file = File::create(&archive_path).unwrap();
+        let mut writer = ZipWriter::new(file);
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+        writer.start_file("plugin.json", options).unwrap();
+        writer.write_all(manifest).unwrap();
+        writer.start_file("demo-host", options).unwrap();
+        writer.write_all(entry).unwrap();
+        writer.start_file("checksums.json", options).unwrap();
+        writer.write_all(checksums.as_bytes()).unwrap();
+        writer.finish().unwrap();
+
+        PluginInstaller {
+            plugin_directory: root.join("plugins"),
+            staging_directory: root.join("staging"),
+            replace_existing: false,
+            provider_endpoints: None,
+        }
+        .install(&archive_path)
+        .unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(root.join("plugins/demo/demo-host"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_ne!(mode & 0o111, 0, "spawned entry must be executable");
+        }
 
         fs::remove_dir_all(root).unwrap();
     }

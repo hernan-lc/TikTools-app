@@ -200,7 +200,7 @@ fn package(options: Options) -> Result<(), Box<dyn Error>> {
     }
     let temporary = output.with_extension("plugin.tmp");
     let _ = fs::remove_file(&temporary);
-    write_archive(&temporary, &manifest.id, &files)?;
+    write_archive(&temporary, &manifest.id, &files, &staged_entry, executable)?;
     if output.exists() {
         fs::remove_file(&output)?;
     }
@@ -279,11 +279,24 @@ fn write_archive(
     path: &Path,
     plugin_id: &str,
     files: &BTreeMap<String, Vec<u8>>,
+    staged_entry: &str,
+    executable: bool,
 ) -> Result<(), Box<dyn Error>> {
     let file = File::create(path)?;
     let mut writer = ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
     for (relative, bytes) in files {
+        // The staged entry of native/process plugins is spawned
+        // directly by the host, so it keeps its execute bit through
+        // installation: the installer applies the stored mode and
+        // also authorizes the entry itself, but the archive should
+        // carry the correct mode. Everything else ships read-only.
+        let options = SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .unix_permissions(if executable && relative == staged_entry {
+                0o755
+            } else {
+                0o644
+            });
         writer.start_file(format!("{plugin_id}/{relative}"), options)?;
         writer.write_all(bytes)?;
     }
@@ -467,6 +480,43 @@ mod tests {
         let object = checksums.as_object().unwrap();
         assert!(object.contains_key("plugin.json"));
         assert!(object.contains_key("target-test"));
+
+        let _ = fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn package_records_unix_modes() {
+        let directory = unique_dir("modes");
+        fs::create_dir_all(&directory).unwrap();
+        let manifest_path = directory.join("plugin.json");
+        let source = test_manifest("process");
+        fs::write(&manifest_path, serde_json::to_vec_pretty(&source).unwrap()).unwrap();
+        let entry_path = directory.join("built-entry");
+        fs::write(&entry_path, b"binary").unwrap();
+        let output = directory.join("mode-test-1.0.0-linux-x64-gnu.plugin");
+
+        package(Options {
+            manifest: manifest_path,
+            entry: entry_path,
+            output: output.clone(),
+            target: Some("linux-x64-gnu".to_owned()),
+        })
+        .unwrap();
+
+        let file = File::open(&output).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        // zip records the full external-attribute mode, including
+        // the regular-file type bit (0o100000).
+        let entry_mode = archive
+            .by_name("target-test/target-test")
+            .unwrap()
+            .unix_mode();
+        assert_eq!(entry_mode, Some(0o100755));
+        let manifest_mode = archive
+            .by_name("target-test/plugin.json")
+            .unwrap()
+            .unix_mode();
+        assert_eq!(manifest_mode, Some(0o100644));
 
         let _ = fs::remove_dir_all(&directory);
     }
