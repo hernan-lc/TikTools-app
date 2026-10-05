@@ -1,5 +1,6 @@
-import { chmod, cp, mkdir, readFile, rm, stat } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { chmod, cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
+import { GATEWAY_WIDGET_KINDS, ensureGatewayWidgetsStaged } from './lib/gateway-widgets.ts';
 import { napiTargetFromRustTarget, resolveRustTarget } from './lib/plugin-targets.ts';
 
 const repositoryRoot = resolve(import.meta.dir, '..');
@@ -30,29 +31,98 @@ const supportedPlatforms = {
 /**
  * Official built-in plugins bundled with every release.
  *
- * `runtime: 'napi-vm'` entries ship a TypeScript guest plus the release
- * target's native bindings, fetched from each library's pinned provider
- * (`nativeLibs` + `native-libs.lock.json` in the example directory) and
- * verified by the shared stage-native tool. Content pins live in the
- * lockfile; this script only names the expected staged layout for the
- * archive verification below.
+ * Mirrors the development staging set (`scripts/dev-plugins.ts`):
+ * the release archive carries every plugin a fresh checkout
+ * stages, so testers and release users see the same plugin
+ * catalog as developers.
+ *
+ * - `declarative` examples ship the manifest alone: the host
+ *   interprets every action, so no build runs.
+ * - `process` examples compile their standalone Cargo manifest
+ *   for the release target.
+ * - `first-party` process packages compile their workspace
+ *   backend crate and, when the manifest declares a `ui` entry,
+ *   stage the built plugin UI beside it.
+ * - `napi-vm` entries ship a TypeScript guest plus the release
+ *   target's native bindings, fetched from each library's pinned
+ *   provider (`nativeLibs` + `native-libs.lock.json` in the
+ *   example directory) and verified by the shared stage-native
+ *   tool. Content pins live in the lockfile; this script only
+ *   names the expected staged layout for the archive verification
+ *   below.
  */
 type BundledPlugin =
-  | { id: string; example: string; entry: string; runtime: 'process' }
+  | { id: string; source: 'example'; example: string; runtime: 'declarative' }
+  | { id: string; source: 'example'; example: string; runtime: 'process'; entry: string }
   | {
       id: string;
+      source: 'example';
       example: string;
-      entry: string;
       runtime: 'napi-vm';
+      entry: string;
       native: { package: string; binary: string };
+    }
+  | {
+      id: string;
+      source: 'first-party';
+      package: string;
+      crate: string;
+      runtime: 'process';
+      entry: string;
+      uiEntry?: string;
     };
 const BUNDLED_PLUGINS: readonly BundledPlugin[] = [
   {
+    id: 'audio.play.process',
+    source: 'example',
+    example: 'audio-process-plugin',
+    runtime: 'process',
+    entry: 'tiktools-audio-process-plugin',
+  },
+  {
     id: 'hotkeys',
+    source: 'example',
     example: 'hotkey-napi-plugin',
-    entry: 'dist/index.js',
     runtime: 'napi-vm',
+    entry: 'dist/index.js',
     native: { package: 'rdev-node', binary: 'node-rdev' },
+  },
+  {
+    id: 'l4d2.interactive',
+    source: 'first-party',
+    package: 'l4d2',
+    crate: 'tiktools-l4d2',
+    runtime: 'process',
+    entry: 'tiktools-l4d2',
+  },
+  {
+    id: 'minecraft.server',
+    source: 'example',
+    example: 'minecraft-server',
+    runtime: 'declarative',
+  },
+  {
+    id: 'sonicboom.server',
+    source: 'first-party',
+    package: 'sonicboom',
+    crate: 'sonicboom-backend',
+    runtime: 'process',
+    entry: 'backend/dist/sonicboom-backend',
+    uiEntry: 'ui/dist/index.html',
+  },
+  {
+    id: 'textintel',
+    source: 'example',
+    example: 'textintel-process-plugin',
+    runtime: 'process',
+    entry: 'tiktools-textintel',
+  },
+  {
+    id: 'tiktools.event-gateway',
+    source: 'example',
+    example: 'event-gateway-process-plugin',
+    runtime: 'process',
+    entry: 'event-gateway',
   },
 ];
 
@@ -85,12 +155,18 @@ async function isFile(path: string): Promise<boolean> {
   return info?.isFile() ?? false;
 }
 
+async function isDirectory(path: string): Promise<boolean> {
+  const info = await stat(path).catch(() => null);
+  return info?.isDirectory() ?? false;
+}
+
 function isSupportedPlatform(value: string): value is ReleasePlatform {
   return Object.hasOwn(supportedPlatforms, value);
 }
 
 /** Plugin-relative files each bundled entry must contribute to the archive. */
 function bundledExpectedFiles(bundled: BundledPlugin, releasePlatform: ReleasePlatform): string[] {
+  const pluginTarget = resolveRustTarget(supportedPlatforms[releasePlatform].rustTarget);
   if (bundled.runtime === 'napi-vm') {
     const triple = napiTargetFromRustTarget(supportedPlatforms[releasePlatform].rustTarget);
     const binding = `${bundled.native.binary}.${triple}.node`;
@@ -103,7 +179,25 @@ function bundledExpectedFiles(bundled: BundledPlugin, releasePlatform: ReleasePl
       `node_modules/${bundled.native.package}/${binding}`,
     ];
   }
-  return ['plugin.json', `${bundled.entry}${resolveRustTarget(platform.rustTarget).executableExtension}`];
+  if (bundled.runtime === 'declarative') {
+    return ['plugin.json'];
+  }
+  const entryName = `${basename(bundled.entry)}${pluginTarget.executableExtension}`;
+  const entryDirectory = dirname(bundled.entry);
+  const entryPath =
+    entryDirectory === '.' ? entryName : `${entryDirectory}/${entryName}`;
+  const expected = ['plugin.json', entryPath];
+  if (bundled.source === 'first-party' && bundled.uiEntry) {
+    expected.push(bundled.uiEntry);
+  }
+  if (bundled.id === 'tiktools.event-gateway') {
+    // Widget bundles are mandatory gateway content: every staged
+    // kind must be inside the archive, never a 404 at runtime.
+    for (const kind of GATEWAY_WIDGET_KINDS) {
+      expected.push(`dist/widgets/${kind}/index.html`);
+    }
+  }
+  return expected;
 }
 
 /**
@@ -162,6 +256,165 @@ async function stageNapiVmPlugin(
   await cp(builtEntry, join(pluginDirectory, bundled.entry));
 }
 
+/** Directories a staged plugin package copies verbatim when present. */
+async function copyOptionalContent(sourceDirectory: string, destinationDirectory: string): Promise<void> {
+  for (const directory of ['assets', 'dist', 'locales']) {
+    const source = join(sourceDirectory, directory);
+    if (await isDirectory(source)) {
+      await cp(source, join(destinationDirectory, directory), { recursive: true });
+    }
+  }
+}
+
+/** Writes a staged manifest whose entry names the platform executable. */
+async function writeStagedManifest(
+  manifestPath: string,
+  pluginDirectory: string,
+  entryName: string,
+): Promise<void> {
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+  const staged = { ...manifest, entry: entryName };
+  await writeFile(join(pluginDirectory, 'plugin.json'), `${JSON.stringify(staged, null, 2)}\n`, 'utf8');
+}
+
+/**
+ * Stage a declarative plugin: the manifest alone ships, because the
+ * host interprets every action. No build runs for any target.
+ */
+async function stageDeclarativePlugin(
+  bundled: Extract<BundledPlugin, { runtime: 'declarative' }>,
+  pluginDirectory: string,
+): Promise<void> {
+  const exampleDirectory = join(repositoryRoot, 'examples', bundled.example);
+  const manifestPath = join(exampleDirectory, 'plugin.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  console.log(`Staging declarative plugin ${bundled.id}...`);
+  await mkdir(pluginDirectory, { recursive: true });
+  await writeFile(join(pluginDirectory, 'plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await copyOptionalContent(exampleDirectory, pluginDirectory);
+}
+
+/**
+ * Stage a process plugin from `examples/`: compile its standalone
+ * Cargo manifest for the release target, then stage the manifest
+ * (entry rewritten to the platform executable name) and the binary.
+ * The Event Gateway additionally builds and stages its mandatory
+ * widget bundles before the example `dist/` is copied across.
+ */
+async function stageProcessExamplePlugin(
+  bundled: Extract<BundledPlugin, { runtime: 'process' }>,
+  pluginDirectory: string,
+  pluginTarget: ReturnType<typeof resolveRustTarget>,
+): Promise<void> {
+  const exampleDirectory = join(repositoryRoot, 'examples', bundled.example);
+  const manifestPath = join(exampleDirectory, 'plugin.json');
+  if (bundled.id === 'tiktools.event-gateway') {
+    // Widget bundles are mandatory gateway content: a fresh clone
+    // must stage them with no manual sync step, and packaging
+    // refuses to ship a gateway whose /widgets/* routes 404.
+    await ensureGatewayWidgetsStaged(repositoryRoot);
+  }
+  console.log(`Building example plugin ${bundled.id} (${pluginTarget.rustTarget})...`);
+  run('node', [
+    cargoWrapper,
+    'build',
+    '--release',
+    '--locked',
+    '--target',
+    pluginTarget.rustTarget,
+    '--manifest-path',
+    join(exampleDirectory, 'Cargo.toml'),
+  ]);
+  const entryName = `${bundled.entry}${pluginTarget.executableExtension}`;
+  const builtEntryPath = join(
+    exampleDirectory,
+    'target',
+    pluginTarget.rustTarget,
+    'release',
+    entryName,
+  );
+  if (!(await isFile(builtEntryPath))) {
+    fail(`cargo built ${bundled.id}, but its entry was not found at ${builtEntryPath}`);
+  }
+  await mkdir(pluginDirectory, { recursive: true });
+  await writeStagedManifest(manifestPath, pluginDirectory, entryName);
+  await cp(builtEntryPath, join(pluginDirectory, entryName));
+  if (pluginTarget.executableExtension === '') {
+    await chmod(join(pluginDirectory, entryName), 0o755);
+  }
+  await copyOptionalContent(exampleDirectory, pluginDirectory);
+}
+
+/**
+ * Stage a first-party plugin from `plugins/`: compile its workspace
+ * backend crate for the release target, stage the built UI beside it
+ * when the manifest declares one, and rewrite the manifest entry to
+ * the platform executable name so the loader resolves the staged file.
+ */
+async function stageFirstPartyPlugin(
+  bundled: Extract<BundledPlugin, { source: 'first-party' }>,
+  pluginDirectory: string,
+  pluginTarget: ReturnType<typeof resolveRustTarget>,
+): Promise<void> {
+  const packageDirectory = join(repositoryRoot, 'plugins', bundled.package);
+  const manifestPath = join(packageDirectory, 'plugin.json');
+  console.log(`Building first-party plugin ${bundled.id} (${pluginTarget.rustTarget})...`);
+  run('node', [
+    cargoWrapper,
+    'build',
+    '--release',
+    '--locked',
+    '--target',
+    pluginTarget.rustTarget,
+    '-p',
+    bundled.crate,
+  ]);
+  // The staged entry keeps its manifest-relative path (for example
+  // `backend/dist/sonicboom-backend`), matching the dev staging
+  // layout byte for byte.
+  const entryName = `${bundled.entry}${pluginTarget.executableExtension}`;
+  const builtEntryPath = join(
+    repositoryRoot,
+    'target',
+    pluginTarget.rustTarget,
+    'release',
+    `${bundled.crate}${pluginTarget.executableExtension}`,
+  );
+  if (!(await isFile(builtEntryPath))) {
+    fail(`cargo built ${bundled.id}, but its binary was not found at ${builtEntryPath}`);
+  }
+  const stagedEntryPath = join(pluginDirectory, entryName);
+  await mkdir(dirname(stagedEntryPath), { recursive: true });
+  await cp(builtEntryPath, stagedEntryPath);
+  if (pluginTarget.executableExtension === '') {
+    await chmod(stagedEntryPath, 0o755);
+  }
+  if (bundled.uiEntry) {
+    await stageFirstPartyUi(bundled, packageDirectory, pluginDirectory);
+  }
+  await writeStagedManifest(manifestPath, pluginDirectory, entryName);
+}
+
+/** Builds (when missing) and stages an isolated plugin UI. */
+async function stageFirstPartyUi(
+  bundled: Extract<BundledPlugin, { source: 'first-party' }>,
+  packageDirectory: string,
+  pluginDirectory: string,
+): Promise<void> {
+  const uiEntry = bundled.uiEntry;
+  if (!uiEntry) return;
+  const distDirectory = join(packageDirectory, 'ui', 'dist');
+  if (!(await isFile(join(distDirectory, 'index.html')))) {
+    const viteConfig = join(packageDirectory, 'ui', 'vite.config.ts');
+    if (!(await isFile(viteConfig))) {
+      fail(`${bundled.id} declares ui entry ${uiEntry}, but ui/dist/index.html is missing with no vite config to build it`);
+    }
+    console.log(`Building plugin UI for ${bundled.id}...`);
+    run('bun', ['x', 'vite', 'build', '--config', viteConfig]);
+  }
+  await cp(distDirectory, join(pluginDirectory, dirname(uiEntry)), { recursive: true });
+}
+
 const tag = requiredEnvironment('RELEASE_TAG');
 if (!/^v[^/]+$/.test(tag)) fail(`RELEASE_TAG must be a Git tag such as v0.1.0, got ${tag}`);
 const version = tag.slice(1);
@@ -198,13 +451,16 @@ await mkdir(bundleDirectory, { recursive: true });
 
 await cp(binaryPath, join(bundleDirectory, platform.binaryName));
 await mkdir(join(bundleDirectory, 'plugins'), { recursive: true });
-// Global Hotkeys is an official feature: build each bundled plugin for the
-// release target and stage manifest + executable. A missing built-in
-// plugin fails packaging loudly instead of shipping a hotkey-less app.
+// Built-in plugins are official features: build each bundled plugin
+// for the release target and stage manifest + executable. A missing
+// built-in plugin fails packaging loudly instead of shipping an
+// app without it.
 const pluginTarget = resolveRustTarget(platform.rustTarget);
 for (const bundled of BUNDLED_PLUGINS) {
-  const exampleDirectory = join(repositoryRoot, 'examples', bundled.example);
-  const manifestPath = join(exampleDirectory, 'plugin.json');
+  const manifestPath =
+    bundled.source === 'first-party'
+      ? join(repositoryRoot, 'plugins', bundled.package, 'plugin.json')
+      : join(repositoryRoot, 'examples', bundled.example, 'plugin.json');
   if (!(await isFile(manifestPath))) {
     fail(`bundled plugin manifest is missing ${manifestPath}`);
   }
@@ -212,44 +468,25 @@ for (const bundled of BUNDLED_PLUGINS) {
   if (manifest.id !== bundled.id) {
     fail(`${manifestPath} declares id ${String(manifest.id)}, expected ${bundled.id}`);
   }
+  const pluginDirectory = join(bundleDirectory, 'plugins', bundled.id);
   if (bundled.runtime === 'napi-vm') {
     await stageNapiVmPlugin(
       bundled,
-      exampleDirectory,
-      join(bundleDirectory, 'plugins', bundled.id),
+      join(repositoryRoot, 'examples', bundled.example),
+      pluginDirectory,
       platformValue,
     );
     continue;
   }
-  run('node', [
-    cargoWrapper,
-    'build',
-    '--release',
-    '--locked',
-    '--target',
-    pluginTarget.rustTarget,
-    '--manifest-path',
-    join(exampleDirectory, 'Cargo.toml'),
-  ]);
-  const builtEntryName = `${bundled.entry}${pluginTarget.executableExtension}`;
-  const builtEntryPath = join(
-    exampleDirectory,
-    'target',
-    pluginTarget.rustTarget,
-    'release',
-    builtEntryName,
-  );
-  if (!(await isFile(builtEntryPath))) {
-    fail(`cargo built ${bundled.id}, but its entry was not found at ${builtEntryPath}`);
+  if (bundled.runtime === 'declarative') {
+    await stageDeclarativePlugin(bundled, pluginDirectory);
+    continue;
   }
-  const pluginDirectory = join(bundleDirectory, 'plugins', bundled.id);
-  await mkdir(pluginDirectory, { recursive: true });
-  await cp(manifestPath, join(pluginDirectory, 'plugin.json'));
-  const stagedEntry = join(pluginDirectory, builtEntryName);
-  await cp(builtEntryPath, stagedEntry);
-  if (pluginTarget.executableExtension === '') {
-    await chmod(stagedEntry, 0o755);
+  if (bundled.source === 'first-party') {
+    await stageFirstPartyPlugin(bundled, pluginDirectory, pluginTarget);
+    continue;
   }
+  await stageProcessExamplePlugin(bundled, pluginDirectory, pluginTarget);
 }
 await cp(webRoot, join(bundleDirectory, 'web'), { recursive: true });
 for (const file of ['LICENSE', 'README.md']) {
