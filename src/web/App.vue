@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { computed, reactive, type ComputedRef } from 'vue';
+import { computed, defineAsyncComponent, reactive, type ComputedRef } from 'vue';
 import { parsePluginNavId } from '../automation/plugins/declarative.ts';
 import type { PluginPageDescriptor, PluginStatus } from '../automation/behavior/types.ts';
 import { i18nText } from './i18n.ts';
-import { AnalyticsView } from './views/analytics-view.vue';
-import { BehaviorView } from './views/behavior-view.vue';
-import { ConnectionsView } from './views/connections-view.vue';
 import { FeedView } from './views/feed-view.vue';
-import { PluginPageView } from './views/plugin-page-view.vue';
-import { PluginsView } from './views/plugins-view.vue';
-import { PointsView } from './views/points-view.vue';
-import { SettingsView } from './views/settings-view.vue';
-import { WidgetsView } from './views/widgets-view.vue';
 import NavigationRail from './components/nav-rail.vue';
 import TopNav from './components/top-nav.vue';
 import PluginProgressNotification from './components/plugin-progress-notification.vue';
 import DialogHost from './components/ui/dialog-host.vue';
 import { useAppController } from './composables/useAppController.ts';
+
+// Tab views load on demand. The initial bundle carries only the
+// feed (the landing tab) plus the app shell, so the window paints
+// as soon as Vue mounts instead of waiting for every editor and
+// chart. The desktop asset server serves the emitted chunks from
+// dist/web like any other file, and `default-src 'self'` in the
+// packaged CSP already covers same-origin chunk scripts.
+const PointsView = defineAsyncComponent(() => import('./views/points-view.vue'));
+const AnalyticsView = defineAsyncComponent(() => import('./views/analytics-view.vue'));
+const BehaviorView = defineAsyncComponent(() => import('./views/behavior-view.vue'));
+const PluginsView = defineAsyncComponent(() => import('./views/plugins-view.vue'));
+const ConnectionsView = defineAsyncComponent(() => import('./views/connections-view.vue'));
+const WidgetsView = defineAsyncComponent(() => import('./views/widgets-view.vue'));
+const SettingsView = defineAsyncComponent(() => import('./views/settings-view.vue'));
+const PluginPageView = defineAsyncComponent(() => import('./views/plugin-page-view.vue'));
 
 const controller = useAppController();
 const app = reactive(controller);

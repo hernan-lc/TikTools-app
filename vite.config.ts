@@ -103,6 +103,18 @@ export default defineConfig({
     outDir: resolve(process.cwd(), 'dist/web'),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        // Pin the Vue runtime to its own chunk so the tab
+        // views split into per-tab files instead of one
+        // monolith; every tab then shares the runtime chunk.
+        manualChunks: (id) => {
+          if (id.includes('node_modules/vue/') || id.includes('node_modules/@vue/')) {
+            return 'vue';
+          }
+        },
+      },
+    },
   },
   server: {
     host: '127.0.0.1',
