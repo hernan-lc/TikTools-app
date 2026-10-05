@@ -379,8 +379,10 @@ export function useRuleProfiles(control: ControlClient) {
   };
 
   const persist = async (next: ProfilePack[], active: string): Promise<void> => {
-    await control.call('app.state.set', { key: PACKS_KEY, value: JSON.stringify(next) });
-    await control.call('app.state.set', { key: ACTIVE_KEY, value: active });
+    await Promise.all([
+      control.call('app.state.set', { key: PACKS_KEY, value: JSON.stringify(next) }),
+      control.call('app.state.set', { key: ACTIVE_KEY, value: active }),
+    ]);
     packs.value = next;
     activeId.value = active;
   };
@@ -408,24 +410,15 @@ export function useRuleProfiles(control: ControlClient) {
     }
   };
 
-  const setEnabled = async (kind: 'event' | 'action', id: string, enabled: boolean, pruned: Set<string>): Promise<void> => {
-    try {
-      await control.call(enabled ? 'automation.enable' : 'automation.disable', { id, kind });
-    } catch (failure) {
-      if (failure instanceof ControlCallError && failure.code === 'automation_not_found') {
-        pruned.add(`${kind}:${id}`);
-        return;
-      }
-      throw failure;
-    }
-  };
-
   /**
-   * Makes one pack live: enables its records, disables every other known
-   * record. The universe (all record ids) comes from the caller snapshot;
-   * the `default` target resolves to every id outside the stored packs.
-   * Ids whose records were hand-deleted prune silently. The active marker
-   * only advances on success.
+   * Makes one pack live in a single host round trip: one
+   * `automation.set_enablement` bulk call enables the pack's
+   * records and disables every other known record. The universe
+   * (all record ids) comes from the caller snapshot; the
+   * `default` target resolves to every id outside the stored
+   * packs. Ids whose records were hand-deleted come back in
+   * `missing` and prune silently. The active marker only
+   * advances on success.
    */
   const switchProfile = async (id: string, universe: ProfileUniverse): Promise<void> => {
     const resolved = resolvedPacks(packs.value, universe.eventIds, universe.actionIds);
@@ -434,25 +427,37 @@ export function useRuleProfiles(control: ControlClient) {
     error.value = null;
     const liveEvents = new Set(target.eventIds);
     const liveActions = new Set(target.actionIds);
+    const updates: Array<{ kind: 'event' | 'action'; id: string; enabled: boolean }> = [];
+    const addUpdate = (kind: 'event' | 'action', recordId: string): void => {
+      updates.push({
+        kind,
+        id: recordId,
+        enabled: kind === 'event' ? liveEvents.has(recordId) : liveActions.has(recordId),
+      });
+    };
+    for (const eventId of universe.eventIds) addUpdate('event', eventId);
+    for (const actionId of universe.actionIds) addUpdate('action', actionId);
+    // Stored ids missing from the snapshot are either stale (gone
+    // → reported as missing and pruned) or fresher than the
+    // snapshot (toggled into place either way).
+    const knownEvents = new Set(universe.eventIds);
+    const knownActions = new Set(universe.actionIds);
+    for (const pack of packs.value) {
+      for (const eventId of pack.eventIds) {
+        if (!knownEvents.has(eventId)) addUpdate('event', eventId);
+      }
+      for (const actionId of pack.actionIds) {
+        if (!knownActions.has(actionId)) addUpdate('action', actionId);
+      }
+    }
     const pruned = new Set<string>();
     try {
-      for (const eventId of universe.eventIds) {
-        await setEnabled('event', eventId, liveEvents.has(eventId), pruned);
-      }
-      for (const actionId of universe.actionIds) {
-        await setEnabled('action', actionId, liveActions.has(actionId), pruned);
-      }
-      // Stored ids missing from the snapshot are either stale (404 → prune)
-      // or fresher than the snapshot (toggled into place either way).
-      const knownEvents = new Set(universe.eventIds);
-      const knownActions = new Set(universe.actionIds);
-      for (const pack of packs.value) {
-        for (const eventId of pack.eventIds) {
-          if (!knownEvents.has(eventId)) await setEnabled('event', eventId, liveEvents.has(eventId), pruned);
-        }
-        for (const actionId of pack.actionIds) {
-          if (!knownActions.has(actionId)) await setEnabled('action', actionId, liveActions.has(actionId), pruned);
-        }
+      const result = await control.call<{
+        updated: number;
+        missing: Array<{ kind: string; id: string }>;
+      }>('automation.set_enablement', { updates });
+      for (const entry of result.missing ?? []) {
+        pruned.add(`${entry.kind}:${entry.id}`);
       }
     } catch (failure) {
       error.value = errorMessage(failure);

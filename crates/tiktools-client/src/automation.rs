@@ -6,7 +6,8 @@ use tiktools_control_api::modules::automation::{
     AutomationContextParams, AutomationContextResult, AutomationCreateParams,
     AutomationDeleteResult, AutomationFireParams, AutomationGetParams, AutomationListParams,
     AutomationListResult, AutomationNodesResult, AutomationRunsResult, AutomationScriptParams,
-    AutomationTestParams, AutomationUpdateParams, ScriptAnalysisResult,
+    AutomationSetEnablementParams, AutomationSetEnablementResult, AutomationTestParams,
+    AutomationUpdateParams, ScriptAnalysisResult,
 };
 use tiktools_control_api::modules::Empty;
 use tiktools_control_api::ClientError;
@@ -22,6 +23,7 @@ pub(crate) const METHODS: &[&str] = &[
     AUTOMATION_DELETE,
     AUTOMATION_ENABLE,
     AUTOMATION_DISABLE,
+    AUTOMATION_SET_ENABLEMENT,
     AUTOMATION_CONTEXT,
     AUTOMATION_TEST,
     AUTOMATION_FIRE,
@@ -38,6 +40,7 @@ const AUTOMATION_UPDATE: &str = "automation.update";
 const AUTOMATION_DELETE: &str = "automation.delete";
 const AUTOMATION_ENABLE: &str = "automation.enable";
 const AUTOMATION_DISABLE: &str = "automation.disable";
+const AUTOMATION_SET_ENABLEMENT: &str = "automation.set_enablement";
 const AUTOMATION_CONTEXT: &str = "automation.context";
 const AUTOMATION_TEST: &str = "automation.test";
 const AUTOMATION_FIRE: &str = "automation.fire";
@@ -99,6 +102,14 @@ impl TikToolsClient {
         params: AutomationGetParams,
     ) -> Result<Value, ClientError> {
         self.call(AUTOMATION_DISABLE, params).await
+    }
+    /// Applies many behavior enable/disable updates in one pass.
+    /// RPC method `automation.set_enablement`.
+    pub async fn automation_set_enablement(
+        &self,
+        params: AutomationSetEnablementParams,
+    ) -> Result<AutomationSetEnablementResult, ClientError> {
+        self.call(AUTOMATION_SET_ENABLEMENT, params).await
     }
     /// Last automation event observed, for context panels and previews.
     /// RPC method `automation.context`.

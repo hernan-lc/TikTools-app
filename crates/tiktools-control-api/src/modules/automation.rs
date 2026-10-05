@@ -3,7 +3,9 @@ use std::{str::FromStr, sync::Arc};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-pub use tiktools_core::control::ScriptAnalysisResult;
+pub use tiktools_core::control::{
+    AutomationEnablementMiss, AutomationSetEnablementResult, ScriptAnalysisResult,
+};
 use tiktools_core::{control::AutomationKind, AppCore};
 
 use crate::{error::ApiError, modules::Empty, router::ControlRouter};
@@ -53,6 +55,25 @@ pub struct AutomationUpdateParams {
 pub struct AutomationDeleteResult {
     pub id: String,
     pub deleted: bool,
+}
+
+/// One record in a bulk enablement pass.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationEnablementUpdate {
+    /// `event` or `action`.
+    pub kind: String,
+    /// Record id.
+    pub id: String,
+    /// Desired enabled state.
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationSetEnablementParams {
+    /// Batch of enable/disable updates (at most 512).
+    pub updates: Vec<AutomationEnablementUpdate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -225,6 +246,28 @@ pub fn register(router: &mut ControlRouter) {
             let kind = parse_kind(params.kind.as_deref(), AutomationKind::Event)?;
             core.automation_set_enabled(kind, &params.id, false)
                 .map_err(|error| ApiError::from(error).scoped_not_found("automation_not_found"))
+        },
+    );
+    router.register_typed::<AutomationSetEnablementParams, AutomationSetEnablementResult, _, _>(
+        "automation.set_enablement",
+        "Applies many behavior enable/disable updates in one pass (missing ids are reported, not an error)",
+        true,
+        |core: Arc<AppCore>, params: AutomationSetEnablementParams| async move {
+            if params.updates.len() > 512 {
+                return Err(ApiError::invalid_params(
+                    "at most 512 enablement updates per request",
+                ));
+            }
+            let updates = params
+                .updates
+                .iter()
+                .map(|update| {
+                    let kind = AutomationKind::from_str(&update.kind).map_err(ApiError::from)?;
+                    Ok((kind, update.id.clone(), update.enabled))
+                })
+                .collect::<Result<Vec<_>, ApiError>>()?;
+            core.automation_set_enablement_bulk(&updates)
+                .map_err(ApiError::from)
         },
     );
     router.register_typed::<AutomationContextParams, AutomationContextResult, _, _>(

@@ -72,14 +72,41 @@ impl DatabaseManager {
         id: &str,
         enabled: bool,
     ) -> Result<Value, DatabaseError> {
-        let value = self
-            .load_behavior_rows(table)?
-            .into_iter()
-            .find(|value| value.get("id").and_then(Value::as_str) == Some(id))
-            .ok_or_else(|| DatabaseError::Invalid(format!("unknown behavior: {id}")))?;
-        let mut value = value;
-        value["enabled"] = Value::Bool(enabled);
-        self.save_behavior(table, &value)
+        let connection = self.open(&self.automation_path())?;
+        let changed = connection.execute(
+            &format!("UPDATE {table} SET enabled = ?, updated_at = ? WHERE id = ?"),
+            params![bool_int(enabled), now(), id],
+        )?;
+        if changed == 0 {
+            return Err(DatabaseError::Invalid(format!("unknown behavior: {id}")));
+        }
+        self.load_behavior_row(&connection, table, id)
+    }
+    /// Flips `enabled` for many records in one transaction.
+    /// Missing ids are skipped and reported back so callers can
+    /// prune them; any other error rolls the whole batch back.
+    pub(crate) fn set_behavior_enabled_many(
+        &self,
+        table: &str,
+        updates: &[(String, bool)],
+    ) -> Result<Vec<String>, DatabaseError> {
+        if updates.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut connection = self.open(&self.automation_path())?;
+        let transaction = connection.transaction()?;
+        let mut missing = Vec::new();
+        for (id, enabled) in updates {
+            let changed = transaction.execute(
+                &format!("UPDATE {table} SET enabled = ?, updated_at = ? WHERE id = ?"),
+                params![bool_int(*enabled), now(), id],
+            )?;
+            if changed == 0 {
+                missing.push(id.clone());
+            }
+        }
+        transaction.commit()?;
+        Ok(missing)
     }
     pub(crate) fn set_plugin_state(
         &self,
@@ -101,6 +128,36 @@ impl DatabaseManager {
         let connection = self.open(&self.automation_path())?;
         connection.execute("DELETE FROM behavior_plugins WHERE id = ?", [id])?;
         Ok(())
+    }
+    fn load_behavior_row(
+        &self,
+        connection: &Connection,
+        table: &str,
+        id: &str,
+    ) -> Result<Value, DatabaseError> {
+        connection
+            .query_row(
+                &format!("SELECT id, name, enabled, payload_json FROM {table} WHERE id = ?"),
+                [id],
+                |row| {
+                    let id: String = row.get(0)?;
+                    let name: String = row.get(1)?;
+                    let enabled: bool = row.get::<_, i64>(2)? != 0;
+                    let payload: String = row.get(3)?;
+                    Ok((id, name, enabled, payload))
+                },
+            )
+            .map(|(id, name, enabled, payload)| {
+                let mut object = serde_json::from_str::<Value>(&payload)
+                    .ok()
+                    .and_then(|value| value.as_object().cloned())
+                    .unwrap_or_default();
+                object.insert("id".to_owned(), Value::String(id));
+                object.insert("name".to_owned(), Value::String(name));
+                object.insert("enabled".to_owned(), Value::Bool(enabled));
+                Value::Object(object)
+            })
+            .map_err(|_| DatabaseError::Invalid(format!("unknown behavior: {id}")))
     }
     fn load_behavior_rows(&self, table: &str) -> Result<Vec<Value>, DatabaseError> {
         let connection = self.open(&self.automation_path())?;

@@ -146,10 +146,24 @@ export function useAutomation(control: ControlClient) {
     if (message.type !== 'automation-error') return;
     behaviorError.value = message.message;
   });
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Trailing debounce on `workflow.changed`: multi-record
+   * operations (profile switch, bulk enablement) fan the
+   * topic out once per record, and every refresh pair costs
+   * two RPCs. Bursts collapse into one refresh.
+   */
+  const scheduleRefresh = (): void => {
+    if (refreshTimer !== null) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      void refresh().catch((failure: unknown) => {
+        console.warn(`automation refresh failed: ${errorMessage(failure)}`);
+      });
+    }, 200);
+  };
   control.onTopic('workflow.changed', () => {
-    void refresh().catch((failure: unknown) => {
-      console.warn(`automation refresh failed: ${errorMessage(failure)}`);
-    });
+    scheduleRefresh();
   });
 
   const refresh = async (): Promise<void> => {

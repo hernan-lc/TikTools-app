@@ -179,7 +179,7 @@ test('switch enables the target, disables everything else, prunes deleted rules'
     ]),
     'behavior.profiles.active': 'a',
   };
-  const toggled: Array<{ method: string; id: string }> = [];
+  const toggled: Array<{ kind: string; id: string; enabled: boolean }> = [];
   const { client } = fakeControl(async (method, params) => {
     if (method === 'app.state.get') return { state: store };
     if (method === 'app.state.set') {
@@ -187,11 +187,15 @@ test('switch enables the target, disables everything else, prunes deleted rules'
       store[key] = value;
       return { ok: true };
     }
-    if (method === 'automation.enable' || method === 'automation.disable') {
-      const { id } = params as { id: string };
-      if (id === 'gone') throw new ControlCallError('automation_not_found', 'gone');
-      toggled.push({ method, id });
-      return { ok: true };
+    if (method === 'automation.set_enablement') {
+      const { updates } = params as {
+        updates: Array<{ kind: string; id: string; enabled: boolean }>;
+      };
+      toggled.push(...updates);
+      const missing = updates
+        .filter((update) => update.id === 'gone')
+        .map((update) => ({ kind: update.kind, id: update.id }));
+      return { updated: updates.length - missing.length, missing };
     }
     throw new Error(`unexpected ${method}`);
   });
@@ -200,10 +204,11 @@ test('switch enables the target, disables everything else, prunes deleted rules'
   expect(state.activeId.value).toBe('a');
   await state.switchProfile('b', { eventIds: ['ea', 'eb', 'loose'], actionIds: ['aa'] });
   expect(toggled).toEqual([
-    { method: 'automation.disable', id: 'ea' },
-    { method: 'automation.enable', id: 'eb' },
-    { method: 'automation.disable', id: 'loose' },
-    { method: 'automation.disable', id: 'aa' },
+    { kind: 'event', id: 'ea', enabled: false },
+    { kind: 'event', id: 'eb', enabled: true },
+    { kind: 'event', id: 'loose', enabled: false },
+    { kind: 'action', id: 'aa', enabled: false },
+    { kind: 'action', id: 'gone', enabled: false },
   ]);
   expect(state.activeId.value).toBe('b');
   expect(state.packs.value.find((pack) => pack.id === 'a')?.actionIds).toEqual(['aa']);
@@ -213,10 +218,10 @@ test('switch enables the target, disables everything else, prunes deleted rules'
   toggled.length = 0;
   await state.switchProfile(DEFAULT_PROFILE_ID, { eventIds: ['ea', 'eb', 'loose'], actionIds: ['aa'] });
   expect(toggled).toEqual([
-    { method: 'automation.disable', id: 'ea' },
-    { method: 'automation.disable', id: 'eb' },
-    { method: 'automation.enable', id: 'loose' },
-    { method: 'automation.disable', id: 'aa' },
+    { kind: 'event', id: 'ea', enabled: false },
+    { kind: 'event', id: 'eb', enabled: false },
+    { kind: 'event', id: 'loose', enabled: true },
+    { kind: 'action', id: 'aa', enabled: false },
   ]);
   expect(state.activeId.value).toBe(DEFAULT_PROFILE_ID);
 });

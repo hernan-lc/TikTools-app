@@ -9,7 +9,8 @@ use tiktools_control_api::modules::analytics::AnalyticsSummaryParams;
 use tiktools_control_api::modules::app::{AppStateGetParams, AppStateSetParams};
 use tiktools_control_api::modules::automation::{
     AutomationCreateParams, AutomationFireParams, AutomationGetParams, AutomationListParams,
-    AutomationScriptParams, AutomationTestParams, AutomationUpdateParams,
+    AutomationScriptParams, AutomationSetEnablementParams, AutomationTestParams,
+    AutomationUpdateParams,
 };
 use tiktools_control_api::modules::creators::{CreatorGetParams, CreatorsRecentParams};
 use tiktools_control_api::modules::gifts::GiftDebugParams;
@@ -67,6 +68,9 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
             .map(|_| ())
             .map_err(invalid),
         "automation.disable" => AutomationGetParams::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "automation.set_enablement" => AutomationSetEnablementParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),
         "automation.context" => Empty::deserialize(params).map(|_| ()).map_err(invalid),

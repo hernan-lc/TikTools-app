@@ -55,6 +55,26 @@ pub struct ScriptAnalysisResult {
     pub hover: Option<Value>,
 }
 
+/// One record that no longer exists, reported by the bulk
+/// enablement pass so callers can prune it from their packs.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationEnablementMiss {
+    /// `event` or `action`.
+    pub kind: String,
+    /// Record id that no longer exists.
+    pub id: String,
+}
+
+/// Outcome of one bulk enablement pass: applied count plus
+/// the records that were already gone.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationSetEnablementResult {
+    pub updated: usize,
+    pub missing: Vec<AutomationEnablementMiss>,
+}
+
 impl AppCore {
     /// Loads the merged behavior snapshot (persisted records plus the live
     /// runtime catalog) and refreshes the in-memory automation projection.
@@ -211,6 +231,78 @@ impl AppCore {
             change: if enabled { "enabled" } else { "disabled" }.to_owned(),
         });
         Ok(saved)
+    }
+
+    /// Flips `enabled` for many records in one pass: both
+    /// tables update inside transactions, the snapshot is
+    /// rebuilt once, and one `WorkflowChanged` event goes
+    /// out. Ids whose records are already gone are skipped
+    /// and reported as `missing` so callers can prune them.
+    pub fn automation_set_enablement_bulk(
+        &self,
+        updates: &[(AutomationKind, String, bool)],
+    ) -> Result<AutomationSetEnablementResult, OperationError> {
+        if updates.is_empty() {
+            return Ok(AutomationSetEnablementResult {
+                updated: 0,
+                missing: Vec::new(),
+            });
+        }
+        let mut events: Vec<(String, bool)> = Vec::new();
+        let mut actions: Vec<(String, bool)> = Vec::new();
+        for (kind, id, enabled) in updates {
+            let id = clean_record_id(id, kind.label())?;
+            match kind {
+                AutomationKind::Event => events.push((id, *enabled)),
+                AutomationKind::Action => actions.push((id, *enabled)),
+            }
+        }
+        let mut missing = Vec::new();
+        #[cfg(feature = "persistence")]
+        {
+            let internal =
+                |error: crate::db::DatabaseError| OperationError::internal(error.to_string());
+            if !events.is_empty() {
+                let missed = self
+                    .db
+                    .set_behavior_enabled_many(AutomationKind::Event.table(), &events)
+                    .map_err(internal)?;
+                for id in missed {
+                    missing.push(AutomationEnablementMiss {
+                        kind: AutomationKind::Event.label().to_owned(),
+                        id,
+                    });
+                }
+            }
+            if !actions.is_empty() {
+                let missed = self
+                    .db
+                    .set_behavior_enabled_many(AutomationKind::Action.table(), &actions)
+                    .map_err(internal)?;
+                for id in missed {
+                    missing.push(AutomationEnablementMiss {
+                        kind: AutomationKind::Action.label().to_owned(),
+                        id,
+                    });
+                }
+            }
+            self.refresh_automation_snapshot();
+        }
+        #[cfg(not(feature = "persistence"))]
+        {
+            for (kind, id, enabled) in updates {
+                self.automation_set_enabled(*kind, id, *enabled)?;
+            }
+        }
+        self.events.publish_domain(DomainEvent::WorkflowChanged {
+            kind: "behavior".to_owned(),
+            id: String::new(),
+            change: "enablement".to_owned(),
+        });
+        Ok(AutomationSetEnablementResult {
+            updated: updates.len() - missing.len(),
+            missing,
+        })
     }
 
     fn save_automation_record(

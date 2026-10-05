@@ -59,7 +59,7 @@ rodio = { version = "0.21.1", features = ["tracing"] }
 # Native-addon integration uses `allow_addon` / `allow_addon_alias` plus
 # `node:module` createRequire from napi-vm main. Pinned by rev like the
 # ttl-* deps: a relative path cannot resolve in CI checkouts.
-napi-vm = { git = "https://github.com/nglmercer/napi-vm", rev = "0fa987d8860d620cd1008a84f2a17c9b67c495cd", default-features = false }
+napi-vm = { git = "https://github.com/nglmercer/napi-vm", rev = "881cc8f1cec262049b6d31fa499b0d601ba673c5", default-features = false }
 
 # The checked-in JavaScript/Bun package was only a compatibility implementation. The desktop
 # host consumes the Rust crates directly from the upstream workspace at a pinned revision.

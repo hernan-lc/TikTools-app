@@ -23,7 +23,9 @@ mod workflows;
 
 pub use crate::input_access::InputAccessResult;
 pub use analytics::GiftDebugResult;
-pub use automation::{AutomationKind, ScriptAnalysisResult};
+pub use automation::{
+    AutomationEnablementMiss, AutomationKind, AutomationSetEnablementResult, ScriptAnalysisResult,
+};
 #[cfg(any(test, feature = "native-tiktok"))]
 pub(crate) use helpers::check_session_cookie_len;
 pub(crate) use helpers::{clean_plugin_id, clean_record_id, fresh_record_id};
