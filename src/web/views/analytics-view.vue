@@ -17,6 +17,7 @@ import {
   tzOffsetSecsForDay,
   type AnalyticsRangeKey,
 } from '../components/analytics/analytics-range.ts';
+import { debounce, loadViewState, saveViewState } from '../features/view-state.ts';
 import { Badge, Card, Chip, ChipGroup, EmptyState } from '../components/ui/Card.vue';
 import { Page, PageHeader } from '../components/ui/Page.vue';
 import { SearchInput } from '../components/ui/TextInput.vue';
@@ -36,13 +37,18 @@ type AnalyticsTab = 'overview' | 'engagement' | 'contributors' | 'sessions';
 export const AnalyticsView = defineVueComponent<AnalyticsViewProps>(
   ['locale', 'creator', 'summary', 'onRequestRange'],
   (props) => {
-  const range = ref<AnalyticsRangeKey>('7d');
-  const metric = ref<AnalyticsMetric>('chats');
-  const tab = ref<AnalyticsTab>('overview');
-  const contributorQuery = ref('');
+  const savedAnalytics = loadViewState().analytics;
+  const range = ref<AnalyticsRangeKey>(savedAnalytics?.range ?? '7d');
+  const metric = ref<AnalyticsMetric>(savedAnalytics?.metric ?? 'chats');
+  const tab = ref<AnalyticsTab>(savedAnalytics?.tab ?? 'overview');
+  const contributorQuery = ref(savedAnalytics?.contributorQuery ?? '');
   // Date inputs work on system-local calendar labels.
-  const customStart = ref(dayToIsoDate(systemDay(Date.now()) - 6));
-  const customEnd = ref(dayToIsoDate(systemDay(Date.now())));
+  const customStart = ref(
+    savedAnalytics?.customStart ?? dayToIsoDate(systemDay(Date.now()) - 6),
+  );
+  const customEnd = ref(
+    savedAnalytics?.customEnd ?? dayToIsoDate(systemDay(Date.now())),
+  );
 
   const request = (): void => {
     // Today follows the system clock, and the zone offset travels with the
@@ -55,6 +61,20 @@ export const AnalyticsView = defineVueComponent<AnalyticsViewProps>(
     props.onRequestRange(span.startDay, span.endDay, tzOffsetSecsForDay(span.endDay));
   };
   watch([range, customStart, customEnd, () => props.creator], request, { immediate: true });
+
+  // Window-state recovery: range, metric, tab, and searches
+  // survive reloads.
+  const saveAnalyticsState = debounce(() => {
+    saveViewState('analytics', {
+      range: range.value,
+      metric: metric.value,
+      tab: tab.value,
+      contributorQuery: contributorQuery.value,
+      customStart: customStart.value,
+      customEnd: customEnd.value,
+    });
+  });
+  watch([range, metric, tab, contributorQuery, customStart, customEnd], saveAnalyticsState);
 
   const filteredContributors = computed(() => {
     const q = contributorQuery.value.trim().toLowerCase();

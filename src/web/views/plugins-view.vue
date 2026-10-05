@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { defineVueComponent } from '../vue/component.ts';
 
 import type { ActionTypeDefinition, LiveAction, PluginStatus } from '../../automation/behavior/types.ts';
@@ -10,6 +10,7 @@ import type { PluginConnectionState } from '../../automation/plugins/declarative
 import { Icon } from '../components/icons/index.ts';
 import { matchesPluginQuery } from '../components/plugin-cards.ts';
 import { PluginConnectionModal } from '../components/plugin-connection-modal.vue';
+import { debounce, loadViewState, saveViewState } from '../features/view-state.ts';
 import { i18nText, type Locale } from '../i18n.ts';
 import { pluginCopy } from './plugins/plugin-copy.ts';
 import { PluginCard } from './plugins/PluginCard.vue';
@@ -55,9 +56,17 @@ type PluginsViewProps = {
 export const PluginsView = defineVueComponent<PluginsViewProps>(
   ['locale', 'plugins', 'actions', 'actionTypes', 'error', 'onSetInstalled', 'onUninstall', 'onSetEnabled', 'settings', 'onGetSettings', 'onSaveSettings', 'actionOptions', 'onGetActionOptions', 'connections', 'onTestConnection', 'onOpenMediaPicker', 'onInstallPlugin', 'pluginInstallState', 'onConfirmReplace', 'onCancelReplace', 'processors', 'processorTest', 'onGetProcessorStatus', 'onTestProcessor'],
   (props) => {
-  const tab = ref<'installed' | 'store' | 'processors'>('installed');
+  const savedPlugins = loadViewState().plugins;
+  const tab = ref<'installed' | 'store' | 'processors'>(savedPlugins?.tab ?? 'installed');
   const connectTarget = ref<string | null>(null);
-  const query = ref('');
+  const query = ref(savedPlugins?.query ?? '');
+
+  // Window-state recovery: the plugin tab and search
+  // survive reloads.
+  const savePluginsState = debounce(() => {
+    saveViewState('plugins', { tab: tab.value, query: query.value });
+  });
+  watch([tab, query], savePluginsState);
 
   return () => {
   const copy = pluginCopy(props.locale);

@@ -13,6 +13,7 @@ import WidgetHost from '../../widgets/sdk/WidgetHost.vue';
 import WidgetStyleEditor from '../components/WidgetStyleEditor.vue';
 import type { WidgetStyle } from '../../widgets/sdk/template.ts';
 import { widgetTemplates } from '../../widgets/sdk/templates.ts';
+import { loadViewState, saveViewState } from '../features/view-state.ts';
 import { Page, PageHeader } from '../components/ui/Page.vue';
 import { TextInput } from '../components/ui/TextInput.vue';
 import {
@@ -192,14 +193,21 @@ function renderWidgetPanel(args: {
 export const WidgetsView = defineVueComponent<WidgetsViewProps>(
   ['locale', 'status', 'statusError', 'refreshing', 'onRefresh', 'onCopy', 'designs', 'designsLoading', 'designsError', 'onLoadDesigns', 'onSaveDesign'],
   (props) => {
+    const savedWidgets = loadViewState().widgets;
     const previewNonce = ref(0);
     const editing = ref(false);
-    const selectedKind = ref<WidgetKind>('follow');
+    const selectedKind = ref<WidgetKind>(savedWidgets?.selectedKind ?? 'follow');
     const copiedWidget = ref<WidgetKind | null>(null);
     const copyError = ref<{ widget: WidgetKind; message: string } | null>(null);
     const startingAttempts = ref(0);
     let copiedTimer: ReturnType<typeof setTimeout> | undefined;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    // Window-state recovery: the selected widget kind
+    // survives reloads.
+    watch(selectedKind, (value) => {
+      saveViewState('widgets', { selectedKind: value });
+    });
 
     const port = computed(() => props.status?.port ?? GATEWAY_DEFAULT_PORT);
     const state = computed<WidgetsHostState | null>(() => props.status?.state ?? null);

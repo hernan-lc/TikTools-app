@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { defineVueComponent } from '../vue/component.ts';
 import { Icon } from '../components/icons/index.ts';
 import { ActionEditor } from './behavior/action-editor.vue';
@@ -11,6 +11,7 @@ import { RuleTemplateModal } from './behavior/RuleTemplateModal.vue';
 import type { AppliedRuleTemplate, RuleTemplate } from './behavior/rule-templates.ts';
 import type { ProfilePack, RuleProfile } from '../features/rule-profiles.ts';
 import { resolvedPacks } from '../features/rule-profiles.ts';
+import { debounce, loadViewState, saveViewState } from '../features/view-state.ts';
 import { ActionsTable } from './behavior/ActionsTable.vue';
 import { EventsTable } from './behavior/EventsTable.vue';
 import { HotkeyFloatBadge } from './behavior/HotkeyFloatBadge.vue';
@@ -138,13 +139,37 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
   // user's filters on every edit round-trip (the "similar approach to
   // query params" for a webview with no router — the parent outlives
   // the screen swap and restores the list exactly as it was left).
-  const actionQuery = ref('');
-  const actionSort = ref<SortMode>('name');
-  const eventQuery = ref('');
-  const eventSort = ref<SortMode>('name');
+  const savedBehavior = loadViewState().behavior;
+  const actionQuery = ref(savedBehavior?.actionQuery ?? '');
+  const actionSort = ref<SortMode>(savedBehavior?.actionSort ?? 'name');
+  const eventQuery = ref(savedBehavior?.eventQuery ?? '');
+  const eventSort = ref<SortMode>(savedBehavior?.eventSort ?? 'name');
   const scrollRef = ref<HTMLElement | null>(null);
   const savedScrollTop = ref(0);
   const returnFocusId = ref<string | null>(null);
+
+  // Window-state recovery: table queries/sorts and the
+  // list scroll position survive reloads.
+  const saveBehaviorState = (): void => {
+    saveViewState('behavior', {
+      actionQuery: actionQuery.value,
+      actionSort: actionSort.value,
+      eventQuery: eventQuery.value,
+      eventSort: eventSort.value,
+      scrollTop: scrollRef.value?.scrollTop ?? 0,
+    });
+  };
+  const saveBehaviorStateDebounced = debounce(saveBehaviorState);
+  watch([actionQuery, actionSort, eventQuery, eventSort], saveBehaviorStateDebounced);
+  const handleListScroll = debounce(saveBehaviorState);
+
+  onMounted(() => {
+    const top = savedBehavior?.scrollTop;
+    if (top === undefined || top <= 0) return;
+    void nextTick(() => {
+      if (scrollRef.value) scrollRef.value.scrollTop = top;
+    });
+  });
 
   /** Snapshots the list scroll position before an editor screen replaces it. */
   const captureListState = (): void => {
@@ -334,7 +359,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
       />
 
       <div class="plg-body">
-        <div class="plg-scroll" ref={scrollRef}>
+        <div class="plg-scroll" ref={scrollRef} onScroll={handleListScroll}>
           <div class="plg-section">
             <div class="plg-section__head">
               <div class="plg-section__title">

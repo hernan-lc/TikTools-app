@@ -1,9 +1,10 @@
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
 import type { GiftCatalogEntry, UiEvent } from '../../shared/messages.ts';
 import type { ControlClient } from '../platform/control-client.ts';
 import { errorMessage } from '../platform/control-client.ts';
 import type { DisplayEvent, EventFilter, TopViewerPayload } from '../types.ts';
+import { debounce, loadViewState, saveViewState } from './view-state.ts';
 
 export interface LiveCallbacks {
   /** Optional chat observer (auto-speech left the main frontend). */
@@ -71,16 +72,22 @@ function isDuplicateEvent(event: UiEvent, now: number): boolean {
 }
 
 export function useLive(control: ControlClient, callbacks: LiveCallbacks) {
+  // Feed options survive reloads through the window-state
+  // blob; the scroll position restores once the stream has
+  // content tall enough to hold it.
+  const savedFeed = loadViewState().feed;
   const events = ref<DisplayEvent[]>([]);
-  const filter = ref<EventFilter>('all');
-  const searchQuery = ref('');
+  const filter = ref<EventFilter>(savedFeed?.filter ?? 'all');
+  const searchQuery = ref(savedFeed?.searchQuery ?? '');
   const topViewers = ref<TopViewerPayload[]>([]);
   const liveViewers = ref(0);
   const giftCatalog = ref<GiftCatalogEntry[]>([]);
-  const autoScroll = ref(true);
+  const autoScroll = ref(savedFeed?.autoScroll ?? true);
   const unreadCount = ref(0);
   const nextEventId = ref(0);
   const streamContainerRef = ref<HTMLDivElement | null>(null);
+  let restoreScrollTop = savedFeed?.scrollTop;
+  let scrollSaveHandler: (() => void) | null = null;
 
   const resetEvents = (): void => {
     nextEventId.value = 0;
@@ -160,8 +167,42 @@ export function useLive(control: ControlClient, callbacks: LiveCallbacks) {
   const setSearchQuery = (value: string): void => {
     searchQuery.value = value;
   };
+  /** Persists the feed options plus the current scroll offset. */
+  const saveFeedState = (): void => {
+    saveViewState('feed', {
+      filter: filter.value,
+      searchQuery: searchQuery.value,
+      autoScroll: autoScroll.value,
+      scrollTop: streamContainerRef.value?.scrollTop ?? 0,
+    });
+  };
+  const saveFeedStateDebounced = debounce(saveFeedState);
+  watch([filter, searchQuery, autoScroll], saveFeedStateDebounced);
+  /** Applies the restored scroll offset once content is tall enough. */
+  const applySavedScrollTop = (): void => {
+    const container = streamContainerRef.value;
+    const top = restoreScrollTop;
+    if (!container || top === undefined || top <= 0 || autoScroll.value) return;
+    if (container.scrollHeight < top) return;
+    container.scrollTop = top;
+    restoreScrollTop = undefined;
+  };
+  watch(events, applySavedScrollTop);
   const setStreamContainerRef = (element: Element | null): void => {
+    const previous = streamContainerRef.value;
+    if (previous && scrollSaveHandler) {
+      previous.removeEventListener('scroll', scrollSaveHandler);
+      scrollSaveHandler = null;
+    }
     streamContainerRef.value = element instanceof HTMLDivElement ? element : null;
+    const container = streamContainerRef.value;
+    if (!container) return;
+    // Restore the position the user left when auto-scroll is
+    // off; with auto-scroll on, the controller's watcher keeps
+    // the stream pinned to the bottom instead.
+    requestAnimationFrame(applySavedScrollTop);
+    scrollSaveHandler = debounce(saveFeedState);
+    container.addEventListener('scroll', scrollSaveHandler);
   };
 
   return {

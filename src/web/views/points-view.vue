@@ -16,6 +16,7 @@ import { t, type Locale } from '../i18n.ts';
 import type { ConnectionStatus, PointsConfig, ViewerRecord } from '../types.ts';
 import { UserAvatar } from '../components/user-avatar.vue';
 import { useDialogs } from '../composables/useDialogs.ts';
+import { debounce, loadViewState, saveViewState } from '../features/view-state.ts';
 
 type PointsViewProps = {
   locale: Locale;
@@ -30,16 +31,17 @@ type PointsViewProps = {
 export const PointsView = defineVueComponent<PointsViewProps>(
   ['locale', 'config', 'leaderboard', 'status', 'onUpdateConfig', 'onResetPoints', 'onAdjustPoints'],
   (props) => {
+  const savedPoints = loadViewState().points;
   const localConfig = ref<PointsConfig>(props.config);
-  const searchQuery = ref('');
+  const searchQuery = ref(savedPoints?.searchQuery ?? '');
   const saveSuccess = ref(false);
   const adjustTarget = ref<string | null>(null);
   const adjustDelta = ref('50');
   const deductMode = ref(false);
   const page = ref(1);
   const pageSize = ref(10);
-  const sortBy = ref<string>('points');
-  const sortDir = ref<'asc' | 'desc'>('desc');
+  const sortBy = ref<string>(savedPoints?.sortBy ?? 'points');
+  const sortDir = ref<'asc' | 'desc'>(savedPoints?.sortDir ?? 'desc');
   const leaderboardWrapRef = ref<HTMLDivElement | null>(null);
   const dialogs = useDialogs();
 
@@ -76,6 +78,16 @@ export const PointsView = defineVueComponent<PointsViewProps>(
   });
   // reset page when search changes
   watch([searchQuery, pageSize], () => { page.value = 1; });
+
+  // Window-state recovery: search and sort survive reloads.
+  const savePointsState = debounce(() => {
+    saveViewState('points', {
+      searchQuery: searchQuery.value,
+      sortBy: sortBy.value as 'points' | 'level' | 'viewer',
+      sortDir: sortDir.value,
+    });
+  });
+  watch([searchQuery, sortBy, sortDir], savePointsState);
 
   const handleSave = (e: SubmitEvent) => {
     e.preventDefault();

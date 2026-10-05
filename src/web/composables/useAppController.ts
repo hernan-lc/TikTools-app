@@ -20,6 +20,7 @@ import {
   type RuleProfile,
 } from '../features/rule-profiles.ts';
 import { useGlobals } from '../features/globals.ts';
+import { loadViewState, saveViewState } from '../features/view-state.ts';
 import { createControlClient, errorMessage } from '../platform/control-client.ts';
 import type { AppliedRuleTemplate } from '../views/behavior/rule-templates.ts';
 import {
@@ -55,7 +56,9 @@ const initialTheme = getInitialTheme();
  */
 export function useAppController() {
   const control = createControlClient();
-  const activeTab = ref<AppTab>('feed');
+  // Restored from the window-state blob; a stored plugin
+  // page tab self-heals via the behavior watcher below.
+  const activeTab = ref<AppTab>((loadViewState().tab as AppTab) ?? 'feed');
   const locale = ref<Locale>(initialLocale);
   const theme = ref<Theme>(initialTheme);
 
@@ -135,6 +138,12 @@ export function useAppController() {
   watch(theme, (value) => {
     applyTheme(value);
     saveTheme(value);
+  });
+
+  // Window-state recovery: remember the active tab across
+  // reloads so the user lands back where they left off.
+  watch(activeTab, (value) => {
+    saveViewState('tab', value);
   });
 
   watch([live.events, live.autoScroll, activeTab], () => {

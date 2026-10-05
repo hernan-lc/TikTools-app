@@ -1,5 +1,5 @@
 <script lang="tsx">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { defineVueComponent } from '../vue/component.ts';
 
 import type { PluginPageDescriptor, PluginStatus } from '../../automation/behavior/types.ts';
@@ -22,6 +22,7 @@ import type {
   OpenMediaPicker,
   PluginSettingValues,
 } from '../../shared/messages.ts';
+import { debounce, loadViewState, saveViewState } from '../features/view-state.ts';
 
 type ConnectionsViewProps = {
   locale: Locale;
@@ -68,12 +69,23 @@ type ConnectionsViewProps = {
 export const ConnectionsView = defineVueComponent<ConnectionsViewProps>(
   ['locale', 'uniqueId', 'cookie', 'status', 'recents', 'error', 'plugins', 'pluginPages', 'connections', 'pluginSettings', 'actionOptions', 'provisionStates', 'onUniqueIdChange', 'onCookieChange', 'onConnect', 'onDisconnect', 'onReconnect', 'onPickLive', 'onSelectRecent', 'onTestConnection', 'onGetSettings', 'onSaveSettings', 'onGetActionOptions', 'onOpenMediaPicker', 'onProvisionToken', 'onOpenPlugins'],
   (props) => {
-  const showCookie = ref(Boolean(props.cookie));
+  const savedConnections = loadViewState().connections;
+  const showCookie = ref(savedConnections?.showCookie ?? Boolean(props.cookie));
   // Manual per-server overrides; untouched servers stay compact. The latest
   // probe detail remains available through the header tooltip, and clicking
   // the row opens the full settings form.
-  const openServers = ref<Record<string, boolean>>({});
+  const openServers = ref<Record<string, boolean>>(savedConnections?.openServers ?? {});
   const isServerOpen = (id: string): boolean => openServers.value[id] ?? false;
+
+  // Window-state recovery: the cookie-field visibility and
+  // per-server expansion survive reloads.
+  const saveConnectionsState = debounce(() => {
+    saveViewState('connections', {
+      showCookie: showCookie.value,
+      openServers: openServers.value,
+    });
+  });
+  watch([showCookie, openServers], saveConnectionsState, { deep: true });
 
   const connectionPageFor = (pluginId: string): PluginPageDescriptor | undefined => {
     const pages = props.pluginPages.filter((page) => page.pluginId === pluginId);
