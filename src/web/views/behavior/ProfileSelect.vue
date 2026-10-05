@@ -14,6 +14,8 @@ export type ProfileSelectProps = {
   packs: ProfilePack[];
   activeId: string;
   error: string;
+  /** Transient success message (e.g. export destination). */
+  notice: string;
   onSwitch: (id: string) => Promise<void>;
   onCreate: (name: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -27,7 +29,7 @@ export type ProfileSelectProps = {
  * profile management lives in the selector instead of the templates modal.
  */
 export const ProfileSelect = defineVueComponent<ProfileSelectProps>(
-  ['locale', 'packs', 'activeId', 'error', 'onSwitch', 'onCreate', 'onDelete', 'onExport', 'onOpenImport'],
+  ['locale', 'packs', 'activeId', 'error', 'notice', 'onSwitch', 'onCreate', 'onDelete', 'onExport', 'onOpenImport'],
   (props) => {
     const dialogs = useDialogs();
     const open = ref(false);
@@ -153,6 +155,7 @@ export const ProfileSelect = defineVueComponent<ProfileSelectProps>(
               }}
             >
               {props.error ? <p class="rule-profile-select__error" role="alert">{props.error}</p> : null}
+              {props.notice ? <p class="rule-profile-select__notice" role="status">{props.notice}</p> : null}
               <ul class="rule-profile-select__list">
                 {props.packs.map((pack) => {
                   const isActive = pack.id === props.activeId;
@@ -290,6 +293,13 @@ export default ProfileSelect;
   margin: 0;
   color: var(--tt-danger, #ef4444);
   font-size: 13px;
+}
+
+.rule-profile-select__notice {
+  margin: 0;
+  color: var(--tt-success, #22c55e);
+  font-size: 13px;
+  word-break: break-all;
 }
 
 .rule-profile-select__list {

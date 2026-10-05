@@ -354,6 +354,7 @@ export function useRuleProfiles(control: ControlClient) {
   const activeId = ref<string>(DEFAULT_PROFILE_ID);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const notice = ref<string | null>(null);
 
   const loadProfiles = async (): Promise<void> => {
     loading.value = true;
@@ -556,11 +557,16 @@ export function useRuleProfiles(control: ControlClient) {
     error.value = message;
   };
 
+  const setNotice = (message: string | null): void => {
+    notice.value = message;
+  };
+
   return {
     packs,
     activeId,
     loading,
     error,
+    notice,
     loadProfiles,
     registerPack,
     switchProfile,
@@ -568,5 +574,6 @@ export function useRuleProfiles(control: ControlClient) {
     deletePack,
     adoptRule,
     setError,
+    setNotice,
   };
 }

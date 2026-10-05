@@ -15,7 +15,6 @@ import { useWidgets } from '../features/widgets.ts';
 import { useRuleTemplates } from '../features/rule-templates.ts';
 import {
   buildProfileDoc,
-  downloadTextFile,
   resolvedPacks,
   useRuleProfiles,
   type RuleProfile,
@@ -247,7 +246,15 @@ export function useAppController() {
     }
   };
 
-  const handleExportRuleProfile = (id: string): void => {
+  /**
+   * Exports a profile through the host. WebView anchor
+   * downloads never reach the download signal (the
+   * navigation policy cancels the `blob:` URL first), so
+   * the file content travels over IPC and the host writes
+   * it to the user's Downloads folder.
+   */
+  const handleExportRuleProfile = async (id: string): Promise<void> => {
+    ruleProfiles.setNotice(null);
     const pack = resolvedPacks(
       ruleProfiles.packs.value,
       automation.behavior.value.events.map((event) => event.id),
@@ -258,7 +265,19 @@ export function useAppController() {
       return;
     }
     const exported = buildProfileDoc(pack, automation.behavior.value.events, automation.behavior.value.actions);
-    downloadTextFile(`${pack.id}.tikprofile.json`, `${JSON.stringify(exported.doc, null, 2)}\n`);
+    const filename = `${pack.id}.tikprofile.json`;
+    const content = `${JSON.stringify(exported.doc, null, 2)}\n`;
+    try {
+      const result = await control.call<{ ok: boolean; path: string }>('system.saveFile', {
+        filename,
+        content,
+      });
+      ruleProfiles.setNotice(
+        t(locale.value, 'behavior.copy.proExported', { path: result.path }),
+      );
+    } catch (failure) {
+      ruleProfiles.setError(`export failed: ${errorMessage(failure)}`);
+    }
   };
 
   /** Saves through automation, then adopts the rule into the active pack. */
@@ -416,6 +435,7 @@ export function useAppController() {
     ruleProfilePacks: ruleProfiles.packs,
     activeRuleProfileId: ruleProfiles.activeId,
     ruleProfileError: ruleProfiles.error,
+    ruleProfileNotice: ruleProfiles.notice,
     loadRuleProfiles: ruleProfiles.loadProfiles,
     handleApplyRuleProfile,
     handleSwitchRuleProfile,

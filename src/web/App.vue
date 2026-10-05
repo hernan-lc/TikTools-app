@@ -153,6 +153,7 @@ const activePluginBackend = computed(() => {
         :rule-profile-packs="app.ruleProfilePacks"
         :active-rule-profile-id="app.activeRuleProfileId"
         :rule-profile-error="app.ruleProfileError"
+        :rule-profile-notice="app.ruleProfileNotice"
         :on-apply-rule-profile="app.handleApplyRuleProfile"
         :on-switch-rule-profile="app.handleSwitchRuleProfile"
         :on-create-rule-profile="app.handleCreateRuleProfile"

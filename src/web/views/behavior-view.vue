@@ -70,6 +70,7 @@ type BehaviorViewProps = {
   ruleProfilePacks: ProfilePack[];
   activeRuleProfileId: string;
   ruleProfileError: string | null;
+  ruleProfileNotice: string | null;
   onApplyRuleProfile: (profile: RuleProfile, applied: AppliedRuleTemplate[]) => Promise<void>;
   onSwitchRuleProfile: (id: string) => Promise<void>;
   onCreateRuleProfile: (name: string) => Promise<void>;
@@ -120,6 +121,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
     'ruleProfilePacks',
     'activeRuleProfileId',
     'ruleProfileError',
+    'ruleProfileNotice',
     'onApplyRuleProfile',
     'onSwitchRuleProfile',
     'onCreateRuleProfile',
@@ -347,6 +349,7 @@ export const BehaviorView = defineVueComponent<BehaviorViewProps>(
                   packs={resolvedProfiles.value}
                   activeId={props.activeRuleProfileId}
                   error={props.ruleProfileError ?? ''}
+                  notice={props.ruleProfileNotice ?? ''}
                   onSwitch={props.onSwitchRuleProfile}
                   onCreate={props.onCreateRuleProfile}
                   onDelete={props.onDeleteRuleProfile}
