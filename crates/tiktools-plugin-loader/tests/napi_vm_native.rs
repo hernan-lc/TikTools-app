@@ -91,7 +91,10 @@ fn copy_dir(source: &Path, target: &Path) {
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 /// Builds the napi-rs fixture cdylib once per test binary and returns its

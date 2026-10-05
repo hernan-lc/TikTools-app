@@ -300,12 +300,13 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 The workspace currently requires:
 
 ```text
-rust-version = 1.88
+rust-version = 1.90
 ```
 
 The pinned `tiktok-signer` revision currently pulls `rquickjs 0.12.2` and `napi-vm` code that require
-Rust 1.87 and 1.88 respectively. This is an existing dependency requirement, so use Rust `1.88.0`
-explicitly in CI and document the MSRV change rather than allowing the lockfile to fail on 1.86.
+Rust 1.87 and 1.88 respectively, and `tray-icon` 0.26 (`muda` 0.21) requires Rust 1.90. These are
+existing dependency requirements, so use Rust `1.90.0` explicitly in CI and document the MSRV change
+rather than allowing the lockfile to fail on 1.88.
 
 Do not raise the MSRV unless necessary and justified.
 
@@ -408,7 +409,7 @@ Adjust based on the actual Ubuntu runner package names.
 Install:
 
 ```text
-Rust 1.88.0
+Rust 1.90.0
 rustfmt
 clippy
 ```

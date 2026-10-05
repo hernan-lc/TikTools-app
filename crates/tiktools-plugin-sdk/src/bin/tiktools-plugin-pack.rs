@@ -349,7 +349,10 @@ fn absolutize(path: &Path) -> Result<PathBuf, Box<dyn Error>> {
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn invalid(message: impl Into<String>) -> Box<dyn Error> {

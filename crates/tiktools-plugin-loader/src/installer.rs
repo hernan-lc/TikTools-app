@@ -601,7 +601,14 @@ fn digest_file(path: &Path) -> Result<String, PluginLoaderError> {
         }
         digest.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex_lower(&digest.finalize()))
+}
+
+/// Lowercase hex for digest output: the `hybrid-array` output type
+/// shipped with digest 0.11 no longer implements `LowerHex`, so the
+/// `{:x}` formatting used with sha2 0.10 cannot format it.
+fn hex_lower(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 fn unique_suffix() -> u128 {
@@ -700,7 +707,7 @@ mod tests {
     }
 
     fn digest_bytes(bytes: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(bytes))
+        hex_lower(&Sha256::digest(bytes))
     }
 
     fn write_archive(path: &Path, files: &[(&str, &[u8])]) {

@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use rodio::{Decoder, OutputStream, OutputStreamBuilder, Sink};
+use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 use tiktools_core::{MediaHost, MediaHostError, MediaHostFuture};
 use tiktools_plugin_api::{
     AudioOverlap, AudioPlayOptions, AudioPlaybackResult, MediaKind, MediaPickerMode,
@@ -23,8 +23,8 @@ pub struct DesktopMediaHost {
 
 #[derive(Default)]
 struct AudioState {
-    stream: Option<OutputStream>,
-    sinks: Vec<Sink>,
+    stream: Option<MixerDeviceSink>,
+    sinks: Vec<Player>,
 }
 
 impl MediaHost for DesktopMediaHost {
@@ -104,7 +104,7 @@ fn play_audio(
         state.sinks.clear();
     }
     if state.stream.is_none() {
-        state.stream = Some(OutputStreamBuilder::open_default_stream().map_err(|error| {
+        state.stream = Some(DeviceSinkBuilder::open_default_sink().map_err(|error| {
             MediaHostError::Failed(format!("could not open audio output: {error}"))
         })?);
     }
@@ -118,7 +118,7 @@ fn play_audio(
         .stream
         .as_ref()
         .ok_or_else(|| MediaHostError::Failed("audio output was not initialized".to_owned()))?;
-    let sink = Sink::connect_new(stream.mixer());
+    let sink = Player::connect_new(stream.mixer());
     sink.set_volume(options.volume.clamp(0.0, 1.0));
     sink.append(source);
     state.sinks.push(sink);
