@@ -43,6 +43,18 @@ describe('OverlaysPage', () => {
     );
   });
 
+  it('opens portable packages and returns to the existing design', async () => {
+    const { wrapper } = await mountPage();
+    const source = (wrapper.get('#overlay-source-url').element as HTMLInputElement).value;
+    await buttonByText(wrapper, 'Portable packages').trigger('click');
+    expect(wrapper.find('.overlays-page__portable').exists()).toBe(true);
+    expect(wrapper.get('.overlays-page__workspace').isVisible()).toBe(false);
+    await buttonByText(wrapper, 'Portable packages').trigger('click');
+    expect(wrapper.find('.overlays-page__portable').exists()).toBe(false);
+    expect(wrapper.get('.overlays-page__workspace').isVisible()).toBe(true);
+    expect((wrapper.get('#overlay-source-url').element as HTMLInputElement).value).toBe(source);
+  });
+
   it('copies the source url through the host', async () => {
     const { wrapper, calls } = await mountPage();
     await buttonByText(wrapper, 'Copy URL').trigger('click');

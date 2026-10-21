@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod http;
+mod obs_bridge;
 mod server;
 mod state;
 #[cfg(test)]

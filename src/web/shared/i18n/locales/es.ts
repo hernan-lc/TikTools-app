@@ -633,6 +633,7 @@ export default {
     },
   },
   overlays: {
+    portablePackages: 'Paquetes portátiles',
     widgets: 'Widgets',
     kinds: {
       follow: { name: 'Alerta de seguidor', description: 'Muestra una tarjeta cada vez que alguien sigue al creador.' },

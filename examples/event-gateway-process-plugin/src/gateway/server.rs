@@ -42,6 +42,13 @@ pub(crate) async fn run_server(
     );
 
     let mut connections: Vec<JoinHandle<()>> = Vec::new();
+    let receiver = state.bridge_receiver.lock().unwrap().take();
+    let bridge_task = match (state.obs_bridge.clone(), receiver) {
+        (Some(bridge), Some(receiver)) => {
+            Some(tokio::spawn(async move { bridge.run(receiver).await }))
+        }
+        _ => None,
+    };
     let mut reconcile = tokio::time::interval(RECONCILE_INTERVAL);
     loop {
         tokio::select! {
@@ -68,6 +75,10 @@ pub(crate) async fn run_server(
         }
     }
     state.clients_shutdown.notify_waiters();
+    if let Some(task) = bridge_task {
+        task.abort();
+        let _ = task.await;
+    }
     // A client may still be blocked before its HTTP headers arrive. Abort
     // every connection after broadcasting shutdown so plugin shutdown never
     // waits indefinitely on an idle socket.
@@ -168,6 +179,35 @@ async fn handle_connection(stream: TcpStream, state: Arc<GatewayState>) -> io::R
                 }
             };
             stream_events(stream, state, topics, origin.as_deref()).await
+        }
+        ("GET", "/obs-bridge/status") => {
+            if !authorized_http(&headers, &state.config) {
+                return write_http_response(
+                    &mut stream,
+                    401,
+                    "Unauthorized",
+                    "application/json",
+                    b"{}",
+                    origin.as_deref(),
+                    &state.config,
+                )
+                .await;
+            }
+            let metrics = state
+                .obs_bridge
+                .as_ref()
+                .map(|bridge| bridge.snapshot())
+                .unwrap_or_else(|| serde_json::json!({"enabled":false}));
+            write_http_response(
+                &mut stream,
+                200,
+                "OK",
+                "application/json",
+                metrics.to_string().as_bytes(),
+                origin.as_deref(),
+                &state.config,
+            )
+            .await
         }
         ("GET", "/ws") => {
             websocket_connection(

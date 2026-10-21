@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "id": "fixture-alert-1",
+  "source": "external.fixture",
+  "type": "custom.alert",
+  "timestamp": "2026-10-20T14:00:00Z",
+  "data": {
+    "title": "Viewer <script>alert(1)</script>",
+    "message": "Hello from the offline fixture"
+  },
+  "metadata": { "originInstance": "fixture.local", "hopCount": 0 }
+}

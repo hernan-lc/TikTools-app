@@ -56,7 +56,8 @@
     "build:plugin": "bun run scripts/build-plugin.ts",
     "build:plugins": "bun run scripts/build-plugin.ts --all",
     "package:release": "bun run scripts/package-release.ts",
-    "ci": "bun run contracts:check && bun run deps:check && bun run check:web && bun run test:rust"
+    "ci": "bun run contracts:check && bun run deps:check && bun run check:web && bun run test:rust",
+    "universal:check": "node scripts/check-universal.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

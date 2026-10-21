@@ -1,0 +1,21 @@
+{
+  "contract": "universal-widget",
+  "schemaVersion": 3,
+  "id": "universal.gift-alert",
+  "name": "Universal Alert",
+  "version": "1.0.0",
+  "engine": "web",
+  "entry": "src/index.html",
+  "events": ["custom.alert", "tiktok.gift"],
+  "defaultSize": { "width": 600, "height": 400 },
+  "schemas": {
+    "settings": "schema/settings.json",
+    "editor": "schema/editor.json"
+  },
+  "capabilities": [
+    "events.subscribe",
+    "assets.read",
+    "settings.read",
+    "preview.inject"
+  ]
+}

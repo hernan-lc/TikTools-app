@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/editor.schema.json",
+  "type": "object",
+  "properties": {
+    "grid": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "setting": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "layerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "property": {
+            "enum": [
+              "text",
+              "color",
+              "x",
+              "y",
+              "width",
+              "height"
+            ]
+          }
+        },
+        "required": [
+          "setting",
+          "layerId",
+          "property"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 128
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

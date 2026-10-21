@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import UniversalWidgetPanel from '../../../../widgets/sdk/UniversalWidgetPanel.vue';
 import type { WidgetLayer, WidgetLayerSeed } from '../../../../widgets/sdk/template.ts';
 import type { WidgetKind } from '../../../../widgets/sdk/templates.ts';
 import { cloneDesign } from '@/entities/overlay/lib/editor-history.ts';
@@ -20,7 +21,8 @@ import BaseList from '@/shared/ui/list/BaseList.vue';
 import BasePanel from '@/shared/ui/panel/BasePanel.vue';
 import OverlayPreviewPanel from '@/widgets/overlay-preview/ui/OverlayPreviewPanel.vue';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const portableOpen = ref(false);
 const store = useOverlaysStore();
 const { status, statusError, refreshing, designs, designsError } = storeToRefs(store);
 
@@ -117,6 +119,12 @@ onBeforeUnmount(() => store.dispose());
 <template>
   <div class="overlays-page">
     <header class="overlays-page__toolbar">
+      <BaseButton
+        :aria-pressed="portableOpen"
+        @click="portableOpen = !portableOpen"
+      >
+        {{ t('overlays.portablePackages') }}
+      </BaseButton>
       <span
         class="overlays-page__gateway"
         :class="`overlays-page__gateway--${tone}`"
@@ -157,7 +165,15 @@ onBeforeUnmount(() => store.dispose());
       </BaseButton>
     </p>
 
-    <div class="overlays-page__workspace">
+    <UniversalWidgetPanel
+      v-if="portableOpen"
+      class="overlays-page__portable"
+      :locale="locale"
+    />
+    <div
+      v-show="!portableOpen"
+      class="overlays-page__workspace"
+    >
       <BasePanel
         class="overlays-page__list"
         :title="t('overlays.widgets')"
@@ -223,6 +239,12 @@ onBeforeUnmount(() => store.dispose());
   min-width: 0;
   min-height: 0;
   padding: var(--space-4);
+}
+
+.overlays-page__portable {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .overlays-page__toolbar {

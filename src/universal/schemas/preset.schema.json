@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/preset.schema.json",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "const": "universal-widget-preset"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "widget": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "settings": {
+      "type": "object"
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/layer"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "layers"
+      ],
+      "additionalProperties": false
+    },
+    "editor": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "setting": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "layerId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "property": {
+                "enum": [
+                  "text",
+                  "color",
+                  "x",
+                  "y",
+                  "width",
+                  "height"
+                ]
+              }
+            },
+            "required": [
+              "setting",
+              "layerId",
+              "property"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 128
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "contract",
+    "schemaVersion",
+    "widget",
+    "settings"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "layer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "image",
+            "group"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "x": {
+          "type": "number",
+          "minimum": -32768,
+          "maximum": 32768
+        },
+        "y": {
+          "type": "number",
+          "minimum": -32768,
+          "maximum": 32768
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "rotation": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        },
+        "asset": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:src|assets|schema|presets)/[A-Za-z0-9_./-]+$"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/layer"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

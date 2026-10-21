@@ -1,0 +1,14 @@
+{
+  "name": "@universal-widget/sdk",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./editor": "./editor.js",
+    "./transport": "./transport.js"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,7 @@
+{
+  "contract": "universal-widget-project",
+  "schemaVersion": 1,
+  "widget": { "id": "universal.gift-alert", "version": "1.0.0" },
+  "settings": { "title": "Gift received", "color": "#ff416c" },
+  "layout": { "width": 600, "height": 400, "layers": [] }
+}

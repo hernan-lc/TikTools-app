@@ -18,12 +18,24 @@ pub(crate) struct GatewayState {
     pub(crate) server_shutdown: Arc<Notify>,
     pub(crate) clients_shutdown: Arc<Notify>,
     pub(crate) connection_permits: Arc<Semaphore>,
+    pub(crate) obs_bridge: Option<Arc<super::obs_bridge::Bridge>>,
+    pub(crate) bridge_receiver:
+        Arc<std::sync::Mutex<Option<tokio::sync::mpsc::Receiver<serde_json::Value>>>>,
 }
 
 impl GatewayState {
     pub(crate) fn new(config: GatewayConfig) -> Arc<Self> {
         let (events, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
+        let (obs_bridge, bridge_receiver) = match config.obs_bridge.clone() {
+            Some(config) => {
+                let (bridge, receiver) = super::obs_bridge::Bridge::new(config);
+                (Some(Arc::new(bridge)), Some(receiver))
+            }
+            None => (None, None),
+        };
         Arc::new(Self {
+            obs_bridge,
+            bridge_receiver: Arc::new(std::sync::Mutex::new(bridge_receiver)),
             config: Arc::new(config),
             events,
             server_shutdown: Arc::new(Notify::new()),
@@ -33,6 +45,9 @@ impl GatewayState {
     }
 
     pub(crate) fn publish(&self, event: DomainEventEnvelope) {
+        if let Some(bridge) = &self.obs_bridge {
+            bridge.publish(&event);
+        }
         let _ = self.events.send(event);
     }
 }

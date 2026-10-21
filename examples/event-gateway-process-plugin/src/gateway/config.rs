@@ -17,6 +17,7 @@ pub(crate) const DEFAULT_ORIGIN: &str = "https://widgets.tiktools.app";
 
 #[derive(Debug, Clone)]
 pub struct GatewayConfig {
+    pub(crate) obs_bridge: Option<super::obs_bridge::BridgeConfig>,
     pub port: u16,
     pub bind: IpAddr,
     pub allowed_origins: Vec<String>,
@@ -28,6 +29,7 @@ pub struct GatewayConfig {
 impl Default for GatewayConfig {
     fn default() -> Self {
         Self {
+            obs_bridge: None,
             port: DEFAULT_PORT,
             bind: DEFAULT_BIND.parse().expect("default gateway bind is valid"),
             allowed_origins: vec![DEFAULT_ORIGIN.to_owned()],
@@ -40,7 +42,10 @@ impl Default for GatewayConfig {
 
 impl GatewayConfig {
     pub(crate) fn from_settings(settings: &Value) -> Result<Self, String> {
-        let mut config = Self::default();
+        let mut config = Self {
+            obs_bridge: super::obs_bridge::BridgeConfig::parse(settings)?,
+            ..Self::default()
+        };
         let Some(object) = settings.as_object() else {
             return Err("gateway settings must be a JSON object".to_owned());
         };

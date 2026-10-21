@@ -58,6 +58,8 @@ jobs:
 
       - name: Test frontend
         run: bun run test
+      - name: Verify universal widget contracts
+        run: bun run universal:check
 
       - name: Build frontend
         run: bun run build:web
@@ -124,6 +126,8 @@ jobs:
 
       - name: Test Rust workspace
         run: node scripts/cargo-with-linker.mjs test --workspace --locked
+      - name: Test optional OBS bridge and gateway
+        run: cargo test --manifest-path examples/event-gateway-process-plugin/Cargo.toml --locked
 
       - name: Verify control surface end to end
         run: |

@@ -631,6 +631,7 @@ export default {
     },
   },
   overlays: {
+    portablePackages: 'Portable packages',
     widgets: 'Widgets',
     kinds: {
       follow: { name: 'Follow alert', description: 'Shows a card every time a viewer follows the creator.' },

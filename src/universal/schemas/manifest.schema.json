@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/manifest.schema.json",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "const": "universal-widget"
+    },
+    "schemaVersion": {
+      "const": 3
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:[.][0-9A-Za-z-]+)*)?(?:[+][0-9A-Za-z-]+(?:[.][0-9A-Za-z-]+)*)?$"
+    },
+    "engine": {
+      "const": "web"
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?:src|assets|schema|presets)/[A-Za-z0-9_./-]+$"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "pattern": "^[a-z][a-z0-9_-]*(?:[.][a-z0-9_-]+)+$"
+      },
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "defaultSize": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8192
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "schemas": {
+      "type": "object",
+      "properties": {
+        "settings": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:src|assets|schema|presets)/[A-Za-z0-9_./-]+$"
+        },
+        "editor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:src|assets|schema|presets)/[A-Za-z0-9_./-]+$"
+        },
+        "events": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(?:src|assets|schema|presets)/[A-Za-z0-9_./-]+$"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "maxItems": 32,
+      "uniqueItems": true
+    },
+    "requires": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "sdk": {
+          "const": 1
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64
+      }
+    }
+  },
+  "required": [
+    "contract",
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "engine",
+    "entry",
+    "events",
+    "defaultSize",
+    "capabilities"
+  ],
+  "additionalProperties": false
+}

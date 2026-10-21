@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/mappings.schema.json",
+  "definitions": {
+    "tiktok.gift": {
+      "giftId": [
+        "gift_id",
+        "giftId",
+        "string",
+        ""
+      ],
+      "giftName": [
+        "gift_name",
+        "giftName",
+        "string",
+        ""
+      ],
+      "giftIconUrl": [
+        "gift_image_url",
+        "giftIconUrl",
+        "string",
+        ""
+      ],
+      "groupId": [
+        "group_id",
+        "groupId",
+        "string",
+        ""
+      ],
+      "repeatCount": [
+        "repeat_count",
+        "repeatCount",
+        "counter",
+        "1"
+      ],
+      "diamondCount": [
+        "diamond_count",
+        "diamondCount",
+        "counter",
+        "0"
+      ],
+      "repeatEnd": [
+        "repeat_end",
+        "repeatEnd",
+        "boolean",
+        false
+      ]
+    },
+    "tiktok.chat": {
+      "comment": [
+        "comment",
+        "comment",
+        "string",
+        ""
+      ]
+    },
+    "tiktok.follow": {},
+    "tiktok.like": {
+      "count": [
+        "count",
+        "count",
+        "counter",
+        "0"
+      ],
+      "total": [
+        "total",
+        "total",
+        "counter",
+        "0"
+      ]
+    }
+  },
+  "user": {
+    "id": [
+      "id",
+      "userId",
+      "string",
+      ""
+    ],
+    "nickname": [
+      "nickname",
+      "nickname",
+      "string",
+      ""
+    ],
+    "handle": [
+      "unique_id",
+      "uniqueId",
+      "string",
+      ""
+    ],
+    "avatarUrl": [
+      "avatar_url",
+      "avatarUrl",
+      "string",
+      ""
+    ]
+  }
+}

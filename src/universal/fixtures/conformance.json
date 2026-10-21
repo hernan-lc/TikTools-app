@@ -1,0 +1,240 @@
+[
+  {
+    "name": "valid alert",
+    "valid": true,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "uint64 gift",
+    "valid": true,
+    "event": {
+      "version": 1,
+      "id": "42:18446744073709551615",
+      "source": "tiktok.native",
+      "type": "tiktok.gift",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "user": {
+          "id": "9007199254740993",
+          "nickname": "Viewer123",
+          "handle": "viewer123",
+          "avatarUrl": ""
+        },
+        "giftId": "5655",
+        "giftName": "Rose",
+        "giftIconUrl": "",
+        "groupId": "streak-1",
+        "repeatCount": "23",
+        "diamondCount": "1",
+        "repeatEnd": true
+      },
+      "metadata": {
+        "originInstance": "obs.native",
+        "hopCount": 0,
+        "room": "42"
+      }
+    }
+  },
+  {
+    "name": "invalid-0",
+    "valid": false,
+    "event": {
+      "version": 2,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-1",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "gift",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-2",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-02-30T00:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-3",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "0000-01-01T00:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-4",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-5",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "message": "missing title"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-6",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "ok",
+        "command": "obs.shutdown"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      }
+    }
+  },
+  {
+    "name": "invalid-7",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "hopCount": 5
+      }
+    }
+  },
+  {
+    "name": "invalid-8",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "trusted": true
+      }
+    }
+  },
+  {
+    "name": "invalid-9",
+    "valid": false,
+    "event": {
+      "version": 1,
+      "id": "fixture-alert-1",
+      "source": "external.fixture",
+      "type": "custom.alert",
+      "timestamp": "2026-10-20T14:00:00Z",
+      "data": {
+        "title": "Viewer <script>alert(1)</script>",
+        "message": "Hello from the offline fixture"
+      },
+      "metadata": {
+        "originInstance": "fixture.local",
+        "hopCount": 0
+      },
+      "unknown": true
+    }
+  }
+]

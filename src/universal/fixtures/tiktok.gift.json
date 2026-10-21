@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "42:18446744073709551615",
+  "source": "tiktok.native",
+  "type": "tiktok.gift",
+  "timestamp": "2026-10-20T14:00:00Z",
+  "data": {
+    "user": {
+      "id": "9007199254740993",
+      "nickname": "Viewer123",
+      "handle": "viewer123",
+      "avatarUrl": ""
+    },
+    "giftId": "5655",
+    "giftName": "Rose",
+    "giftIconUrl": "",
+    "groupId": "streak-1",
+    "repeatCount": "23",
+    "diamondCount": "1",
+    "repeatEnd": true
+  },
+  "metadata": { "originInstance": "obs.native", "hopCount": 0, "room": "42" }
+}

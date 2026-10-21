@@ -1,7 +1,7 @@
-import { expect, test } from 'bun:test';
+import { expect, test } from 'vitest';
 import profile from '../../../examples/profiles/peak-giftwall.tikprofile.json';
 import manifest from '../../../examples/peak-game/plugin.json';
-import { instantiateProfile, parseRuleProfile } from './rule-profiles.ts';
+import { instantiateProfile, parseRuleProfile } from '@/entities/rule-template/model/rule-profiles-state.ts';
 
 test('PEAK giftwall imports safely and exposes editable live catalog actions', () => {
   const parsed = parseRuleProfile(profile);

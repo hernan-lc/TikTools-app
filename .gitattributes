@@ -1,0 +1,2 @@
+# Shared SDK hashes must be identical on Windows and Linux checkouts.
+src/universal/** text eol=lf

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/settings.schema.json",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "default": "Universal alert"
+    },
+    "color": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 9,
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "default": "#ff416c"
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

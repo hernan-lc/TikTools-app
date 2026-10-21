@@ -6,13 +6,22 @@
   "description": "Expose TikTools domain events to local WebSocket and NDJSON widgets.",
   "longDescription": "Starts a loopback-only event gateway at `127.0.0.1:17452`. The gateway owns browser origin validation, CORS, authentication, WebSocket clients, and the HTTP NDJSON fallback.",
   "icon": "network",
-  "tags": ["events", "widgets", "websocket", "example"],
+  "tags": [
+    "events",
+    "widgets",
+    "websocket",
+    "example"
+  ],
   "runtime": "process",
   "trust": "trusted",
   "entry": "event-gateway",
   "protocolVersion": 1,
-  "capabilities": ["events.subscribe"],
-  "eventSubscriptions": ["*"],
+  "capabilities": [
+    "events.subscribe"
+  ],
+  "eventSubscriptions": [
+    "*"
+  ],
   "settings": {
     "schema": {
       "type": "object",
@@ -28,13 +37,20 @@
           "type": "string",
           "title": "Bind address",
           "default": "127.0.0.1",
-          "enum": ["127.0.0.1", "::1"]
+          "enum": [
+            "127.0.0.1",
+            "::1"
+          ]
         },
         "allowedOrigins": {
           "type": "array",
           "title": "Allowed browser origins",
-          "default": ["https://widgets.tiktools.app"],
-          "items": {"type": "string"}
+          "default": [
+            "https://widgets.tiktools.app"
+          ],
+          "items": {
+            "type": "string"
+          }
         },
         "token": {
           "type": "string",
@@ -52,14 +68,45 @@
           "type": "string",
           "title": "Widget assets directory",
           "description": "Optional override for the /widgets/ static asset root. Defaults to widgets/ or dist/widgets/ beside the gateway executable."
+        },
+        "obsBridge": {
+          "type": "object",
+          "title": "OBS event bridge",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "address": {
+              "type": "string",
+              "default": "127.0.0.1:17453"
+            },
+            "tokenEnv": {
+              "type": "string",
+              "default": "OBS_EVENT_TOKEN"
+            },
+            "instance": {
+              "type": "string",
+              "default": "tiktools.local"
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
     "uiHints": {
       "fields": {
-        "bind": {"readonly": true},
-        "token": {"secret": true, "readonly": true},
-        "widgetToken": {"secret": true, "readonly": true}
+        "bind": {
+          "readonly": true
+        },
+        "token": {
+          "secret": true,
+          "readonly": true
+        },
+        "widgetToken": {
+          "secret": true,
+          "readonly": true
+        }
       }
     }
   }

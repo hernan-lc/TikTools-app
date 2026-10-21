@@ -1,0 +1,251 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://universal-widget.local/v1/payloads.schema.json",
+  "definitions": {
+    "custom.alert": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "message": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "tiktok.gift": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "nickname": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500
+            },
+            "handle": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "avatarUrl": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "id",
+            "nickname",
+            "handle",
+            "avatarUrl"
+          ],
+          "additionalProperties": false
+        },
+        "giftId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "giftName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "giftIconUrl": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2048
+        },
+        "groupId": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 128
+        },
+        "repeatCount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^[0-9]+$"
+        },
+        "diamondCount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^[0-9]+$"
+        },
+        "repeatEnd": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "user",
+        "giftId",
+        "giftName",
+        "giftIconUrl",
+        "groupId",
+        "repeatCount",
+        "diamondCount",
+        "repeatEnd"
+      ],
+      "additionalProperties": false
+    },
+    "tiktok.chat": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "nickname": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500
+            },
+            "handle": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "avatarUrl": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "id",
+            "nickname",
+            "handle",
+            "avatarUrl"
+          ],
+          "additionalProperties": false
+        },
+        "comment": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4000
+        }
+      },
+      "required": [
+        "user",
+        "comment"
+      ],
+      "additionalProperties": false
+    },
+    "tiktok.follow": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "nickname": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500
+            },
+            "handle": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "avatarUrl": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "id",
+            "nickname",
+            "handle",
+            "avatarUrl"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "user"
+      ],
+      "additionalProperties": false
+    },
+    "tiktok.like": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "nickname": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 500
+            },
+            "handle": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128
+            },
+            "avatarUrl": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "id",
+            "nickname",
+            "handle",
+            "avatarUrl"
+          ],
+          "additionalProperties": false
+        },
+        "count": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^[0-9]+$"
+        },
+        "total": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^[0-9]+$"
+        }
+      },
+      "required": [
+        "user",
+        "count",
+        "total"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
