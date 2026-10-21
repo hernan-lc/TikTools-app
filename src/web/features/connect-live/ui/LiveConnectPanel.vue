@@ -171,6 +171,13 @@ function onRecent(action: MenuAction): void {
           {{ t('connection.disconnect') }}
         </BaseButton>
       </template>
+      <BaseButton
+        v-else-if="busy"
+        variant="danger"
+        @click="emit('disconnect')"
+      >
+        {{ t('common.cancel') }}
+      </BaseButton>
       <template v-else>
         <BaseButton
           v-if="status === 'error'"
@@ -180,10 +187,10 @@ function onRecent(action: MenuAction): void {
         </BaseButton>
         <BaseButton
           variant="primary"
-          :disabled="busy || !handle.trim()"
+          :disabled="!handle.trim()"
           @click="submit"
         >
-          {{ busy ? t('connection.status.connecting') : t('connection.connect') }}
+          {{ t('connection.connect') }}
         </BaseButton>
       </template>
     </template>

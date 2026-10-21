@@ -359,3 +359,32 @@ describe('useConnection reconnect vs creator switch', () => {
     connection.dispose();
   });
 });
+
+describe('useConnection cancellation', () => {
+  test.each(['live.connect', 'live.pick'])('ignores a late result from a cancelled %s', async (method) => {
+    let finish: ((value: unknown) => void) | undefined;
+    const control = stubControl({
+      call: <T,>(requested: string): Promise<T> => {
+        control.calls.push({ method: requested });
+        return requested === method
+          ? new Promise<T>((resolve) => { finish = (value) => resolve(value as T); })
+          : Promise.resolve({ connected: false } as T);
+      },
+    });
+    const connection = useConnection(control, callbacks);
+    connection.noteCreatorSeen('alice', false);
+    if (method === 'live.pick') connection.handlePickLive();
+    else connection.handleConnect('alice');
+    expect(connection.status.value).toBe('connecting');
+    connection.handleDisconnect();
+    expect(connection.status.value).toBe('disconnected');
+    expect(connection.activeCreator.value).toBe('alice');
+    finish?.({ connected: true, uniqueId: 'late_creator' });
+    await flushPromises();
+    expect(control.calls.map((call) => call.method)).toEqual([method, 'live.disconnect']);
+    expect(connection.status.value).toBe('disconnected');
+    expect(connection.uniqueId.value).toBe('alice');
+    expect(connection.error.value).toBe('');
+    connection.dispose();
+  });
+});

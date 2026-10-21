@@ -170,6 +170,8 @@ export function useConnection(control: ControlClient, callbacks: ConnectionCallb
       error.value = errorMessage(failure);
     });
     status.value = 'disconnected';
+    error.value = '';
+    activeCreator.value = activeCreatorRef.value;
     clearReconnect();
   };
 

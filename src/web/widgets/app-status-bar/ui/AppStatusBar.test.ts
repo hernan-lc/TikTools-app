@@ -25,10 +25,13 @@ describe('AppStatusBar', () => {
     expect(wrapper.emitted('connect')).toHaveLength(1);
   });
 
-  it('reports retry progress and blocks actions while busy', () => {
+  it('reports retry progress and allows cancellation while busy', async () => {
     const wrapper = mountStatusBar({ status: 'retrying', reconnectAttempt: 2, maxReconnectAttempts: 5 });
     expect(wrapper.get('[role="status"]').text()).toBe('Reconnecting 2/5…');
-    expect(wrapper.get('button').attributes('disabled')).toBeDefined();
+    expect(wrapper.get('button').text()).toBe('Cancel');
+    expect(wrapper.get('button').attributes('disabled')).toBeUndefined();
+    await wrapper.get('button').trigger('click');
+    expect(wrapper.emitted('disconnect')).toHaveLength(1);
   });
 
   it('turns an error into a reconnect action', async () => {

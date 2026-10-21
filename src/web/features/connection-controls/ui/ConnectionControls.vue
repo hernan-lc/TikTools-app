@@ -37,9 +37,10 @@ const { t } = useI18n();
     <BaseButton
       v-else-if="isConnectionBusy(status)"
       size="sm"
-      disabled
+      variant="danger"
+      @click="emit('disconnect')"
     >
-      {{ t(`connection.status.${status}`) }}
+      {{ t('common.cancel') }}
     </BaseButton>
     <BaseButton
       v-else

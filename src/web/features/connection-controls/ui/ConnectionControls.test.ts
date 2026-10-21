@@ -1,0 +1,20 @@
+import { enableAutoUnmount } from '@vue/test-utils';
+import { afterEach, describe, expect, it } from 'vitest';
+import { mountWithPlugins } from '@/shared/lib/testing/mount.ts';
+import type { ConnectionStatus } from '@/types.ts';
+import ConnectionControls from './ConnectionControls.vue';
+
+enableAutoUnmount(afterEach);
+
+describe('ConnectionControls', () => {
+  it.each<ConnectionStatus>(['connecting', 'retrying'])('offers cancellation while %s', async (status) => {
+    const wrapper = mountWithPlugins(ConnectionControls, { props: { status } });
+    const cancel = wrapper.get('button');
+    expect(cancel.text()).toBe('Cancel');
+    expect(cancel.attributes('disabled')).toBeUndefined();
+    await cancel.trigger('click');
+    expect(wrapper.emitted('disconnect')).toHaveLength(1);
+    expect(wrapper.emitted('connect')).toBeUndefined();
+    expect(wrapper.emitted('reconnect')).toBeUndefined();
+  });
+});

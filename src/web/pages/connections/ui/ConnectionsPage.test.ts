@@ -83,6 +83,19 @@ describe('ConnectionsPage', () => {
     expect(calls.some((call) => call.method === 'live.disconnect')).toBe(true);
   });
 
+  it.each<ConnectionStatus>(['connecting', 'retrying'])('cancels while %s and unlocks the form', async (status) => {
+    const { wrapper, connection, calls } = await mountPage(status);
+    expect(wrapper.get('#live-handle').attributes('disabled')).toBeDefined();
+    const cancel = buttonByText(wrapper, 'Cancel');
+    expect(cancel.attributes('disabled')).toBeUndefined();
+    await cancel.trigger('click');
+    await flushPromises();
+    expect(calls.filter((call) => call.method === 'live.disconnect')).toHaveLength(1);
+    expect(connection.status).toBe('disconnected');
+    expect(wrapper.get('#live-handle').attributes('disabled')).toBeUndefined();
+    expect(buttonByText(wrapper, 'Connect')).toBeDefined();
+  });
+
   it('only browses rooms after opening the explorer', async () => {
     const { wrapper, calls } = await mountPage();
     expect(calls).toHaveLength(0);
