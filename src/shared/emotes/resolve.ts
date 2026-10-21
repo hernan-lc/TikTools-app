@@ -49,7 +49,7 @@ export function isSafeEmoteImageUrl(value: unknown): value is string {
   } catch {
     return false;
   }
-  return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+  return parsed.protocol === 'https:' && parsed.hostname.length > 0 && !parsed.username && !parsed.password;
 }
 
 /** Normalizes a `[...]` token, or `undefined` when it is not a valid shape. */
@@ -197,7 +197,6 @@ export function resolveChatSegments(
   const emoteList = normalizeEmoteList(emotes);
   if (!comment) {
     return emoteList.flatMap((emote) => {
-      if (!emote.imageUrl && !emote.shortcode) return [];
       return [{
         type: 'emote' as const,
         id: emote.id,
@@ -210,6 +209,7 @@ export function resolveChatSegments(
   const metadata = normalizeEmotes(emotes);
   const byIndex = indexMatches(comment, emoteList);
   const segments: ChatSegment[] = [];
+  const consumed = new Set<number>();
   let buffer = '';
   let index = 0;
 
@@ -235,6 +235,8 @@ export function resolveChatSegments(
     const token = comment.slice(open, close + 1);
     const match = byIndex.get(open) ?? lookupEmote(comment.slice(open + 1, close), metadata);
     if (match) {
+      const occurrence = emoteList.findIndex((entry, i) => !consumed.has(i) && entry.id === match.id && entry.imageUrl === match.imageUrl);
+      if (occurrence >= 0) consumed.add(occurrence);
       flush();
       segments.push({
         type: 'emote',
@@ -249,6 +251,12 @@ export function resolveChatSegments(
     index = close + 1;
   }
   flush();
+  // Raw protobuf positions are not guaranteed to identify textual tokens.
+  // Preserve all text and show unmatched metadata in wire order afterwards.
+  for (const [occurrence, emote] of emoteList.entries()) {
+    if (consumed.has(occurrence)) continue;
+    segments.push({ type: 'emote', id: emote.id, shortcode: emote.shortcode, imageUrl: emote.imageUrl, fallbackText: '' });
+  }
   return segments;
 }
 

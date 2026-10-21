@@ -2,7 +2,8 @@
 
 use super::TikToolsClient;
 use tiktools_control_api::modules::live::{
-    LiveChannelsParams, LiveChannelsResult, LiveConnectParams, LivePickParams, LiveStatus,
+    LiveChannelsParams, LiveChannelsResult, LiveConnectParams, LiveMonitorStartParams,
+    LiveMonitorStatus, LivePickParams, LiveStatus,
 };
 use tiktools_control_api::modules::Empty;
 use tiktools_control_api::ClientError;
@@ -16,6 +17,9 @@ pub(crate) const METHODS: &[&str] = &[
     LIVE_DISCONNECT,
     LIVE_STATUS,
     LIVE_CHANNELS,
+    LIVE_MONITOR_START,
+    LIVE_MONITOR_STOP,
+    LIVE_MONITOR_STATUS,
 ];
 
 const LIVE_CONNECT: &str = "live.connect";
@@ -23,6 +27,9 @@ const LIVE_PICK: &str = "live.pick";
 const LIVE_DISCONNECT: &str = "live.disconnect";
 const LIVE_STATUS: &str = "live.status";
 const LIVE_CHANNELS: &str = "live.channels";
+const LIVE_MONITOR_START: &str = "live.monitor.start";
+const LIVE_MONITOR_STOP: &str = "live.monitor.stop";
+const LIVE_MONITOR_STATUS: &str = "live.monitor.status";
 
 impl TikToolsClient {
     /// Connects the native TikTok live client.
@@ -52,5 +59,23 @@ impl TikToolsClient {
         params: LiveChannelsParams,
     ) -> Result<LiveChannelsResult, ClientError> {
         self.call(LIVE_CHANNELS, params).await
+    }
+    /// Monitors a creator and connects when the LIVE starts.
+    /// RPC method `live.monitor.start`.
+    pub async fn live_monitor_start(
+        &self,
+        params: LiveMonitorStartParams,
+    ) -> Result<LiveMonitorStatus, ClientError> {
+        self.call(LIVE_MONITOR_START, params).await
+    }
+    /// Stops monitoring and disconnects its LIVE session.
+    /// RPC method `live.monitor.stop`.
+    pub async fn live_monitor_stop(&self) -> Result<LiveMonitorStatus, ClientError> {
+        self.call(LIVE_MONITOR_STOP, Empty::default()).await
+    }
+    /// Current native creator monitor state.
+    /// RPC method `live.monitor.status`.
+    pub async fn live_monitor_status(&self) -> Result<LiveMonitorStatus, ClientError> {
+        self.call(LIVE_MONITOR_STATUS, Empty::default()).await
     }
 }

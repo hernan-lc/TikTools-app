@@ -28,7 +28,7 @@ const avatarFailed = ref(false);
 // A new alert key resets the image state; count updates on the same streak
 // must not restart the artwork.
 watch(
-  () => props.alert?.key,
+  () => [props.alert?.key, props.alert?.giftIconUrl, props.alert?.avatarUrl],
   () => {
     imageFailed.value = false;
     avatarFailed.value = false;

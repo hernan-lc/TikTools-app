@@ -24,6 +24,10 @@ const props = defineProps<{
   error: string;
   reconnectAttempt?: number | null;
   maxReconnectAttempts?: number;
+  monitorEnabled?: boolean;
+  monitorPhase?: string;
+  monitorBusy?: boolean;
+  monitorError?: string;
 }>();
 
 const handle = defineModel<string>('handle', { required: true });
@@ -35,6 +39,8 @@ const emit = defineEmits<{
   disconnect: [];
   reconnect: [];
   'pick-random': [];
+  'start-monitor': [];
+  'stop-monitor': [];
   'select-recent': [handle: string];
 }>();
 
@@ -44,7 +50,7 @@ const recentsOpen = ref(false);
 
 const live = computed(() => props.status === 'connected');
 const busy = computed(() => isConnectionBusy(props.status));
-const locked = computed(() => live.value || busy.value);
+const locked = computed(() => live.value || busy.value || props.monitorEnabled || props.monitorBusy);
 const recentItems = computed<MenuEntry[]>(() =>
   props.recents.map((entry) => {
     const clean = entry.replace(/^@/, '');
@@ -138,6 +144,19 @@ function onRecent(action: MenuAction): void {
         </BaseFormRow>
       </BaseFormGrid>
       <p
+        v-if="monitorEnabled"
+        role="status"
+      >
+        {{ t('connections.monitor.status', { phase: t(`connections.monitor.phases.${monitorPhase || 'waiting'}`) }) }}
+      </p>
+      <p
+        v-if="monitorError"
+        role="alert"
+        class="live-connect__error"
+      >
+        {{ monitorError }}
+      </p>
+      <p
         v-if="error"
         class="live-connect__error"
         role="alert"
@@ -160,7 +179,15 @@ function onRecent(action: MenuAction): void {
     />
     <template #footer>
       <span class="live-connect__spacer" />
-      <template v-if="live">
+      <BaseButton
+        v-if="monitorEnabled"
+        variant="danger"
+        :disabled="monitorBusy"
+        @click="emit('stop-monitor')"
+      >
+        {{ t('connections.monitor.stop') }}
+      </BaseButton>
+      <template v-else-if="live">
         <BaseButton @click="emit('reconnect')">
           {{ t('connection.reconnect') }}
         </BaseButton>
@@ -179,6 +206,12 @@ function onRecent(action: MenuAction): void {
         {{ t('common.cancel') }}
       </BaseButton>
       <template v-else>
+        <BaseButton
+          :disabled="monitorBusy || !handle.trim()"
+          @click="emit('start-monitor')"
+        >
+          {{ t('connections.monitor.start') }}
+        </BaseButton>
         <BaseButton
           v-if="status === 'error'"
           @click="emit('reconnect')"

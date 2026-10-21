@@ -68,6 +68,10 @@ pub enum DomainEvent {
     },
     #[serde(rename = "live.disconnected")]
     LiveDisconnected,
+    #[serde(rename = "live.monitor", rename_all = "camelCase")]
+    LiveMonitorChanged {
+        status: crate::live_monitor::LiveMonitorStatus,
+    },
     #[serde(rename = "live.event", rename_all = "camelCase")]
     LiveEvent {
         event_type: String,
@@ -128,6 +132,7 @@ impl DomainEvent {
             Self::AutomationRunsChanged { .. } => "automation.runs.changed",
             Self::LiveConnected { .. } => "live.connected",
             Self::LiveDisconnected => "live.disconnected",
+            Self::LiveMonitorChanged { .. } => "live.monitor",
             Self::LiveEvent { .. } => "live.event",
             Self::LiveUiEvent { .. } => "live.ui-event",
             Self::RoomStats { .. } => "room.stats",

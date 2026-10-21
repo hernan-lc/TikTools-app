@@ -3,6 +3,8 @@ import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { parsePluginNavId } from '../../../automation/plugins/declarative.ts';
 import { useAutomationStore } from '@/entities/automation/model/automation-store.ts';
 import { useConnectionStore } from '@/entities/connection/model/connection-store.ts';
+import { filterEvents } from '@/entities/live-event/lib/event-filter.ts';
+import { emoteImageFailureCount } from '@/entities/live-event/lib/emote-failures.ts';
 import { useLiveFeedStore } from '@/entities/live-event/model/live-feed-store.ts';
 import { useDiscoveryStore } from '@/entities/live-room/model/discovery-store.ts';
 import { pluginHostDiagnostics } from '@/entities/plugin/api/plugin-webview-host.ts';
@@ -48,6 +50,7 @@ export function useAppRuntime() {
     resyncAgain = false;
     void Promise.allSettled([
       connection.refreshStatus(),
+      connection.refreshMonitor(),
       points.refresh(),
       connection.refreshCreators(),
       automation.refresh(),
@@ -147,6 +150,9 @@ export function useAppRuntime() {
     const percentile = (quantile: number): number | null =>
       intervals.length > 0 ? (intervals[Math.min(intervals.length - 1, Math.floor(intervals.length * quantile))] ?? null) : null;
     return {
+      matchingFeedEvents: filterEvents(events.value, filter.value, searchQuery.value).length,
+      emoteImageFailures: emoteImageFailureCount(),
+      liveMonitor: connection.monitorStatus,
       renderedFeedRows: document.querySelectorAll('.event-row').length,
       frameCallbacks: measuredFrames,
       frameIntervalSamples: intervals.length,
@@ -187,6 +193,7 @@ export function useAppRuntime() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     updatePresentation();
     void connection.refreshStatus();
+    void connection.refreshMonitor();
     if (activeTab.value !== 'feed' && activeTab.value !== 'points') void points.refresh();
     void connection.refreshCreators();
     if (activeTab.value !== 'behavior') void automation.refresh();

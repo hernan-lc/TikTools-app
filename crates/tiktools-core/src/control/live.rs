@@ -125,6 +125,20 @@ impl AppCore {
         session_cookie: String,
         room_id: Option<String>,
     ) -> Result<LiveStatus, OperationError> {
+        let _operation = self.live_monitor.operation.lock().await;
+        self.stop_live_monitor().await;
+        drop(_operation);
+        self.live_connect_monitored(unique_id, session_cookie, room_id)
+            .await
+    }
+
+    #[cfg(feature = "native-tiktok")]
+    pub(crate) async fn live_connect_monitored(
+        self: &Arc<Self>,
+        unique_id: String,
+        session_cookie: String,
+        room_id: Option<String>,
+    ) -> Result<LiveStatus, OperationError> {
         let unique_id = clean_unique_id(&unique_id)
             .ok_or_else(|| OperationError::invalid("uniqueId must not be empty"))?;
         check_session_cookie_len(&session_cookie)?;
@@ -170,6 +184,8 @@ impl AppCore {
     }
 
     pub async fn live_disconnect(self: &Arc<Self>) -> LiveStatus {
+        let _operation = self.live_monitor.operation.lock().await;
+        self.stop_live_monitor().await;
         self.live.disconnect().await;
         self.live_status()
     }
@@ -182,6 +198,9 @@ impl AppCore {
         session_cookie: String,
     ) -> Result<LiveStatus, OperationError> {
         check_session_cookie_len(&session_cookie)?;
+        let _operation = self.live_monitor.operation.lock().await;
+        self.stop_live_monitor().await;
+        drop(_operation);
         self.start_live_event_pump();
         let (generation, info) = self
             .live

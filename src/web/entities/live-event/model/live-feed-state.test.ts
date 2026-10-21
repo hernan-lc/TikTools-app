@@ -196,7 +196,7 @@ it('message IDs expire after the replay age limit', () => {
   }
 });
 
-it('hidden feed cancels staged commits and returns with a bounded discontinuity', () => {
+it('hidden feed preserves accepted staging and returns with a bounded discontinuity', () => {
   installFrameControl();
   const control = createControl();
   const live = createLiveFeedState(control.control, callbacks('System'));
@@ -209,13 +209,14 @@ it('hidden feed cancels staged commits and returns with a bounded discontinuity'
   runFrames();
   expect(live.events.value).toBe(before);
   expect(live.diagnostics().staged).toBe(0);
-  expect(live.diagnostics().commits).toBe(0);
-  expect(live.droppedUiEvents.value).toBe(10_001);
+  expect(live.diagnostics().commits).toBe(1);
+  expect(live.droppedUiEvents.value).toBe(10_000);
   live.setPresentationActive(true);
   send(10_001);
   runFrames();
-  expect(live.events.value).toHaveLength(2);
-  expect(live.events.value[0]?.text).toContain('Feed resumed');
+  expect(live.events.value).toHaveLength(3);
+  expect(live.events.value[0]?.text).toBe('0');
+  expect(live.events.value[1]?.text).toContain('Feed resumed');
   live.dispose();
   uninstallFrameControl();
 });
@@ -360,6 +361,50 @@ it('a failed native replay degrades to the remaining discontinuity marker', asyn
   await new Promise((resolve) => setTimeout(resolve, 0));
   runFrames();
   expect(live.events.value.some((event) => event.text?.includes('Feed resumed'))).toBe(true);
+  live.dispose();
+  uninstallFrameControl();
+});
+
+it('deduplicates type and identity only, keeping identical gifts without usable ids', () => {
+  installFrameControl();
+  const harness = createControl();
+  const live = createLiveFeedState(harness.control, callbacks('system'));
+  for (const [kind, msgId] of [['chat', '42'], ['gift', '42'], ['gift', '43'], ['gift', '0'], ['gift', '0'], ['gift', ''], ['gift', ''], ['gift', undefined], ['gift', undefined]]) {
+    harness.emit('live.ui-event', { event: { kind, author: 'alice', text: 'same', msgId } } as never);
+  }
+  runFrames();
+  expect(live.events.value).toHaveLength(9);
+  harness.emit('live.ui-event', { event: { kind: 'gift', author: 'alice', text: 'same', msgId: '42' } } as never);
+  runFrames();
+  expect(live.events.value).toHaveLength(9);
+  expect(live.diagnostics().duplicates).toBe(1);
+  live.dispose();
+  uninstallFrameControl();
+});
+
+it('recovers from cursor zero, pages truncated backfill, and deduplicates realtime overlap by cursor', async () => {
+  installFrameControl();
+  const harness = createControl();
+  const gift = { kind: 'gift' as const, author: 'alice', text: 'Rose', msgId: '0' };
+  const calls: number[] = [];
+  let answer: ((value: unknown) => void) | undefined;
+  harness.control.call = (<T,>(_method: string, params?: { after?: number }): Promise<T> => {
+    calls.push(params?.after ?? -1);
+    if (calls.length === 1) return new Promise<T>((resolve) => { answer = (value) => resolve(value as T); });
+    return Promise.resolve({ events: [{ cursor: 3, event: gift }], latestCursor: 3, truncated: false, gap: false } as T);
+  }) as ControlClient['call'];
+  const live = createLiveFeedState(harness.control, callbacks('system'));
+  live.setPresentationActive(false);
+  live.setPresentationActive(true);
+  harness.emit('live.ui-event', { event: gift, cursor: 2 } as never);
+  answer?.({ events: [{ cursor: 1, event: gift }, { cursor: 2, event: gift }], latestCursor: 3, truncated: true, gap: false });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  runFrames();
+  expect(calls).toEqual([0, 2]);
+  expect(live.events.value.map((event) => event.feedCursor)).toEqual([1, 2, 3]);
+  expect(live.events.value.filter((event) => event.kind === 'gift')).toHaveLength(3);
+  expect(live.diagnostics().cursor).toBe(3);
+  expect(live.diagnostics().recoveryGaps).toBe(0);
   live.dispose();
   uninstallFrameControl();
 });

@@ -21,6 +21,7 @@ mod hotkey_bindings;
 pub mod input_access;
 mod ipc_handlers;
 mod live_events;
+pub mod live_monitor;
 mod persistence;
 mod plugin_diagnostics;
 mod plugin_events;
@@ -113,6 +114,7 @@ pub(crate) struct PluginHealth {
 /// so a future database/live/plugin implementation can be tested in isolation.
 pub struct AppCore {
     pub live: Arc<LiveService>,
+    live_monitor: live_monitor::LiveMonitor,
     pub points: Arc<PointsService>,
     pub automation: Arc<AutomationService>,
     pub capabilities: Arc<CapabilityBroker>,
@@ -268,6 +270,7 @@ impl AppCore {
         let live_points_work = services::points_work::PointsWorkService::new(Arc::clone(&points));
         let core = Self {
             live: Arc::new(live),
+            live_monitor: live_monitor::LiveMonitor::default(),
             points,
             #[cfg(feature = "native-tiktok")]
             live_points_work,
@@ -513,6 +516,10 @@ impl AppCore {
     pub async fn shutdown(self: &Arc<Self>) {
         if self.shutdown_started.swap(true, Ordering::AcqRel) {
             return;
+        }
+        {
+            let _operation = self.live_monitor.operation.lock().await;
+            self.stop_live_monitor().await;
         }
         // Keep a notification queued if the polling task is in a plugin call
         // when shutdown begins; `notify_waiters` alone would be lost before

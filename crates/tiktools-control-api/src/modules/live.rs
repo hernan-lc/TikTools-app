@@ -3,6 +3,7 @@ use std::sync::Arc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 pub use tiktools_core::control::{LiveChannelsResult, LiveStatus};
+pub use tiktools_core::live_monitor::LiveMonitorStatus;
 use tiktools_core::AppCore;
 
 use crate::{error::ApiError, modules::Empty, router::ControlRouter};
@@ -38,7 +39,41 @@ pub struct LiveChannelsParams {
     pub session_cookie: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveMonitorStartParams {
+    pub unique_id: String,
+    #[serde(default)]
+    pub session_cookie: String,
+    #[serde(default)]
+    pub poll_interval_seconds: Option<u64>,
+}
+
 pub fn register(router: &mut ControlRouter) {
+    router.register_typed::<LiveMonitorStartParams, LiveMonitorStatus, _, _>(
+        "live.monitor.start",
+        "Monitors a creator and connects when LIVE",
+        true,
+        |core: Arc<AppCore>, params: LiveMonitorStartParams| async move {
+            core.live_monitor_start(
+                params.unique_id,
+                params.session_cookie,
+                params.poll_interval_seconds,
+            )
+            .await
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<Empty, LiveMonitorStatus, _, _>(
+        "live.monitor.stop", "Stops monitoring and disconnects its LIVE session", true,
+        |core: Arc<AppCore>, _: Empty| async move { Ok::<_, ApiError>(core.live_monitor_stop().await) },
+    );
+    router.register_typed::<Empty, LiveMonitorStatus, _, _>(
+        "live.monitor.status",
+        "Current native creator monitor state",
+        false,
+        |core: Arc<AppCore>, _: Empty| async move { Ok::<_, ApiError>(core.live_monitor_status()) },
+    );
     router.register_typed::<LiveConnectParams, LiveStatus, _, _>(
         "live.connect",
         "Connects the native TikTok live client",

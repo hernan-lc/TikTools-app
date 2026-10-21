@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ViewerAvatar from '@/entities/viewer/ui/ViewerAvatar.vue';
 import type { ViewerIdentity } from '@/entities/viewer/lib/viewer-profile.ts';
@@ -23,6 +23,8 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n();
 const giftImageFailed = ref(false);
+
+watch(() => props.event.giftDetails?.imageUrl, () => { giftImageFailed.value = false; });
 
 const handle = computed(() => cleanHandle(props.event.author));
 const name = computed(() => displayName(handle.value, props.event.nickname));
@@ -80,6 +82,12 @@ function openViewer(): void {
         referrerpolicy="no-referrer"
         @error="giftImageFailed = true"
       >
+      <span
+        v-else-if="event.kind === 'gift'"
+        class="event-row__gift"
+        role="img"
+        :aria-label="event.giftDetails?.name || 'Gift'"
+      >🎁</span>
       <span class="event-row__text">
         <ChatRichText
           v-if="rich"

@@ -55,6 +55,7 @@ pub(crate) struct LiveDedup {
 }
 
 struct DedupInner {
+    scope: Option<(String, String)>,
     seen: HashMap<(u8, u64), Instant>,
     order: VecDeque<(u8, u64)>,
 }
@@ -63,6 +64,7 @@ impl LiveDedup {
     pub(crate) fn new(capacity: usize, ttl: Duration) -> Self {
         Self {
             inner: Mutex::new(DedupInner {
+                scope: None,
                 seen: HashMap::new(),
                 order: VecDeque::new(),
             }),
@@ -74,6 +76,16 @@ impl LiveDedup {
 
     pub(crate) fn default() -> Self {
         Self::new(DEDUP_CAPACITY, DEDUP_TTL)
+    }
+
+    pub(crate) fn set_scope(&self, creator: &str, room: &str) {
+        let mut inner = recover_mutex(&self.inner, "live dedup");
+        let scope = (creator.to_owned(), room.to_owned());
+        if inner.scope.as_ref() != Some(&scope) {
+            inner.seen.clear();
+            inner.order.clear();
+            inner.scope = Some(scope);
+        }
     }
 
     /// Reports whether `event` was already processed. `true` means the
@@ -95,6 +107,7 @@ impl LiveDedup {
             }
             // TTL expired: forget the old occurrence and process this one
             // as new instead of suppressing it forever.
+            inner.order.retain(|entry| *entry != key);
             inner.seen.insert(key, Instant::now());
             inner.order.push_back(key);
             return false;
@@ -279,6 +292,29 @@ mod tests {
         // TTL expired: the identity processes again instead of leaking a
         // permanent suppression.
         assert!(!dedup.check_duplicate(&chat(501, "ephemeral")));
+    }
+
+    #[test]
+    fn type_and_room_scope_are_independent_of_reconnect_generation() {
+        let dedup = LiveDedup::default();
+        dedup.set_scope("alice", "room1");
+        assert!(!dedup.check_duplicate(&chat(42, "same")));
+        assert!(!dedup.check_duplicate(&gift(42, true)));
+        dedup.set_scope("alice", "room1");
+        assert!(dedup.check_duplicate(&gift(42, true)));
+        dedup.set_scope("alice", "room2");
+        assert!(!dedup.check_duplicate(&gift(42, true)));
+    }
+
+    #[test]
+    fn expired_reinsertion_keeps_fifo_bounded() {
+        let dedup = LiveDedup::new(8, Duration::ZERO);
+        for _ in 0..100 {
+            assert!(!dedup.check_duplicate(&chat(42, "same")));
+        }
+        let inner = recover_mutex(&dedup.inner, "test dedup");
+        assert_eq!(inner.seen.len(), 1);
+        assert_eq!(inner.order.len(), 1);
     }
 
     struct NoopEmitter;

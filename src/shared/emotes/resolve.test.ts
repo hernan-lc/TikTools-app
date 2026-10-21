@@ -164,11 +164,13 @@ describe('resolveChatSegments', () => {
     expect(segmentsToPlainText(segments)).toBe('Hi 😀 [happy] ¿qué tal? [wow]');
   });
 
-  test('unmatched metadata never invents placement', () => {
+  test('unmatched metadata follows unchanged text', () => {
     const segments = resolveChatSegments('no token here', [
       emote({ id: 'laughcry', shortcode: '[laughcry]', imageUrl: SAFE_URL }),
     ]);
-    expect(segments).toEqual([{ type: 'text', value: 'no token here' }]);
+    expect(segments[0]).toEqual({ type: 'text', value: 'no token here' });
+    expect(segments[1]).toMatchObject({ type: 'emote', imageUrl: SAFE_URL, fallbackText: '' });
+    expect(segmentsToPlainText(segments)).toBe('no token here');
   });
 
   test('an unclosed bracket is preserved as text', () => {
@@ -249,5 +251,26 @@ describe('catalog shape', () => {
     }
     expect(isKnownEmoteToken('HAPPY')).toBe(true);
     expect(isKnownEmoteToken('nope')).toBe(false);
+  });
+});
+
+describe('wire emote metadata', () => {
+  test('unmatched opaque ids keep images and preserve multilingual Unicode text', () => {
+    const text = 'Hola 👩🏽‍💻 世界';
+    const segments = resolveChatSegments(text, [
+      { id: '9007199254740993', imageUrl: SAFE_URL, index: 999, packageId: 'creator' },
+      { id: '9007199254740993', imageUrl: SAFE_URL },
+    ]);
+    expect(segmentsToPlainText(segments)).toBe(text);
+    expect(segments.filter((segment) => segment.type === 'emote')).toHaveLength(2);
+    expect(segments[1]).toMatchObject({ id: '9007199254740993', imageUrl: SAFE_URL, fallbackText: '' });
+  });
+  test('an indexed token consumes exactly one metadata occurrence', () => {
+    const segments = resolveChatSegments('😀 [custom]', [{ id: '123', imageUrl: SAFE_URL, index: 3 }]);
+    expect(segments.filter((segment) => segment.type === 'emote')).toHaveLength(1);
+    expect(segmentsToPlainText(segments)).toBe('😀 [custom]');
+  });
+  test('emote-only messages retain opaque emotes even without artwork', () => {
+    expect(resolveChatSegments('', [{ id: '123' }])).toMatchObject([{ type: 'emote', id: '123' }]);
   });
 });

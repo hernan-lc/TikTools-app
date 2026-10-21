@@ -52,6 +52,7 @@ impl AppCore {
     }
     #[cfg(feature = "native-tiktok")]
     pub(crate) async fn handle_connected(self: &Arc<Self>, info: tiktools_tiktok::ConnectionInfo) {
+        self.live_dedup.set_scope(&info.unique_id, &info.room_id);
         let sequence = self.connection_sequence.load(Ordering::Acquire);
         let context = LiveContext {
             unique_id: info.unique_id.clone(),
@@ -299,6 +300,18 @@ impl AppCore {
         // The UI-ready event goes out on the domain bus (authoritative for
         // WebView/IPC/CLI); the legacy push was removed with the migrated
         // duplicates.
+        self.live_ingress
+            .ui_published
+            .fetch_add(1, Ordering::Relaxed);
+        if ui_event["kind"] == "gift" {
+            self.live_ingress.ui_gifts.fetch_add(1, Ordering::Relaxed);
+            if !ui_event["giftDetails"]["imageUrl"].is_string() {
+                self.live_ingress
+                    .gifts_without_artwork
+                    .fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        tracing::debug!(method = event.method(), msg_id = %event.msg_id(), ui_kind = %ui_event["kind"], "publishing LIVE UI event");
         self.events
             .publish_domain(crate::events::DomainEvent::LiveUiEvent { event: ui_event });
         self.emit_leaderboard_if_due();

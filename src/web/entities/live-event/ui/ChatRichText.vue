@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, shallowRef } from 'vue';
 import { resolveChatSegments } from '../../../../shared/emotes/resolve.ts';
 import type { LiveEmote } from '../../../../shared/emotes/types.ts';
 import { hasEmoteImageFailed, markEmoteImageFailed } from '../lib/emote-failures.ts';
@@ -13,10 +13,16 @@ const props = withDefaults(
   { emotes: undefined, images: true },
 );
 
+const localFailures = shallowRef<ReadonlySet<string>>(new Set());
+function imageFailed(url: string): void {
+  markEmoteImageFailed(url);
+  localFailures.value = new Set([...localFailures.value, url].slice(-64));
+}
+
 const segments = computed(() => resolveChatSegments(props.text, props.emotes));
 
 function showImage(url: string | undefined): url is string {
-  return Boolean(props.images && url && !hasEmoteImageFailed(url));
+  return Boolean(props.images && url && !localFailures.value.has(url) && !hasEmoteImageFailed(url));
 }
 </script>
 
@@ -37,11 +43,17 @@ function showImage(url: string | undefined): url is string {
       loading="lazy"
       decoding="async"
       referrerpolicy="no-referrer"
-      @error="markEmoteImageFailed(segment.imageUrl!)"
+      @error="imageFailed(segment.imageUrl!)"
     >
-    <template v-else>
+    <template v-else-if="segment.fallbackText">
       {{ segment.fallbackText }}
     </template>
+    <span
+      v-else
+      class="chat-emote chat-emote--fallback"
+      role="img"
+      :aria-label="segment.shortcode || 'TikTok emote'"
+    >◻</span>
   </template>
 </template>
 

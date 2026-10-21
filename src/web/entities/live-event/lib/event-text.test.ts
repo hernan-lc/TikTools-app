@@ -13,7 +13,7 @@ const t = (key: string, params?: Record<string, unknown>) => i18n.global.t(key, 
 describe('eventText', () => {
   it('localizes host keys with params and event fallbacks', () => {
     expect(eventText(event({ kind: 'gift', i18nKey: 'giftSent', giftDetails: { name: 'Rose', count: 3, diamonds: 1 } }), t)).toBe(
-      'sent 3× Rose (1)',
+      'sent 3× Rose',
     );
     expect(eventText(event({ kind: 'like', i18nKey: 'likeSent', likeCount: 1 }), t)).toBe('sent 1 like');
     expect(eventText(event({ kind: 'like', i18nKey: 'likeSent', i18nParams: { count: 15 } }), t)).toBe('sent 15 likes');

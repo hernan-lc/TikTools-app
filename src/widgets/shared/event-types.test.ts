@@ -16,7 +16,7 @@ function event(overrides: Partial<AutomationEventLike> & { msgId?: string } = {}
 
 describe('eventIdentity', () => {
   test('keys on the upstream message id, not the minted envelope id', () => {
-    expect(eventIdentity(event({ msgId: '9007199254740993' }))).toBe('9007199254740993');
+    expect(eventIdentity(event({ msgId: '9007199254740993' }))).toBe(JSON.stringify(['', '', 'tiktok.share', '9007199254740993']));
   });
 
   test('two emissions of the same message share one identity', () => {
@@ -34,9 +34,13 @@ describe('eventIdentity', () => {
   test('the room scopes the identity so two rooms cannot collide', () => {
     const roomA = event({ msgId: 'msg-5', creator: { uniqueId: 'c', roomId: 'room-a' } });
     const roomB = event({ msgId: 'msg-5', creator: { uniqueId: 'c', roomId: 'room-b' } });
-    expect(eventIdentity(roomA)).toBe('room-a:msg-5');
-    expect(eventIdentity(roomB)).toBe('room-b:msg-5');
+    expect(eventIdentity(roomA)).toBe(JSON.stringify(['c', 'room-a', 'tiktok.share', 'msg-5']));
+    expect(eventIdentity(roomB)).toBe(JSON.stringify(['c', 'room-b', 'tiktok.share', 'msg-5']));
     expect(eventIdentity(roomA)).not.toBe(eventIdentity(roomB));
+  });
+
+  test('the same id on different event types stays distinct', () => {
+    expect(eventIdentity(event({ msgId: '42', type: 'tiktok.chat' }))).not.toBe(eventIdentity(event({ msgId: '42', type: 'tiktok.emote_chat' })));
   });
 
   test('falls back to the envelope id when there is no usable upstream id', () => {

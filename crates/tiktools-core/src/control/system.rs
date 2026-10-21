@@ -225,6 +225,7 @@ impl AppCore {
             "liveGenerationSeq": live_generation_seq,
             "liveIngress": live_ingress,
             "liveDedup": live_dedup,
+            "liveMonitor": self.live_monitor_status(),
             "points": points,
             "memory": memory,
             "desktop": self.emitter.diagnostics(),

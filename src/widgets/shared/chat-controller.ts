@@ -56,7 +56,7 @@ export class ChatController {
     if (event.data.isHistory) return 'history';
     if (!this.recentIds.add(eventIdentity(event))) return 'duplicate';
     const emoteOnly = event.type === 'tiktok.emote_chat';
-    const text = event.type === 'tiktok.chat' ? event.data.comment.trim() : '';
+    const text = event.type === 'tiktok.chat' ? event.data.comment : '';
     const emotes = (event.data.emotes ?? []).map((emote) => ({
       id: emote.id,
       ...(typeof emote.shortcode === 'string' ? { shortcode: emote.shortcode } : {}),
@@ -65,8 +65,8 @@ export class ChatController {
       ...(typeof emote.emoteType === 'number' ? { emoteType: emote.emoteType } : {}),
       ...(typeof emote.packageId === 'string' ? { packageId: emote.packageId } : {}),
     }));
-    const hasRenderableEmote = emotes.some((emote) => emote.imageUrl || emote.shortcode);
-    if (!text && !hasRenderableEmote) return 'ignored';
+    const hasRenderableEmote = emotes.length > 0;
+    if (!text.trim() && !hasRenderableEmote) return 'ignored';
     this.messages = [
       ...this.messages,
       {

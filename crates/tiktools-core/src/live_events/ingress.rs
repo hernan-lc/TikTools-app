@@ -128,6 +128,9 @@ impl IngressLifecycle {
 pub(crate) struct LiveIngressStats {
     /// Items admitted into the ingress queue.
     pub(crate) accepted: AtomicU64,
+    pub(crate) ui_published: AtomicU64,
+    pub(crate) ui_gifts: AtomicU64,
+    pub(crate) gifts_without_artwork: AtomicU64,
     /// Items the worker finished processing (stale fences excluded).
     pub(crate) processed: AtomicU64,
     /// Data events shed immediately on a full queue.
@@ -166,6 +169,9 @@ impl Default for LiveIngressStats {
     fn default() -> Self {
         Self {
             accepted: AtomicU64::new(0),
+            ui_published: AtomicU64::new(0),
+            ui_gifts: AtomicU64::new(0),
+            gifts_without_artwork: AtomicU64::new(0),
             processed: AtomicU64::new(0),
             dropped_data: AtomicU64::new(0),
             dropped_critical: AtomicU64::new(0),
@@ -239,6 +245,9 @@ impl LiveIngressStats {
             "abandoned": self.abandoned.load(Ordering::Relaxed),
             "admissionCancelled": self.admission_cancelled.load(Ordering::Relaxed),
             "accepted": self.accepted.load(Ordering::Relaxed),
+            "uiPublished": self.ui_published.load(Ordering::Relaxed),
+            "uiGifts": self.ui_gifts.load(Ordering::Relaxed),
+            "giftsWithoutArtwork": self.gifts_without_artwork.load(Ordering::Relaxed),
             "processed": self.processed.load(Ordering::Relaxed),
             "droppedData": self.dropped_data.load(Ordering::Relaxed),
             "droppedCritical": self.dropped_critical.load(Ordering::Relaxed),

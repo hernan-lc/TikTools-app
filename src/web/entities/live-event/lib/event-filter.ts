@@ -18,7 +18,7 @@ export function filterEvents(events: readonly DisplayEvent[], filter: EventFilte
   const result = events.filter(
     (event) =>
       matchesKind(event, filter) &&
-      (!needle || event.author.toLowerCase().includes(needle) || event.text.toLowerCase().includes(needle)),
+      (!needle || event.author.toLowerCase().includes(needle) || event.text.toLowerCase().includes(needle) || event.giftDetails?.name.toLowerCase().includes(needle) || event.giftDetails?.giftId === needle),
   );
   cache.set(events, { key, result });
   return result;

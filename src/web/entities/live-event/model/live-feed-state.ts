@@ -1,3 +1,4 @@
+import { liveMessageIdentity, LIVE_IDENTITY_CAPACITY, LIVE_IDENTITY_TTL_MS } from '../../../../shared/live-identity.ts';
 import { ref, shallowRef, watch } from 'vue';
 
 import type { GiftCatalogEntry, UiEvent } from '../../../../shared/messages.ts';
@@ -24,48 +25,19 @@ export interface FeedBackfillResult {
   events: Array<{ cursor: number; event: UiEvent }>;
 }
 
-const DEDUP_WINDOW_MS = 5000;
-const DEDUP_CACHE_LIMIT = 256;
-const MESSAGE_ID_MAX_AGE_MS = 10 * 60_000;
-
-function eventChecksum(event: UiEvent): string {
-  const gift = event.giftDetails;
-  return [
-    event.kind,
-    event.author,
-    event.text,
-    event.likeCount ?? '',
-    gift ? `${gift.name}:${gift.count}:${gift.diamonds}` : '',
-  ].join('|');
-}
-
-function isDuplicateEvent(event: UiEvent, now: number, seenMsgIds: Map<string, number>, seenChecksums: Map<string, number>): boolean {
-  const msgId = event.msgId;
-  if (msgId !== undefined) {
-    const seen = seenMsgIds.get(msgId);
-    if (seen !== undefined && now - seen < MESSAGE_ID_MAX_AGE_MS) return true;
-    seenMsgIds.set(msgId, now);
-    if (seenMsgIds.size > DEDUP_CACHE_LIMIT) {
-      const oldest = seenMsgIds.keys().next().value;
-      if (oldest !== undefined) seenMsgIds.delete(oldest);
-    }
-    return false;
-  }
-  const checksum = eventChecksum(event);
-  const firstSeen = seenChecksums.get(checksum);
-  if (firstSeen !== undefined && now - firstSeen < DEDUP_WINDOW_MS) return true;
-  seenChecksums.set(checksum, now);
-  if (seenChecksums.size > DEDUP_CACHE_LIMIT) {
-    const oldest = seenChecksums.keys().next().value;
-    if (oldest !== undefined) seenChecksums.delete(oldest);
-  }
-  return false;
-}
-
 export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedCallbacks) {
   const seenMsgIds = new Map<string, number>();
-  const seenChecksums = new Map<string, number>();
+  const seenCursors = new Set<number>();
+  let recoveryGeneration = 0;
+  let recoveryInFlight = false;
+  let recoveryRequested = false;
+  let recoveryAfter: number | null = null;
+  let duplicates = 0;
+  let recoveryGaps = 0;
+  let needsCursorSort = false;
   let sessionScope = '';
+  let sessionRoom = '';
+  let sessionCreator = '';
   const savedFeed = loadViewState().feed;
   const events = shallowRef<DisplayEvent[]>([]);
   const filter = ref<EventFilter>(savedFeed?.filter ?? 'all');
@@ -98,10 +70,8 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   let scrollFrame = 0;
   let disposed = false;
   let presentationActive = true;
-  let hasPresented = false;
   let commits = 0;
   let received = 0;
-  let suspendedAt = 0;
   let lastHostSuspended: number | null = null;
   let lastHostBusDropped: number | null = null;
   let lastDeliverySequence: number | null = null;
@@ -119,7 +89,6 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   const stageEvent = (event: DisplayEvent): void => {
     if (disposed) return;
     if (!presentationActive) { droppedUiEvents.value += 1; return; }
-    hasPresented = true;
     staged.push(event);
     if (staged.length > MAX_STAGED_EVENTS) {
       const shed = staged.length - MAX_STAGED_EVENTS;
@@ -145,7 +114,15 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     const now = Date.now();
     for (const stagedEvent of batch) stagedEvent.receivedAt = now;
     commits += 1;
-    events.value = [...events.value, ...batch].slice(-MAX_VISIBLE_FEED);
+    const combined = [...events.value, ...batch];
+    if (needsCursorSort) {
+      // Sort only journal-backed slots: system notices retain their positions.
+      const ordered = combined.filter((event) => event.feedCursor !== undefined).sort((a, b) => a.feedCursor! - b.feedCursor!);
+      let position = 0;
+      for (let i = 0; i < combined.length; i += 1) if (combined[i]!.feedCursor !== undefined) combined[i] = ordered[position++]!;
+      needsCursorSort = false;
+    }
+    events.value = combined.slice(-MAX_VISIBLE_FEED);
     if (!autoScroll.value) unreadCount.value += batch.length;
     if (autoScroll.value) queueScroll();
   };
@@ -194,7 +171,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     saveFeedStateDebounced.cancel();
     scrollSaveHandler?.cancel();
     seenMsgIds.clear();
-    seenChecksums.clear();
+    seenCursors.clear();
     flushFrame = 0;
     scrollFrame = 0;
     flushQueued = false;
@@ -207,13 +184,29 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     }
   };
 
-  const pushFeedEvent = (event: UiEvent, cursor?: number): void => {
-    if (disposed) return;
+  const pushFeedEvent = (event: UiEvent, cursor?: number): boolean => {
+    if (disposed) return false;
     received += 1;
-    if (!presentationActive) { droppedUiEvents.value += 1; return; }
-    if (cursor !== undefined) lastFeedCursor = Math.max(lastFeedCursor ?? 0, cursor);
-    if (isDuplicateEvent(event, Date.now(), seenMsgIds, seenChecksums)) return;
-    stageEvent({ ...event, id: nextEventId++, receivedAt: Date.now() });
+    if (!presentationActive) { droppedUiEvents.value += 1; return false; }
+    if ((event.roomId && sessionRoom && event.roomId !== sessionRoom) || (event.creatorId && sessionCreator && event.creatorId !== sessionCreator)) return false;
+    if (cursor !== undefined) {
+      if (seenCursors.has(cursor)) { duplicates += 1; return false; }
+      seenCursors.add(cursor);
+      if (seenCursors.size > LIVE_IDENTITY_CAPACITY) seenCursors.delete(seenCursors.values().next().value!);
+      if (lastFeedCursor !== null && cursor < lastFeedCursor) needsCursorSort = true;
+      lastFeedCursor = Math.max(lastFeedCursor ?? 0, cursor);
+    }
+    const identity = liveMessageIdentity(event.sourceType ?? event.kind, event.msgId, event.roomId ?? sessionRoom, event.creatorId ?? sessionCreator);
+    if (identity !== null) {
+      const now = Date.now();
+      const seen = seenMsgIds.get(identity);
+      if (seen !== undefined && now - seen < LIVE_IDENTITY_TTL_MS) { duplicates += 1; return false; }
+      seenMsgIds.delete(identity);
+      seenMsgIds.set(identity, now);
+      if (seenMsgIds.size > LIVE_IDENTITY_CAPACITY) seenMsgIds.delete(seenMsgIds.keys().next().value!);
+    }
+    stageEvent({ ...event, feedCursor: cursor, id: nextEventId++, receivedAt: Date.now() });
+    return true;
   };
 
   const insertDiscontinuity = (): void => {
@@ -226,41 +219,56 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     });
   };
 
-    const recoverFeed = async (): Promise<void> => {
-    const cursor = lastFeedCursor;
-    const canCall = typeof (control as { call?: unknown }).call === 'function';
-    if (!canCall || cursor === null) {
-      insertDiscontinuity();
-      return;
-    }
+  const recoverFeed = async (): Promise<void> => {
+    if (recoveryInFlight) { recoveryRequested = true; return; }
+    if (typeof (control as { call?: unknown }).call !== 'function') { insertDiscontinuity(); return; }
+    const generation = recoveryGeneration;
+    recoveryInFlight = true;
+    let after = recoveryAfter ?? lastFeedCursor ?? 0;
+    recoveryAfter = after;
     try {
-      const result = await control.call<FeedBackfillResult>('ui.feed.backfill', { version: 1, after: cursor });
-      if (disposed || !presentationActive) return;
-      let recovered = 0;
-      const now = Date.now();
-      for (const entry of result.events ?? []) {
-        if (typeof entry?.event !== 'object' || entry.event === null) continue;
-        if (isDuplicateEvent(entry.event, now, seenMsgIds, seenChecksums)) continue;
-        stageEvent({ ...entry.event, id: nextEventId++, receivedAt: now });
-        recovered += 1;
+      // One host journal is bounded. Page by the last returned cursor, never
+      // by latestCursor (which could skip the rest of a truncated page).
+      for (let page = 0; page < 16; page += 1) {
+        const result = await control.call<FeedBackfillResult>('ui.feed.backfill', { version: 1, after });
+        if (disposed || !presentationActive || generation !== recoveryGeneration) return;
+        let recovered = 0;
+        let next = after;
+        for (const entry of result.events ?? []) {
+          if (!Number.isSafeInteger(entry?.cursor) || entry.cursor <= after || !entry.event) continue;
+          next = Math.max(next, entry.cursor);
+          if (pushFeedEvent(entry.event, entry.cursor)) recovered += 1;
+        }
+        droppedUiEvents.value = Math.max(0, droppedUiEvents.value - recovered);
+        if (result.gap) { recoveryGaps += 1; insertDiscontinuity(); }
+        if (!result.truncated) { recoveryAfter = null; break; }
+        if (next <= after || page === 15) { recoveryGaps += 1; insertDiscontinuity(); break; }
+        after = next;
+        recoveryAfter = after;
       }
-      if (typeof result.latestCursor === 'number') lastFeedCursor = Math.max(lastFeedCursor ?? 0, result.latestCursor);
-      droppedUiEvents.value = Math.max(0, droppedUiEvents.value - recovered);
-      if (result.gap || result.truncated) insertDiscontinuity();
     } catch {
-      if (!disposed && presentationActive) insertDiscontinuity();
+      if (!disposed && presentationActive && generation === recoveryGeneration) { recoveryGaps += 1; insertDiscontinuity(); }
+    } finally {
+      recoveryInFlight = false;
+      if (recoveryRequested && !disposed && presentationActive) {
+        recoveryRequested = false;
+        void recoverFeed();
+      }
     }
   };
 
   const setPresentationActive = (active: boolean): void => {
     if (disposed || active === presentationActive) return;
+    // Commit already accepted events before suspension; their cursor and
+    // identity must never describe discarded staging.
+    if (!active) flushStaged();
     presentationActive = active;
+    recoveryGeneration += 1;
     if (!active) {
       if (!autoScroll.value && streamContainerRef.value) {
         restoreScrollTop = streamContainerRef.value.scrollTop;
         saveFeedState();
       }
-      suspendedAt = droppedUiEvents.value;
       droppedUiEvents.value += staged.length;
       staged = [];
       cancelFrame(flushFrame);
@@ -274,7 +282,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
       flushTimer = scrollTimer = null;
       flushFrame = scrollFrame = 0;
       flushQueued = false;
-    } else if (hasPresented || droppedUiEvents.value > suspendedAt) {
+    } else {
       void recoverFeed();
     }
   };
@@ -293,12 +301,14 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   }));
 
   unsubscribers.push(control.onTopic<{ uniqueId?: string; roomId?: string }>('live.connected', (data) => {
-    const scope = `${data.uniqueId ?? ''}:${data.roomId ?? ''}`;
+    const scope = JSON.stringify([data.uniqueId ?? '', data.roomId ?? '']);
     if (scope !== sessionScope) {
       seenMsgIds.clear();
-      seenChecksums.clear();
+      seenCursors.clear();
       sessionScope = scope;
-      lastFeedCursor = null;
+      sessionRoom = data.roomId ?? '';
+      sessionCreator = data.uniqueId ?? '';
+      recoveryGeneration += 1;
     }
   }));
   unsubscribers.push(control.onTopic<{ event: UiEvent; sequence?: number; cursor?: number }>('live.ui-event', (data) => {
@@ -408,7 +418,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   };
 
   return {
-    diagnostics: () => ({ visible: events.value.length, staged: staged.length, dropped: droppedUiEvents.value, presentationActive, commits, received, cursor: lastFeedCursor, timers: Number(flushTimer !== null) + Number(scrollTimer !== null) + Number(restoreTimer !== null), frames: Number(flushFrame !== 0) + Number(scrollFrame !== 0) + Number(restoreFrame !== 0) }),
+    diagnostics: () => ({ visible: events.value.length, staged: staged.length, dropped: droppedUiEvents.value, presentationActive, commits, received, duplicates, recoveryGaps, identities: seenMsgIds.size, recoveryInFlight, cursor: lastFeedCursor, timers: Number(flushTimer !== null) + Number(scrollTimer !== null) + Number(restoreTimer !== null), frames: Number(flushFrame !== 0) + Number(scrollFrame !== 0) + Number(restoreFrame !== 0) }),
     events,
     imagesEnabled,
     renderLimit,

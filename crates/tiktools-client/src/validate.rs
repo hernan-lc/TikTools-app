@@ -17,7 +17,9 @@ use tiktools_control_api::modules::gifts::GiftDebugParams;
 use tiktools_control_api::modules::globals::{
     GlobalsDeleteParams, GlobalsGetParams, GlobalsSetParams,
 };
-use tiktools_control_api::modules::live::{LiveChannelsParams, LiveConnectParams, LivePickParams};
+use tiktools_control_api::modules::live::{
+    LiveChannelsParams, LiveConnectParams, LiveMonitorStartParams, LivePickParams,
+};
 use tiktools_control_api::modules::media::{MediaPickParams, MediaPlayParams, MediaValidateParams};
 use tiktools_control_api::modules::plugins::{
     PluginActionParams, PluginIdParams, PluginInstallParams, PluginInstallSetParams,
@@ -119,6 +121,11 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
         "live.channels" => LiveChannelsParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),
+        "live.monitor.start" => LiveMonitorStartParams::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "live.monitor.stop" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
+        "live.monitor.status" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "media.validate" => MediaValidateParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),

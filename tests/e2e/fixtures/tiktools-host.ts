@@ -52,6 +52,8 @@ export interface E2EHostState {
     native: boolean;
   };
   /** Page served for `live.channels` (read-only LIVE browse). */
+  liveMonitor?: Record<string, unknown>;
+  feedJournal?: Array<{ cursor: number; event: Record<string, unknown> }>;
   liveChannels: { rooms: Array<Record<string, unknown>>; nextOffset?: number };
   /** Methods forced to fail: method -> message, or `{ code, message }` to
    *  exercise a specific JSON-RPC error code. */
@@ -230,6 +232,14 @@ const INIT_SCRIPT = `
       return { pluginId: id, ok: true, error: null };
     },
     'plugins.token.provision': (params) => ({ pluginId: params.pluginId, ok: true, error: null }),
+    'ui.feed.backfill': (params) => {
+      const journal = state.feedJournal || [];
+      const selected = journal.filter((entry) => entry.cursor > params.after).slice(0, 300);
+      return { oldestCursor: journal[0]?.cursor || 0, latestCursor: journal.at(-1)?.cursor || 0, depth: journal.length, gap: false, truncated: (selected.at(-1)?.cursor || params.after) < (journal.at(-1)?.cursor || 0), events: selected };
+    },
+    'live.monitor.status': () => state.liveMonitor || { enabled: false, phase: 'stopped', uniqueId: '', pollIntervalSeconds: 30, checks: 0, failures: 0, lastCheckedAt: null, nextCheckAt: null, lastError: null },
+    'live.monitor.start': (params) => (state.liveMonitor = { enabled: true, phase: 'waiting', uniqueId: params.uniqueId, pollIntervalSeconds: params.pollIntervalSeconds || 30, checks: 1, failures: 0, lastCheckedAt: Date.now(), nextCheckAt: Date.now() + 30000, lastError: null }),
+    'live.monitor.stop': () => (state.liveMonitor = { ...state.liveMonitor, enabled: false, phase: 'stopped' }),
     'live.status': () => state.liveStatus,
     'live.connect': (params) => {
       state.liveStatus = {

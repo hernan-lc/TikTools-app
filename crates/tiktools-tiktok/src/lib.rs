@@ -170,6 +170,19 @@ impl NativeTikTokClient {
         }
     }
 
+    /// Reuses the SDK's unsigned, browser-free room lookup. Offline is a
+    /// normal observation; transport/auth failures remain errors.
+    pub async fn creator_live_room(&self, creator: &str) -> Result<Option<String>, TikTokError> {
+        let creator = clean_unique_id(creator).ok_or(TikTokError::InvalidCreator)?;
+        let discovery = ttl_live_discovery::DiscoveryClient::new(&default_preset())
+            .map_err(|error| TikTokError::Discovery(error.to_string()))?;
+        match discovery.room_lookup(&creator).await {
+            Ok(room) => Ok(room.is_live().then_some(room.room_id)),
+            Err(ttl_live_discovery::DiscoveryError::NoRoom(_)) => Ok(None),
+            Err(error) => Err(TikTokError::Discovery(error.to_string())),
+        }
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<ClientEvent> {
         self.events.subscribe()
     }
@@ -532,7 +545,7 @@ async fn run_connection(
     gifts: Vec<GiftInfo>,
 ) {
     tracing::debug!(connection_generation, "TikTok live event task started");
-    let gifts = gifts
+    let mut gifts = gifts
         .into_iter()
         .map(|gift| (gift.id.clone(), gift))
         .collect::<std::collections::HashMap<_, _>>();
@@ -564,6 +577,7 @@ async fn run_connection(
                             }
                             tracing::debug!(method = %decoded.raw.method, "TikTok live event decoded");
                             let event = events::TikToolsEvent::from_decoded(decoded, &gifts);
+                            event.remember_gift(&mut gifts);
                             event_sender.send(connection_generation, ClientEvent::Event(event));
                         }
                     }

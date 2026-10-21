@@ -71,7 +71,7 @@ describe('FeedPage', () => {
     await push({ kind: 'chat', author: 'luna', text: 'hola a todos', msgId: '1' });
     await push({ kind: 'gift', author: 'mango', text: 'Rose', i18nKey: 'giftSent', giftDetails: { name: 'Rose', count: 2, diamonds: 1 }, msgId: '2' });
     expect(wrapper.findAll('.event-row')).toHaveLength(2);
-    expect(wrapper.text()).toContain('sent 2× Rose (1)');
+    expect(wrapper.text()).toContain('sent 2× Rose');
     expect(wrapper.text()).toContain('2 events');
     await wrapper.findAll('.base-segmented__option').find((option) => option.text() === 'Gifts')!.trigger('click');
     expect(wrapper.findAll('.event-row')).toHaveLength(1);

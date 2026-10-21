@@ -23,6 +23,8 @@ export type ConnectionStatus =
 export type DisplayEvent = UiEvent & {
   id: number;
   receivedAt: number;
+  /** Host feed journal order, independent of arrival order during backfill. */
+  feedCursor?: number;
 };
 
 export type EventFilter = 'all' | 'chat' | 'gift' | 'like' | 'social';

@@ -105,6 +105,11 @@ impl LiveService {
             .await
     }
 
+    #[cfg(feature = "native-tiktok")]
+    pub async fn creator_live_room(&self, creator: &str) -> Result<Option<String>, TikTokError> {
+        self.client.creator_live_room(creator).await
+    }
+
     pub async fn disconnect(&self) {
         #[cfg(feature = "native-tiktok")]
         if let Err(error) = self.client.disconnect_native().await {

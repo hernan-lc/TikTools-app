@@ -1,3 +1,4 @@
+import { liveMessageIdentity } from '../../shared/live-identity.ts';
 /**
  * Widget-side event types. Automation payloads reuse the generated TikTools
  * contracts; widgets never define their own user/gift/social shapes.
@@ -76,9 +77,7 @@ export function eventIdentity(event: AutomationEventLike): string {
     typeof data === 'object' && data !== null && !Array.isArray(data)
       ? (data as Record<string, unknown>)['msgId']
       : undefined;
-  if (typeof msgId !== 'string' || msgId.length === 0 || msgId === '0') return event.id;
-  const roomId = event.creator?.roomId;
-  return roomId ? `${roomId}:${msgId}` : msgId;
+  return liveMessageIdentity(event.type, msgId, event.creator?.roomId, event.creator?.uniqueId) ?? event.id;
 }
 
 export interface FollowAutomationEvent {

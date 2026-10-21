@@ -80,6 +80,7 @@ impl AppCore {
                     "nickname": user.nickname,
                     "text": format!("sent {count}× {gift_name} ({total_diamonds})"),
                     "giftDetails": {
+                        "giftId": gift.gift_id.to_string(),
                         "name": gift_name,
                         "count": count,
                         "diamonds": total_diamonds,
@@ -174,6 +175,13 @@ impl AppCore {
         // `msgId` to drop the replay instead of re-triggering the
         // event. String form keeps large snowflake ids JS-safe.
         if let Some(object) = ui_event.as_object_mut() {
+            if let Some(context) =
+                recover_rwlock_read(&self.connection_context, "connection context").as_ref()
+            {
+                object.insert("roomId".to_owned(), json!(context.room_id));
+                object.insert("creatorId".to_owned(), json!(context.unique_id));
+            }
+            object.insert("sourceType".to_owned(), json!(format!("tiktok.{reason}")));
             object.insert("msgId".to_owned(), json!(event.msg_id().to_string()));
             object.insert("isHistory".to_owned(), json!(event.is_history()));
         }
@@ -329,5 +337,85 @@ impl AppCore {
             event["user"] = user;
         }
         event
+    }
+}
+
+#[cfg(all(test, feature = "native-tiktok"))]
+mod regression_tests {
+    use super::*;
+    struct Emitter;
+    impl HostEmitter for Emitter {
+        fn emit(&self, _: HostMessage) {}
+    }
+
+    #[tokio::test]
+    async fn protobuf_gift_and_emotes_publish_both_ui_and_automation_contracts() {
+        let core = Arc::new(AppCore::new(Arc::new(Emitter)));
+        *recover_rwlock_write(&core.connection_context, "test context") = Some(LiveContext {
+            unique_id: "creator".into(),
+            room_id: "room".into(),
+            connection_id: "connection".into(),
+        });
+        let fixtures: [(&str, &[u8], &str); 3] = [
+            (
+                "WebcastGiftMessage",
+                include_bytes!("../../tests/fixtures/live/gift.pb"),
+                "tiktok.gift",
+            ),
+            (
+                "WebcastChatMessage",
+                include_bytes!("../../tests/fixtures/live/chat-inline-emote.pb"),
+                "tiktok.chat",
+            ),
+            (
+                "WebcastEmoteChatMessage",
+                include_bytes!("../../tests/fixtures/live/emote-chat.pb"),
+                "tiktok.emote_chat",
+            ),
+        ];
+        for (method, bytes, expected_type) in fixtures {
+            let mut receiver = core.events.subscribe_projection();
+            let base = ttl_live_events::decode_event(method, bytes);
+            let event = NativeLiveEvent {
+                base,
+                metadata: tiktools_tiktok::events::EventMetadata {
+                    method: method.into(),
+                    msg_id: 9007199254740993,
+                    is_history: false,
+                },
+                gift: None,
+            };
+            core.handle_live_event(event).await;
+            let mut ui = None;
+            let mut automation = None;
+            while let Ok(event) = receiver.try_recv() {
+                match event {
+                    crate::events::DomainEvent::LiveUiEvent { event } => ui = Some(event),
+                    crate::events::DomainEvent::LiveEvent { event, event_type }
+                        if event_type == expected_type =>
+                    {
+                        automation = Some(event)
+                    }
+                    _ => {}
+                }
+            }
+            let ui = ui.expect("UI delivery independent of automation execution");
+            let automation = automation.expect("existing automation contract");
+            assert_eq!(ui["msgId"], "9007199254740993");
+            assert_eq!(ui["sourceType"], expected_type);
+            assert_eq!(ui["roomId"], "room");
+            assert_eq!(automation["data"]["msgId"], ui["msgId"]);
+            if expected_type == "tiktok.gift" {
+                assert!(ui["giftDetails"]["giftId"].is_string());
+                assert_eq!(ui["giftDetails"]["giftId"], automation["data"]["giftId"]);
+                assert!(ui["giftDetails"]["name"].is_string());
+            } else {
+                let emote = &ui["emotes"][0];
+                assert!(emote["imageUrl"].is_string(), "camelCase imageUrl");
+                assert!(emote.get("image_url").is_none());
+                assert_eq!(ui["emotes"], automation["data"]["emotes"]);
+            }
+        }
+        core.points.shutdown();
     }
 }

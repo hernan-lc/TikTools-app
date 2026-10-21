@@ -126,3 +126,25 @@ test('wrong widget credential never renders', async ({ page }) => {
   await page.waitForTimeout(1000);
   await expect(page.locator('.follow-card')).toHaveCount(0);
 });
+
+
+test('opaque chat and standalone emotes retain metadata through the real gateway', async ({ page }) => {
+  await page.route('https://cdn.example.test/**', (route) => route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDQAAAABJRU5ErkJggg==', 'base64') }));
+  await page.goto(`${gateway.baseUrl}/widgets/chat/#token=${gateway.widgetToken}`);
+  await waitForStatus(page, 'connected');
+  const envelope = makeTestChatEnvelope({ comment: 'Hola 👩🏽‍💻 世界', msgId: '9007199254740993' });
+  const payload = envelope.data as { event: { data: Record<string, unknown> } };
+  payload.event.data.emotes = [{ id: '987654', imageUrl: 'https://cdn.example.test/emote.png', packageId: 'creator' }];
+  gateway.sendEvent(envelope);
+  await expect(page.locator('.chat-message')).toContainText('Hola 👩🏽‍💻 世界');
+  await expect(page.locator('.chat-message img.chat-emote')).toHaveCount(1);
+  const standalone = structuredClone(envelope);
+  const standaloneEvent = (standalone.data as { event: { id: string; type: string; data: Record<string, unknown> } }).event;
+  standaloneEvent.id = 'standalone';
+  standaloneEvent.type = 'tiktok.emote_chat';
+  // A separate canonical type may legitimately use the same upstream id.
+  delete standaloneEvent.data.comment;
+  gateway.sendEvent(standalone);
+  await expect(page.locator('.chat-message')).toHaveCount(2);
+  await expect(page.locator('.chat-message img.chat-emote')).toHaveCount(2);
+});

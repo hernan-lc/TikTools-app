@@ -78,6 +78,41 @@ impl TikToolsEvent {
         }
     }
 
+    /// Cache only observed metadata by stable gift ID within this room.
+    /// Existing catalog values remain available for omitted streak details.
+    pub(crate) fn remember_gift(&self, gifts: &mut HashMap<String, GiftInfo>) {
+        let CanonicalLiveEvent::Gift(event) = &self.base else {
+            return;
+        };
+        if event.gift_id == 0 {
+            return;
+        }
+        let key = event.gift_id.to_string();
+        if !gifts.contains_key(&key) && gifts.len() >= 4096 {
+            return;
+        }
+        let entry = gifts.entry(key.clone()).or_insert_with(|| GiftInfo {
+            id: key,
+            name: String::new(),
+            diamond_count: 0,
+            icon_url: None,
+            streakable: false,
+        });
+        if !event.gift_name.is_empty() {
+            entry.name.clone_from(&event.gift_name);
+        }
+        if event.diamond_count > 0 {
+            entry.diamond_count = event.diamond_count;
+        }
+        if let Some(url) = event
+            .gift_image_url
+            .as_deref()
+            .filter(|url| safe_artwork(url))
+        {
+            entry.icon_url = Some(url.to_owned());
+        }
+    }
+
     pub fn user(&self) -> Option<&EventUser> {
         self.base.user()
     }
@@ -127,13 +162,87 @@ impl TikToolsEvent {
     }
 
     pub fn gift_icon_url(&self) -> Option<&str> {
-        self.gift.as_ref().and_then(|gift| gift.icon_url.as_deref())
+        let event_image = match &self.base {
+            CanonicalLiveEvent::Gift(event) => event.gift_image_url.as_deref(),
+            _ => None,
+        };
+        event_image.filter(|url| safe_artwork(url)).or_else(|| {
+            self.gift
+                .as_ref()
+                .and_then(|gift| gift.icon_url.as_deref())
+                .filter(|url| safe_artwork(url))
+        })
     }
+}
+
+fn safe_artwork(value: &str) -> bool {
+    value.len() <= 2048
+        && reqwest::Url::parse(value).is_ok_and(|url| {
+            matches!(url.scheme(), "http" | "https")
+                && url.host_str().is_some()
+                && url.username().is_empty()
+                && url.password().is_none()
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::{classify_social_action, SocialKind};
+
+    #[test]
+    fn event_artwork_wins_and_missing_details_reuse_verified_room_metadata() {
+        use super::*;
+        let mut gifts = HashMap::new();
+        gifts.insert(
+            "1".into(),
+            GiftInfo {
+                id: "1".into(),
+                name: "Catalog Rose".into(),
+                diamond_count: 1,
+                icon_url: Some("https://cdn.example/catalog.png".into()),
+                streakable: true,
+            },
+        );
+        let gift = TikToolsEvent {
+            base: CanonicalLiveEvent::Gift(GiftEvent {
+                gift_id: 1,
+                gift_name: "Event Rose".into(),
+                gift_image_url: Some("https://cdn.example/event.png".into()),
+                ..Default::default()
+            }),
+            metadata: EventMetadata {
+                method: "WebcastGiftMessage".into(),
+                msg_id: 1,
+                is_history: false,
+            },
+            gift: Some(GiftEnrichment {
+                name: "Catalog Rose".into(),
+                diamond_count: 1,
+                icon_url: Some("https://cdn.example/catalog.png".into()),
+                streakable: true,
+            }),
+        };
+        assert_eq!(gift.gift_icon_url(), Some("https://cdn.example/event.png"));
+        gift.remember_gift(&mut gifts);
+        assert_eq!(
+            gifts["1"].icon_url.as_deref(),
+            Some("https://cdn.example/event.png")
+        );
+        assert!(gifts["1"].streakable);
+        let mut unsafe_event = gift.clone();
+        if let CanonicalLiveEvent::Gift(gift) = &mut unsafe_event.base {
+            gift.gift_image_url = Some("javascript:alert(1)".into());
+        }
+        assert_eq!(
+            unsafe_event.gift_icon_url(),
+            Some("https://cdn.example/catalog.png")
+        );
+        unsafe_event.remember_gift(&mut gifts);
+        assert_eq!(
+            gifts["1"].icon_url.as_deref(),
+            Some("https://cdn.example/event.png")
+        );
+    }
 
     /// The same table the `tiktok-signer` fixture pins. Duplicated here only
     /// because the fixture lives in the other repository.

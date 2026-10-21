@@ -72,7 +72,12 @@ export type UiEvent = {
   level?: number;
   pointsDelta?: number;
   isSubscriber?: boolean;
+  /** Room and canonical type survive reconnects and distinguish emote-only chat. */
+  roomId?: string;
+  creatorId?: string;
+  sourceType?: string;
   giftDetails?: {
+    giftId?: string;
     name: string;
     count: number;
     diamonds: number;

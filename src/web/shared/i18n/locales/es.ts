@@ -196,6 +196,11 @@ export default {
     },
   },
   connections: {
+    monitor: {
+      start: 'Vigilar y conectar automáticamente', stop: 'Detener monitor', status: 'Monitor LIVE: {phase}',
+      phases: { stopped: 'Detenido', waiting: 'Esperando el LIVE', checking: 'Consultando creador', connecting: 'Conectando', live: 'Conectado; monitor activo', error: 'Reintentando tras un error' },
+    },
+
     live: {
       title: 'TikTok LIVE',
       creator: 'Creador',
@@ -278,7 +283,7 @@ export default {
       social: 'Social',
     },
     events: {
-      giftSent: 'envió {count}× {giftName} ({diamonds})',
+      giftSent: 'envió {count}× {giftName}',
       likeSentOne: 'envió {count} me gusta',
       likeSentMany: 'envió {count} me gusta',
       joined: 'se unió al LIVE',
