@@ -296,15 +296,14 @@ pub(crate) enum DataClass {
 pub(crate) fn classify_data_event(event: &NativeLiveEvent) -> DataClass {
     use tiktools_tiktok::events::CanonicalLiveEvent;
     match &event.base {
-        CanonicalLiveEvent::Gift(gift) => {
-            // Streak intermediates carry no durable change (points are
-            // awarded once at finalization, and the final count covers the
-            // whole streak); finals and non-streakable gifts do.
-            if event.gift_streakable() && !gift.repeat_end {
-                DataClass::Sheddable
-            } else {
-                DataClass::Critical
-            }
+        CanonicalLiveEvent::Gift(_) => {
+            // Gift events are money-grade and also feed the live overlay.
+            // Progress is cumulative (the state machine never sums it), but
+            // shedding an intermediate would make the on-screen streak jump
+            // and could hide the gift entirely under burst load. Gifts
+            // therefore get bounded backpressure, with explicit gap
+            // accounting when even that deadline expires.
+            DataClass::Critical
         }
         CanonicalLiveEvent::Social(social) => {
             match tiktools_tiktok::events::classify_social_action(social.action) {
@@ -659,11 +658,12 @@ mod tests {
     fn critical_events_cover_gifts_follows_and_shares() {
         assert_eq!(classify_data_event(&gift_final()), DataClass::Critical);
         assert_eq!(classify_data_event(&follow()), DataClass::Critical);
-        // Streak progress, chat, likes, and room stats shed under overload.
+        // Gifts, including streak progress, are never silently shed.
         assert_eq!(
             classify_data_event(&gift_streak_mid()),
-            DataClass::Sheddable
+            DataClass::Critical
         );
+        // Chat, likes, and room stats shed under overload.
         assert_eq!(classify_data_event(&chat()), DataClass::Sheddable);
         assert_eq!(
             classify_data_event(&wrap(

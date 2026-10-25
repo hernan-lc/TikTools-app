@@ -23,6 +23,17 @@ impl AppCore {
         &self,
         event: &NativeLiveEvent,
     ) -> Option<(serde_json::Value, PointAction, AwardOptions, &'static str)> {
+        self.ui_event_and_points_with_gift(event, None)
+    }
+
+    /// Maps one native event, using the authoritative gift streak transition
+    /// (when present) for count/finalization instead of re-deriving it here.
+    #[cfg(feature = "native-tiktok")]
+    pub(crate) fn ui_event_and_points_with_gift(
+        &self,
+        event: &NativeLiveEvent,
+        gift_streak: Option<&crate::live_events::gift_streak::GiftStreakUpdate>,
+    ) -> Option<(serde_json::Value, PointAction, AwardOptions, &'static str)> {
         let user = native_user(event)?;
         let unique_id = clean_unique_id(&user.unique_id).unwrap_or_else(|| "viewer".to_owned());
         let base_options = || AwardOptions {
@@ -66,12 +77,27 @@ impl AppCore {
             )),
             tiktools_tiktok::events::CanonicalLiveEvent::Gift(gift) => {
                 let gift_name = event.gift_name().unwrap_or("Gift");
-                let diamond_count = event.gift_diamond_count().unwrap_or(gift.diamond_count);
-                let count = gift.repeat_count.max(gift.combo_count).max(1);
-                let diamonds = diamond_count.max(1);
-                let total_diamonds = diamonds.saturating_mul(count);
+                let classification = event.gift_streak_classification();
+                let count = gift_streak
+                    .map(|streak| streak.count)
+                    .unwrap_or_else(|| gift.repeat_count.max(gift.combo_count).max(1));
+                let diamonds_each = gift_streak
+                    .map(|streak| streak.diamonds_each)
+                    .unwrap_or_else(|| {
+                        event
+                            .gift_diamond_count()
+                            .unwrap_or(gift.diamond_count)
+                    });
+                let total_diamonds = gift_streak
+                    .map(|streak| streak.total_diamonds)
+                    .unwrap_or_else(|| diamonds_each.saturating_mul(count));
                 let mut options = base_options();
-                if !event.gift_streakable() || gift.repeat_end {
+                // Only an authoritative finalization carries payment value.
+                // Unknown catalog metadata never becomes an invented price.
+                let should_award_value = gift_streak
+                    .map(|streak| streak.should_award)
+                    .unwrap_or_else(|| !event.gift_streakable() || gift.repeat_end);
+                if should_award_value && total_diamonds > 0 {
                     options.diamond_count = Some(total_diamonds as f64);
                 }
                 let event = json!({
@@ -81,9 +107,15 @@ impl AppCore {
                     "text": format!("sent {count}× {gift_name} ({total_diamonds})"),
                     "giftDetails": {
                         "giftId": gift.gift_id.to_string(),
+                        "groupId": gift.group_id.to_string(),
                         "name": gift_name,
                         "count": count,
                         "diamonds": total_diamonds,
+                        "diamondsEach": diamonds_each,
+                        "classification": classification.as_str(),
+                        "streakStatus": gift_streak.map(|streak| streak.status.as_str()).unwrap_or(if gift.repeat_end { "finalized" } else { "updated" }),
+                        "complete": gift_streak.map(|streak| streak.complete).unwrap_or(gift.repeat_end),
+                        "incomplete": gift_streak.map(|streak| streak.incomplete).unwrap_or(classification == tiktools_tiktok::events::GiftStreakClassification::Unknown && gift.repeat_end),
                         "imageUrl": event.gift_icon_url()
                     },
                     "i18nKey": "giftSent",
@@ -229,6 +261,12 @@ impl AppCore {
                     group_id: gift.group_id.to_string(),
                     repeat_end: gift.repeat_end,
                     streakable: event.gift_streakable(),
+                    classification: event
+                        .gift_streak_classification()
+                        .as_str()
+                        .to_owned(),
+                    streak_status: if gift.repeat_end { "finalized" } else { "updated" }.to_owned(),
+                    complete: gift.repeat_end,
                     gift_icon_url: event.gift_icon_url().map(str::to_owned),
                     method: event.method().to_owned(),
                     msg_id: event.msg_id().to_string(),

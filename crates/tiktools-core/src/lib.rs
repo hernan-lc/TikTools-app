@@ -21,7 +21,7 @@ mod helpers;
 mod hotkey_bindings;
 pub mod input_access;
 mod ipc_handlers;
-mod live_events;
+pub mod live_events;
 pub mod live_monitor;
 mod persistence;
 mod plugin_diagnostics;
@@ -117,6 +117,10 @@ pub struct AppCore {
     pub live: Arc<LiveService>,
     live_monitor: live_monitor::LiveMonitor,
     pub points: Arc<PointsService>,
+    /// Authoritative LIKE aggregation, shared by every client and automation.
+    pub likes: crate::live_events::like_aggregation::LikeAggregation,
+    #[cfg(feature = "native-tiktok")]
+    pub(crate) gift_streaks: crate::live_events::gift_streak::GiftStreakTracker,
     pub automation: Arc<AutomationService>,
     pub capabilities: Arc<CapabilityBroker>,
     pub media: Arc<dyn MediaHost>,
@@ -278,6 +282,9 @@ impl AppCore {
             live: Arc::new(live),
             live_monitor: live_monitor::LiveMonitor::default(),
             points,
+            likes: crate::live_events::like_aggregation::LikeAggregation::default(),
+            #[cfg(feature = "native-tiktok")]
+            gift_streaks: crate::live_events::gift_streak::GiftStreakTracker::default(),
             #[cfg(feature = "native-tiktok")]
             live_points_work,
             automation,

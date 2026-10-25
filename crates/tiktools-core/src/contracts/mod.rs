@@ -126,7 +126,14 @@ pub struct GiftAutomationData {
     pub combo_count: u64,
     pub group_id: String,
     pub repeat_end: bool,
+    /// Legacy boolean: `true` only for a *definitive* streakable gift.
+    /// Read `classification` when `unknown` must be distinguished.
     pub streakable: bool,
+    /// `streakable` | `non_streakable` | `unknown`.
+    pub classification: String,
+    /// `started` | `updated` | `finalized` | `timed_out` | `incomplete`.
+    pub streak_status: String,
+    pub complete: bool,
     pub gift_icon_url: Option<String>,
     pub method: String,
     pub msg_id: String,
@@ -138,6 +145,59 @@ pub struct GiftAutomationData {
 pub struct LikeAutomationData {
     pub count: u64,
     pub total: u64,
+    pub method: String,
+    pub msg_id: String,
+    pub is_history: bool,
+}
+
+/// Derived per-viewer combo transition. Emitted in addition to the raw
+/// `tiktok.like` trigger, whose `count`/`total` meanings are unchanged.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LikeComboAutomationData {
+    pub user_id: String,
+    pub count: u64,
+    pub previous_count: u64,
+    pub status: String,
+    pub duration_ms: u64,
+    pub scope: String,
+    pub complete: bool,
+    pub method: String,
+    pub msg_id: String,
+    pub is_history: bool,
+}
+
+/// Derived crossing of one explicitly configured like threshold.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LikeGoalAutomationData {
+    pub scope: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub viewer_id: Option<String>,
+    pub goal: u64,
+    pub previous: u64,
+    pub current: u64,
+    pub crossed: bool,
+    pub milestone_id: String,
+    pub method: String,
+    pub msg_id: String,
+    pub is_history: bool,
+}
+
+/// Derived gift streak transition, without removing normal gift events.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GiftComboAutomationData {
+    pub gift_id: String,
+    pub gift_name: String,
+    pub group_id: String,
+    pub count: u64,
+    pub previous_count: u64,
+    pub diamonds_each: u64,
+    pub total_diamonds: u64,
+    pub status: String,
+    pub complete: bool,
+    pub classification: String,
     pub method: String,
     pub msg_id: String,
     pub is_history: bool,
@@ -216,6 +276,9 @@ pub struct AutomationContracts {
     pub emote_chat: EmoteChatAutomationData,
     pub gift: GiftAutomationData,
     pub like: LikeAutomationData,
+    pub like_combo: LikeComboAutomationData,
+    pub like_goal: LikeGoalAutomationData,
+    pub gift_combo: GiftComboAutomationData,
     pub social: SocialAutomationData,
     pub member: MemberAutomationData,
     pub room_stats: RoomStatsAutomationData,
