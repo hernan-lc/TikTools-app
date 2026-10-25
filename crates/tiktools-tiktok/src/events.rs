@@ -41,40 +41,6 @@ pub struct GiftEnrichment {
     pub icon_url: Option<String>,
 }
 
-/// What the native payload plus verified metadata can prove about a gift's
-/// streakability.
-///
-/// `Streakable` and `NonStreakable` are definitive only when the room gift
-/// catalog (or a previously observed catalog entry) supplied the flag. Native
-/// payload evidence (`repeatEnd == false`, a non-zero group id, or cumulative
-/// counts above one) can only *infer* a streak; absence of that evidence does
-/// not prove a gift is non-streakable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GiftStreakClassification {
-    Streakable,
-    NonStreakable,
-    Unknown,
-}
-
-impl GiftStreakClassification {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Streakable => "streakable",
-            Self::NonStreakable => "non_streakable",
-            Self::Unknown => "unknown",
-        }
-    }
-
-    /// Unknown must never be treated as non-streakable for accounting.
-    pub fn may_streak(self) -> bool {
-        !matches!(self, Self::NonStreakable)
-    }
-
-    pub fn is_definitive(self) -> bool {
-        !matches!(self, Self::Unknown)
-    }
-}
-
 /// One canonical normalized event plus TikTools-only enrichment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TikToolsEvent {
@@ -191,52 +157,8 @@ impl TikToolsEvent {
         })
     }
 
-    /// Explicit streakability classification.
-    ///
-    /// Priority:
-    /// 1. verified catalog metadata attached to this event;
-    /// 2. native payload evidence (inferred, not definitive);
-    /// 3. `Unknown`.
-    ///
-    /// A catalog hit is authoritative because it comes from the room's own
-    /// gift list. A missing catalog never becomes `NonStreakable`: it stays
-    /// `Unknown` so accounting can be conservative instead of duplicating
-    /// diamonds or points.
-    pub fn gift_streak_classification(&self) -> GiftStreakClassification {
-        let CanonicalLiveEvent::Gift(event) = &self.base else {
-            return GiftStreakClassification::Unknown;
-        };
-        if let Some(gift) = self.gift.as_ref() {
-            return if gift.streakable {
-                GiftStreakClassification::Streakable
-            } else {
-                GiftStreakClassification::NonStreakable
-            };
-        }
-        let has_group = event.group_id != 0;
-        let cumulative = event.combo_count > 1 || event.repeat_count > 1;
-        if !event.repeat_end && (has_group || cumulative) {
-            GiftStreakClassification::Streakable
-        } else if event.repeat_end && cumulative && has_group {
-            // A final cumulative update still *looks* like the end of a
-            // streak, but without catalog metadata it remains inferred.
-            GiftStreakClassification::Streakable
-        } else {
-            GiftStreakClassification::Unknown
-        }
-    }
-
-    /// `true` only for a definitive streakable classification. Prefer
-    /// [`Self::gift_streak_classification`] when the unknown state matters.
     pub fn gift_streakable(&self) -> bool {
-        self.gift_streak_classification() == GiftStreakClassification::Streakable
-    }
-
-    /// Conservative predicate: unknown is allowed to behave like a streak for
-    /// progress collection, while only definitive non-streakable gifts award
-    /// immediately.
-    pub fn gift_may_streak(&self) -> bool {
-        self.gift_streak_classification().may_streak()
+        self.gift.as_ref().is_some_and(|gift| gift.streakable)
     }
 
     pub fn gift_icon_url(&self) -> Option<&str> {

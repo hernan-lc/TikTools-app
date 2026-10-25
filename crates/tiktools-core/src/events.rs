@@ -94,11 +94,6 @@ pub enum DomainEvent {
     LiveReconnecting { attempt: u64, delay_ms: u64 },
     #[serde(rename = "live.error", rename_all = "camelCase")]
     LiveError { phase: String, message: String },
-    /// Authoritative LIKE aggregation snapshot (lossy). Clients render
-    /// counters from this or fetch `likes.stats.get`; they never aggregate
-    /// raw like events themselves.
-    #[serde(rename = "likes.stats", rename_all = "camelCase")]
-    LikeStatsUpdated { stats: serde_json::Value },
     #[serde(rename = "points.changed", rename_all = "camelCase")]
     PointsChanged {
         unique_id: String,
@@ -144,7 +139,6 @@ impl DomainEvent {
             Self::GiftsCatalog { .. } => "gifts.catalog",
             Self::LiveReconnecting { .. } => "live.reconnecting",
             Self::LiveError { .. } => "live.error",
-            Self::LikeStatsUpdated { .. } => "likes.stats",
             Self::PointsChanged { .. } => "points.changed",
             Self::PointsReset { .. } => "points.reset",
             Self::WorkflowChanged { .. } => "workflow.changed",
@@ -207,7 +201,6 @@ impl DomainEvent {
                 | Self::RoomStats { .. }
                 | Self::AnalyticsUpdated { .. }
                 | Self::GiftsCatalog { .. }
-                | Self::LikeStatsUpdated { .. }
                 | Self::PluginProgress { .. }
         )
     }
