@@ -68,7 +68,7 @@ impl AppCore {
                 let gift_name = event.gift_name().unwrap_or("Gift");
                 let diamond_count = event.gift_diamond_count().unwrap_or(gift.diamond_count);
                 let count = gift.repeat_count.max(gift.combo_count).max(1);
-                let diamonds = diamond_count.max(1);
+                let diamonds = diamond_count;
                 let total_diamonds = diamonds.saturating_mul(count);
                 let mut options = base_options();
                 if !event.gift_streakable() || gift.repeat_end {
@@ -92,7 +92,7 @@ impl AppCore {
                 Some((event, PointAction::Gift, options, "gift"))
             }
             tiktools_tiktok::events::CanonicalLiveEvent::Like(like) => {
-                let count = like.count.max(1);
+                let count = like.count;
                 let mut options = base_options();
                 options.count = Some(count as f64);
                 Some((
@@ -221,6 +221,7 @@ impl AppCore {
             tiktools_tiktok::events::CanonicalLiveEvent::Gift(gift) => (
                 "tiktok.gift",
                 serde_json::to_value(crate::contracts::GiftAutomationData {
+                    aggregation: None,
                     gift_id: gift.gift_id.to_string(),
                     gift_name: event.gift_name().unwrap_or("Gift").to_owned(),
                     diamond_count: event.gift_diamond_count().unwrap_or(gift.diamond_count),
@@ -240,6 +241,7 @@ impl AppCore {
             tiktools_tiktok::events::CanonicalLiveEvent::Like(like) => (
                 "tiktok.like",
                 serde_json::to_value(crate::contracts::LikeAutomationData {
+                    aggregation: None,
                     count: like.count,
                     total: like.total,
                     method: event.method().to_owned(),
@@ -346,6 +348,47 @@ mod regression_tests {
     struct Emitter;
     impl HostEmitter for Emitter {
         fn emit(&self, _: HostMessage) {}
+    }
+
+    #[tokio::test]
+    async fn deeply_nested_live_gift_reaches_ui_and_original_automation() {
+        let core = Arc::new(AppCore::new(Arc::new(Emitter)));
+        *recover_rwlock_write(&core.connection_context, "test context") = Some(LiveContext {
+            unique_id: "fixture-creator".into(),
+            room_id: "fixture-room".into(),
+            connection_id: "fixture-connection".into(),
+        });
+        let mut receiver = core.events.subscribe_projection();
+        let events = tiktools_tiktok::events::decode_batch(
+            include_bytes!("../../../tiktools-tiktok/tests/fixtures/deep-gift.batch.pb"),
+            &mut std::collections::HashMap::new(),
+        )
+        .unwrap();
+        assert_eq!(events.len(), 1);
+        core.handle_live_event(events.into_iter().next().unwrap())
+            .await;
+        let mut gift_ui = false;
+        let mut original = false;
+        while let Ok(event) = receiver.try_recv() {
+            match event {
+                crate::events::DomainEvent::LiveUiEvent { event } => {
+                    assert_eq!(event["kind"], "gift");
+                    assert_eq!(event["msgId"], "9007199254740994");
+                    gift_ui = true;
+                }
+                crate::events::DomainEvent::LiveEvent { event_type, .. }
+                    if event_type == "tiktok.gift" =>
+                {
+                    original = true
+                }
+                _ => {}
+            }
+        }
+        assert!(
+            gift_ui && original,
+            "gift reaches both original automation and live.ui-event"
+        );
+        core.shutdown().await;
     }
 
     #[tokio::test]
