@@ -445,3 +445,42 @@ it('retains the earliest hole when another realtime gap arrives during backfill'
   live.dispose();
   uninstallFrameControl();
 });
+
+it('folds a streakable combo sharing one groupId into a single live gift row', () => {
+  installFrameControl();
+  const harness = createControl();
+  const live = createLiveFeedState(harness.control, callbacks('system'));
+  const streak = (count: number, msgId: string, repeatEnd: boolean) => ({
+    event: {
+      kind: 'gift' as const,
+      author: 'mango',
+      text: `sent ${count}× Rose`,
+      msgId,
+      giftDetails: { giftId: '1', name: 'Rose', count, diamonds: count, groupId: 'g-9', repeatEnd, streakable: true },
+    },
+  });
+  for (const [count, msgId, repeatEnd] of [[1, '101', false], [2, '102', false], [5, '103', true]] as const) {
+    harness.emit('live.ui-event', streak(count, msgId, repeatEnd) as never);
+  }
+  runFrames();
+  expect(live.events.value).toHaveLength(1);
+  expect(live.events.value[0]?.giftDetails?.count).toBe(5);
+  expect(live.events.value[0]?.giftDetails?.repeatEnd).toBe(true);
+  live.dispose();
+  uninstallFrameControl();
+});
+
+it('keeps gifts when a chat flood exceeds the visible buffer', () => {
+  installFrameControl();
+  const harness = createControl();
+  const live = createLiveFeedState(harness.control, callbacks('system'));
+  harness.emit('live.ui-event', { event: { kind: 'gift', author: 'keeper', text: 'Rose', msgId: 'g1', giftDetails: { giftId: '7', name: 'Rose', count: 1, diamonds: 1 } } } as never);
+  for (let i = 0; i < 400; i += 1) {
+    harness.emit('live.ui-event', { event: { kind: 'chat', author: `chatter-${i}`, text: `message ${i}`, msgId: `c${i}` } } as never);
+  }
+  runFrames();
+  expect(live.events.value.some((event) => event.kind === 'gift' && event.author === 'keeper')).toBe(true);
+  expect(live.events.value.filter((event) => event.kind === 'gift')).toHaveLength(1);
+  live.dispose();
+  uninstallFrameControl();
+});

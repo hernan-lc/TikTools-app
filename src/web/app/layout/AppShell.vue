@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, markRaw, watch, type Component } from 'vue';
+import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { isConnectionOnlyPage, pluginNavId } from '../../../automation/plugins/declarative.ts';
@@ -34,7 +34,18 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const navigation = useNavigationStore();
-const { activeTab } = storeToRefs(navigation);
+const { activeTab, sidebarCollapsed } = storeToRefs(navigation);
+const drawerOpen = ref(false);
+const isNarrow = ref(false);
+let narrowQuery: MediaQueryList | null = null;
+
+function onNarrowChange(event: MediaQueryListEvent): void {
+  isNarrow.value = event.matches;
+  if (!event.matches) drawerOpen.value = false;
+}
+
+const sidebarExpanded = computed(() => (isNarrow.value ? drawerOpen.value : !sidebarCollapsed.value));
+const sidebarRail = computed(() => !isNarrow.value && sidebarCollapsed.value);
 const connection = useConnectionStore();
 const { status, activeCreator, uniqueId, reconnectAttempt, reconnectDelayMs } = storeToRefs(connection);
 const { liveViewers } = storeToRefs(useLiveFeedStore());
@@ -87,6 +98,7 @@ const routeTab = computed(() => tabFromRoute(route));
 watch(
   routeTab,
   (tab) => {
+    drawerOpen.value = false;
     if (tab) navigation.open(tab);
   },
   { immediate: true },
@@ -97,8 +109,43 @@ watch(activeTab, (tab) => {
 });
 
 function navigate(tab: string): void {
+  drawerOpen.value = false;
   void router.push(tabLocation(tab as AppTab));
 }
+
+function toggleSidebar(): void {
+  if (isNarrow.value) drawerOpen.value = !drawerOpen.value;
+  else navigation.toggleSidebar();
+}
+
+function closeDrawer(): void {
+  drawerOpen.value = false;
+}
+
+function onShellKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && isNarrow.value && drawerOpen.value && !event.defaultPrevented) {
+    drawerOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    narrowQuery = window.matchMedia('(width < 900px)');
+    isNarrow.value = narrowQuery.matches;
+    if (typeof narrowQuery.addEventListener === 'function') narrowQuery.addEventListener('change', onNarrowChange);
+    else narrowQuery.addListener(onNarrowChange as (event: MediaQueryListEvent) => void);
+  }
+  window.addEventListener('keydown', onShellKeydown);
+});
+
+onBeforeUnmount(() => {
+  if (narrowQuery) {
+    if (typeof narrowQuery.removeEventListener === 'function') narrowQuery.removeEventListener('change', onNarrowChange);
+    else narrowQuery.removeListener(onNarrowChange as (event: MediaQueryListEvent) => void);
+    narrowQuery = null;
+  }
+  window.removeEventListener('keydown', onShellKeydown);
+});
 
 function connect(): void {
   if (uniqueId.value || activeCreator.value) connection.handleConnect();
@@ -117,16 +164,28 @@ function connect(): void {
       :status="status"
       :locale="locale"
       :pages="menuPages"
+      :sidebar-expanded="sidebarExpanded"
       @connect="connect"
       @disconnect="connection.handleDisconnect()"
       @reconnect="connection.handleReconnect()"
       @navigate="navigate"
       @change-locale="localeStore.setLocale"
+      @toggle-sidebar="toggleSidebar"
     />
     <div class="app-layout__body">
+      <button
+        v-if="drawerOpen"
+        class="app-layout__scrim"
+        type="button"
+        :aria-label="t('navigation.toggleSidebar')"
+        @click="closeDrawer"
+      />
       <AppNavigation
+        id="app-sidebar"
         class="app-layout__navigation"
+        :class="{ 'app-layout__navigation--collapsed': sidebarRail, 'app-layout__navigation--open': drawerOpen }"
         :sections="sections"
+        :collapsed="sidebarRail"
       />
       <main class="app-layout__content">
         <RouterView />
@@ -171,11 +230,73 @@ function connect(): void {
   border-right: var(--border-width) solid var(--color-border-subtle);
 }
 
+.app-layout__navigation--collapsed {
+  width: 56px;
+}
+
+.app-layout__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgb(0 0 0 / 45%);
+  cursor: pointer;
+}
+
 .app-layout__content {
   display: flex;
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+@media (width < 1024px) {
+  .app-layout__navigation {
+    width: 180px;
+  }
+
+  .app-layout__navigation--collapsed {
+    width: 56px;
+  }
+}
+
+@media (width < 900px) {
+  .app-layout {
+    height: 100dvh;
+  }
+
+  .app-layout__navigation {
+    position: fixed;
+    inset: 30px auto 0 0;
+    z-index: 50;
+    width: min(280px, 84vw);
+    height: auto;
+    border-right: var(--border-width) solid var(--color-border-subtle);
+    box-shadow: var(--shadow-popup);
+    transform: translateX(-105%);
+    transition: transform 160ms ease;
+  }
+
+  .app-layout__navigation--open {
+    transform: none;
+  }
+
+  .app-layout__navigation--collapsed {
+    width: min(280px, 84vw);
+  }
+
+  .app-layout__content {
+    overflow: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-layout__navigation {
+    transition: none;
+  }
 }
 </style>

@@ -34,6 +34,7 @@ export default {
     plugins: 'Plugins',
     overlays: 'Overlays',
     settings: 'Ajustes',
+    toggleSidebar: 'Mostrar u ocultar la barra lateral',
   },
   connection: {
     handleRequired: 'Introduce el usuario de TikTok del creador.',

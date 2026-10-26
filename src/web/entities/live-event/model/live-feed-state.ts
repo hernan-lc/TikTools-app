@@ -108,6 +108,73 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     }
   };
 
+  const giftGroupKey = (event: UiEvent): string | null => {
+    const group = event.giftDetails?.groupId?.trim() ?? '';
+    if (!group || /^0+$/.test(group)) return null;
+    const giftId = event.giftDetails?.giftId?.trim() ?? '';
+    if (!giftId || /^0+$/.test(giftId)) return null;
+    return JSON.stringify([event.roomId ?? sessionRoom, event.creatorId ?? sessionCreator, event.author, giftId, group]);
+  };
+
+  const applyGiftProgress = (target: DisplayEvent, update: UiEvent): void => {
+    const count = update.giftDetails?.count ?? target.giftDetails?.count ?? 1;
+    const diamonds = update.giftDetails?.diamonds ?? target.giftDetails?.diamonds ?? 0;
+    target.giftDetails = {
+      ...target.giftDetails,
+      name: update.giftDetails?.name ?? target.giftDetails?.name ?? 'Gift',
+      count,
+      diamonds,
+      giftId: update.giftDetails?.giftId ?? target.giftDetails?.giftId,
+      imageUrl: update.giftDetails?.imageUrl ?? target.giftDetails?.imageUrl,
+      groupId: update.giftDetails?.groupId ?? target.giftDetails?.groupId,
+      repeatEnd: update.giftDetails?.repeatEnd ?? target.giftDetails?.repeatEnd,
+      streakable: update.giftDetails?.streakable ?? target.giftDetails?.streakable,
+    };
+    target.text = update.text;
+    if (update.nickname !== undefined) target.nickname = update.nickname;
+    if (update.avatarUrl !== undefined) target.avatarUrl = update.avatarUrl;
+    if (update.i18nKey !== undefined) target.i18nKey = update.i18nKey;
+    if (update.i18nParams !== undefined) target.i18nParams = update.i18nParams;
+    if (update.msgId !== undefined) target.msgId = update.msgId;
+    target.receivedAt = Date.now();
+  };
+
+  const tryMergeGiftStreak = (event: UiEvent): boolean => {
+    if (event.kind !== 'gift') return false;
+    const key = giftGroupKey(event);
+    if (key === null) return false;
+    for (let i = staged.length - 1; i >= 0; i -= 1) {
+      const candidate = staged[i]!;
+      if (candidate.kind === 'gift' && giftGroupKey(candidate) === key) {
+        applyGiftProgress(candidate, event);
+        presentationCoalesced += 1;
+        return true;
+      }
+    }
+    const committed = events.value;
+    for (let i = committed.length - 1; i >= 0; i -= 1) {
+      const candidate = committed[i]!;
+      if (candidate.kind === 'gift' && giftGroupKey(candidate) === key) {
+        applyGiftProgress(candidate, event);
+        events.value = [...committed];
+        presentationCoalesced += 1;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const evictToVisibleLimit = (combined: DisplayEvent[]): void => {
+    // Chat floods must never push gifts out of the Regalos tab: evict the
+    // oldest non-gift rows first. Gifts are only evicted once no other kind
+    // remains, so the buffer stays bounded at MAX_VISIBLE_FEED either way.
+    while (combined.length > MAX_VISIBLE_FEED) {
+      const victim = combined.findIndex((event) => event.kind !== 'gift');
+      combined.splice(victim === -1 ? 0 : victim, 1);
+      retentionEvicted += 1;
+    }
+  };
+
   const flushStaged = (): void => {
     if (flushTimer !== null) clearTimeout(flushTimer);
     flushTimer = null;
@@ -128,8 +195,8 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
       for (let i = 0; i < combined.length; i += 1) if (combined[i]!.feedCursor !== undefined) combined[i] = ordered[position++]!;
       needsCursorSort = false;
     }
-    retentionEvicted += Math.max(0, combined.length - MAX_VISIBLE_FEED);
-    events.value = combined.slice(-MAX_VISIBLE_FEED);
+    evictToVisibleLimit(combined);
+    events.value = combined;
     if (!autoScroll.value) unreadCount.value += batch.length;
     if (autoScroll.value) queueScroll();
   };
@@ -218,6 +285,10 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
       seenMsgIds.set(identity, now);
       if (seenMsgIds.size > LIVE_IDENTITY_CAPACITY) seenMsgIds.delete(seenMsgIds.keys().next().value!);
     }
+    // Streakable combos arrive as N progress packets plus a final
+    // `repeatEnd` packet sharing one groupId. Fold them into a single live
+    // row that updates in place instead of flooding Regalos with duplicates.
+    if (tryMergeGiftStreak(event)) return true;
     stageEvent({ ...event, feedCursor: cursor, id: nextEventId++, receivedAt: Date.now() });
     return true;
   };

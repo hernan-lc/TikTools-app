@@ -72,6 +72,10 @@ export interface AsideViewState {
   open?: boolean;
 }
 
+export interface SidebarViewState {
+  collapsed?: boolean;
+}
+
 export interface ViewState {
   tab?: string;
   feed?: FeedViewState;
@@ -82,6 +86,7 @@ export interface ViewState {
   plugins?: PluginsViewState;
   connections?: ConnectionsViewState;
   aside?: AsideViewState;
+  sidebar?: SidebarViewState;
 }
 
 function readRaw(): string | null {
@@ -226,6 +231,12 @@ function cleanAside(value: unknown): AsideViewState | undefined {
   return Object.keys(cleaned).length > 0 ? (cleaned as AsideViewState) : undefined;
 }
 
+function cleanSidebar(value: unknown): SidebarViewState | undefined {
+  if (!isRecord(value)) return undefined;
+  const cleaned = pickDefined({ collapsed: cleanBoolean(value['collapsed']) });
+  return Object.keys(cleaned).length > 0 ? (cleaned as SidebarViewState) : undefined;
+}
+
 function cleanOpenServers(value: unknown): Record<string, boolean> | undefined {
   if (!isRecord(value)) return undefined;
   const result: Record<string, boolean> = {};
@@ -257,6 +268,7 @@ export function loadViewState(): ViewState {
     plugins: cleanPlugins(parsed['plugins']),
     connections: cleanConnections(parsed['connections']),
     aside: cleanAside(parsed['aside']),
+    sidebar: cleanSidebar(parsed['sidebar']),
   });
   return state as ViewState;
 }

@@ -4,7 +4,6 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { eventFilters, filterEvents, windowEvents } from '@/entities/live-event/lib/event-filter.ts';
 import { useLiveFeedStore } from '@/entities/live-event/model/live-feed-store.ts';
-import EventDebugger from './EventDebugger.vue';
 import EventRow from '@/entities/live-event/ui/EventRow.vue';
 import type { ViewerIdentity } from '@/entities/viewer/lib/viewer-profile.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
@@ -59,7 +58,6 @@ const rendered = computed(() =>
     :title="t('feed.title')"
     flush
   >
-    <EventDebugger :rendered-count="rendered.visible.length" />
     <template #actions>
       <BaseSegmented
         v-model="activeFilter"
@@ -202,5 +200,39 @@ const rendered = computed(() =>
 
 .live-feed__hint--warning {
   color: var(--color-warning);
+}
+
+@media (width < 1024px) {
+  .live-feed__search {
+    width: 160px;
+  }
+}
+
+@media (width < 900px) {
+  .live-feed__stream {
+    min-height: 0;
+  }
+
+  .live-feed__search {
+    flex: 1 1 140px;
+    width: auto;
+  }
+
+  :deep(.base-panel__header) {
+    flex-wrap: wrap;
+  }
+
+  :deep(.base-panel__actions) {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  :deep(.base-segmented) {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
 }
 </style>

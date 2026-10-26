@@ -86,6 +86,17 @@ export type UiEvent = {
     count: number;
     diamonds: number;
     imageUrl?: string;
+    /**
+     * Streak grouping for combo gifts (TikTok `group_id`). When present and
+     * non-zero, successive packets with the same sender + gift + group belong
+     * to one combo: intermediates carry `repeatEnd: false`, the final packet
+     * carries `repeatEnd: true`. The feed folds them into a single live row.
+     */
+    groupId?: string;
+    /** True on the final packet of a streakable combo. */
+    repeatEnd?: boolean;
+    /** True when the catalog marks this gift as streakable/comboable. */
+    streakable?: boolean;
   };
   likeCount?: number;
   /**

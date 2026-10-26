@@ -4,40 +4,7 @@ html[data-tiktools-transport='local-web'] .app-layout {
 }
 
 @media (width < 700px) {
-  html[data-tiktools-transport='local-web'] .app-layout__body {
-    flex-direction: column;
-  }
-
-  html[data-tiktools-transport='local-web'] .app-layout__navigation {
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    width: 100%;
-    height: auto;
-    padding: 4px;
-    overflow: auto hidden;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border-subtle);
-  }
-
-  html[data-tiktools-transport='local-web'] .app-navigation__list {
-    flex-direction: row;
-  }
-
-  html[data-tiktools-transport='local-web'] .app-navigation__heading {
-    display: none;
-  }
-
-  html[data-tiktools-transport='local-web'] .app-navigation__link {
-    min-height: 44px;
-    gap: 6px;
-    padding: 0 12px;
-  }
-
-  html[data-tiktools-transport='local-web'] .app-layout__content {
-    overflow: auto;
-  }
-
+  /* Sidebar uses the global burger drawer below 900px; no top-bar override. */
   html[data-tiktools-transport='local-web'] .feed-page {
     position: relative;
     padding: 8px;

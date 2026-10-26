@@ -32,6 +32,7 @@ export default {
     plugins: 'Plugins',
     overlays: 'Overlays',
     settings: 'Settings',
+    toggleSidebar: 'Toggle sidebar',
   },
   connection: {
     handleRequired: 'Enter a TikTok creator username.',

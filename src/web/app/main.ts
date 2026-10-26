@@ -10,6 +10,7 @@ import { createAppRouter } from './router/router.ts';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/local-browser.css';
+import './styles/responsive.css';
 
 declare global {
   interface Window {

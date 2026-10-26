@@ -5,6 +5,8 @@ import { isConnectionBusy } from '@/entities/connection/lib/connection-status.ts
 import { supportedLocales, type Locale } from '@/shared/i18n/i18n.ts';
 import IconGear from '@/shared/ui/icon/icons/IconGear.vue';
 import IconGlobe from '@/shared/ui/icon/icons/IconGlobe.vue';
+import IconMenu from '@/shared/ui/icon/icons/IconMenu.vue';
+import BaseIconButton from '@/shared/ui/button/BaseIconButton.vue';
 import BaseMenuBar from '@/shared/ui/menu/BaseMenuBar.vue';
 import type { MenuAction, MenuBarMenu } from '@/shared/ui/menu/menu-types.ts';
 import type { ConnectionStatus } from '@/types.ts';
@@ -19,6 +21,7 @@ const props = defineProps<{
   status: ConnectionStatus;
   locale: Locale;
   pages: readonly MenuPage[];
+  sidebarExpanded: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -27,6 +30,7 @@ const emit = defineEmits<{
   reconnect: [];
   navigate: [itemId: string];
   'change-locale': [locale: Locale];
+  'toggle-sidebar': [];
 }>();
 
 const { t } = useI18n();
@@ -77,6 +81,16 @@ function onSelect(action: MenuAction): void {
 
 <template>
   <header class="app-menu-bar">
+    <BaseIconButton
+      :label="t('navigation.toggleSidebar')"
+      size="sm"
+      :pressed="sidebarExpanded"
+      :aria-expanded="sidebarExpanded"
+      aria-controls="app-sidebar"
+      @click="emit('toggle-sidebar')"
+    >
+      <IconMenu />
+    </BaseIconButton>
     <BaseMenuBar
       :menus="menus"
       @select="onSelect"

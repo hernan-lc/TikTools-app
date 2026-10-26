@@ -84,7 +84,10 @@ impl AppCore {
                         "name": gift_name,
                         "count": count,
                         "diamonds": total_diamonds,
-                        "imageUrl": event.gift_icon_url()
+                        "imageUrl": event.gift_icon_url(),
+                        "groupId": gift.group_id.to_string(),
+                        "repeatEnd": gift.repeat_end,
+                        "streakable": event.gift_streakable()
                     },
                     "i18nKey": "giftSent",
                     "i18nParams": {"count": count, "giftName": gift_name, "diamonds": total_diamonds}

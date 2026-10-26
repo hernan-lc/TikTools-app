@@ -2,9 +2,13 @@
 import { useI18n } from 'vue-i18n';
 import type { NavigationSection } from '../model/navigation-types.ts';
 
-defineProps<{
-  sections: readonly NavigationSection[];
-}>();
+withDefaults(
+  defineProps<{
+    sections: readonly NavigationSection[];
+    collapsed?: boolean;
+  }>(),
+  { collapsed: false },
+);
 
 const { t } = useI18n();
 </script>
@@ -12,6 +16,7 @@ const { t } = useI18n();
 <template>
   <nav
     class="app-navigation"
+    :class="{ 'app-navigation--collapsed': collapsed }"
     :aria-label="t('navigation.label')"
   >
     <section
@@ -35,12 +40,17 @@ const { t } = useI18n();
             class="app-navigation__link"
             exact-active-class="app-navigation__link--active"
             :to="item.to"
+            :aria-label="collapsed ? item.label : undefined"
+            :title="collapsed ? item.label : undefined"
           >
             <component
               :is="item.icon"
               class="app-navigation__icon"
             />
-            <span class="app-navigation__label">{{ item.label }}</span>
+            <span
+              v-if="!collapsed"
+              class="app-navigation__label"
+            >{{ item.label }}</span>
           </RouterLink>
         </li>
       </ul>
@@ -117,5 +127,18 @@ const { t } = useI18n();
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-navigation--collapsed {
+  padding: var(--space-2);
+}
+
+.app-navigation--collapsed .app-navigation__heading {
+  display: none;
+}
+
+.app-navigation--collapsed .app-navigation__link {
+  justify-content: center;
+  padding: 0;
 }
 </style>

@@ -40,4 +40,21 @@ describe('AppNavigation', () => {
     expect(links[1]!.attributes('aria-current')).toBe('page');
     expect(links[0]!.attributes('aria-current')).toBeUndefined();
   });
+
+  it('collapses to an icon rail with accessible names', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/feed', component: Empty },
+        { path: '/settings', component: Empty },
+      ],
+    });
+    await router.push('/feed');
+    const wrapper = mountWithPlugins(AppNavigation, { props: { sections, collapsed: true }, global: { plugins: [router] } });
+    await flushPromises();
+    expect(wrapper.get('nav').classes()).toContain('app-navigation--collapsed');
+    expect(wrapper.findAll('.app-navigation__label')).toHaveLength(0);
+    const links = wrapper.findAll('a');
+    expect(links.map((link) => link.attributes('aria-label'))).toEqual(['Live feed', 'Settings']);
+  });
 });
