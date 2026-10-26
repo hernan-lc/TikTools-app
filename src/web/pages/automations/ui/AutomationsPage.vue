@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, onMounted, ref, shallowRef, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import type { ActionTypeDefinition, LiveAction, LiveEvent } from '../../../../automation/behavior/types.ts';
 import { useAutomationControls } from '@/features/manage-automations/model/use-automation-controls.ts';
 import {
@@ -21,11 +21,13 @@ import ProfileImportDialog from '@/features/manage-rule-profiles/ui/ProfileImpor
 import ProfileToolbar from '@/features/manage-rule-profiles/ui/ProfileToolbar.vue';
 import ActionTypeDialog from '@/features/pick-action-type/ui/ActionTypeDialog.vue';
 import { resolvedPacks, type RuleProfile } from '@/entities/rule-template/model/rule-profiles-state.ts';
+import { useMediaQuery } from '@/shared/lib/media-query.ts';
 import { debounce, loadViewState, saveViewState } from '@/shared/lib/view-state.ts';
 import { localizedText } from '@/shared/i18n/i18n.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BaseConfirmDialog from '@/shared/ui/dialog/BaseConfirmDialog.vue';
 import BaseEmptyState from '@/shared/ui/empty-state/BaseEmptyState.vue';
+import IconChevronLeft from '@/shared/ui/icon/icons/IconChevronLeft.vue';
 import IconFlow from '@/shared/ui/icon/icons/IconFlow.vue';
 import type { SearchOption } from '@/shared/ui/search-select/search-option.ts';
 import BaseSplitter from '@/shared/ui/splitter/BaseSplitter.vue';
@@ -57,6 +59,7 @@ const templatesOpen = ref(false);
 const profileImportOpen = ref(false);
 const libraryWidth = ref(460);
 const runsHeight = ref(200);
+const isNarrow = useMediaQuery('(width < 900px)');
 
 const snapshot = computed(() => automation.snapshot.value);
 const eventTypes = computed(() => snapshot.value.eventTypes ?? []);
@@ -139,6 +142,20 @@ function confirmDiscard(): void {
   dirty.value = false;
   pending.value?.();
   pending.value = null;
+}
+
+function closeEditor(): void {
+  guard(() => {
+    draft.value = null;
+    selected.value = null;
+  });
+}
+
+function onSheetKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || event.defaultPrevented) return;
+  if (!isNarrow.value || !editing.value) return;
+  if (discardOpen.value || pickerOpen.value || templatesOpen.value || profileImportOpen.value) return;
+  closeEditor();
 }
 
 function newEvent(): void {
@@ -224,7 +241,12 @@ const persist = debounce(() => {
 });
 watch([tab, selected, eventQuery, eventSort, actionQuery, actionSort], persist);
 
-onMounted(() => void automation.loadCustomTemplates());
+onMounted(() => {
+  void automation.loadCustomTemplates();
+  window.addEventListener('keydown', onSheetKeydown);
+});
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onSheetKeydown));
 </script>
 
 <template>
@@ -270,6 +292,7 @@ onMounted(() => void automation.loadCustomTemplates());
     </p>
 
     <BaseSplitter
+      v-if="!isNarrow"
       v-model:size="runsHeight"
       class="automations-page__workspace"
       orientation="vertical"
@@ -360,6 +383,90 @@ onMounted(() => void automation.loadCustomTemplates());
       </template>
     </BaseSplitter>
 
+    <template v-else>
+      <div class="automations-page__narrow">
+        <AutomationLibrary
+          v-model:tab="libraryTab"
+          v-model:selected="librarySelected"
+          v-model:event-query="eventQuery"
+          v-model:action-query="actionQuery"
+          v-model:event-sort="eventSort"
+          v-model:action-sort="actionSort"
+          :events="events"
+          :actions="actions"
+          :action-types="snapshot.actionTypes"
+          :available-types="availableTypes"
+          :event-types="eventTypes"
+          :runs="automation.runs.value"
+          @new-event="newEvent"
+          @new-action="pickerOpen = true"
+          @set-enabled="setEnabled"
+        />
+        <AutomationRunsPanel
+          class="automations-page__runs"
+          :runs="automation.runs.value"
+        />
+      </div>
+      <div
+        v-if="editing"
+        class="automations-page__sheet"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="editing.record.name"
+      >
+        <header class="automations-page__sheet-bar">
+          <BaseButton
+            size="sm"
+            @click="closeEditor"
+          >
+            <template #icon>
+              <IconChevronLeft />
+            </template>
+            {{ t('common.back') }}
+          </BaseButton>
+          <span class="automations-page__sheet-title">{{ editing.record.name }}</span>
+        </header>
+        <div class="automations-page__sheet-body">
+          <EventEditor
+            v-if="editing.kind === 'event'"
+            :key="editing.record.id"
+            v-model:dirty="dirty"
+            :event="editing.record"
+            :is-new="editing.isNew"
+            :actions="actions"
+            :event-types="eventTypes"
+            :gifts="gifts"
+            :viewers="viewers"
+            :test-runs="automation.testRuns.value"
+            :hotkey-status="automation.hotkeyStatus.value"
+            :error="automation.error.value"
+            @save="saveEvent"
+            @delete="removeRecord('events', $event)"
+            @test="automation.testEvent"
+            @fire="automation.fireEvent"
+          />
+          <ActionEditor
+            v-else
+            :key="editing.record.id"
+            v-model:dirty="dirty"
+            :action="editing.record"
+            :is-new="editing.isNew"
+            :action-types="snapshot.actionTypes"
+            :test-runs="automation.testRuns.value"
+            :globals="automation.globals.value"
+            :action-options="automation.actionOptions.value"
+            :action-option-errors="automation.actionOptionErrors.value"
+            :open-media-picker="automation.openMediaPicker"
+            :error="automation.error.value"
+            @save="saveAction"
+            @delete="removeRecord('actions', $event)"
+            @test="automation.testAction"
+            @load-options="automation.loadOptions"
+          />
+        </div>
+      </div>
+    </template>
+
     <ActionTypeDialog
       v-model:open="pickerOpen"
       :plugins="snapshot.plugins"
@@ -443,5 +550,68 @@ onMounted(() => void automation.loadCustomTemplates());
   justify-content: center;
   border: var(--border-width) solid var(--color-border-subtle);
   background: var(--color-bg-panel);
+}
+
+@media (width < 900px) {
+  .automations-page {
+    padding: var(--space-3);
+    overflow-y: auto;
+  }
+
+  .automations-page__toolbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .automations-page__narrow {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-height: 0;
+  }
+
+  .automations-page__narrow > :first-child {
+    flex: none;
+    height: min(64dvh, 560px);
+  }
+
+  .automations-page__runs {
+    flex: none;
+  }
+
+  .automations-page__sheet {
+    position: fixed;
+    inset: 30px 0 0 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--color-bg-app);
+  }
+
+  .automations-page__sheet-bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: var(--border-width) solid var(--color-border-subtle);
+    background: var(--color-bg-panel-header);
+  }
+
+  .automations-page__sheet-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .automations-page__sheet-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
 }
 </style>

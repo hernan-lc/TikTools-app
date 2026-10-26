@@ -1,5 +1,5 @@
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import type { ActionTypeDefinition, BehaviorSnapshot, LiveAction, LiveEvent } from '../../../../automation/behavior/types.ts';
 import { useAutomationStore } from '@/entities/automation/model/automation-store.ts';
@@ -168,9 +168,66 @@ describe('AutomationsPage', () => {
     expect(created).toEqual(['action', 'event']);
   });
 
+  it('explains Run test and Fire now on hover', async () => {
+    const { wrapper } = await mountPage();
+    await selectRow(wrapper, 'Big gifts');
+    vi.useFakeTimers();
+    try {
+      const runTest = buttonByText(wrapper, 'Run test');
+      runTest.element.dispatchEvent(new Event('focusin', { bubbles: true }));
+      vi.advanceTimersByTime(600);
+      expect(document.getElementById('app-tooltip')?.textContent).toBe(
+        'Dry run with sample data. No actions are executed.',
+      );
+      runTest.element.dispatchEvent(new Event('focusout', { bubbles: true }));
+      buttonByText(wrapper, 'Fire now').element.dispatchEvent(new Event('focusin', { bubbles: true }));
+      vi.advanceTimersByTime(600);
+      expect(document.getElementById('app-tooltip')?.textContent).toBe(
+        'Execute this event’s actions now, for real.',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows one type icon per action row', async () => {
+    const { wrapper } = await mountPage();
+    await wrapper.findAll('[role="tab"]').find((tab) => tab.text().startsWith('Actions'))!.trigger('click');
+    await nextTick();
+    expect(wrapper.findAll('.automation-library tbody tr')).toHaveLength(1);
+    expect(wrapper.findAll('.automation-library__type-icon')).toHaveLength(1);
+  });
+
   it('shows recent runs', async () => {
     const { wrapper } = await mountPage();
     expect(wrapper.get('.automation-runs').text()).toContain('Log gift');
     expect(wrapper.get('.automation-runs').text()).toContain('logged');
+  });
+
+  it('opens the editor as a full-screen sheet with a back button on narrow screens', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    }));
+    try {
+      const { wrapper } = await mountPage();
+      expect(wrapper.find('.automations-page__workspace').exists()).toBe(false);
+      expect(wrapper.find('.automations-page__sheet').exists()).toBe(false);
+      await selectRow(wrapper, 'Big gifts');
+      const sheet = wrapper.find('.automations-page__sheet');
+      expect(sheet.exists()).toBe(true);
+      expect(sheet.attributes('role')).toBe('dialog');
+      expect(sheet.get('.automations-page__sheet-title').text()).toBe('Big gifts');
+      expect(wrapper.find('.automations-page__sheet .event-editor').exists()).toBe(true);
+      await buttonByText(wrapper, 'Back').trigger('click');
+      await nextTick();
+      expect(wrapper.find('.automations-page__sheet').exists()).toBe(false);
+      expect(wrapper.find('.automations-page__narrow').exists()).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

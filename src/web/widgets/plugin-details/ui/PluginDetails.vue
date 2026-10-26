@@ -363,4 +363,21 @@ function uninstall(): void {
 .plugin-details__none {
   color: var(--color-text-subtle);
 }
+
+@media (width < 900px) {
+  .plugin-details__header {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .plugin-details__pane {
+    padding: var(--space-4);
+  }
+
+  .plugin-details__facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+}
 </style>

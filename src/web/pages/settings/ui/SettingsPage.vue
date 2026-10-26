@@ -111,4 +111,29 @@ const locale = computed<Locale>({
 .settings-page__control {
   max-width: 320px;
 }
+
+@media (width < 900px) {
+  .settings-page {
+    flex-direction: column;
+    padding: var(--space-3);
+    overflow-y: auto;
+  }
+
+  .settings-page__sections {
+    flex: none;
+    width: 100%;
+    max-height: 112px;
+  }
+
+  .settings-page__content {
+    flex: none;
+    width: 100%;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .settings-page__control {
+    max-width: none;
+  }
+}
 </style>

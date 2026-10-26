@@ -4,6 +4,7 @@ export default {
   common: {
     ok: 'Aceptar',
     cancel: 'Cancelar',
+    back: 'Atrás',
     apply: 'Aplicar',
     close: 'Cerrar',
     defaults: 'Por defecto',
@@ -484,7 +485,9 @@ export default {
       discard: 'Descartar cambios',
       delete: 'Eliminar…',
       test: 'Ejecutar prueba',
+      testHint: 'Prueba con datos de ejemplo. No se ejecuta ninguna acción.',
       fire: 'Disparar ahora',
+      fireHint: 'Ejecuta ahora las acciones de este evento, de verdad.',
       unsaved: 'Cambios sin guardar',
       newEventName: 'Nuevo evento',
       discardTitle: '¿Descartar los cambios?',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, markRaw, type Component } from 'vue';
 import type { ActionTypeDefinition, BehaviorRun, LiveAction, LiveEvent, PluginEventType } from '../../../../automation/behavior/types.ts';
 import {
   actionNames,
@@ -18,9 +18,15 @@ import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BaseCheckbox from '@/shared/ui/checkbox/BaseCheckbox.vue';
 import BaseComboBox from '@/shared/ui/combo-box/BaseComboBox.vue';
 import BaseEmptyState from '@/shared/ui/empty-state/BaseEmptyState.vue';
+import IconChat from '@/shared/ui/icon/icons/IconChat.vue';
+import IconCoins from '@/shared/ui/icon/icons/IconCoins.vue';
 import IconFlow from '@/shared/ui/icon/icons/IconFlow.vue';
 import IconPlus from '@/shared/ui/icon/icons/IconPlus.vue';
+import IconPuzzle from '@/shared/ui/icon/icons/IconPuzzle.vue';
 import IconSearch from '@/shared/ui/icon/icons/IconSearch.vue';
+import IconStop from '@/shared/ui/icon/icons/IconStop.vue';
+import IconUser from '@/shared/ui/icon/icons/IconUser.vue';
+import IconVolume from '@/shared/ui/icon/icons/IconVolume.vue';
 import BaseTable from '@/shared/ui/table/BaseTable.vue';
 import type { TableColumn } from '@/shared/ui/table/table-types.ts';
 import BaseTabs from '@/shared/ui/tabs/BaseTabs.vue';
@@ -84,6 +90,28 @@ const eventRows = computed(() =>
 );
 
 const lastRuns = computed(() => lastRunByAction(props.runs));
+
+// Small glyph per action family so the actions table scans faster than
+// text alone. Keywords match type ids such as `core.log`,
+// `peak.game.spawn-item` or `tts.speak`; anything unknown gets the
+// generic plugin glyph.
+const fallbackActionIcon = markRaw(IconPuzzle);
+const actionTypeIcons: ReadonlyArray<{ match: string; icon: Component }> = [
+  { match: 'hazard', icon: markRaw(IconStop) },
+  { match: 'entity', icon: markRaw(IconUser) },
+  { match: 'item', icon: markRaw(IconPlus) },
+  { match: 'log', icon: markRaw(IconChat) },
+  { match: 'point', icon: markRaw(IconCoins) },
+  { match: 'coin', icon: markRaw(IconCoins) },
+  { match: 'tts', icon: markRaw(IconVolume) },
+  { match: 'speak', icon: markRaw(IconVolume) },
+  { match: 'sound', icon: markRaw(IconVolume) },
+];
+
+function actionTypeIcon(typeId: string): Component {
+  const id = typeId.toLowerCase();
+  return actionTypeIcons.find((entry) => id.includes(entry.match))?.icon ?? fallbackActionIcon;
+}
 const actionRows = computed(() =>
   sortRecords(props.actions, actionSort.value)
     .map((action) => {
@@ -93,6 +121,7 @@ const actionRows = computed(() =>
         id: action.id,
         name: action.name,
         enabled: action.enabled,
+        typeId: action.typeId,
         type: type ? localizedText(type.title) : action.typeId,
         detail: describeAction(action),
         missing: !props.availableTypes.has(action.typeId),
@@ -222,7 +251,13 @@ const sort = computed({
             <span class="automation-library__sub">{{ row.detail }}</span>
           </template>
           <template #cell-type="{ row }">
-            <span class="automation-library__ellipsis">{{ row.type }}</span>
+            <span class="automation-library__type">
+              <component
+                :is="actionTypeIcon(row.typeId)"
+                class="automation-library__type-icon"
+              />
+              <span class="automation-library__ellipsis">{{ row.type }}</span>
+            </span>
             <span
               v-if="row.missing"
               class="automation-library__warning"
@@ -324,7 +359,36 @@ const sort = computed({
   white-space: nowrap;
 }
 
+.automation-library__type {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.automation-library__type .automation-library__ellipsis {
+  flex: 1;
+  min-width: 0;
+}
+
+.automation-library__type-icon {
+  flex: none;
+  color: var(--color-text-subtle);
+}
+
 .automation-library__failed {
   color: var(--color-danger-hover);
+}
+
+@media (width < 900px) {
+  .automation-library__toolbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .automation-library__sort {
+    flex: 1 1 140px;
+    width: auto;
+  }
 }
 </style>

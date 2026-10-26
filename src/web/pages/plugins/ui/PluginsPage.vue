@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { usePluginControls } from '@/features/manage-plugins/model/use-plugin-controls.ts';
 import type { PluginCatalogTab } from '@/entities/plugin/lib/plugin-catalog.ts';
+import { useMediaQuery } from '@/shared/lib/media-query.ts';
 import { debounce, loadViewState, saveViewState } from '@/shared/lib/view-state.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BaseEmptyState from '@/shared/ui/empty-state/BaseEmptyState.vue';
@@ -28,6 +29,7 @@ const processorQuery = ref('');
 const selected = ref<string | null>(saved?.selected ?? null);
 const detailsTab = ref<PluginDetailsTab>(saved?.details ?? 'general');
 const catalogWidth = ref(300);
+const isNarrow = useMediaQuery('(width < 900px)');
 
 const behavior = computed(() => plugins.behavior.value);
 const installState = computed(() => plugins.installState.value);
@@ -133,7 +135,8 @@ watch([view, catalog, query, selected, detailsTab], persist);
       v-if="view === 'plugins'"
       v-model:size="catalogWidth"
       class="plugins-page__workspace"
-      :min="240"
+      :orientation="isNarrow ? 'vertical' : 'horizontal'"
+      :min="isNarrow ? 200 : 240"
       :max="520"
     >
       <template #start>
@@ -243,5 +246,26 @@ watch([view, catalog, query, selected, detailsTab], persist);
   justify-content: center;
   border: var(--border-width) solid var(--color-border-subtle);
   background: var(--color-bg-panel);
+}
+
+@media (width < 900px) {
+  .plugins-page {
+    padding: var(--space-3);
+    overflow-y: auto;
+  }
+
+  .plugins-page__toolbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .plugins-page__lead {
+    display: none;
+  }
+
+  .plugins-page__workspace {
+    flex: none;
+    min-height: 0;
+  }
 }
 </style>

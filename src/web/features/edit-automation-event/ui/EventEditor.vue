@@ -30,6 +30,7 @@ import BasePanel from '@/shared/ui/panel/BasePanel.vue';
 import type { SearchOption } from '@/shared/ui/search-select/search-option.ts';
 import BaseSegmented from '@/shared/ui/segmented/BaseSegmented.vue';
 import BaseTextField from '@/shared/ui/text-field/BaseTextField.vue';
+import { vTooltip } from '@/shared/ui/tooltip/v-tooltip.ts';
 import ConditionsEditor from './ConditionsEditor.vue';
 import ConditionTemplateDialog from './ConditionTemplateDialog.vue';
 
@@ -158,12 +159,14 @@ function discard(): void {
   >
     <template #actions>
       <BaseButton
+        v-tooltip="t('automations.editor.testHint')"
         size="sm"
         @click="emit('test', draft)"
       >
         {{ t('automations.editor.test') }}
       </BaseButton>
       <BaseButton
+        v-tooltip="t('automations.editor.fireHint')"
         size="sm"
         @click="emit('fire', draft)"
       >

@@ -2,6 +2,7 @@ export default {
   common: {
     ok: 'OK',
     cancel: 'Cancel',
+    back: 'Back',
     apply: 'Apply',
     close: 'Close',
     defaults: 'Defaults',
@@ -482,7 +483,9 @@ export default {
       discard: 'Discard changes',
       delete: 'Delete…',
       test: 'Run test',
+      testHint: 'Dry run with sample data. No actions are executed.',
       fire: 'Fire now',
+      fireHint: 'Execute this event’s actions now, for real.',
       unsaved: 'Unsaved changes',
       newEventName: 'New event',
       discardTitle: 'Discard changes?',
