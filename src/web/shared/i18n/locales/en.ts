@@ -652,6 +652,7 @@ export default {
       chat: { name: 'Chat overlay', description: 'A bottom-anchored live chat feed for the stream.' },
       share: { name: 'Share alert', description: 'Shows a card every time a viewer shares the LIVE.' },
       subscribe: { name: 'Subscribe alert', description: 'Shows a card every time a viewer subscribes.' },
+      likes: { name: 'Top likes', description: 'A live leaderboard of the viewers with the most likes.' },
     },
     gateway: {
       title: 'Event gateway',

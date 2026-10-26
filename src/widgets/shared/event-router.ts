@@ -9,6 +9,7 @@ import {
   FOLLOW_EVENT_TYPE,
   GIFT_EVENT_TYPE,
   JOIN_EVENT_TYPE,
+  LIKE_EVENT_TYPE,
   SHARE_EVENT_TYPE,
   SUBSCRIBE_MEMBER_ACTION,
 } from './config.ts';
@@ -19,6 +20,7 @@ import {
   isFollowEvent,
   isGiftEvent,
   isJoinEvent,
+  isLikeEvent,
   isShareEvent,
   parseLiveEvent,
 } from './event-parser.ts';
@@ -28,6 +30,7 @@ import type {
   FollowAutomationEvent,
   GiftAutomationEvent,
   JoinAutomationEvent,
+  LikeAutomationEvent,
   ShareAutomationEvent,
 } from './event-types.ts';
 
@@ -36,7 +39,8 @@ export type RoutedLiveEvent =
   | { kind: 'gift'; event: GiftAutomationEvent }
   | { kind: 'chat'; event: ChatAutomationEvent | EmoteChatAutomationEvent }
   | { kind: 'share'; event: ShareAutomationEvent }
-  | { kind: 'subscribe'; event: JoinAutomationEvent };
+  | { kind: 'subscribe'; event: JoinAutomationEvent }
+  | { kind: 'like'; event: LikeAutomationEvent };
 
 /**
  * Validates one gateway frame into a typed widget event. Returns null for
@@ -62,6 +66,9 @@ export function routeLiveEvent(value: unknown): RoutedLiveEvent | null {
   }
   if (event.type === SHARE_EVENT_TYPE && isShareEvent(event)) {
     return { kind: 'share', event };
+  }
+  if (event.type === LIKE_EVENT_TYPE && isLikeEvent(event)) {
+    return { kind: 'like', event };
   }
   // Plain joins stay unrouted: no widget renders them, and the subscribe
   // widget only wants member action 3.

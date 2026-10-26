@@ -52,7 +52,7 @@ export interface AnalyticsViewState {
 }
 
 export interface WidgetsViewState {
-  selectedKind?: 'follow' | 'gift' | 'chat' | 'share' | 'subscribe';
+  selectedKind?: 'follow' | 'gift' | 'chat' | 'share' | 'subscribe' | 'likes';
 }
 
 export interface PluginsViewState {
@@ -199,7 +199,7 @@ function cleanAnalytics(value: unknown): AnalyticsViewState | undefined {
 function cleanWidgets(value: unknown): WidgetsViewState | undefined {
   if (!isRecord(value)) return undefined;
   const cleaned = pickDefined({
-    selectedKind: oneOf(value['selectedKind'], ['follow', 'gift', 'chat', 'share', 'subscribe']),
+    selectedKind: oneOf(value['selectedKind'], ['follow', 'gift', 'chat', 'share', 'subscribe', 'likes']),
   });
   return Object.keys(cleaned).length > 0 ? (cleaned as WidgetsViewState) : undefined;
 }

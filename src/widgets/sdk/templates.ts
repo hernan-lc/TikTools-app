@@ -8,10 +8,12 @@ import SubscribeWidget from '../subscribe/SubscribeWidget.vue';
 import { SubscribeController, type SubscribeAlert } from '../shared/subscribe-controller.ts';
 import GiftWidget from '../gift/GiftWidget.vue';
 import ChatWidget from '../chat/ChatWidget.vue';
+import LikesWidget from '../likes/LikesWidget.vue';
 import { GiftController, type GiftAlertView } from '../shared/gift-controller.ts';
 import { ChatController, type ChatMessageView } from '../shared/chat-controller.ts';
-import { parseFollowSettings, parseShareSettings, parseSubscribeSettings, parseGiftSettings, parseChatSettings } from '../shared/config.ts';
-import { makeTestFollowEnvelope, makeTestShareEnvelope, makeTestSubscribeEnvelope, makeTestGiftCombo, makeTestChatEnvelope } from '../shared/test-events.ts';
+import { LikesController, type LikeBoardEntry } from '../shared/likes-controller.ts';
+import { parseFollowSettings, parseShareSettings, parseSubscribeSettings, parseGiftSettings, parseChatSettings, parseLikesSettings } from '../shared/config.ts';
+import { makeTestFollowEnvelope, makeTestShareEnvelope, makeTestSubscribeEnvelope, makeTestGiftCombo, makeTestChatEnvelope, makeTestLikeEnvelope } from '../shared/test-events.ts';
 import { coreTextFields, textDefaults, type TextField } from './text.ts';
 
 function alertDesign(accent: string, options: {
@@ -153,5 +155,23 @@ export const chatTemplate = defineWidget({
   },
 });
 
-export const widgetTemplates = { follow: followTemplate, gift: giftTemplate, chat: chatTemplate, share: shareTemplate, subscribe: subscribeTemplate };
+const likesSchema = templateSchema('likes', alertDesign('#fb7185', { padding: 16, width: 360 }), ['name', 'username', 'count']);
+
+export const likesTemplate = defineWidget({
+  id: 'likes',
+  schema: likesSchema,
+  samples: () => [
+    makeTestLikeEnvelope({ user: { userId: 'u1', uniqueId: 'ana', nickname: 'Ana' }, count: 12 }),
+    makeTestLikeEnvelope({ user: { userId: 'u2', uniqueId: 'ben', nickname: 'Ben' }, count: 34 }),
+    makeTestLikeEnvelope({ user: { userId: 'u3', uniqueId: 'cid', nickname: 'Cid' }, count: 7 }),
+  ],
+  create(search) {
+    const settings = parseLikesSettings(search);
+    const entries = shallowRef<LikeBoardEntry[]>([]);
+    const controller = new LikesController({ onBoard: (next) => { entries.value = [...next]; } }, settings);
+    return { controller, render: (status, debug) => h(LikesWidget, { entries: entries.value, settings, status, debug }) };
+  },
+});
+
+export const widgetTemplates = { follow: followTemplate, gift: giftTemplate, chat: chatTemplate, share: shareTemplate, subscribe: subscribeTemplate, likes: likesTemplate };
 export type WidgetKind = keyof typeof widgetTemplates;

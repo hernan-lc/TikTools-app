@@ -21,6 +21,7 @@ export const CHAT_EVENT_TYPE = 'tiktok.chat';
 export const EMOTE_CHAT_EVENT_TYPE = 'tiktok.emote_chat';
 export const SHARE_EVENT_TYPE = 'tiktok.share';
 export const JOIN_EVENT_TYPE = 'tiktok.join';
+export const LIKE_EVENT_TYPE = 'tiktok.like';
 
 /**
  * Proto `MemberMessageAction` for subscriptions: TikTok delivers a new
@@ -58,6 +59,8 @@ export const DEFAULT_SUBSCRIBE_ENTER_MS = 400;
 export const DEFAULT_SUBSCRIBE_EXIT_MS = 400;
 
 export const DEFAULT_CHAT_MESSAGE_LIMIT = 30;
+export const DEFAULT_LIKES_BOARD_LIMIT = 10;
+export const DEFAULT_LIKES_TRACKED_CAPACITY = 500;
 
 export const DEFAULT_GIFT_VISIBLE_MS = 5000;
 export const DEFAULT_GIFT_COMBO_TIMEOUT_MS = 3000;
@@ -119,7 +122,7 @@ export function parseFollowSettings(search: string): FollowWidgetSettings {
  * gateway connection is attempted for the demo. Used by the TikTools preview
  * iframes.
  */
-export type WidgetDemoMode = 'follow' | 'gift' | 'combo' | 'chat' | 'share' | 'subscribe';
+export type WidgetDemoMode = 'follow' | 'gift' | 'combo' | 'chat' | 'share' | 'subscribe' | 'likes';
 
 export function parseDemoMode(hash: string): WidgetDemoMode | null {
   const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
@@ -129,9 +132,23 @@ export function parseDemoMode(hash: string): WidgetDemoMode | null {
     demo === 'combo' ||
     demo === 'chat' ||
     demo === 'share' ||
-    demo === 'subscribe'
+    demo === 'subscribe' ||
+    demo === 'likes'
     ? demo
     : null;
+}
+
+export interface LikesWidgetSettings {
+  maxEntries: number;
+  showUniqueId: boolean;
+}
+
+export function parseLikesSettings(search: string): LikesWidgetSettings {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  return {
+    maxEntries: readPositiveInt(params, 'limit', DEFAULT_LIKES_BOARD_LIMIT) || 1,
+    showUniqueId: readBoolean(params, 'handle', true),
+  };
 }
 
 export interface ShareWidgetSettings {

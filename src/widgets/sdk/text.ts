@@ -7,6 +7,7 @@ export const textDefaults = {
   subscribe: { title: 'New subscriber', name: '{{name}}', handle: '{{username}}', message: 'just subscribed!' },
   gift: { name: '{{name}}', message: 'sent {{gift}}', count: '×{{count}}', diamonds: '{{diamonds}} diamonds' },
   chat: { name: '{{name}}', message: '{{message}}' },
+  likes: { title: 'Top likes', name: '{{name}}', handle: '{{username}}', count: '×{{count}}' },
 } as const;
 export type TextField = 'title' | 'streakTitle' | 'name' | 'handle' | 'message' | 'count' | 'diamonds';
 export const textFields: TextField[] = ['title', 'streakTitle', 'name', 'handle', 'message', 'count', 'diamonds'];
@@ -25,6 +26,7 @@ export const coreTextFields: Record<keyof typeof textDefaults, TextField[]> = {
   // restore that line without changing the gift event data.
   gift: ['name', 'message', 'count'],
   chat: ['name', 'message'],
+  likes: ['title', 'name', 'handle', 'count'],
 };
 
 export function isHiddenField(design: WidgetStyle | undefined, field: TextField): boolean {

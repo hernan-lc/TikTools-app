@@ -4,7 +4,7 @@ export const GATEWAY_DEFAULT_HOST = '127.0.0.1';
 export const GATEWAY_DEFAULT_PORT = 17452;
 export const REDACTED_TOKEN = '••••••••';
 
-export const overlayKinds: readonly WidgetKind[] = ['follow', 'gift', 'chat', 'share', 'subscribe'];
+export const overlayKinds: readonly WidgetKind[] = ['follow', 'gift', 'chat', 'share', 'subscribe', 'likes'];
 
 export type GatewayState =
   | 'missing'

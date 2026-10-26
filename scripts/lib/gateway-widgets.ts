@@ -2,7 +2,7 @@ import { $ } from 'bun';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export const GATEWAY_WIDGET_KINDS = ['follow', 'gift', 'chat', 'share', 'subscribe'] as const;
+export const GATEWAY_WIDGET_KINDS = ['follow', 'gift', 'chat', 'share', 'subscribe', 'likes'] as const;
 export type GatewayWidgetKind = (typeof GATEWAY_WIDGET_KINDS)[number];
 
 /**

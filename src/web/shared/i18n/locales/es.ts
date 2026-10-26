@@ -654,6 +654,7 @@ export default {
       chat: { name: 'Chat en pantalla', description: 'Un chat en directo anclado abajo para el stream.' },
       share: { name: 'Alerta de compartido', description: 'Muestra una tarjeta cada vez que alguien comparte el LIVE.' },
       subscribe: { name: 'Alerta de suscripción', description: 'Muestra una tarjeta cada vez que alguien se suscribe.' },
+      likes: { name: 'Top de me gusta', description: 'Una tabla en vivo de los espectadores con más me gusta.' },
     },
     gateway: {
       title: 'Pasarela de eventos',

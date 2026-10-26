@@ -6,6 +6,7 @@ import {
   makeTestFollowEnvelope,
   makeTestGapEnvelope,
   makeTestGiftEnvelope,
+  makeTestLikeEnvelope,
   makeTestShareEnvelope,
   makeTestSubscribeEnvelope,
 } from './test-events.ts';
@@ -45,6 +46,15 @@ describe('event router', () => {
     if (subscribe?.kind === 'subscribe') {
       expect(subscribe.event.type).toBe('tiktok.join');
       expect(subscribe.event.data.action).toBe(3);
+    }
+  });
+
+  test('routes like envelopes to typed events', () => {
+    const like = routeLiveEvent(makeTestLikeEnvelope({ count: 7 }));
+    expect(like?.kind).toBe('like');
+    if (like?.kind === 'like') {
+      expect(like.event.type).toBe('tiktok.like');
+      expect(like.event.data.count).toBe(7);
     }
   });
 
