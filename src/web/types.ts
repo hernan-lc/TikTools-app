@@ -27,7 +27,7 @@ export type DisplayEvent = UiEvent & {
   feedCursor?: number;
 };
 
-export type EventFilter = 'all' | 'chat' | 'gift' | 'like' | 'social';
+export type EventFilter = 'all' | 'chat' | 'gift' | 'like' | 'social' | 'follow' | 'join';
 
 /**
  * Which contextual panel is showing beside the feed. `event`/`user`

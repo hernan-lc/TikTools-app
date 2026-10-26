@@ -43,11 +43,15 @@ describe('event filtering', () => {
   const events = [
     event({ id: 1, kind: 'chat', author: 'luna', text: 'hola' }),
     event({ id: 2, kind: 'gift', author: 'mango', text: 'Rose' }),
-    event({ id: 3, kind: 'member', author: 'kiwi', text: 'joined' }),
+    event({ id: 3, kind: 'member', author: 'kiwi', text: 'joined', i18nKey: 'joinedLive' }),
+    event({ id: 4, kind: 'social', author: 'ana', text: 'followed', i18nKey: 'followedCreator' }),
+    event({ id: 5, kind: 'social', author: 'ben', text: 'shared', i18nKey: 'sharedLive' }),
   ];
 
-  it('groups joins under social and searches author and text', () => {
-    expect(filterEvents(events, 'social', '').map((entry) => entry.id)).toEqual([3]);
+  it('separates follows and joins from the rest of social and searches author and text', () => {
+    expect(filterEvents(events, 'follow', '').map((entry) => entry.id)).toEqual([4]);
+    expect(filterEvents(events, 'join', '').map((entry) => entry.id)).toEqual([3]);
+    expect(filterEvents(events, 'social', '').map((entry) => entry.id)).toEqual([5]);
     expect(filterEvents(events, 'all', 'ROSE').map((entry) => entry.id)).toEqual([2]);
   });
 

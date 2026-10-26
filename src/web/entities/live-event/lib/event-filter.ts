@@ -1,12 +1,14 @@
 import type { DisplayEvent, EventFilter } from '@/types.ts';
 
-export const eventFilters: readonly EventFilter[] = ['all', 'chat', 'gift', 'like', 'social'];
+export const eventFilters: readonly EventFilter[] = ['all', 'chat', 'gift', 'like', 'follow', 'join', 'social'];
 
 const cache = new WeakMap<readonly DisplayEvent[], { key: string; result: DisplayEvent[] }>();
 
 function matchesKind(event: DisplayEvent, filter: EventFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'social') return event.kind === 'social' || event.kind === 'member';
+  if (filter === 'follow') return event.kind === 'social' && event.i18nKey === 'followedCreator';
+  if (filter === 'join') return event.kind === 'member';
+  if (filter === 'social') return event.kind === 'social' && event.i18nKey !== 'followedCreator';
   return event.kind === filter;
 }
 

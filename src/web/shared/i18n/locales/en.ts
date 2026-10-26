@@ -262,6 +262,8 @@ export default {
       chat: 'Chat',
       gift: 'Gifts',
       like: 'Likes',
+      follow: 'Follows',
+      join: 'Joins',
       social: 'Social',
     },
     search: 'Filter by user or message…',
