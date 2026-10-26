@@ -14,9 +14,11 @@ import { localizedText } from '@/shared/i18n/i18n.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BaseCheckbox from '@/shared/ui/checkbox/BaseCheckbox.vue';
 import BaseConfirmDialog from '@/shared/ui/dialog/BaseConfirmDialog.vue';
+import BaseAlert from '@/shared/ui/alert/BaseAlert.vue';
 import BaseFormGrid from '@/shared/ui/form/BaseFormGrid.vue';
 import BaseFormRow from '@/shared/ui/form/BaseFormRow.vue';
 import BaseGroupBox from '@/shared/ui/group-box/BaseGroupBox.vue';
+import { vTooltip } from '@/shared/ui/tooltip/v-tooltip.ts';
 import BasePanel from '@/shared/ui/panel/BasePanel.vue';
 import BaseSchemaForm from '@/shared/ui/schema-form/BaseSchemaForm.vue';
 import BaseTextField from '@/shared/ui/text-field/BaseTextField.vue';
@@ -112,13 +114,10 @@ function confirmDelete(): void {
       </BaseButton>
     </template>
     <div class="action-editor__body">
-      <p
+      <BaseAlert
         v-if="error"
-        class="action-editor__alert"
-        role="alert"
-      >
-        {{ error }}
-      </p>
+        :title="error"
+      />
       <BaseGroupBox
         :title="t('automations.event.general')"
         :description="type ? localizedText(type.description) : undefined"
@@ -158,13 +157,10 @@ function confirmDelete(): void {
       </BaseGroupBox>
 
       <BaseGroupBox :title="t('automations.action.settings')">
-        <p
+        <BaseAlert
           v-if="!form"
-          class="action-editor__alert"
-          role="alert"
-        >
-          {{ t('automations.action.unknownType', { type: draft.typeId }) }}
-        </p>
+          :title="t('automations.action.unknownType', { type: draft.typeId })"
+        />
         <template v-else>
           <div
             v-if="sources.length"
@@ -177,14 +173,12 @@ function confirmDelete(): void {
               {{ t('automations.action.refreshOptions') }}
             </BaseButton>
           </div>
-          <p
-            v-for="message in optionErrors"
-            :key="message"
-            class="action-editor__alert"
-            role="status"
-          >
-            {{ message }}
-          </p>
+          <BaseAlert
+            v-if="optionErrors.length"
+            v-tooltip="optionErrors.join('\n')"
+            :title="t('automations.action.optionsFailed', optionErrors.length)"
+            compact
+          />
           <BaseSchemaForm
             v-model="config"
             :schema="form.schema"
@@ -279,14 +273,6 @@ function confirmDelete(): void {
   gap: var(--space-5);
   max-width: 820px;
   padding: var(--space-5);
-}
-
-.action-editor__alert {
-  margin: 0 0 var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--color-danger);
-  border-radius: var(--radius-sm);
-  color: var(--color-danger-hover);
 }
 
 .action-editor__type {

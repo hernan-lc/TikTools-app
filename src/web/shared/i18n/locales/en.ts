@@ -502,6 +502,7 @@ export default {
       builtin: 'Built-in',
       unknownType: 'Unknown action type {type}. Install or enable the plugin that provides it.',
       refreshOptions: 'Refresh options',
+      optionsFailed: 'Could not load the option list | Could not load {count} option lists',
       settings: 'Settings',
       permissions: 'Permissions',
       network: 'Network',

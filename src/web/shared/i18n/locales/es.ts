@@ -504,6 +504,7 @@ export default {
       builtin: 'Integrada',
       unknownType: 'Tipo de acción desconocido {type}. Instala o activa el plugin que lo aporta.',
       refreshOptions: 'Actualizar opciones',
+      optionsFailed: 'No se pudo cargar la lista de opciones | No se pudieron cargar {count} listas de opciones',
       settings: 'Ajustes',
       permissions: 'Permisos',
       network: 'Red',

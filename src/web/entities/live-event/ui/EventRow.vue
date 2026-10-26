@@ -47,10 +47,6 @@ function openViewer(): void {
     role="listitem"
     :aria-current="selected || undefined"
   >
-    <time
-      class="event-row__time"
-      :datetime="new Date(event.receivedAt).toISOString()"
-    >{{ time }}</time>
     <button
       class="event-row__author"
       type="button"
@@ -98,6 +94,10 @@ function openViewer(): void {
         <template v-else>{{ text }}</template>
       </span>
     </button>
+    <time
+      class="event-row__time"
+      :datetime="new Date(event.receivedAt).toISOString()"
+    >{{ time }}</time>
   </div>
 </template>
 
@@ -106,7 +106,7 @@ function openViewer(): void {
   --event-accent: transparent;
 
   display: grid;
-  grid-template-columns: 40px minmax(0, max-content) minmax(0, 1fr);
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) 40px;
   gap: var(--space-4);
   align-items: center;
   min-height: 28px;
@@ -143,9 +143,23 @@ function openViewer(): void {
 }
 
 .event-row__time {
+  justify-self: end;
   color: var(--color-text-subtle);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+  opacity: 0.45;
+  transition: opacity var(--duration-fast);
+}
+
+.event-row:hover .event-row__time,
+.event-row:focus-within .event-row__time {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-row__time {
+    transition: none;
+  }
 }
 
 .event-row__author,
