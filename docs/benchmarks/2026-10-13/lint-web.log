@@ -1,1 +1,0 @@
-$ eslint src scripts vite.config.ts --max-warnings=0
