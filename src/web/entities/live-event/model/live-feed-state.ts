@@ -1,7 +1,7 @@
 import { liveMessageIdentity, LIVE_IDENTITY_CAPACITY, LIVE_IDENTITY_TTL_MS } from '../../../../shared/live-identity.ts';
 import { ref, shallowRef, watch } from 'vue';
 
-import type { GiftCatalogEntry, UiEvent } from '../../../../shared/messages.ts';
+import type { GiftCatalogEntry, LikeLeaderPayload, UiEvent } from '../../../../shared/messages.ts';
 import type { ControlClient } from '@/shared/api/control-client.ts';
 import { errorMessage } from '@/shared/api/control-client.ts';
 import type { DisplayEvent, EventFilter, TopViewerPayload } from '@/types.ts';
@@ -41,6 +41,8 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   let sessionScope = '';
   let sessionRoom = '';
   let sessionCreator = '';
+  let rankingCreator = '';
+  let rankingRoom = '';
   const savedFeed = loadViewState().feed;
   const events = shallowRef<DisplayEvent[]>([]);
   const filter = ref<EventFilter>(savedFeed?.filter ?? 'all');
@@ -48,6 +50,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
   const renderLimit = ref(100);
   const searchQuery = ref(savedFeed?.searchQuery ?? '');
   const topViewers = shallowRef<TopViewerPayload[]>([]);
+  const likeLeaders = shallowRef<LikeLeaderPayload[]>([]);
   const liveViewers = ref(0);
   const giftCatalog = shallowRef<GiftCatalogEntry[]>([]);
   const autoScroll = ref(savedFeed?.autoScroll ?? true);
@@ -164,6 +167,62 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     return false;
   };
 
+  // A like is not a TikTok gift combo. Only coalesce its visual rows when
+  // the backend supplies a reliable per-viewer total and stable viewer key.
+  // The feed journal, automation rules, points and analytics retain each packet.
+  const LIKE_BURST_WINDOW_MS = 3_000;
+  const likeGroupKey = (event: UiEvent): string | null => {
+    if (event.kind !== 'like' || !event.likeViewerKey ||
+        !Number.isSafeInteger(event.likeUserTotal) || (event.likeUserTotal ?? 0) <= 0) return null;
+    return JSON.stringify([
+      event.creatorId ?? sessionCreator,
+      event.roomId ?? sessionRoom,
+      event.likeViewerKey,
+    ]);
+  };
+
+  const tryMergeLikeBurst = (event: UiEvent, cursor?: number): boolean => {
+    const key = likeGroupKey(event);
+    if (key === null) return false;
+    const now = Date.now();
+    const canMerge = (candidate: DisplayEvent): boolean => {
+      const elapsed = now - candidate.receivedAt;
+      return likeGroupKey(candidate) === key &&
+        elapsed >= 0 && elapsed <= LIKE_BURST_WINDOW_MS &&
+        candidate.likeUserTotal !== undefined &&
+        event.likeUserTotal! > candidate.likeUserTotal;
+    };
+    const updatedRow = (candidate: DisplayEvent): DisplayEvent => ({
+      ...candidate,
+      ...event,
+      id: candidate.id,
+      feedCursor: cursor ?? event.feedCursor ?? candidate.feedCursor,
+      receivedAt: now,
+    });
+
+    for (let i = staged.length - 1; i >= 0; i -= 1) {
+      const candidate = staged[i]!;
+      if (!canMerge(candidate)) continue;
+      staged.splice(i, 1);
+      staged.push(updatedRow(candidate));
+      presentationCoalesced += 1;
+      return true;
+    }
+
+    const committed = events.value;
+    for (let i = committed.length - 1; i >= 0; i -= 1) {
+      const candidate = committed[i]!;
+      if (!canMerge(candidate)) continue;
+      // Re-stage the existing row after any already staged events to reflect
+      // the latest activity without duplicating the user's row.
+      events.value = [...committed.slice(0, i), ...committed.slice(i + 1)];
+      stageEvent(updatedRow(candidate));
+      presentationCoalesced += 1;
+      return true;
+    }
+    return false;
+  };
+
   const evictToVisibleLimit = (combined: DisplayEvent[]): void => {
     // Chat floods must never push gifts out of the Regalos tab: evict the
     // oldest non-gift rows first. Gifts are only evicted once no other kind
@@ -208,6 +267,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     unreadCount.value = 0;
     droppedUiEvents.value = 0;
     topViewers.value = [];
+    likeLeaders.value = [];
     liveViewers.value = 0;
   };
 
@@ -289,6 +349,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     // `repeatEnd` packet sharing one groupId. Fold them into a single live
     // row that updates in place instead of flooding Regalos with duplicates.
     if (tryMergeGiftStreak(event)) return true;
+    if (tryMergeLikeBurst(event, cursor)) return true;
     stageEvent({ ...event, feedCursor: cursor, id: nextEventId++, receivedAt: Date.now() });
     return true;
   };
@@ -411,6 +472,10 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     if (scope !== sessionScope) {
       seenMsgIds.clear();
       seenCursors.clear();
+      // Lossy ranking snapshots can be delivered before reliable
+      // live.connected. Preserve a snapshot from the SAME room in that case.
+      if (rankingCreator !== (data.uniqueId ?? '') ||
+          rankingRoom !== (data.roomId ?? '')) likeLeaders.value = [];
       sessionScope = scope;
       sessionRoom = data.roomId ?? '';
       sessionCreator = data.uniqueId ?? '';
@@ -430,6 +495,23 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     if (gap) recoveryAfter = Math.min(recoveryAfter ?? previousCursor ?? 0, previousCursor ?? 0);
     pushFeedEvent(data.event, cursor);
     if (gap && presentationActive) void recoverFeed();
+  }));
+  unsubscribers.push(control.onTopic<{
+    creatorId: string;
+    roomId: string;
+    leaders: LikeLeaderPayload[];
+  }>('live.likes-ranking', (data) => {
+    if ((sessionCreator && data.creatorId !== sessionCreator) ||
+        (sessionRoom && data.roomId !== sessionRoom)) return;
+    if (!Array.isArray(data.leaders)) return;
+    // The core owns the ranking, and the UI never re-aggregates folded rows.
+    // Bound and validate snapshots from all transports before display.
+    rankingCreator = data.creatorId;
+    rankingRoom = data.roomId;
+    likeLeaders.value = data.leaders
+      .filter((leader) => leader && typeof leader.uniqueId === 'string' &&
+        typeof leader.score === 'number' && Number.isSafeInteger(leader.score) && leader.score > 0)
+      .slice(0, 10);
   }));
   unsubscribers.push(control.onTopic<{ viewers: number; totalUsers: number; topViewers: TopViewerPayload[] }>(
     'room.stats',
@@ -538,6 +620,7 @@ export function createLiveFeedState(control: ControlClient, callbacks: LiveFeedC
     filter,
     searchQuery,
     topViewers,
+    likeLeaders,
     liveViewers,
     giftCatalog,
     autoScroll,

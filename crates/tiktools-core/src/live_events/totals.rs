@@ -9,6 +9,16 @@ use std::{
 use tiktools_tiktok::events::CanonicalLiveEvent;
 const CAPACITY: usize = 4096;
 const RETENTION: Duration = Duration::from_secs(300);
+const LIKE_LEADERBOARD_LIMIT: usize = 10;
+
+#[derive(Clone)]
+struct LikeLeader {
+    user_key: String,
+    unique_id: String,
+    nickname: String,
+    avatar_url: Option<String>,
+    score: u64,
+}
 type ComboKey = (String, String, u64, u64, u64);
 #[derive(Default)]
 pub(crate) struct LiveTotals(Mutex<State>);
@@ -17,6 +27,9 @@ struct State {
     combos: HashMap<ComboKey, (u64, u64, Instant)>,
     unknown_methods: std::collections::BTreeMap<String, u64>,
     likes: HashMap<(String, String, String), u64>,
+    // Bounded top-ten projections keyed by creator + LIVE room. Counters in
+    // likes remain authoritative; display names are not used as identities.
+    like_leaders: HashMap<(String, String), Vec<LikeLeader>>,
     untracked: u64,
     untracked_combos: u64,
 }
@@ -85,6 +98,45 @@ impl LiveTotals {
                     *total = total.saturating_add(like.count);
                     totals.push(json!({"previous": previous, "total": *total}));
                 }
+                // Update only ten candidates (O(10), not a scan of every
+                // viewer) on every accepted packet. No ranking is inferred
+                // from the room-wide TikTok total or nicknames.
+                if like.count > 0
+                    && let Some(total) = totals.get(1).and_then(|value| value["total"].as_u64())
+                {
+                    let user_key = if like.user.id != 0 {
+                        like.user.id.to_string()
+                    } else {
+                        like.user.unique_id.clone()
+                    };
+                    if !user_key.is_empty() {
+                        let leaders = state.like_leaders.entry((creator, room)).or_default();
+                        let unique_id = clean_unique_id(&like.user.unique_id)
+                            .unwrap_or_else(|| user_key.clone());
+                        if let Some(leader) =
+                            leaders.iter_mut().find(|leader| leader.user_key == user_key)
+                        {
+                            leader.score = total;
+                            leader.unique_id = unique_id;
+                            leader.nickname = like.user.nickname.clone();
+                            leader.avatar_url = like.user.avatar_url.clone();
+                        } else if leaders.len() < LIKE_LEADERBOARD_LIMIT
+                            || leaders.last().is_some_and(|last| total > last.score)
+                        {
+                            leaders.push(LikeLeader {
+                                user_key,
+                                unique_id,
+                                nickname: like.user.nickname.clone(),
+                                avatar_url: like.user.avatar_url.clone(),
+                                score: total,
+                            });
+                        }
+                        leaders.sort_unstable_by(|a, b| {
+                            b.score.cmp(&a.score).then_with(|| a.user_key.cmp(&b.user_key))
+                        });
+                        leaders.truncate(LIKE_LEADERBOARD_LIMIT);
+                    }
+                }
                 json!({"global": totals[0], "user": totals.get(1)})
             }
             CanonicalLiveEvent::Unknown { .. } => {
@@ -104,6 +156,33 @@ impl LiveTotals {
             _ => Value::Null,
         }
     }
+    /// Current authoritative per-viewer like ranking for one creator/room.
+    /// This is independent of the lossy UI feed, points and TikTok snapshots.
+    pub(crate) fn like_leaderboard(&self, context: &LiveContext) -> Vec<Value> {
+        let state = recover_mutex(&self.0, "LIVE like leaderboard");
+        let key = (context.unique_id.clone(), context.room_id.clone());
+        state
+            .like_leaders
+            .get(&key)
+            .into_iter()
+            .flat_map(|leaders| leaders.iter())
+            .enumerate()
+            .map(|(index, leader)| {
+                let mut item = json!({
+                    "rank": index + 1,
+                    "score": leader.score,
+                    "uniqueId": leader.unique_id,
+                    "nickname": leader.nickname,
+                    "userId": leader.user_key
+                });
+                if let Some(url) = &leader.avatar_url {
+                    item["avatarUrl"] = json!(url);
+                }
+                item
+            })
+            .collect()
+    }
+
     pub(crate) fn diagnostics(&self) -> Value {
         let state = recover_mutex(&self.0, "LIVE totals");
         json!({"untrackedCombos": state.untracked_combos, "untrackedLikeScopes": state.untracked, "unknownMethods": state.unknown_methods, "combos": state.combos.len(), "likeScopes": state.likes.len(), "capacity": CAPACITY, "retentionSeconds": RETENTION.as_secs()})
@@ -168,6 +247,110 @@ mod tests {
 mod like_tests {
     use super::*;
     use tiktools_tiktok::events::{EventMetadata, EventUser, LikeEvent};
+    #[test]
+    fn like_batches_contribute_packet_count_not_room_cumulative_total() {
+        let totals = LiveTotals::default();
+        let mut event = NativeLiveEvent {
+            base: CanonicalLiveEvent::Like(LikeEvent {
+                user: EventUser {
+                    id: 11,
+                    ..Default::default()
+                },
+                count: 15,
+                total: 1000,
+            }),
+            metadata: EventMetadata {
+                method: "WebcastLikeMessage".into(),
+                msg_id: 101,
+                is_history: false,
+            },
+            gift: None,
+        };
+        let first = totals.observe(&event, None);
+        assert_eq!(first["global"], json!({"previous": 0, "total": 15}));
+        assert_eq!(first["user"], json!({"previous": 0, "total": 15}));
+        if let CanonicalLiveEvent::Like(like) = &mut event.base {
+            like.user.id = 12;
+            like.total = 1015;
+            like.count = 15;
+        }
+        let second = totals.observe(&event, None);
+        assert_eq!(second["global"], json!({"previous": 15, "total": 30}));
+        assert_eq!(second["user"], json!({"previous": 0, "total": 15}));
+    }
+
+    #[test]
+    fn like_leaderboard_ranks_only_observed_packet_deltas_per_room() {
+        let totals = LiveTotals::default();
+        let room_a = LiveContext {
+            unique_id: "creator".into(),
+            room_id: "room-a".into(),
+            connection_id: "session-a".into(),
+        };
+        let room_b = LiveContext {
+            unique_id: "creator".into(),
+            room_id: "room-b".into(),
+            connection_id: "session-b".into(),
+        };
+        let mut event = NativeLiveEvent {
+            base: CanonicalLiveEvent::Like(LikeEvent {
+                user: EventUser {
+                    id: 1,
+                    unique_id: "alice".into(),
+                    nickname: "Alice".into(),
+                    ..Default::default()
+                },
+                count: 15,
+                total: 50_000,
+            }),
+            metadata: EventMetadata {
+                method: "WebcastLikeMessage".into(),
+                msg_id: 41,
+                is_history: false,
+            },
+            gift: None,
+        };
+        totals.observe(&event, Some(&room_a));
+        if let CanonicalLiveEvent::Like(like) = &mut event.base {
+            like.count = 10;
+            like.total = 60_000;
+            like.user.id = 2;
+            like.user.unique_id = "bob".into();
+            like.user.nickname = "Bob".into();
+        }
+        totals.observe(&event, Some(&room_a));
+        if let CanonicalLiveEvent::Like(like) = &mut event.base {
+            like.count = 20;
+            like.user.id = 2;
+        }
+        totals.observe(&event, Some(&room_a));
+
+        let leaders = totals.like_leaderboard(&room_a);
+        assert_eq!(leaders.len(), 2);
+        assert_eq!(leaders[0]["rank"], 1);
+        assert_eq!(leaders[0]["uniqueId"], "bob");
+        assert_eq!(leaders[0]["score"], 30);
+        assert_eq!(leaders[1]["rank"], 2);
+        assert_eq!(leaders[1]["uniqueId"], "alice");
+        assert_eq!(leaders[1]["score"], 15);
+        assert!(totals.like_leaderboard(&room_b).is_empty());
+
+        // Same viewer can independently rank within another room.
+        totals.observe(&event, Some(&room_b));
+        let other = totals.like_leaderboard(&room_b);
+        assert_eq!(other.len(), 1);
+        assert_eq!(other[0]["score"], 20);
+
+        // A missing stable identity must never enter the ranked leaderboard.
+        if let CanonicalLiveEvent::Like(like) = &mut event.base {
+            like.user.id = 0;
+            like.user.unique_id.clear();
+            like.count = 9;
+        }
+        totals.observe(&event, Some(&room_a));
+        assert_eq!(totals.like_leaderboard(&room_a).len(), 2);
+    }
+
     #[test]
     fn repeated_packets_accumulate_global_and_user_scopes_without_nickname_identity() {
         let totals = LiveTotals::default();

@@ -353,6 +353,146 @@ mod regression_tests {
         fn emit(&self, _: HostMessage) {}
     }
 
+    /// Full native path: TikTok LikeEvent -> dedup -> packet delta totals ->
+    /// normalized tiktok.like -> filter/cooldown -> REAL core.log action.
+    /// No browser mock and no LIVE network connection required.
+    #[tokio::test]
+    async fn e2e_batched_likes_trigger_saved_150_goals_without_breaking_old_templates() {
+        use tiktools_tiktok::events::{CanonicalLiveEvent, EventMetadata, EventUser, LikeEvent};
+
+        let core = Arc::new(AppCore::new(Arc::new(Emitter)));
+        *recover_rwlock_write(&core.connection_context, "test context") = Some(LiveContext {
+            unique_id: "batch-test-creator".into(),
+            room_id: "batch-test-room".into(),
+            connection_id: "batch-test-connection".into(),
+        });
+        core.automation.replace_snapshot(&json!({
+            "actions": [
+                {"id": "log-global", "name": "Global goal", "enabled": true,
+                 "typeId": "core.log", "config": {"message": "150 observed room likes"}},
+                {"id": "log-user", "name": "Viewer goal", "enabled": true,
+                 "typeId": "core.log", "config": {"message": "150 observed viewer likes"}},
+                {"id": "log-packet", "name": "Legacy packet", "enabled": true,
+                 "typeId": "core.log", "config": {"message": "one batch of 150+ likes"}}
+            ],
+            "events": [
+                {"id": "goal-global", "name": "First 150 global", "enabled": true,
+                 "trigger": "tiktok.like", "cooldownMs": 0, "actionIds": ["log-global"],
+                 "filters": [
+                    {"path": "event.data.aggregation.global.previous", "operator": "lt", "value": "150"},
+                    {"path": "event.data.aggregation.global.total", "operator": "gte", "value": "150"}
+                 ]},
+                {"id": "goal-user", "name": "First 150 viewer", "enabled": true,
+                 "trigger": "tiktok.like", "cooldownMs": 0, "actionIds": ["log-user"],
+                 "filters": [
+                    {"path": "event.data.aggregation.user.previous", "operator": "lt", "value": "150"},
+                    {"path": "event.data.aggregation.user.total", "operator": "gte", "value": "150"}
+                 ]},
+                {"id": "legacy-count", "name": "Original packet count", "enabled": true,
+                 "trigger": "tiktok.like", "cooldownMs": 0, "actionIds": ["log-packet"],
+                 "filters": [
+                    {"path": "event.data.count", "operator": "gte", "value": "150"}
+                 ]}
+            ]
+        }));
+
+        // TikTok deltas: 45 + 60 + 45 reaches the first 150-like
+        // milestone; a later batch of 300 must not refire one-shot
+        // goals. TikTok's independent room snapshot is not summed.
+        let mut last_event = None;
+        for (index, count) in [45_u64, 60, 45, 300].into_iter().enumerate() {
+            let event = NativeLiveEvent {
+                base: CanonicalLiveEvent::Like(LikeEvent {
+                    user: EventUser {
+                        id: 8877123,
+                        ..Default::default()
+                    },
+                    count,
+                    total: 50_000 + count,
+                }),
+                metadata: EventMetadata {
+                    method: "WebcastLikeMessage".into(),
+                    msg_id: 900_001 + index as u64,
+                    is_history: false,
+                },
+                gift: None,
+            };
+            last_event = Some(event.clone());
+            core.handle_live_event(event).await;
+        }
+
+        // Feed rows carry the authoritative viewer total while preserving
+        // the original packet size in likeCount and translation parameters.
+        // The feed is a projection: none of these visual fields rewrites the
+        // raw automation events or points accounting.
+        let feed = core.events.feed_backfill(0, 32);
+        assert_eq!(feed.events.len(), 4);
+        for (row, (delta, cumulative)) in feed
+            .events
+            .iter()
+            .zip([(45_u64, 45_u64), (60, 105), (45, 150), (300, 450)])
+        {
+            assert_eq!(row.event["kind"], "like");
+            assert_eq!(row.event["likeCount"], delta);
+            assert_eq!(row.event["i18nParams"]["count"], delta);
+            assert_eq!(row.event["likeUserTotal"], cumulative);
+            assert_eq!(row.event["likeViewerKey"], "8877123");
+        }
+
+        // The top-likes ranking is maintained by the native core even
+        // though the visible feed can fold or discard individual rows.
+        let context = LiveContext {
+            unique_id: "batch-test-creator".into(),
+            room_id: "batch-test-room".into(),
+            connection_id: "batch-test-connection".into(),
+        };
+        let leaders = core.live_totals.like_leaderboard(&context);
+        assert_eq!(leaders.len(), 1);
+        assert_eq!(leaders[0]["rank"], 1);
+        assert_eq!(leaders[0]["score"], 450);
+        assert_eq!(leaders[0]["userId"], "8877123");
+
+        let runs = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let runs = core.automation.recent_runs();
+                if runs.len() >= 3 {
+                    break runs;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("native like batches must execute the three legacy actions");
+
+        let count_runs = |id: &str| {
+            runs.iter()
+                .filter(|run| run["eventId"] == id && run["status"] == "ok" && run["test"] == false)
+                .count()
+        };
+        assert_eq!(
+            count_runs("goal-global"),
+            1,
+            "global 150-like goal runs once when accumulated likes reach 150"
+        );
+        assert_eq!(
+            count_runs("goal-user"),
+            1,
+            "per-viewer 150-like goal runs once when this viewer reaches 150"
+        );
+        assert_eq!(
+            count_runs("legacy-count"),
+            1,
+            "legacy count >= 150 filter runs for the final 300-like batch"
+        );
+
+        // Replaying the same TikTok packet never double-counts.
+        core.handle_live_event(last_event.expect("simulated batch"))
+            .await;
+        let stable = core.automation.recent_runs();
+        assert_eq!(stable.len(), 3, "replayed message id must not double-count");
+        core.shutdown().await;
+    }
+
     #[tokio::test]
     async fn deeply_nested_live_gift_reaches_ui_and_original_automation() {
         let core = Arc::new(AppCore::new(Arc::new(Emitter)));

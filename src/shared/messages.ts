@@ -98,7 +98,12 @@ export type UiEvent = {
     /** True when the catalog marks this gift as streakable/comboable. */
     streakable?: boolean;
   };
+  /** Original likes in this TikTok packet; unchanged for integrations. */
   likeCount?: number;
+  /** Observed likes sent by this viewer in the current room session. */
+  likeUserTotal?: number;
+  /** Stable viewer identity used only to coalesce visual feed rows. */
+  likeViewerKey?: string;
   /**
    * Emote metadata for a chat comment or emote-only message, when the signer
    * supplies it. Renderers fall back to the raw `text` when it is missing.
@@ -231,6 +236,16 @@ export type GiftCatalogEntry = {
   name: string;
   diamondCount: number;
   iconUrl?: string;
+};
+
+/** Core-owned ranking of observed likes in one live room (not points). */
+export type LikeLeaderPayload = {
+  rank: number;
+  score: number;
+  uniqueId: string;
+  nickname: string;
+  avatarUrl?: string;
+  userId: string;
 };
 
 export type TopViewerPayload = {

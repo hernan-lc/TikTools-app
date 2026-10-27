@@ -145,6 +145,14 @@ impl AppCore {
                 unique_id: Some(info.unique_id.clone()),
                 room_id: Some(info.room_id.clone()),
             });
+        // Re-send a snapshot when attaching to an existing LIVE room so
+        // reconnects restore its ranking without replaying every like.
+        self.events
+            .publish_domain(crate::events::DomainEvent::LiveLikesRanking {
+                creator_id: context.unique_id.clone(),
+                room_id: context.room_id.clone(),
+                leaders: self.live_totals.like_leaderboard(&context),
+            });
         self.events
             .publish_domain(crate::events::DomainEvent::CreatorChanged {
                 unique_id: Some(info.unique_id.clone()),
@@ -219,6 +227,21 @@ impl AppCore {
             self.ui_event_and_points(&event)
         {
             ui["correlationId"] = json!(correlation);
+            // Presentation-only snapshot: automation and points still consume
+            // the original LikeEvent.count for every admitted packet.
+            if let tiktools_tiktok::events::CanonicalLiveEvent::Like(like) = &event.base {
+                if let Some(total) = totals["user"]["total"].as_u64() {
+                    ui["likeUserTotal"] = json!(total);
+                    let identity = if like.user.id != 0 {
+                        Some(like.user.id.to_string())
+                    } else {
+                        clean_unique_id(&like.user.unique_id)
+                    };
+                    if let Some(identity) = identity {
+                        ui["likeViewerKey"] = json!(identity);
+                    }
+                }
+            }
             let author = ui["author"].as_str().unwrap_or("viewer").to_owned();
             let should_award = match &event.base {
                 tiktools_tiktok::events::CanonicalLiveEvent::EmoteChat(_) => false,
@@ -243,6 +266,30 @@ impl AppCore {
             tracing::debug!(method = event.method(), msg_id = %event.msg_id(), correlation_id = %correlation, "publishing LIVE UI event");
             self.events
                 .publish_domain(crate::events::DomainEvent::LiveUiEvent { event: ui });
+            if let tiktools_tiktok::events::CanonicalLiveEvent::Like(like) = &event.base
+                && like.count > 0
+                && let Some(context) = context.as_ref()
+            {
+                let leaders = self.live_totals.like_leaderboard(context);
+                let user_key = if like.user.id != 0 {
+                    like.user.id.to_string()
+                } else {
+                    like.user.unique_id.clone()
+                };
+                // When a viewer is outside the top ten, their packet
+                // changes no visible ranking: avoid another broadcast.
+                if leaders
+                    .iter()
+                    .any(|leader| leader["userId"].as_str() == Some(user_key.as_str()))
+                {
+                    self.events
+                        .publish_domain(crate::events::DomainEvent::LiveLikesRanking {
+                            creator_id: context.unique_id.clone(),
+                            room_id: context.room_id.clone(),
+                            leaders,
+                        });
+                }
+            }
             should_award.then_some((author, action, options, reason))
         } else {
             if let tiktools_tiktok::events::CanonicalLiveEvent::RoomUser(room) = &event.base {
