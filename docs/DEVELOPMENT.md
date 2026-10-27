@@ -113,7 +113,7 @@ standalone browser suite (see [Plugin UI architecture](PLUGIN_UI_ARCHITECTURE.md
 bun x vite build --config plugins/sonicboom/ui/vite.config.ts       # isolated UI → plugins/sonicboom/ui/dist/
 bun scripts/build-sonicboom-backend.ts  # chat observer → plugins/sonicboom/backend/dist/
 bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts        # UI suite + host/plugin interop (build UI first)
-bun test plugins/sonicboom/shared plugins/sonicboom/backend plugins/sonicboom/ui/src             # plugin shared-logic unit tests
+bun test plugins/sonicboom/shared plugins/sonicboom/ui/src             # plugin shared-logic unit tests (the Rust backend is covered by cargo test --workspace)
 ```
 
 Release builds use the custom `tiktools://app` protocol:

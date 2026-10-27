@@ -151,7 +151,7 @@ jobs:
           ./target/debug/tiktools api verify --sandbox
 
       - name: Build all example plugins
-        run: bun run scripts/build-plugin.ts --all --debug
+        run: bun scripts/build-plugin.ts --all --debug
 
   msrv:
     name: msrv

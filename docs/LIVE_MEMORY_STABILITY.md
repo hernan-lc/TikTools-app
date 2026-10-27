@@ -44,10 +44,10 @@ Added fields: `liveGeneration`, `automationActiveTasks`, `plugins.eventWorkers`,
 Opt-in Linux sampling (bounded to 3,600 samples):
 
 ```sh
-python3 scripts/profile-live-memory.py --pid HOST_PID --samples 300 --interval 1 > memory.csv
+bun scripts/profile-live-memory.ts --pid HOST_PID --samples 300 --interval 1 > memory.csv
 ```
 
-The sampler reads RSS and process names, traverses children of all host threads, and polls `system.health`. It does not read process command arguments or environment variables. Child classification is heuristic: unidentified child processes appear in `other_child_rss_kib`. Missing health access is reported as `unavailable`; no CLI error payload is logged. Windows process sampling is not implemented.
+The sampler reads RSS and process names, traverses children of all host threads, and polls `system.health`. It does not read process command arguments or environment variables. Child classification is heuristic: unidentified child processes appear in `other_child_rss_kib`. Missing health access is reported as `unavailable`; no CLI error payload is logged. Windows samples through the built-in CIM cmdlets (`pwsh`/`powershell`); no `psutil` install is required.
 
 ## Reproducible synthetic regression
 
@@ -120,11 +120,10 @@ prevent OS sampling (use `--cli /nonexistent` for an isolated native test harnes
 Health polling can extend the requested interval; use the actual elapsed column.
 
 ```sh
-python3 scripts/profile-live-memory.py --pid HOST_PID --samples 300 --interval 1 \
+bun scripts/profile-live-memory.ts --pid HOST_PID --samples 300 --interval 1 \
   --commit VERIFIED_EXECUTABLE_SHA --label release-baseline --phase idle > idle.csv
-# Windows, with optional dependency installed explicitly:
-py -m pip install psutil
-py scripts/profile-live-memory-windows.py --pid HOST_PID --samples 300 --interval 1 \
+# Windows (same script, no extra install):
+bun scripts/profile-live-memory.ts --pid HOST_PID --samples 300 --interval 1 \
   --cli target/release/tiktools.exe --commit VERIFIED_EXECUTABLE_SHA \
   --label release-baseline --phase idle > idle-windows.csv
 ```

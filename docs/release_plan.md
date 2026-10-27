@@ -1,3 +1,5 @@
+> Historical planning record: package-script names below (lint/typecheck/test/build:web, check:web, start:rust) predate the five-script consolidation. Current commands are bun run start|dev|build|lint|ci plus bun scripts/task.ts internal steps; see README.md and CONTRIBUTING.md.
+
 # TikTools — CI, Security, Release & Code Hardening Task
 
 Repository:

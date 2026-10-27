@@ -297,7 +297,7 @@ TypeScript guest driving `rdev-node` for global hotkeys (see
 ```bash
 node_modules/.bin/tsc -p examples/hotkey-napi-plugin/tsconfig.json
 bun test examples/hotkey-napi-plugin/
-bun run scripts/build-plugin.ts -- --plugin hotkey-napi-plugin --host
+bun scripts/build-plugin.ts --plugin hotkey-napi-plugin --host
 ```
 
 ## Reference fixture

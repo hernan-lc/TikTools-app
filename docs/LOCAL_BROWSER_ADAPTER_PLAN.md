@@ -35,7 +35,8 @@ Termux CLI connects to this same host independently
 - `vite.config.ts` already contains development plugin-asset serving. Audit and
   reuse its asset resolution rules where applicable, with a production Rust
   server implementation and without assuming its development CORS policy is safe.
-- `package.json` has `build:web`, `typecheck`, `test:web` and lint commands.
+- `package.json` exposes the five scripts `start`, `dev`, `build`, `lint`, `ci`
+  (frontend bundles build with `bun scripts/task.ts frontend-build`).
   Building assets is separate from running the Rust host/adapter. A prebuilt
   asset bundle must permit runtime use without Bun or Node on the phone.
 

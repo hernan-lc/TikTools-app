@@ -16,7 +16,7 @@ function run(command: string, args: string[]): void {
   }
 }
 
-run(process.execPath, ['run', 'build:web']);
+run(process.execPath, ['scripts/task.ts', 'frontend-build']);
 
 let developmentPluginRoot = process.env.TIKTOOLS_DEV_PLUGINS_DIR;
 if (!developmentPluginRoot && process.env.TIKTOOLS_SKIP_DEV_PLUGINS !== '1') {

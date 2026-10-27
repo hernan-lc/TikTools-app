@@ -90,7 +90,7 @@ Build a diagnostic Vue bundle and an opt-in native test executable:
 VITE_TIKTOOLS_DIAGNOSTICS=1 bun scripts/task.ts frontend-build
 node scripts/cargo-with-linker.mjs test -p tiktools-desktop --release \
   --features live-benchmark --locked native_live_matrix --no-run
-python3 scripts/run-live-webview-benchmark.py \
+bun scripts/run-live-webview-benchmark.ts \
   --binary target/release/deps/tiktools_desktop-EXACT_TEST_BINARY \
   --case C --output /tmp/tiktools-case-C \
   --warmup 30 --load 600 --cleanup 120 --rate 1000
@@ -100,7 +100,7 @@ Use the executable path emitted by Cargo (with `.exe` on Windows). The runner
 creates isolated temporary databases, records executable/asset SHA-256 hashes,
 the exact HEAD and dirty patch/source additions, host/UI NDJSON and process-tree
 RSS/PSS/USS where supported. PSS/USS can be unavailable; RSS includes shared
-pages. Windows process sampling requires `psutil`. Run cases sequentially on an
+pages. Windows process sampling uses the built-in CIM cmdlets. Run cases sequentially on an
 otherwise idle machine. Diagnostic assets must remain unchanged during a run.
 Normal release assets omit diagnostic/root-remount hooks; normal native builds
 exclude the synthetic producer and test-only telemetry path.

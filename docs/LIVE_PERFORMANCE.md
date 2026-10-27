@@ -8,8 +8,8 @@ this branch's observations without claiming full LIVE performance or memory stab
 Related docs:
 
 - `LIVE_MEMORY_STABILITY.md` — resource limits, ownership, diagnostics.
-- `scripts/profile-live-memory.py` — Linux RSS profiler (extended with
-  the refactor's health columns).
+- `bun scripts/profile-live-memory.ts` — cross-platform RSS profiler
+  (extended with the refactor's health columns; no Python required).
 
 ## Test environment
 
@@ -36,8 +36,8 @@ cargo test -p tiktools-core --features persistence,native-tiktok --locked --lib
 # Frontend batching tests:
 bun test src/web/features/live-batch.test.ts
 
-# Memory profiler (Linux, needs a running host PID):
-python3 scripts/profile-live-memory.py --pid <PID> --samples 30 --interval 2
+# Memory profiler (needs a running host PID; Linux and Windows):
+bun scripts/profile-live-memory.ts --pid <PID> --samples 30 --interval 2
 ```
 
 ## Before / after: award throughput
@@ -128,8 +128,8 @@ in memory, and shutdown drains it.
   first and gap reports if ultimately shed. This is the documented
   trade: explicit local shedding beats unpredictable upstream loss.
 - `system.health` reports host RSS on Linux only; plugin and WebView
-  RSS are `null` there by design — use `profile-live-memory.py`, which
-  attributes them by OS process name. No per-process value is ever
+  RSS are `null` there by design — use `bun scripts/profile-live-memory.ts`,
+  which attributes them by OS process name. No per-process value is ever
   fabricated.
 - Cooldown tracking fails open past 8,192 keys (clears rather than
   growing): one window of over-execution beats unbounded memory.

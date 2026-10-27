@@ -44,8 +44,9 @@ bun run start
 `start` builds `dist/web`, compiles the checked-in process-plugin examples into
 the ignored `.dev-plugins` directory, and launches the Rust desktop binary with
 that directory as a development runtime root. This makes plugin changes easy
-to test without installing them into the user profile. Use `start:rust` to
-launch without rebuilding the example plugins. For fast UI-only iteration, run
+to test without installing them into the user profile. Use
+`TIKTOOLS_SKIP_DEV_PLUGINS=1 bun run start` to launch without rebuilding the
+example plugins. For fast UI-only iteration, run
 the frontend server and point the Rust host at it:
 
 ```bash
