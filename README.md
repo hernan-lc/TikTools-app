@@ -68,7 +68,7 @@ RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=windows-x86_64 bun run package:release
 bun run start             # Build the Vue assets and run the Rust host
 bun run prepare:dev-plugins # Compile and stage example plugins only
 bun run start:rust        # Run the Rust host against existing dist/web assets
-bun run dev               # Run the frontend development server
+bun run dev:web           # Run the frontend development server
 bun run build:web         # Build dist/web
 bun run typecheck         # Type-check the Vue/editor source
 bun run test              # Run frontend and editor tests

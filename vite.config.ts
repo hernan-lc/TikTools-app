@@ -59,6 +59,7 @@ function pluginAssetServer(): Plugin {
         };
         try {
           const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+          if (process.env.TIKTOOLS_DEV_WEB_ADAPTER) { next(); return; }
           if (!url.pathname.startsWith('/__plugins/')) {
             next();
             return;
@@ -96,9 +97,40 @@ function pluginAssetServer(): Plugin {
   };
 }
 
+function localBrowserDevelopment(): Plugin {
+  return {
+    name: 'tiktools-local-browser-development',
+    configureServer(server) {
+      const adapter = process.env.TIKTOOLS_DEV_WEB_ADAPTER;
+      if (!adapter) return;
+      server.middlewares.use(async (request, response, next) => {
+        const path = (request.url ?? '/').split('?')[0];
+        const origin = `http://127.0.0.1:${process.env.TIKTOOLS_WEB_PORT}`;
+        if ((path?.startsWith('/__local/') || path?.startsWith('/__plugins/')) && request.headers.origin && request.headers.origin !== origin && !(path?.startsWith('/__plugins/') && request.headers.origin === 'null')) {
+          response.statusCode = 403; response.end('Forbidden'); return;
+        }
+        if (path !== '/' && path !== '/index.html') { next(); return; }
+        try {
+          const upstream = await fetch(`${adapter}/`, { headers: { ...(request.headers.cookie ? { cookie: request.headers.cookie } : {}) } });
+          const html = await upstream.text();
+          const meta = html.match(/<meta name="tiktools-transport"[^>]*><meta name="tiktools-plugin-assets"[^>]*>/)?.[0];
+          response.setHeader('Content-Type', 'text/html; charset=utf-8');
+          response.setHeader('Cache-Control', 'no-store');
+          if (!meta) { response.end(html); return; }
+          const index = await readFile(resolve(root, 'index.html'), 'utf8');
+          response.end(await server.transformIndexHtml(request.url ?? '/', index.replace('<head>', `<head>${meta}`)));
+        } catch { response.statusCode = 502; response.end('TikTools browser adapter unavailable'); }
+      });
+    },
+  };
+}
+
+const adapter = process.env.TIKTOOLS_DEV_WEB_ADAPTER;
+const devOrigin = `http://127.0.0.1:${process.env.TIKTOOLS_WEB_PORT}`;
+
 export default defineConfig({
   root,
-  plugins: [vue(), vueJsx(), pluginAssetServer()],
+  plugins: [vue(), vueJsx(), localBrowserDevelopment(), pluginAssetServer()],
   resolve: {
     alias: { '@': root },
   },
@@ -130,5 +162,19 @@ export default defineConfig({
     // The dev launcher allocates the port and passes the actual URL to the
     // desktop via TIKTOOLS_DEV_URL. Never drift to another port silently.
     strictPort: true,
+    ...(adapter ? { proxy: Object.fromEntries(['/__local', '/__plugins'].map((path) => [path, {
+      target: adapter,
+      changeOrigin: true,
+      ws: true,
+      configure: (proxy: import('http-proxy').Server) => {
+        proxy.on('proxyReq', (proxyRequest, request) => {
+          if (request.headers.origin && request.headers.origin !== 'null') proxyRequest.setHeader('Origin', adapter);
+        });
+        proxy.on('proxyReqWs', (proxyRequest, request, socket) => {
+          if (request.headers.origin !== devOrigin) { socket.destroy(); return; }
+          proxyRequest.setHeader('Origin', adapter);
+        });
+      },
+    }])) } : {}),
   },
 });

@@ -25,6 +25,21 @@ The core checks do not compile Winit, Wry, GTK, or tray integration. The
 workspace feature graph keeps the optional native plugin, persistence, HTTP,
 TikTok, and WASM boundaries explicit.
 
+## Web development loops
+
+Three scripts cover browser development, from full stack to frontend only:
+
+```bash
+bun run start:web   # host + adapter + Vite, with dev plugins prepared
+bun run web         # same loop, skips dev-plugin preparation
+bun run dev:web     # Vite only, against an already-running host
+```
+
+Mold and kache engage automatically through
+`scripts/cargo-with-linker.mjs`. Do not add sccache: it sets
+`RUSTC_WRAPPER`, which disables the automatic kache layer covering the
+same rebuilds.
+
 ## Optional build cache (Kache)
 
 Kache is an optional rustc compiler cache that speeds up Rust builds. It is
