@@ -5,7 +5,7 @@
 Build the frontend first:
 
 ```bash
-bun run build:web
+bun scripts/task.ts frontend-build
 cargo run -p tiktools-desktop
 ```
 
@@ -43,7 +43,7 @@ deadline directly.
 Run with debug logging and inspect the startup transitions:
 
 ```bash
-RUST_LOG=tiktools=debug bun run start:packaged
+RUST_LOG=tiktools=debug bun scripts/task.ts packaged
 tail -n 200 ~/.local/share/TikTools/logs/tiktools.log
 ```
 
@@ -64,7 +64,7 @@ frontend startup instead of timing out silently. To isolate a custom-protocol
 problem from an event-loop problem, compare with the Vite dev server path:
 
 ```bash
-bun run serve:web
+bun scripts/task.ts serve
 RUST_LOG=tiktools=debug \
 TIKTOOLS_DEV_URL=http://127.0.0.1:3000 \
 cargo run -p tiktools-desktop
@@ -209,8 +209,8 @@ Move privileged work into a declared host action or plugin capability.
 ## Useful checks
 
 ```bash
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 cargo test --workspace
 cargo check -p tiktools-desktop
 git diff --check

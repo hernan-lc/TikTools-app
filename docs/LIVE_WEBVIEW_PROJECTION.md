@@ -87,7 +87,7 @@ presentation stall; it is not evidence of a retained-memory leak.
 Build a diagnostic Vue bundle and an opt-in native test executable:
 
 ```bash
-VITE_TIKTOOLS_DIAGNOSTICS=1 bun run build:web
+VITE_TIKTOOLS_DIAGNOSTICS=1 bun scripts/task.ts frontend-build
 node scripts/cargo-with-linker.mjs test -p tiktools-desktop --release \
   --features live-benchmark --locked native_live_matrix --no-run
 python3 scripts/run-live-webview-benchmark.py \

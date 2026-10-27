@@ -36,19 +36,19 @@ Diagnostics use the existing host poll/plugin-event channel, emitting only chang
 
 | Command | Result |
 | --- | --- |
-| `bun run typecheck` | Pass |
-| `bun run typecheck:sonicboom-ui` | Pass |
-| `bun run lint:plugins` | Pass |
-| `bun run test:plugins` | 101 pass |
-| `bun run test:sonicboom-ui` | 20 pass |
+| `bun x vue-tsc --noEmit` | Pass |
+| `bun x vue-tsc --noEmit -p plugins/sonicboom/ui/tsconfig.json` | Pass |
+| `bun scripts/task.ts frontend-lint` | Pass |
+| `bun test plugins/sonicboom/shared plugins/sonicboom/backend plugins/sonicboom/ui/src` | 101 pass |
+| `bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts` | 20 pass |
 | `cargo test -p sonicboom-backend` | 54 unit tests and 3 process integration tests pass |
 | `cargo clippy -p sonicboom-backend --all-targets -- -D warnings` | Pass |
 | `cargo test -p tiktools-core option_sources` | 17 pass |
 | `cargo test -p tiktools-core --features http declarative_http` | 26 pass; includes real HTTP action routing |
 | `cargo test -p tiktools-plugin-api` | 72 pass |
-| `bun run build:sonicboom-ui` | Pass |
-| `bun run build:sonicboom-backend` | Pass; packaged executable staged |
-| `bun run test:e2e` | 38 pass, 17 fail; all 17 reproduce on unchanged baseline |
+| `bun x vite build --config plugins/sonicboom/ui/vite.config.ts` | Pass |
+| `bun scripts/build-sonicboom-backend.ts` | Pass; packaged executable staged |
+| `bun scripts/task.ts e2e test` | 38 pass, 17 fail; all 17 reproduce on unchanged baseline |
 
 Baseline E2E reproduction used a detached worktree at `b0ee9c0`, separate Vite port 3001, and the unchanged screenshot/widget suites: 2 pass, the same 17 fail. Screenshot assertions and widget tests were not changed. Core tests emit existing warnings outside the modified code.
 

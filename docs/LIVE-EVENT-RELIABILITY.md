@@ -105,12 +105,12 @@ publication, queue, drop, replay, presentation, and recovery counters. The lates
 Run:
 
 ```sh
-bun run deps:check
-bun run contracts:check
-bun run check:web
-bun run test:rust
-bun run lint:rust
-bun run fmt:rust
+bun scripts/check-tiktok-signer-revision.ts
+bun scripts/task.ts contracts --check
+bun scripts/task.ts frontend-lint && bun scripts/task.ts frontend-test && bun scripts/task.ts frontend-build
+bun scripts/task.ts rust test --workspace --locked
+bun scripts/task.ts rust-lint
+bun scripts/task.ts rust fmt --all -- --check
 ```
 
 The application smoke probe also connected through the upgraded native client

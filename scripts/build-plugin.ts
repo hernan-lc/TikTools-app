@@ -51,12 +51,12 @@ function printHelp(): void {
   console.log(`Build distributable .plugin archives from examples/.
 
 Usage:
-  bun run build:plugin -- --plugin <name>
-  bun run build:plugin -- --plugin <name> --target <rust-target>
-  bun run build:plugin -- --all
-  bun run build:plugin -- --all --target <rust-target>
-  bun run build:plugins
-  bun run build:plugins -- --target <rust-target>
+  bun scripts/task.ts plugins --plugin <name>
+  bun scripts/task.ts plugins --plugin <name> --target <rust-target>
+  bun scripts/task.ts plugins --all
+  bun scripts/task.ts plugins --all --target <rust-target>
+  bun scripts/task.ts plugins --all
+  bun scripts/task.ts plugins --all --target <rust-target>
 
 Options:
   --plugin <name>   Example directory or manifest id (repeatable)

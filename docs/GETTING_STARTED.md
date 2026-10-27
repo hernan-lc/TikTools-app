@@ -7,7 +7,7 @@
 - LLVM `lld-link` is optional. When available on `PATH`, Rust commands
   automatically use it for faster linking. Otherwise the default MSVC
   linker is used.
-- Bun 1.4.1 for the frontend build and development server. The version is
+- Bun 1.4.4 for the frontend build and development server. The version is
   pinned by `package.json`.
 - A system WebView supported by Wry:
   - Windows: WebView2.
@@ -25,31 +25,31 @@ install its `-dev` package and retry.
 ```bash
 bun ci
 bun run lint
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 bun run start
 ```
 
 The `start` script launches the Vite dev server, compiles and stages
 the checked-in process-plugin examples into the ignored `.dev-plugins`
 directory, then runs `tiktools-desktop` against `TIKTOOLS_DEV_URL` with that
-directory as a development plugin root. Use `bun run start:rust` when you do
+directory as a development plugin root. Use `bun scripts/task.ts rust run -p tiktools-desktop` when you do
 not need the example plugin build. To exercise the packaged-asset path
 instead (Vue assets built into `dist/web` and served through the
 `tiktools://app/index.html` custom protocol, as releases use), run
-`bun run start:packaged`.
+`bun scripts/task.ts packaged`.
 
 For UI-only iteration:
 
 ```bash
-bun run serve:web
+bun scripts/task.ts serve
 TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
 To only rebuild and stage example plugins:
 
 ```bash
-bun run prepare:dev-plugins
+bun scripts/task.ts prepare-plugins
 ```
 
 The development URL bypasses the custom protocol while retaining the same Wry
@@ -72,10 +72,10 @@ logs.
 cargo check -p tiktools-core --locked
 cargo test -p tiktools-core --locked
 cargo check -p tiktools-desktop --locked
-npm run fmt:rust
-npm run rust:clippy
-npm run rust:test
-npm run build:desktop
+bun scripts/task.ts rust fmt --all -- --check
+bun scripts/task.ts rust-lint
+bun scripts/task.ts rust test --workspace --locked
+bun scripts/task.ts rust build -p tiktools-desktop --release --locked
 ```
 
 The core-only commands avoid desktop dependencies. `cargo test --workspace --locked`
@@ -85,11 +85,11 @@ bounded `napi-vm` adapter, and the Wry asset handler.
 ## Frontend commands
 
 ```bash
-bun run build:web
-bun run serve:web
+bun scripts/task.ts frontend-build
+bun scripts/task.ts serve
 bun run lint
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 ```
 
 The frontend uses Vue single-file components. Interactive render functions

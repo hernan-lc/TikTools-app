@@ -38,4 +38,4 @@ justified** — every candidate is far from pressure at realistic load.
 - SQLite probe: `bun /tmp/perf4-sqlite.mjs` (`bun:sqlite`, same DDL/DML).
 - Rust suites: `node scripts/cargo-with-linker.mjs test -p tiktools-core
   --locked plugin_processors` and `... --features persistence db::`.
-- Bundle: `bun run build:web`.
+- Bundle: `bun scripts/task.ts frontend-build`.

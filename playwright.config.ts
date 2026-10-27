@@ -41,7 +41,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run serve:web',
+    command: 'bun scripts/task.ts serve',
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,

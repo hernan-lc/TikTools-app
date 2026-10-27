@@ -23,17 +23,17 @@ Bun unit tests (src/web, src/automation, src/plugin-ui)
 ## Run
 
 ```bash
-bun run test:e2e            # headless Chromium main suite
-bun run test:e2e:ui         # interactive UI mode (development/debugging)
-bun run test:e2e:headed     # headed Chromium
-bun run test:e2e:update     # regenerate screenshot baselines (see below)
+bun scripts/task.ts e2e test            # headless Chromium main suite
+bun scripts/task.ts e2e test --ui         # interactive UI mode (development/debugging)
+bun scripts/task.ts e2e test --headed     # headed Chromium
+bun scripts/task.ts e2e test --update-snapshots     # regenerate screenshot baselines (see below)
 
-bun run build:sonicboom-ui  # build the plugin UI first (once per change)
-bun run test:sonicboom-ui   # headless Chromium plugin UI suite
+bun x vite build --config plugins/sonicboom/ui/vite.config.ts  # build the plugin UI first (once per change)
+bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts   # headless Chromium plugin UI suite
 ```
 
 The first run installs nothing extra: `@playwright/test` is a
-devDependency. The main config starts the app with `bun run serve:web`
+devDependency. The main config starts the app with `bun scripts/task.ts serve`
 automatically (`reuseExistingServer: true`); the UI config serves the
 compiled `ui/dist/` with `vite preview` (with
 `Access-Control-Allow-Origin: *`, which opaque-origin frames require —
@@ -92,7 +92,7 @@ and control client end to end).
 ## Plugin UI suite
 
 `plugins/sonicboom/ui/tests/` runs against the **compiled** `ui/dist/`
-bundle (`bun run build:sonicboom-ui` first), so the suite verifies what
+bundle (`bun x vite build --config plugins/sonicboom/ui/vite.config.ts` first), so the suite verifies what
 actually ships in the isolated view.
 
 | file | coverage |
@@ -116,7 +116,7 @@ no remote avatars.
 Regenerating baselines:
 
 ```bash
-bun run test:e2e:update
+bun scripts/task.ts e2e test --update-snapshots
 ```
 
 **Do not blindly approve changed screenshots.** Inspect the diff —

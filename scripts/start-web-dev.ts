@@ -9,7 +9,6 @@ async function run(command: string[]): Promise<void> {
   if (await process.exited !== 0) throw new Error(`${command.join(' ')} failed`);
 }
 
-await run([process.execPath, 'install', '--frozen-lockfile']);
 let pluginRoot = process.env.TIKTOOLS_DEV_PLUGINS_DIR;
 if (!pluginRoot && process.env.TIKTOOLS_SKIP_DEV_PLUGINS !== '1') pluginRoot = await prepareDevelopmentPlugins();
 await run(['node', 'scripts/cargo-with-linker.mjs', 'build', '-p', 'tiktools-cli', '--features', 'local-web', '--locked']);
@@ -38,7 +37,7 @@ try {
   if (host.exitCode !== null || !await isControlHostRunning()) throw new Error('Headless host did not become ready');
   const adapter = spawn([binary, 'web', '--assets', join(repositoryRoot, 'src', 'web'), '--port', String(adapterPort)]);
   await waitForHttp(adapterUrl, () => adapter.exitCode === null);
-  const vite = spawn([process.execPath, 'run', 'serve:web'], { ...process.env, TIKTOOLS_WEB_PORT: String(webPort), TIKTOOLS_DEV_WEB_ADAPTER: adapterUrl });
+  const vite = spawn([process.execPath, 'scripts/task.ts', 'serve'], { ...process.env, TIKTOOLS_WEB_PORT: String(webPort), TIKTOOLS_DEV_WEB_ADAPTER: adapterUrl });
   await waitForHttp(webUrl, () => vite.exitCode === null);
   console.log(`\nOpen ${webUrl} and enter the pairing code printed above. Frontend changes reload automatically.\n`);
   const exitCode = await Promise.race(children.map((child) => child.exited));

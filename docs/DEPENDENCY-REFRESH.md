@@ -88,7 +88,7 @@ Completed checks on that original snapshot:
 - ESLint and Vue typechecking for the app and SonicBoom UI.
 - 287 Bun tests; 102 plugin tests; 470 browser unit tests across 87 files.
 - Browser tests use one worker and a 30-second timeout on this loaded device:
-  `bun run test:web --maxWorkers=1 --testTimeout=30000`.
+  `bun x vitest runmaxWorkers=1 --testTimeout=30000`.
 - Web production build, all five widget builds and SonicBoom UI production build.
 - Universal SDK integrity check, generated-contract check and signer-pin check.
 - Native napi-rs fixture compilation; gateway example: 30 tests passed.

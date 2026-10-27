@@ -59,9 +59,9 @@ in feature code.
 Regenerate and verify the checked-in artifacts with:
 
 ```bash
-bun run contracts:generate
-bun run contracts:check
-bun run deps:check
+bun scripts/task.ts contracts
+bun scripts/task.ts contracts --check
+bun scripts/check-tiktok-signer-revision.ts
 ```
 
 The host intentionally exposes only fields it emits. For example, gift
@@ -158,8 +158,8 @@ autocomplete controller, token parser, scoring, and `AutocompleteList`.
 ## Testing
 
 ```bash
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 cargo test -p tiktools-core
 cargo test --workspace
 ```

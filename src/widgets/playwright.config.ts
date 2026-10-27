@@ -7,9 +7,9 @@ const repositoryRoot = resolve(import.meta.dirname, '..', '..');
 
 /**
  * Browser tests for the built OBS alert widgets. Specs drive E2E-enabled
- * bundles in `dist/widgets/` (run `bun run build:widgets:test` first)
+ * bundles in `dist/widgets/` (run `VITE_TIKTOOLS_WIDGET_TEST_HOOK=1 bun scripts/task.ts widgets` first)
  * through the page test hook — no TikTok connection and no gateway needed.
- * Production `bun run build:widgets` leaves the hook disabled.
+ * Production `bun scripts/task.ts widgets` leaves the hook disabled.
  */
 export default defineConfig({
   testDir: './tests',

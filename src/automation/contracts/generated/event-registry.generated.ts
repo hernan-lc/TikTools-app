@@ -1,4 +1,4 @@
-// THIS FILE IS GENERATED. Run bun run contracts:generate.
+// THIS FILE IS GENERATED. Run bun scripts/task.ts contracts.
 
 export const EVENT_REGISTRY_VERSION = 9 as const;
 

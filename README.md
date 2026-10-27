@@ -27,7 +27,7 @@ That workflow builds the Rust CLI directly. Frontend tools are optional.
 Requirements:
 
 - Rust 1.95 or newer and Cargo.
-- Bun 1.4.1 for the Vue/Vite development toolchain and frontend asset build.
+- Bun 1.4.4 for the Vue/Vite development toolchain and frontend asset build.
 - Platform WebView dependencies. Linux uses WebKitGTK; see
   [Getting Started](docs/GETTING_STARTED.md).
 
@@ -36,8 +36,8 @@ From a checkout:
 ```bash
 bun ci
 bun run lint
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 bun run start
 ```
 
@@ -49,7 +49,7 @@ launch without rebuilding the example plugins. For fast UI-only iteration, run
 the frontend server and point the Rust host at it:
 
 ```bash
-bun run serve:web
+bun scripts/task.ts serve
 TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
@@ -57,44 +57,38 @@ Release assets are served through the `tiktools://app/...` custom Wry protocol.
 Portable packages contain the executable beside a `web/` directory:
 
 ```bash
-bun run build:web
+bun scripts/task.ts frontend-build
 cargo build -p tiktools-desktop --release --locked
-RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=windows-x86_64 bun run package:release
+RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=windows-x86_64 bun scripts/task.ts package
 ```
 
 ## Commands
 
 ```bash
-bun run start             # Build the Vue assets and run the Rust host
-bun run prepare:dev-plugins # Compile and stage example plugins only
-bun run start:rust        # Run the Rust host against existing dist/web assets
-bun run dev:web           # Run the frontend development server
-bun run build:web         # Build dist/web
-bun run typecheck         # Type-check the Vue/editor source
-bun run test              # Run frontend and editor tests
-bun run lint              # Run ESLint for Vue, TypeScript, and Bun scripts
-bun run check:web         # Lint, type-check, test, and build the frontend
-bun run check:rust        # Check every Cargo workspace crate with Cargo.lock
-bun run fmt:rust          # Check Rust formatting
-bun run lint:rust         # Run Clippy with warnings denied
-bun run test:rust         # Run every Rust workspace test with Cargo.lock
-bun run build:desktop     # Build the release desktop executable with Cargo.lock
-bun run check:version     # Validate package and Cargo versions
-bun run version:bump      # Bump app version in manifests and lockfiles
+bun run start  # Launch the desktop development application
+bun run dev    # Launch the headless development environment
+bun run build  # Build frontend, widgets, plugins, and desktop
+bun run lint   # Check frontend, plugin and Rust code
+bun run ci     # Run checks, tests and production builds
 ```
+
+Specialized tasks are available via `bun scripts/task.ts`, for example
+`bun scripts/task.ts rust test --workspace --locked`,
+`bun scripts/task.ts e2e test`, and `bun scripts/task.ts version bump 0.3.4`.
+Run `bun ci` after changing dependencies before starting development.
 
 ## Development / Quality
 
-Use Bun 1.4.1, as pinned in `package.json`. `bun ci` installs exactly from
+Use Bun 1.4.4, as pinned in `package.json`. `bun ci` installs exactly from
 `bun.lock`; use `bun install` only when intentionally changing dependencies.
 Before opening a pull request, run:
 
 ```bash
 bun ci
 bun run lint
-bun run typecheck
-bun run test
-bun run build:web
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
+bun scripts/task.ts frontend-build
 
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

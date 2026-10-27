@@ -32,21 +32,6 @@ if (existing) {
 }
 refuseStaleOwners('on this machine');
 
-// Branch switches can leave node_modules behind the committed dependency graph.
-// Sync before building plugins or starting Vite so missing imports cannot strand
-// the desktop on its loading screen. Never rewrite the lockfile during startup.
-console.log('Synchronizing development dependencies from bun.lock...');
-const install = Bun.spawn({
-  cmd: [process.execPath, 'install', '--frozen-lockfile'],
-  cwd: repositoryRoot,
-  stdin: 'inherit',
-  stdout: 'inherit',
-  stderr: 'inherit',
-});
-if ((await install.exited) !== 0) {
-  fail('could not install dependencies from bun.lock; resolve the install error above and retry.');
-}
-
 // Never guess the Vite port: allocate a free loopback port first, then run
 // Vite with strictPort so it fails loudly instead of drifting to another
 // port while the desktop still points at the guessed URL.
@@ -60,7 +45,7 @@ if (!developmentPluginRoot && process.env.TIKTOOLS_SKIP_DEV_PLUGINS !== '1') {
 
 console.log(`Starting owned Vite dev server (${actualDevUrl})...`);
 const vite = Bun.spawn({
-  cmd: [process.execPath, 'run', 'serve:web'],
+  cmd: [process.execPath, 'scripts/task.ts', 'serve'],
   cwd: repositoryRoot,
   env: { ...process.env, TIKTOOLS_WEB_PORT: String(webPort) },
   stdout: 'inherit',

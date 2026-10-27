@@ -561,10 +561,10 @@ darwin-arm64-darwin
 Build with the shared script (defaults to the host target):
 
 ```bash
-bun run build:plugins
-bun run build:plugin -- --plugin audio-process-plugin
-bun run build:plugin -- --plugin audio-process-plugin --target x86_64-pc-windows-msvc
-bun run build:plugins -- --target aarch64-apple-darwin
+bun scripts/task.ts plugins --all
+bun scripts/task.ts plugins --plugin audio-process-plugin
+bun scripts/task.ts plugins --plugin audio-process-plugin --target x86_64-pc-windows-msvc
+bun scripts/task.ts plugins --all --target aarch64-apple-darwin
 ```
 
 The script passes `--target <rust-triple>` to Cargo, reads

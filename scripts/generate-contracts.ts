@@ -96,15 +96,15 @@ function generatedTypeSource(schema: JsonRecord): string {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([name, value]) => interfaceForDefinition(name, schemaObject(value), schema))
     .join('\n');
-  return `// THIS FILE IS GENERATED. Run bun run contracts:generate.\n\nimport type { JsonValue } from './json-value.ts';\n\n${definitions}`;
+  return `// THIS FILE IS GENERATED. Run bun scripts/task.ts contracts.\n\nimport type { JsonValue } from './json-value.ts';\n\n${definitions}`;
 }
 
 function generatedJsonValueSource(): string {
-  return `// THIS FILE IS GENERATED. Run bun run contracts:generate.\n\n// Canonical definitions live in src/shared/json.ts so generic layers\n// never import automation for plain JSON types.\nexport type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from '../../../shared/json.ts';\n`;
+  return `// THIS FILE IS GENERATED. Run bun scripts/task.ts contracts.\n\n// Canonical definitions live in src/shared/json.ts so generic layers\n// never import automation for plain JSON types.\nexport type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from '../../../shared/json.ts';\n`;
 }
 
 function generatedIndexSource(names: string[]): string {
-  return `// THIS FILE IS GENERATED. Run bun run contracts:generate.\n\nexport type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from './json-value.ts';\nexport type { ${names.join(', ')} } from './automation-events.ts';\n`;
+  return `// THIS FILE IS GENERATED. Run bun scripts/task.ts contracts.\n\nexport type { JsonArray, JsonObject, JsonPrimitive, JsonValue } from './json-value.ts';\nexport type { ${names.join(', ')} } from './automation-events.ts';\n`;
 }
 
 function humanize(value: string): string {
@@ -454,7 +454,7 @@ function registrySource(schema: JsonRecord): string {
     .join('INTEL_SAMPLE_DEFAULT');
   const chatSample = JSON.stringify(intelSampleFor(schema, true), null, 2);
   const defaultSample = JSON.stringify(intelSampleFor(schema, false), null, 2);
-  return `// THIS FILE IS GENERATED. Run bun run contracts:generate.\n\nexport const EVENT_REGISTRY_VERSION = ${EVENT_REGISTRY_VERSION} as const;\n\nconst INTEL_SAMPLE_CHAT = ${chatSample} as const;\n\nconst INTEL_SAMPLE_DEFAULT = ${defaultSample} as const;\n\nexport const GENERATED_EVENT_REGISTRY = ${body} as const satisfies Record<string, unknown>;\n`;
+  return `// THIS FILE IS GENERATED. Run bun scripts/task.ts contracts.\n\nexport const EVENT_REGISTRY_VERSION = ${EVENT_REGISTRY_VERSION} as const;\n\nconst INTEL_SAMPLE_CHAT = ${chatSample} as const;\n\nconst INTEL_SAMPLE_DEFAULT = ${defaultSample} as const;\n\nexport const GENERATED_EVENT_REGISTRY = ${body} as const satisfies Record<string, unknown>;\n`;
 }
 
 async function runSchemaGenerator(output: string): Promise<void> {

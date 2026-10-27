@@ -29,7 +29,7 @@ The native E2E test requires the **optional** Cargo feature `native-tiktok`. Run
 ```sh
 cargo test -p tiktools-core --locked --features native-tiktok --lib e2e_batched_likes_trigger_saved_150_goals_without_breaking_old_templates -- --nocapture
 bun test src/automation/behavior/like-goals.test.ts
-bun run typecheck
+bun x vue-tsc --noEmit
 cargo fmt --all -- --check
 ```
 

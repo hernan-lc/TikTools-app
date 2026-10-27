@@ -19,7 +19,7 @@ async function exists(path: string): Promise<boolean> {
 for (const widget of GATEWAY_WIDGET_KINDS) {
   if (!(await exists(join(source, widget, 'index.html')))) {
     throw new Error(
-      `Widget assets missing at ${source}/${widget}/index.html. Run \`bun run build:widgets\` first.`,
+      `Widget assets missing at ${source}/${widget}/index.html. Run \`bun scripts/task.ts widgets\` first.`,
     );
   }
 }

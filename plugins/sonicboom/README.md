@@ -91,16 +91,16 @@ captured LIVE traffic — see [docs/EMOTES.md](../../docs/EMOTES.md).
 ## Validation (2026-10-16)
 
 ```bash
-bun run typecheck:sonicboom-ui
-bun run build:sonicboom-ui
-bun run lint:plugins
-bun run test:plugins
-bun run typecheck
-bun run build:web
-bun run test:sonicboom-ui --output=/tmp/sonicboom-ui-results
+bun x vue-tsc --noEmit -p plugins/sonicboom/ui/tsconfig.json
+bun x vite build --config plugins/sonicboom/ui/vite.config.ts
+bun scripts/task.ts frontend-lint
+bun test plugins/sonicboom/shared plugins/sonicboom/backend plugins/sonicboom/ui/src
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-build
+bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts --output=/tmp/sonicboom-ui-results
 cargo test -p sonicboom-backend
 cargo test -p tiktools-core option_sources
-bun run test:e2e --output=/tmp/tiktools-e2e-results
+bun scripts/task.ts e2e test --output=/tmp/tiktools-e2e-results
 ```
 
 - Plugin unit suite: 37 passed.

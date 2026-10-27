@@ -280,7 +280,7 @@ structured CommandAPI actions (give-item, spawn-mob, apply-effect,
 change-weather, send-message, run-command) with curated selects, bounded
 numbers, and connection settings — no health probe, because the
 CommandAPI documents no health endpoint. It stages as a development
-plugin automatically (`bun run prepare:dev-plugins`).
+plugin automatically (`bun scripts/task.ts prepare-plugins`).
 `examples/profiles/minecraft-giftwall.tikprofile.json` is a ready-made
 rule pack on top of it: 14 gift rules plus follow/share announcements,
 every rule flashing a `/title` + subtitle.

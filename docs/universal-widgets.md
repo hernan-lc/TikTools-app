@@ -35,7 +35,7 @@ contract/security tests run with:
 
 ```text
 cargo test --manifest-path examples/event-gateway-process-plugin/Cargo.toml --locked
-bun run universal:check
+bun scripts/check-universal.mjs
 bun test src/widgets/shared/universal.test.ts src/web/entities/overlay/lib/editor-history.test.ts
 ```
 

@@ -79,9 +79,9 @@ Run with the repository's configured toolchains, on Linux and Windows desktop CI
 Android checks are additional evidence, not proof of desktop native-addon support.
 
 ```sh
-bun run contracts:check
-bun run deps:check
-bun run check:web
+bun scripts/task.ts contracts --check
+bun scripts/check-tiktok-signer-revision.ts
+bun scripts/task.ts frontend-lint && bun scripts/task.ts frontend-test && bun scripts/task.ts frontend-build
 cargo fmt --all -- --check
 cargo check --workspace --all-targets --all-features --locked
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings

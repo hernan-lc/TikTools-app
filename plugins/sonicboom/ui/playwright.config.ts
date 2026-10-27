@@ -6,11 +6,11 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 /**
  * Standalone suite for the SonicBoom plugin UI, run against its compiled
- * `ui/dist/` output (`bun run build:sonicboom-ui` first). The UI talks to
+ * `ui/dist/` output (`bun x vite build --config plugins/sonicboom/ui/vite.config.ts` first). The UI talks to
  * a fake `window.tiktools` broker installed per test — never to the real
  * host — so the package stays independently testable.
  *
- * Run: `bun run test:sonicboom-ui`
+ * Run: `bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts`
  */
 export default defineConfig({
   testDir: './tests',

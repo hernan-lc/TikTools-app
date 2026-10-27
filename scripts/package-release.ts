@@ -427,7 +427,7 @@ const platform = supportedPlatforms[platformValue];
 const webRoot = resolve(repositoryRoot, 'dist', 'web');
 const webIndex = join(webRoot, 'index.html');
 if (!(await isFile(webIndex))) {
-  fail(`frontend output is missing ${webIndex}; run bun run build:web first`);
+  fail(`frontend output is missing ${webIndex}; run bun scripts/task.ts frontend-build first`);
 }
 
 const binaryPath = resolve(

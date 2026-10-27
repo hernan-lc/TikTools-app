@@ -224,7 +224,7 @@ cargo build -p tiktools-cli --features local-web --locked
 ```
 
 Prepare the web assets using the existing frontend build in a compatible
-JavaScript environment (`bun run build:web`). The generated `dist/web` can be
+JavaScript environment (`bun scripts/task.ts frontend-build`). The generated `dist/web` can be
 copied to the phone from that environment. Bun/Node is not needed to run those
 assets or the Rust adapter. On this device, Node with the installed frontend
 dependencies also runs `node node_modules/vite/bin/vite.js build` successfully;

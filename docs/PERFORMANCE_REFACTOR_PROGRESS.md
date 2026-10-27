@@ -288,7 +288,7 @@ the Phase 1 ingress gate.
 
 Validation: `cargo fmt --all -- --check`, workspace Clippy with
 `-D warnings`, workspace tests (all pass; 307 core library tests), and
-`bun run check:web` all pass. No real-LIVE measurement was collected.
+`bun scripts/task.ts frontend-lint && bun scripts/task.ts frontend-test && bun scripts/task.ts frontend-build` all pass. No real-LIVE measurement was collected.
 
 Phase 2 commit: `961eb26`.
 
@@ -364,8 +364,8 @@ Validation: `cargo fmt --all -- --check`, workspace Clippy with
 `-D warnings`, `cargo test --workspace --locked` (all pass; 308 core
 library tests, 62 plugin-loader library tests), `cargo test -p
 tiktools-core --features persistence,native-tiktok --locked`,
-`cargo test -p tiktools-tiktok --locked`, `bun run check:web`,
-`bun run contracts:check`, `bun run deps:check` all pass. No real-LIVE
+`cargo test -p tiktools-tiktok --locked`, `bun scripts/task.ts frontend-lint && bun scripts/task.ts frontend-test && bun scripts/task.ts frontend-build`,
+`bun scripts/task.ts contracts --check`, `bun scripts/check-tiktok-signer-revision.ts` all pass. No real-LIVE
 measurement was collected.
 
 Phase 3 commit: `pending` (this batch).

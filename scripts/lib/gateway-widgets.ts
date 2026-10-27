@@ -12,8 +12,8 @@ export type GatewayWidgetKind = (typeof GATEWAY_WIDGET_KINDS)[number];
  * with `/widgets/*` returning 404. Throws loudly when anything is missing.
  */
 export async function ensureGatewayWidgetsStaged(repositoryRoot: string): Promise<string> {
-  await $`bun run build:widgets`.cwd(repositoryRoot).quiet();
-  await $`bun run sync:gateway-widgets`.cwd(repositoryRoot).quiet();
+  await $`bun scripts/task.ts widgets`.cwd(repositoryRoot).quiet();
+  await $`bun scripts/sync-gateway-widgets.ts`.cwd(repositoryRoot).quiet();
   const staged = join(repositoryRoot, 'examples', 'event-gateway-process-plugin', 'dist', 'widgets');
   await assertWidgetBundle(staged);
   return staged;
@@ -30,7 +30,7 @@ export async function assertWidgetBundle(widgetsDir: string): Promise<void> {
   if (missing.length > 0) {
     throw new Error(
       `Event Gateway widget assets missing under ${widgetsDir}: ${missing.join(', ')}. ` +
-        `Run \`bun run build:widgets && bun run sync:gateway-widgets\` (packaging and dev staging do this automatically).`,
+        `Run \`bun scripts/task.ts widgets && bun scripts/sync-gateway-widgets.ts\` (packaging and dev staging do this automatically).`,
     );
   }
 }

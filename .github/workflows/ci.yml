@@ -51,18 +51,15 @@ jobs:
         run: bun ci
 
       - name: Lint frontend
-        run: bun run lint
-
-      - name: Type-check frontend
-        run: bun run typecheck
+        run: bun scripts/task.ts frontend-lint
 
       - name: Test frontend
-        run: bun run test
+        run: bun scripts/task.ts frontend-test
       - name: Verify universal widget contracts
-        run: bun run universal:check
+        run: bun scripts/check-universal.mjs
 
       - name: Build frontend
-        run: bun run build:web
+        run: bun scripts/task.ts frontend-build
 
   rust:
     name: rust
@@ -117,6 +114,11 @@ jobs:
           key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             cargo-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Check generated contracts and dependencies
+        run: |
+          bun scripts/task.ts contracts --check
+          bun scripts/check-tiktok-signer-revision.ts
 
       - name: Check Rust formatting
         run: node scripts/cargo-with-linker.mjs fmt --all -- --check

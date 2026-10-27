@@ -32,7 +32,7 @@ import { chooseVoice } from './voice.ts';
  * `tts-policy.ts` API plus the emote/sanitizer additions (39 values + 14
  * types). Value parity is checked at runtime below; every type import above is
  * referenced by `BarrelTypeParity`, so removing a type export fails
- * `bun run typecheck`.
+ * `bun x vue-tsc --noEmit`.
  */
 export type BarrelTypeParity = {
   author: TtsAuthor;

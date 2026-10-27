@@ -2,9 +2,9 @@ import { join, resolve } from 'node:path';
 
 /**
  * Static server for the built OBS widgets. Serves `dist/widgets/` over
- * loopback for Playwright (`bun run test:widgets-e2e`) and manual checks.
- * Run `bun run build:widgets:test` first for E2E bundles (the page test
- * hook is enabled); the gateway serves production `bun run build:widgets`
+ * loopback for Playwright (`bun scripts/task.ts e2e test --config src/widgets/playwright.config.ts && bun scripts/task.ts e2e test --config src/widgets/playwright.gateway.config.ts`) and manual checks.
+ * Run `VITE_TIKTOOLS_WIDGET_TEST_HOOK=1 bun scripts/task.ts widgets` first for E2E bundles (the page test
+ * hook is enabled); the gateway serves production `bun scripts/task.ts widgets`
  * bytes with the hook disabled.
  */
 
@@ -49,7 +49,7 @@ for (const kind of WIDGET_KINDS) {
   }
 }
 if (missing.length > 0) {
-  throw new Error(`Widget assets missing under ${widgetsRoot}: ${missing.join(', ')}. Run \`bun run build:widgets:test\` first.`);
+  throw new Error(`Widget assets missing under ${widgetsRoot}: ${missing.join(', ')}. Run \`bun scripts/task.ts widgets\` first.`);
 }
 
 Bun.serve({

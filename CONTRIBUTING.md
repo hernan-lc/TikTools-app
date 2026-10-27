@@ -5,8 +5,8 @@ Please keep changes focused and avoid unrelated architecture or UI rewrites.
 
 ## Supported toolchain
 
-- Rust 1.95.0 or newer (the workspace MSRV is 1.95; CI uses Rust 1.98.1).
-- Bun 1.4.1, pinned in `package.json`.
+- Rust 1.95.0 or newer (the workspace MSRV is 1.95; CI uses Rust 1.99.1).
+- Bun 1.4.4, pinned in `package.json`.
 - MSVC Build Tools are required on Windows.
 - LLVM `lld-link` is optional. When available on `PATH`, Rust commands
   automatically use it for faster linking. Otherwise the default MSVC
@@ -26,18 +26,18 @@ Before opening a pull request, run the frontend checks:
 
 ```bash
 bun run lint
-bun run typecheck
-bun run test
-bun run build:web
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
+bun scripts/task.ts frontend-build
 ```
 
 Run the Rust checks with the committed `Cargo.lock`:
 
 ```bash
-npm run fmt:rust
-npm run rust:clippy
-npm run rust:test
-npm run build:desktop
+bun scripts/task.ts rust fmt --all -- --check
+bun scripts/task.ts rust-lint
+bun scripts/task.ts rust test --workspace --locked
+bun scripts/task.ts rust build -p tiktools-desktop --release --locked
 ```
 
 Pull requests targeting `remake` should pass the frontend, Rust, desktop
@@ -58,7 +58,7 @@ version in one step so `package.json`, `Cargo.toml`, and `Cargo.lock`
 stay in sync:
 
 ```bash
-bun run version:bump v0.1.0
+bun scripts/task.ts version bump v0.1.0
 ```
 
 The release workflow builds portable packages with the executable beside

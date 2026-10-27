@@ -9,7 +9,7 @@ import { defineConfig } from 'vite';
  * separate entry, separate output, relative base so assets resolve under
  * `tiktools-plugin://<id>/` as well as dev preview servers.
  *
- * Run: `bun run build:sonicboom-ui`
+ * Run: `bun x vite build --config plugins/sonicboom/ui/vite.config.ts`
  */
 export default defineConfig({
   root: import.meta.dirname,

@@ -155,7 +155,7 @@ function printHelp(): void {
 and standalone fixture/example lockfiles.
 
 Usage:
-  bun run version:bump <version>
+  bun scripts/task.ts version bump <version>
 
 The version accepts an optional leading "v": 0.3.1 and v0.3.1 are the same.
 After bumping, commit the result and push the matching tag to cut a release.`);

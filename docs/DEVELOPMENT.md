@@ -4,7 +4,7 @@ TikTools has two intentionally separate edit loops: Bun runs Vite/Vue
 builds/tests, and Cargo builds/tests the Rust host. The desktop integration
 is only needed when changing Winit, Wry, the tray, or the final IPC bridge.
 
-Bun 1.4.1 is the supported frontend version and is pinned in `package.json`.
+Bun 1.4.4 is the supported frontend version and is pinned in `package.json`.
 Use `bun ci` for a clean install from `bun.lock`; run `bun install` only when
 changing dependencies intentionally.
 
@@ -12,8 +12,8 @@ changing dependencies intentionally.
 
 ```bash
 bun run lint
-bun run typecheck
-bun run test
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
 cargo check -p tiktools-core --locked
 cargo test -p tiktools-core --locked
 cargo check -p tiktools-plugin-api --locked
@@ -30,9 +30,9 @@ TikTok, and WASM boundaries explicit.
 Three scripts cover browser development, from full stack to frontend only:
 
 ```bash
-bun run start:web   # host + adapter + Vite, with dev plugins prepared
-bun run web         # same loop, skips dev-plugin preparation
-bun run dev:web     # Vite only, against an already-running host
+bun scripts/start-web-dev.ts   # host + adapter + Vite, with dev plugins prepared
+bun run dev         # same loop, skips dev-plugin preparation
+bun scripts/task.ts serve     # Vite only, against an already-running host
 ```
 
 Mold and kache engage automatically through
@@ -65,7 +65,7 @@ before adding keys.
 ## Desktop loop
 
 ```bash
-bun run build:web
+bun scripts/task.ts frontend-build
 cargo check -p tiktools-desktop --locked
 cargo run -p tiktools-desktop --locked
 ```
@@ -77,20 +77,20 @@ it responds, prepares development plugins, and runs the desktop host against
 stages them under the ignored `.dev-plugins` runtime root. This is a
 development convenience only; it does not install plugins into the user
 profile or add a compile-time plugin registry. Set
-`TIKTOOLS_SKIP_DEV_PLUGINS=1` to skip it, or use `bun run start:rust` when the
+`TIKTOOLS_SKIP_DEV_PLUGINS=1` to skip it, or use `bun scripts/task.ts rust run -p tiktools-desktop` when the
 existing frontend and plugin artifacts are sufficient.
 
 To validate the packaged frontend instead (the `tiktools://app` custom
 protocol path used by releases), run:
 
 ```bash
-bun run start:packaged
+bun scripts/task.ts packaged
 ```
 
 For manual live frontend changes:
 
 ```bash
-bun run serve:web
+bun scripts/task.ts serve
 TIKTOOLS_DEV_URL=http://localhost:3000 cargo run -p tiktools-desktop --locked
 ```
 
@@ -98,9 +98,9 @@ Browser-level E2E runs the same Vite app in Chromium against a fake
 `window.ipc` host (never the Wry shell):
 
 ```bash
-bun run test:e2e            # headless suite
-bun run test:e2e:ui         # interactive debugging
-bun run test:e2e:update     # regenerate screenshot baselines (inspect diffs!)
+bun scripts/task.ts e2e test            # headless suite
+bun scripts/task.ts e2e test --ui         # interactive debugging
+bun scripts/task.ts e2e test --update-snapshots     # regenerate screenshot baselines (inspect diffs!)
 ```
 
 See [Playwright E2E](PLAYWRIGHT.md) for the fake-host contract, stability
@@ -110,16 +110,16 @@ The SonicBoom plugin ships its own UI and backend builds plus a
 standalone browser suite (see [Plugin UI architecture](PLUGIN_UI_ARCHITECTURE.md)):
 
 ```bash
-bun run build:sonicboom-ui       # isolated UI → plugins/sonicboom/ui/dist/
-bun run build:sonicboom-backend  # chat observer → plugins/sonicboom/backend/dist/
-bun run test:sonicboom-ui        # UI suite + host/plugin interop (build UI first)
-bun run test:plugins             # plugin shared-logic unit tests
+bun x vite build --config plugins/sonicboom/ui/vite.config.ts       # isolated UI → plugins/sonicboom/ui/dist/
+bun scripts/build-sonicboom-backend.ts  # chat observer → plugins/sonicboom/backend/dist/
+bun scripts/task.ts e2e test --config plugins/sonicboom/ui/playwright.config.ts        # UI suite + host/plugin interop (build UI first)
+bun test plugins/sonicboom/shared plugins/sonicboom/backend plugins/sonicboom/ui/src             # plugin shared-logic unit tests
 ```
 
 Release builds use the custom `tiktools://app` protocol:
 
 ```bash
-bun run build:web
+bun scripts/task.ts frontend-build
 cargo build -p tiktools-desktop --release --locked
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -130,7 +130,7 @@ Set `RELEASE_TAG` and one of `windows-x86_64`, `linux-x86_64`,
 `macos-arm64`, or `macos-x86_64` as `RELEASE_PLATFORM` after building:
 
 ```bash
-RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=linux-x86_64 bun run package:release
+RELEASE_TAG=v0.1.0 RELEASE_PLATFORM=linux-x86_64 bun scripts/task.ts package
 ```
 
 The resulting archive has this layout and is validated before it is returned:
@@ -145,7 +145,7 @@ TikTools/
     └── assets/
 ```
 
-`bun run check:version` verifies that `package.json` matches the
+`bun scripts/task.ts version check` verifies that `package.json` matches the
 canonical `[workspace.package].version` in `Cargo.toml`. It takes no
 arguments; Git tags are not compared against the code.
 
@@ -153,7 +153,7 @@ arguments; Git tags are not compared against the code.
 
 Bump first, then tag. To ship `vX.Y.Z`:
 
-1. run `bun run version:bump vX.Y.Z` — it updates `package.json`,
+1. run `bun scripts/task.ts version bump vX.Y.Z` — it updates `package.json`,
    `Cargo.toml` `[workspace.package]`, the workspace entries in
    `Cargo.lock`, and standalone fixture/example lockfiles in one step
 2. commit and push to `remake`
@@ -192,8 +192,8 @@ VM values, native TikTok objects, or plugin instances into an automation JSON
 event.
 
 Automation contracts are generated from
-`crates/tiktools-core/src/contracts/`. Run `bun run contracts:generate` after a
-Rust contract change and `bun run contracts:check` in CI. Do not add manual
+`crates/tiktools-core/src/contracts/`. Run `bun scripts/task.ts contracts` after a
+Rust contract change and `bun scripts/task.ts contracts --check` in CI. Do not add manual
 TikTok event interfaces or a second event registry in the frontend.
 
 ## Adding a control method
@@ -277,9 +277,9 @@ cargo test --workspace --locked
 cargo build -p tiktools-desktop --release --locked
 cargo check -p tiktools-desktop --locked
 bun run lint
-bun run typecheck
-bun run test
-bun run build:web
+bun x vue-tsc --noEmit
+bun scripts/task.ts frontend-test
+bun scripts/task.ts frontend-build
 git diff --check
 ```
 

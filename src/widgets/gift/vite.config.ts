@@ -9,7 +9,7 @@ import { defineConfig } from 'vite';
  * Separate entry and output from the main TikTools bundle; relative base so
  * assets resolve under the gateway prefix.
  *
- * Run: `bun run build:widget:gift`
+ * Run: `bun scripts/task.ts widgets`
  */
 export default defineConfig({
   root: import.meta.dirname,
