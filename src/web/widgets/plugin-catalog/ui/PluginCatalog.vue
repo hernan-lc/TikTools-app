@@ -19,7 +19,7 @@ const props = defineProps<{
   actionTypes: readonly ActionTypeDefinition[];
 }>();
 
-const emit = defineEmits<{ 'install-package': [] }>();
+const emit = defineEmits<{ 'install-package': []; open: [id: string] }>();
 
 const tab = defineModel<PluginCatalogTab>('tab', { required: true });
 const query = defineModel<string>('query', { default: '' });
@@ -69,11 +69,13 @@ const filtering = computed(() => query.value.trim().length > 0);
         :items="visible"
         :item-key="(plugin) => plugin.descriptor.id"
         :aria-label="t('plugins.title')"
+        @activate="emit('open', $event.descriptor.id)"
       >
         <template #default="{ item }">
           <span
             class="plugin-catalog__item"
             :class="{ 'plugin-catalog__item--off': item.installed && !item.enabled }"
+            @pointerdown="emit('open', item.descriptor.id)"
           >
             <IconPuzzle class="plugin-catalog__icon" />
             <span class="plugin-catalog__name">{{ localizedText(item.descriptor.name) }}</span>

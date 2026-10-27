@@ -30,6 +30,12 @@ const selected = ref<string | null>(saved?.selected ?? null);
 const detailsTab = ref<PluginDetailsTab>(saved?.details ?? 'general');
 const catalogWidth = ref(300);
 const isNarrow = useMediaQuery('(width < 900px)');
+const mobileDetailsOpen = ref(false);
+
+function openPlugin(id: string): void {
+  selected.value = id;
+  if (isNarrow.value) mobileDetailsOpen.value = true;
+}
 
 const behavior = computed(() => plugins.behavior.value);
 const installState = computed(() => plugins.installState.value);
@@ -132,7 +138,7 @@ watch([view, catalog, query, selected, detailsTab], persist);
     </p>
 
     <BaseSplitter
-      v-if="view === 'plugins'"
+      v-if="view === 'plugins' && !isNarrow"
       v-model:size="catalogWidth"
       class="plugins-page__workspace"
       :orientation="isNarrow ? 'vertical' : 'horizontal'"
@@ -147,6 +153,7 @@ watch([view, catalog, query, selected, detailsTab], persist);
           :plugins="behavior.plugins"
           :action-types="behavior.actionTypes"
           @install-package="plugins.installPackage()"
+          @open="openPlugin"
         />
       </template>
       <template #end>
@@ -170,6 +177,36 @@ watch([view, catalog, query, selected, detailsTab], persist);
         </div>
       </template>
     </BaseSplitter>
+    <div
+      v-else-if="view === 'plugins'"
+      class="plugins-page__mobile"
+    >
+      <template v-if="mobileDetailsOpen && selectedPlugin">
+        <BaseButton
+          class="plugins-page__back"
+          @click="mobileDetailsOpen = false"
+        >
+          ← {{ t('common.back') }}
+        </BaseButton>
+        <PluginDetails
+          :key="selectedPlugin.descriptor.id"
+          v-model:tab="detailsTab"
+          :plugin="selectedPlugin"
+          :actions="behavior.actions"
+          :action-types="behavior.actionTypes"
+        />
+      </template>
+      <PluginCatalog
+        v-else
+        v-model:tab="catalog"
+        v-model:query="query"
+        v-model:selected="selected"
+        :plugins="behavior.plugins"
+        :action-types="behavior.actionTypes"
+        @install-package="plugins.installPackage()"
+        @open="openPlugin"
+      />
+    </div>
     <ProcessorsPanel
       v-else
       v-model:query="processorQuery"
@@ -239,6 +276,24 @@ watch([view, catalog, query, selected, detailsTab], persist);
   flex: 1;
 }
 
+.plugins-page__mobile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+}
+
+.plugins-page__back {
+  align-self: flex-start;
+  flex: none;
+}
+
+.plugins-page__mobile > :deep(.plugin-details) {
+  flex: 1;
+  min-height: 0;
+}
+
 .plugins-page__placeholder {
   display: flex;
   flex: 1;
@@ -251,7 +306,6 @@ watch([view, catalog, query, selected, detailsTab], persist);
 @media (width < 900px) {
   .plugins-page {
     padding: var(--space-3);
-    overflow-y: auto;
   }
 
   .plugins-page__toolbar {

@@ -1,5 +1,5 @@
 import { enableAutoUnmount, flushPromises, type VueWrapper } from '@vue/test-utils';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import type { ActionTypeDefinition, BehaviorSnapshot, LiveAction, PluginStatus } from '../../../../automation/behavior/types.ts';
 import type { ProcessorStatusEntry } from '../../../../shared/messages.ts';
@@ -95,6 +95,22 @@ async function selectPlugin(wrapper: Wrapper, name: string) {
 }
 
 describe('PluginsPage', () => {
+  it('opens plugin details and returns to the catalog on narrow screens', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }));
+    try {
+      const { wrapper } = await mountPage();
+      await wrapper.get('.plugin-catalog__item').trigger('pointerdown');
+      expect(wrapper.get('.plugin-details__name').text()).toBe('DECK');
+      expect(wrapper.find('.plugin-catalog').exists()).toBe(false);
+      await wrapper.get('.plugins-page__back').trigger('click');
+      expect(wrapper.find('.plugin-details').exists()).toBe(false);
+      expect(wrapper.find('.plugin-catalog').exists()).toBe(true);
+      await wrapper.get('.plugin-catalog__item').trigger('pointerdown');
+      expect(wrapper.get('.plugin-details__name').text()).toBe('DECK');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('lists installed and available plugins separately', async () => {
     const { wrapper } = await mountPage();
     expect(wrapper.findAll('[role="option"]').map((item) => item.text())).toEqual([expect.stringContaining('DECK')]);
