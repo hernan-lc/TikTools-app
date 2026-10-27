@@ -427,10 +427,10 @@ mod regression_tests {
         // raw automation events or points accounting.
         let feed = core.events.feed_backfill(0, 32);
         assert_eq!(feed.events.len(), 4);
-        for (row, (delta, cumulative)) in feed
-            .events
-            .iter()
-            .zip([(45_u64, 45_u64), (60, 105), (45, 150), (300, 450)])
+        for (row, (delta, cumulative)) in
+            feed.events
+                .iter()
+                .zip([(45_u64, 45_u64), (60, 105), (45, 150), (300, 450)])
         {
             assert_eq!(row.event["kind"], "like");
             assert_eq!(row.event["likeCount"], delta);

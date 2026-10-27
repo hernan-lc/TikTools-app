@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin, type ProxyOptions } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueJsx from '@vitejs/plugin-vue-jsx';
 import { readFile } from 'node:fs/promises';
@@ -166,7 +166,7 @@ export default defineConfig({
       target: adapter,
       changeOrigin: true,
       ws: true,
-      configure: (proxy: import('http-proxy').Server) => {
+      configure: (proxy) => {
         proxy.on('proxyReq', (proxyRequest, request) => {
           if (request.headers.origin && request.headers.origin !== 'null') proxyRequest.setHeader('Origin', adapter);
         });
@@ -175,6 +175,6 @@ export default defineConfig({
           proxyRequest.setHeader('Origin', adapter);
         });
       },
-    }])) } : {}),
+    } satisfies ProxyOptions])) } : {}),
   },
 });
