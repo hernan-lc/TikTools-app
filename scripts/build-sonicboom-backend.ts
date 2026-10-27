@@ -4,7 +4,7 @@
  * repo convention — see the Windows entry-suffix note in
  * docs/PLUGIN_UI_ARCHITECTURE.md).
  */
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { $ } from 'bun';
 
@@ -22,5 +22,11 @@ if (!existsSync(source)) {
   process.exit(1);
 }
 mkdirSync(dist, { recursive: true });
-copyFileSync(source, staged);
+const temporary = `${staged}.${process.pid}.tmp`;
+try {
+  copyFileSync(source, temporary);
+  renameSync(temporary, staged);
+} finally {
+  rmSync(temporary, { force: true });
+}
 console.log(`staged ${staged}`);
