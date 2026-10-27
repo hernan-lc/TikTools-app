@@ -13,6 +13,14 @@ const discovery = useDiscoveryStore();
 const saved = loadViewState().connections;
 const useCookie = ref(saved?.showCookie ?? Boolean(connection.cookie));
 const expandedServers = ref<Record<string, boolean>>(saved?.openServers ?? {});
+const autoConnectOption = ref(false);
+const autoConnect = computed({
+  get: () => Boolean(connection.monitorStatus?.enabled) || autoConnectOption.value,
+  set: (value: boolean) => {
+    autoConnectOption.value = value;
+    if (!value && connection.monitorStatus?.enabled) void connection.stopMonitor();
+  },
+});
 
 const handle = computed({
   get: () => connection.uniqueId,
@@ -33,6 +41,16 @@ function connectRoom(room: LiveChannel): void {
   connection.handleConnectRoom(room.uniqueId, room.roomId);
 }
 
+function connect(): void {
+  if (autoConnect.value) void connection.startMonitor(connection.uniqueId, useCookie.value ? connection.cookie : '');
+  else connection.handleConnect(undefined, undefined, useCookie.value ? connection.cookie : '');
+}
+
+function selectRecent(username: string): void {
+  connection.setUniqueId(username);
+  connect();
+}
+
 const persist = debounce(() => {
   saveViewState('connections', { showCookie: useCookie.value, openServers: expandedServers.value });
 });
@@ -46,6 +64,7 @@ watch([useCookie, expandedServers], persist, { deep: true });
         v-model:handle="handle"
         v-model:cookie="cookie"
         v-model:use-cookie="useCookie"
+        v-model:auto-connect="autoConnect"
         class="connections-page__live"
         :status="connection.status"
         :monitor-enabled="connection.monitorStatus?.enabled"
@@ -58,13 +77,12 @@ watch([useCookie, expandedServers], persist, { deep: true });
         :reconnect-attempt="connection.reconnectAttempt"
         :reconnect-delay-ms="connection.reconnectDelayMs"
         :max-reconnect-attempts="connection.maxReconnectAttempts"
-        @start-monitor="connection.startMonitor(connection.uniqueId, connection.cookie)"
-        @stop-monitor="connection.stopMonitor()"
-        @connect="connection.handleConnect()"
+        @stop-monitor="autoConnect = false"
+        @connect="connect"
         @disconnect="connection.handleDisconnect()"
         @reconnect="connection.handleReconnect()"
         @pick-random="connection.handlePickLive()"
-        @select-recent="connection.handleSelectRecent"
+        @select-recent="selectRecent"
       />
       <LiveExplorerPanel
         class="connections-page__explorer"
@@ -72,7 +90,10 @@ watch([useCookie, expandedServers], persist, { deep: true });
         @connect="connectRoom"
       />
     </div>
-    <PluginServersPanel v-model:expanded="expandedServers" />
+    <PluginServersPanel
+      v-model:expanded="expandedServers"
+      class="connections-page__servers"
+    />
   </div>
 </template>
 
@@ -90,9 +111,20 @@ watch([useCookie, expandedServers], persist, { deep: true });
 
 .connections-page__top {
   display: grid;
+  flex: none;
   grid-template-columns: minmax(360px, 1fr) minmax(0, 1.5fr);
   gap: var(--space-4);
   min-height: 360px;
+}
+
+.connections-page__servers {
+  flex: none;
+}
+
+.connections-page :deep(.connections-page__live > .base-panel__body),
+.connections-page :deep(.connections-page__explorer > .base-panel__body),
+.connections-page :deep(.connections-page__servers > .base-panel__body) {
+  overflow: visible;
 }
 
 @media (width < 1100px) {

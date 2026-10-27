@@ -114,7 +114,7 @@ export function useConnection(control: ControlClient, callbacks: ConnectionCallb
     }
   };
 
-  const handleConnect = (userToConnect?: string, roomId?: string): void => {
+  const handleConnect = (userToConnect?: string, roomId?: string, sessionCookie = cookie.value): void => {
     const target = normalizeUsername(userToConnect || uniqueId.value);
     if (!target) {
       error.value = callbacks.translate('connection.handleRequired');
@@ -130,7 +130,7 @@ export function useConnection(control: ControlClient, callbacks: ConnectionCallb
     saveUsername(target);
     recents.value = addRecentUsername(target);
     callbacks.goFeed();
-    void requestConnect(target, cookie.value.trim(), roomId);
+    void requestConnect(target, sessionCookie.trim(), roomId);
   };
 
   const handleConnectRoom = (uniqueId: string, roomId: string): void => {

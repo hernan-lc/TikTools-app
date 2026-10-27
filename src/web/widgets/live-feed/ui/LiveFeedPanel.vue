@@ -61,46 +61,49 @@ const rendered = computed(() =>
     <template #actions>
       <BaseSegmented
         v-model="activeFilter"
+        class="live-feed__filters"
         size="sm"
         :options="filterOptions"
         :aria-label="t('feed.filterLabel')"
       />
-      <BaseTextField
-        v-model="query"
-        class="live-feed__search"
-        type="search"
-        size="sm"
-        :placeholder="t('feed.search')"
-        :aria-label="t('feed.search')"
-      >
-        <template #prefix>
-          <IconSearch />
-        </template>
-      </BaseTextField>
-      <BaseIconButton
-        :label="autoScroll ? t('feed.pause') : t('feed.resume')"
-        size="sm"
-        :pressed="autoScroll"
-        @click="store.handleToggleAutoScroll()"
-      >
-        <IconPause v-if="autoScroll" />
-        <IconPlay v-else />
-      </BaseIconButton>
-      <BaseIconButton
-        :label="t('feed.clear')"
-        size="sm"
-        @click="store.resetEvents()"
-      >
-        <IconTrash />
-      </BaseIconButton>
-      <BaseIconButton
-        :label="inspectorOpen ? t('feed.inspector.hide') : t('feed.inspector.show')"
-        size="sm"
-        :pressed="inspectorOpen"
-        @click="emit('toggle-inspector')"
-      >
-        <IconPopout />
-      </BaseIconButton>
+      <div class="live-feed__controls">
+        <BaseTextField
+          v-model="query"
+          class="live-feed__search"
+          type="search"
+          size="sm"
+          :placeholder="t('feed.search')"
+          :aria-label="t('feed.search')"
+        >
+          <template #prefix>
+            <IconSearch />
+          </template>
+        </BaseTextField>
+        <BaseIconButton
+          :label="autoScroll ? t('feed.pause') : t('feed.resume')"
+          size="sm"
+          :pressed="autoScroll"
+          @click="store.handleToggleAutoScroll()"
+        >
+          <IconPause v-if="autoScroll" />
+          <IconPlay v-else />
+        </BaseIconButton>
+        <BaseIconButton
+          :label="t('feed.clear')"
+          size="sm"
+          @click="store.resetEvents()"
+        >
+          <IconTrash />
+        </BaseIconButton>
+        <BaseIconButton
+          :label="inspectorOpen ? t('feed.inspector.hide') : t('feed.inspector.show')"
+          size="sm"
+          :pressed="inspectorOpen"
+          @click="emit('toggle-inspector')"
+        >
+          <IconPopout />
+        </BaseIconButton>
+      </div>
     </template>
 
     <div
@@ -170,7 +173,35 @@ const rendered = computed(() =>
 }
 
 .live-feed__search {
-  width: 200px;
+  flex: 1;
+  min-width: 0;
+}
+
+:deep(.base-panel__header) {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+}
+
+:deep(.base-panel__actions) {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  margin-left: 0;
+}
+
+.live-feed__filters {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.live-feed__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .live-feed__stream {
@@ -202,37 +233,10 @@ const rendered = computed(() =>
   color: var(--color-warning);
 }
 
-@media (width < 1024px) {
-  .live-feed__search {
-    width: 160px;
-  }
-}
-
 @media (width < 900px) {
   .live-feed__stream {
     min-height: 0;
   }
 
-  .live-feed__search {
-    flex: 1 1 140px;
-    width: auto;
-  }
-
-  :deep(.base-panel__header) {
-    flex-wrap: wrap;
-  }
-
-  :deep(.base-panel__actions) {
-    width: 100%;
-    min-width: 0;
-    margin-left: 0;
-    flex-wrap: wrap;
-  }
-
-  :deep(.base-segmented) {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-  }
 }
 </style>

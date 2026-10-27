@@ -138,40 +138,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
   }
 }
 
-@media (width < 900px) {
-  .feed-page {
-    position: relative;
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .feed-page__stream {
-    width: 100%;
-    min-width: 0;
-    min-height: min(52dvh, 480px);
-  }
-
-  .feed-page__inspector {
-    position: absolute;
-    inset: 0 0 0 auto;
-    z-index: 5;
-    width: min(340px, 100%);
-    background: var(--color-bg-panel);
-    box-shadow: var(--shadow-popup);
-  }
-}
-
 @media (width < 700px) {
   .feed-page {
+    flex-direction: column;
     padding: var(--space-2);
   }
 
+  .feed-page__stream {
+    min-height: 0;
+  }
+
   .feed-page__inspector {
-    position: fixed;
-    inset: auto 0 0 0;
+    flex: 0 1 35%;
     width: 100%;
-    max-height: 72dvh;
-    border-top: var(--border-width) solid var(--color-border-subtle);
+    min-height: 160px;
   }
 }
 </style>

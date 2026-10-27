@@ -5,7 +5,7 @@ import { isConnectionBusy } from '@/entities/connection/lib/connection-status.ts
 import ConnectionIndicator from '@/entities/connection/ui/ConnectionIndicator.vue';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BaseIconButton from '@/shared/ui/button/BaseIconButton.vue';
-import BaseCheckbox from '@/shared/ui/checkbox/BaseCheckbox.vue';
+import BaseSwitch from '@/shared/ui/switch/BaseSwitch.vue';
 import BaseFormGrid from '@/shared/ui/form/BaseFormGrid.vue';
 import BaseFormRow from '@/shared/ui/form/BaseFormRow.vue';
 import IconDice from '@/shared/ui/icon/icons/IconDice.vue';
@@ -34,13 +34,13 @@ const props = defineProps<{
 const handle = defineModel<string>('handle', { required: true });
 const cookie = defineModel<string>('cookie', { required: true });
 const useCookie = defineModel<boolean>('useCookie', { default: false });
+const autoConnect = defineModel<boolean>('autoConnect', { default: false });
 
 const emit = defineEmits<{
   connect: [];
   disconnect: [];
   reconnect: [];
   'pick-random': [];
-  'start-monitor': [];
   'stop-monitor': [];
   'select-recent': [handle: string];
 }>();
@@ -129,12 +129,19 @@ function onRecent(action: MenuAction): void {
           </span>
         </BaseFormRow>
         <span />
-        <BaseCheckbox
+        <BaseSwitch
           v-model="useCookie"
           :disabled="locked"
         >
           {{ t('connections.live.useCookie') }}
-        </BaseCheckbox>
+        </BaseSwitch>
+        <span />
+        <BaseSwitch
+          v-model="autoConnect"
+          :disabled="monitorBusy || (!monitorEnabled && (live || busy))"
+        >
+          {{ t('connections.monitor.start') }}
+        </BaseSwitch>
         <BaseFormRow
           v-if="useCookie"
           for="live-cookie"
@@ -214,12 +221,6 @@ function onRecent(action: MenuAction): void {
         {{ t('common.cancel') }}
       </BaseButton>
       <template v-else>
-        <BaseButton
-          :disabled="monitorBusy || !handle.trim()"
-          @click="emit('start-monitor')"
-        >
-          {{ t('connections.monitor.start') }}
-        </BaseButton>
         <BaseButton
           v-if="status === 'error'"
           @click="emit('reconnect')"
