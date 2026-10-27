@@ -52,8 +52,7 @@ its existing subscription index before constructing an unused JSON envelope.
 On the same Linux native release test executable and identical compiled Vue
 assets, disabling only `.tt-badge-level` backdrop blur changed renderer RSS near
 14 seconds from **3,982,036 KiB to 488,488 KiB**. Disabling avatars/gift images
-alone did not remove the growth. See the raw samples/manifests in
-[benchmarks/2026-10-14](benchmarks/2026-10-14/REPORT.md).
+alone did not remove the growth.
 The per-row backdrop blur has been removed; badge background, border, text and
 all 300 buffered rows remain. These short synthetic measurements identify an
 expensive renderer path; they do not prove a retained native-memory leak or
