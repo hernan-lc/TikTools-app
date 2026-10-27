@@ -188,6 +188,7 @@ export function useConnection(control: ControlClient, callbacks: ConnectionCallb
 
   const setUniqueId = (value: string): void => {
     uniqueId.value = value;
+    if (normalizeUsername(value) && error.value === callbacks.translate('connection.handleRequired')) error.value = '';
   };
   const setCookie = (value: string): void => {
     cookie.value = value;

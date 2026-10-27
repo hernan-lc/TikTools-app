@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
+import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { isConnectionOnlyPage, pluginNavId } from '../../../automation/plugins/declarative.ts';
@@ -19,6 +19,7 @@ import IconGear from '@/shared/ui/icon/icons/IconGear.vue';
 import IconLayers from '@/shared/ui/icon/icons/IconLayers.vue';
 import IconLink from '@/shared/ui/icon/icons/IconLink.vue';
 import IconPuzzle from '@/shared/ui/icon/icons/IconPuzzle.vue';
+import BaseNotification from '@/shared/ui/notification/BaseNotification.vue';
 import type { AppTab, BuiltinAppTab } from '@/types.ts';
 import AppMenuBar from '@/widgets/app-menu-bar/ui/AppMenuBar.vue';
 import type { NavigationItem, NavigationSection } from '@/widgets/app-navigation/model/navigation-types.ts';
@@ -148,8 +149,20 @@ onBeforeUnmount(() => {
 });
 
 function connect(): void {
-  if (uniqueId.value || activeCreator.value) connection.handleConnect();
-  else navigate('connect');
+  const target = uniqueId.value.trim().replace(/^@/, '');
+  if (target) {
+    connection.handleConnect(target);
+  } else {
+    connection.handleConnect();
+  }
+}
+
+function openConnectionSetup(): void {
+  drawerOpen.value = false;
+  void router.push(tabLocation('connect')).then(async () => {
+    await nextTick();
+    document.getElementById('live-handle')?.focus();
+  });
 }
 </script>
 
@@ -159,6 +172,15 @@ function connect(): void {
       v-if="pluginProgress"
       :progress="pluginProgress"
       @dismiss="plugins.dismissPluginProgress()"
+    />
+    <BaseNotification
+      v-if="connection.error && routeTab !== 'connect'"
+      class="app-layout__notice"
+      tone="error"
+      :message="connection.error"
+      :action-label="t('navigation.connections')"
+      @action="openConnectionSetup"
+      @dismiss="connection.error = ''"
     />
     <AppMenuBar
       :status="status"
@@ -222,6 +244,15 @@ function connect(): void {
   display: flex;
   flex: 1;
   min-height: 0;
+}
+
+.app-layout__notice {
+  position: fixed;
+  z-index: 100;
+  top: 42px;
+  right: var(--space-4);
+  width: 440px;
+  max-width: min(440px, calc(100vw - 32px));
 }
 
 .app-layout__navigation {

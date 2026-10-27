@@ -82,6 +82,12 @@ function onRecent(action: MenuAction): void {
       class="live-connect"
       @submit.prevent="submit"
     >
+      <p
+        v-if="!handle.trim() && !live"
+        role="status"
+      >
+        {{ t('connections.live.setupHint') }}
+      </p>
       <BaseFormGrid>
         <BaseFormRow
           for="live-handle"

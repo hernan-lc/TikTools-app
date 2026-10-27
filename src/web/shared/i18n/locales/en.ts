@@ -207,6 +207,7 @@ export default {
       creator: 'Creator',
       handlePlaceholder: 'username',
       handleHint: "The leading {'@'} is optional.",
+      setupHint: 'Enter the TikTok username of the creator you want to watch, then select Connect.',
       lockedHint: 'Disconnect to change the creator.',
       recents: 'Recent creators',
       pickRandom: 'Connect to a random LIVE',

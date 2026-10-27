@@ -209,6 +209,7 @@ export default {
       creator: 'Creador',
       handlePlaceholder: 'usuario',
       handleHint: "El símbolo {'@'} es opcional.",
+      setupHint: 'Introduce el usuario de TikTok del creador que quieres ver y selecciona Conectar.',
       lockedHint: 'Desconecta para cambiar de creador.',
       recents: 'Creadores recientes',
       pickRandom: 'Conectar a un LIVE aleatorio',

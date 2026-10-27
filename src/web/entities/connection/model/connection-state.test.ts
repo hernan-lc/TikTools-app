@@ -39,6 +39,17 @@ async function flushPromises(): Promise<void> {
 }
 
 describe('useConnection pick-live', () => {
+  test('missing username feedback clears when a username is entered', () => {
+    const control = stubControl();
+    const connection = useConnection(control, callbacks);
+    connection.setUniqueId('');
+    connection.handleConnect();
+    expect(connection.error.value).toBe('connection.handleRequired');
+    expect(control.calls).toHaveLength(0);
+    connection.setUniqueId(' @creator ');
+    expect(connection.error.value).toBe('');
+  });
+
   test('a failed pick restores the previous creator pill', async () => {
     const control = stubControl({
       call: <T,>(): Promise<T> =>
