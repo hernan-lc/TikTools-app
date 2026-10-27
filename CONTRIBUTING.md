@@ -40,6 +40,20 @@ bun scripts/task.ts rust test --workspace --locked
 bun scripts/task.ts rust build -p tiktools-desktop --release --locked
 ```
 
+Targeted tests (fast units by default; full coverage stays in `bun run ci`):
+
+```bash
+bun run test                                  # fast Bun + Vitest units
+bun run test rust tiktools-core batched_likes # one crate, one filter
+bun run test rust tiktools-core --features native-tiktok
+bun run test web live-batch                   # one web module
+bun run test web --watch
+bun run test bun automation                   # one Bun area
+bun run test plugin sonicboom                 # one plugin
+bun run test e2e                              # browser tests
+bun run test --changed                        # only changed files
+```
+
 Pull requests targeting `remake` should pass the frontend, Rust, desktop
 cross-platform, CodeQL, and dependency-review checks that apply to the change.
 Keep the branch up to date before merging.

@@ -9,7 +9,8 @@
     "dev": "bun scripts/task.ts dev",
     "build": "bun scripts/task.ts build",
     "lint": "bun scripts/task.ts lint",
-    "ci": "bun scripts/task.ts ci"
+    "ci": "bun scripts/task.ts ci",
+    "test": "bun scripts/task.ts test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

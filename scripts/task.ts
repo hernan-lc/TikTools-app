@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assertWidgetBundle } from './lib/gateway-widgets.ts';
+import { runTargetedTests } from './lib/test-runner.ts';
 
 const root = join(import.meta.dir, '..');
 const bun = process.execPath;
@@ -10,8 +11,11 @@ const NAMED_BATCHED_TEST =
   'e2e_batched_likes_trigger_saved_150_goals_without_breaking_old_templates';
 
 const USAGE =
-  'Usage: bun scripts/task.ts <start|dev|build|lint|ci> [options]\n' +
-  'Public scripts (package.json): start (desktop dev), dev (headless dev), build, lint, ci.\n' +
+  'Usage: bun scripts/task.ts <start|dev|build|lint|ci|test> [options]\n' +
+  'Public scripts (package.json): start (desktop dev), dev (headless dev), build, lint, ci, test.\n' +
+  'Targeted tests: `test` (fast units), `test rust <crate> [filter] [--features <list>]`,\n' +
+  '`test web [filter] [--watch|--changed]`, `test bun <area> [filter]`,\n' +
+  '`test plugin <name> [filter]`, `test e2e [filter]`, `test --changed`.\n' +
   'Internal steps used by CI and guides: frontend-lint, frontend-test, frontend-build,\n' +
   'rust-lint, rust <cargo args>, widgets, plugins <args>, e2e [args], package,\n' +
   'version [check|bump <v>], contracts [args], serve [args], packaged, prepare-plugins.';
@@ -235,6 +239,9 @@ try {
     case 'ci':
       needNoArgs('ci', args);
       await ci();
+      break;
+    case 'test':
+      await runTargetedTests(args);
       break;
     case 'frontend-lint':
       needNoArgs('frontend-lint', args);

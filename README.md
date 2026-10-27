@@ -70,7 +70,18 @@ bun run start  # Launch the desktop development application
 bun run dev    # Launch the headless development environment
 bun run build  # Build frontend, widgets, plugins, and desktop
 bun run lint   # Check frontend, plugin and Rust code
+bun run test   # Run fast unit tests (Bun + Vitest)
 bun run ci     # Run checks, tests and production builds
+```
+
+Targeted tests (no full-suite run needed):
+
+```bash
+bun run test rust tiktools-core batched_likes --features native-tiktok
+bun run test web live-batch
+bun run test bun automation
+bun run test plugin sonicboom
+bun run test e2e
 ```
 
 Specialized tasks are available via `bun scripts/task.ts`, for example
