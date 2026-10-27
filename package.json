@@ -8,6 +8,7 @@
     "start": "bun run scripts/start-dev.ts",
     "start:web": "bun run scripts/start-web-dev.ts",
     "web": "TIKTOOLS_SKIP_DEV_PLUGINS=1 bun run scripts/start-web-dev.ts",
+    "dev": "TIKTOOLS_SKIP_DEV_PLUGINS=1 bun run scripts/start-web-dev.ts",
     "start:packaged": "bun run scripts/start-packaged.ts",
     "prepare:dev-plugins": "bun run scripts/prepare-dev-plugins.ts",
     "start:rust": "node scripts/cargo-with-linker.mjs run -p tiktools-desktop",
