@@ -215,6 +215,7 @@ pub(crate) fn render_json_map(
 enum SpanAction {
     Render(String),
     Drop,
+    #[cfg(any(test, feature = "http"))]
     Keep,
 }
 
@@ -231,6 +232,7 @@ fn substitute_spans(source: &str, resolve: impl Fn(&str) -> SpanAction) -> Strin
         match resolve(expression[..end].trim()) {
             SpanAction::Render(text) => rendered.push_str(&text),
             SpanAction::Drop => {}
+            #[cfg(any(test, feature = "http"))]
             SpanAction::Keep => rendered.push_str(&rest[start..start + 2 + end + 2]),
         }
         rest = &expression[end + 2..];
@@ -241,6 +243,7 @@ fn substitute_spans(source: &str, resolve: impl Fn(&str) -> SpanAction) -> Strin
 
 /// `scheme:///path` parses with the first segment as host; reject it so
 /// a missing global in host position fails closed instead of redirecting.
+#[cfg(any(test, feature = "http"))]
 pub(crate) fn has_empty_authority(url: &str) -> bool {
     match url.split_once("://") {
         Some((_, rest)) => rest.starts_with('/'),
@@ -268,6 +271,7 @@ pub(crate) fn render_template(
 
 /// Phase-one render for URLs: only `{{ globals.* }}` resolves
 /// (operator-trusted); every other span stays literal for phase two.
+#[cfg(any(test, feature = "http"))]
 pub(crate) fn render_globals_only(
     source: &str,
     globals: &std::collections::BTreeMap<String, String>,

@@ -8,6 +8,7 @@
     "start": "bun scripts/task.ts start",
     "dev": "bun scripts/task.ts dev",
     "build": "bun scripts/task.ts build",
+    "check": "bun scripts/generate-contracts.ts --check",
     "lint": "bun scripts/task.ts lint",
     "ci": "bun scripts/task.ts ci",
     "test": "bun scripts/task.ts test"

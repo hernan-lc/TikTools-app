@@ -16,6 +16,7 @@ pub enum AutomationKind {
 }
 
 impl AutomationKind {
+    #[cfg(feature = "persistence")]
     fn table(self) -> &'static str {
         match self {
             Self::Event => "behavior_events",
@@ -257,7 +258,10 @@ impl AppCore {
                 AutomationKind::Action => actions.push((id, *enabled)),
             }
         }
+        #[cfg(feature = "persistence")]
         let mut missing = Vec::new();
+        #[cfg(not(feature = "persistence"))]
+        let missing = Vec::new();
         #[cfg(feature = "persistence")]
         {
             let internal =

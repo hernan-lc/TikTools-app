@@ -1,17 +1,25 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc, Condvar, Mutex, MutexGuard, RwLock,
+        Arc, RwLock,
     },
-    time::{Duration, Instant, SystemTime},
+    time::SystemTime,
+};
+#[cfg(feature = "persistence")]
+use std::{
+    collections::VecDeque,
+    sync::{Condvar, Mutex, MutexGuard},
+    time::{Duration, Instant},
 };
 
 use serde_json::{json, Value};
 
 use crate::db::DatabaseManager;
 use crate::ipc::messages::{PartialPointsConfig, PointsConfig};
-use tiktools_plugin_api::sync::{recover_mutex, recover_rwlock_read, recover_rwlock_write};
+#[cfg(feature = "persistence")]
+use tiktools_plugin_api::sync::recover_mutex;
+use tiktools_plugin_api::sync::{recover_rwlock_read, recover_rwlock_write};
 
 /// Default bound for the in-memory hot-viewer cache. SQLite remains the
 /// durable source of truth; viewers outside the cache are reloaded on demand
@@ -231,6 +239,7 @@ impl PointsInner {
     /// Sequence a reload must wait for before it may read SQLite: its own
     /// outstanding write, or an unresolved full reset (which zeroes rows
     /// this viewer may still carry).
+    #[cfg(feature = "persistence")]
     fn reload_wait_seq(&self, unique_id: &str) -> u64 {
         self.pending
             .get(unique_id)
@@ -1183,10 +1192,13 @@ impl PointsService {
         }
         let resolved = self.resolved_seq();
         let mut inner = recover_rwlock_write(&self.inner, "points viewers");
+        #[cfg(feature = "persistence")]
         let seq = self.next_seq();
         let PointsInner {
             viewers,
+            #[cfg(feature = "persistence")]
             pending,
+            #[cfg(feature = "persistence")]
             reset_pending,
             ..
         } = &mut *inner;

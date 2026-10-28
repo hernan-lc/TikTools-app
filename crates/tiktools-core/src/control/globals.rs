@@ -7,8 +7,10 @@
 use std::collections::BTreeMap;
 
 use crate::control::OperationError;
+#[cfg(feature = "persistence")]
+use crate::services::globals::GLOBALS_KEY_PREFIX;
 use crate::services::globals::{
-    bare_key, normalize_value, storage_key, validate_key, GLOBALS_KEY_PREFIX, MAX_GLOBAL_KEYS,
+    bare_key, normalize_value, storage_key, validate_key, MAX_GLOBAL_KEYS,
 };
 use crate::AppCore;
 

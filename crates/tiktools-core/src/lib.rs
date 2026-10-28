@@ -602,12 +602,14 @@ impl AppCore {
     }
 }
 
+#[cfg(feature = "plugin-install")]
 fn restart_plugin(plugins: &PluginManager, id: &str) {
     if let Err(error) = plugins.start(id) {
         tracing::warn!(plugin = %id, %error, "plugin runtime could not be restarted after package operation");
     }
 }
 
+#[cfg(feature = "plugin-install")]
 fn is_strict_plugin_child(root: &std::path::Path, candidate: &std::path::Path) -> bool {
     if cfg!(target_os = "windows") {
         let root = root.to_string_lossy().to_ascii_lowercase();

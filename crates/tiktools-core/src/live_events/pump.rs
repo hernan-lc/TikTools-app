@@ -116,7 +116,7 @@ impl AppCore {
         *recover_mutex(&self.live_pump_task, "LIVE pump") = Some(pump);
         *recover_mutex(&self.live_ingress_task, "LIVE ingress worker") = Some(worker);
     }
-    #[cfg(not(feature = "native-tiktok"))]
+    #[cfg(all(not(feature = "native-tiktok"), test))]
     pub(crate) fn start_live_event_pump(self: &Arc<Self>) {}
 
     /// Stops the LIVE pump and drains the ingress queue, in that order.

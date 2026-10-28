@@ -30,6 +30,7 @@ pub(crate) fn fresh_record_id(prefix: &str) -> String {
 /// Session-cookie bound for live entry points. Empty is allowed: the native
 /// client bootstraps an anonymous guest session, matching the UI's
 /// "(optional)" cookie field. Only an overlong value is rejected.
+#[cfg(any(test, feature = "native-tiktok"))]
 pub(crate) fn check_session_cookie_len(session_cookie: &str) -> Result<(), OperationError> {
     if session_cookie.len() > 16_384 {
         return Err(OperationError::invalid(

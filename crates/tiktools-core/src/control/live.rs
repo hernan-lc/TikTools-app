@@ -43,17 +43,24 @@ pub struct LiveChannelsResult {
 }
 
 /// Source marker for [`LiveChannelsResult`]; never a claim about TikTok as a whole.
+#[cfg(feature = "native-tiktok")]
 pub const LIVE_SEARCH_SOURCE: &str = "tiktok-live-search";
 
+#[cfg(any(test, feature = "native-tiktok"))]
 const LIVE_CHANNELS_KEYWORD_FALLBACK: &str = "live";
+#[cfg(any(test, feature = "native-tiktok"))]
 const LIVE_CHANNELS_KEYWORD_MAX: usize = 64;
+#[cfg(feature = "native-tiktok")]
 const LIVE_CHANNELS_OFFSET_MAX: u32 = 10_000;
+#[cfg(feature = "native-tiktok")]
 const LIVE_CHANNELS_LIMIT_DEFAULT: u32 = 20;
+#[cfg(feature = "native-tiktok")]
 const LIVE_CHANNELS_LIMIT_MAX: u32 = 50;
 
 /// Trim an optional keyword, fall back to `live` when empty, and cap its
 /// length. This is a browse hint, not an identity: an over-long value is
 /// truncated rather than rejected.
+#[cfg(any(test, feature = "native-tiktok"))]
 fn normalize_live_keyword(keyword: Option<String>) -> String {
     let trimmed = keyword.unwrap_or_default();
     let trimmed = trimmed.trim();
@@ -63,6 +70,7 @@ fn normalize_live_keyword(keyword: Option<String>) -> String {
     trimmed.chars().take(LIVE_CHANNELS_KEYWORD_MAX).collect()
 }
 
+#[cfg(feature = "native-tiktok")]
 fn now_millis() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
