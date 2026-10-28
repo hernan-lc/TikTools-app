@@ -142,9 +142,6 @@ in memory, and shutdown drains it.
 
 ## 2026-10-13 reliability branch observations
 
-The ongoing refactor against `79dd1ab` is incomplete. Earlier measurements above
-remain historical; they do not describe this branch's complete LIVE pipeline.
-New raw observations are in [the measurement record](benchmarks/live-refactor-2026-10-13.json).
 The same microbenchmark command was run sequentially on the exact baseline and
 candidate checkout with `--test-threads=1`, in the unoptimized test profile.
 Environment: AMD BC-250, 12 logical CPUs, Linux 7.2.9-2-cachyos, Rust 1.99.0.

@@ -137,9 +137,6 @@ Batch 5 commit: `0653ffe`.
 - Profiler accepts build/workload labels and idle/load/cleanup phase labels;
   samples host CPU/threads and connection generation/state, treats missing RSS
   as unknown, and rejects mismatched health PID. Three Python regressions passed.
-- Identical sequential PointsService microbenchmark commands were run on exact
-  baseline `79dd1ab` and candidate. Raw sanitized data is checked in under
-  `docs/benchmarks/live-refactor-2026-10-13.json`. No throughput improvement claim.
 - Analytics-only Linux RSS test: 24 cycles, 98,304 records, 32 batches per cycle,
   zero pending after each join; RSS 19,784 KiB from cycle 1 through cycle 23.
 - Frontend: 682 scoped unit tests passed; type-check, lint and build passed.
