@@ -5,6 +5,11 @@ import type { AnalyticsTotals } from '../../../../shared/messages.ts';
 import { useRovingSelection } from '@/shared/lib/use-roving-selection.ts';
 import { formatCount } from '@/shared/lib/intl.ts';
 import { analyticsMetrics, metricColor, totalFor, type AnalyticsMetric } from '../lib/analytics-metrics.ts';
+import IconChat from '@/shared/ui/icon/icons/IconChat.vue';
+import IconCoins from '@/shared/ui/icon/icons/IconCoins.vue';
+import IconDiamond from '@/shared/ui/icon/icons/IconDiamond.vue';
+import IconEye from '@/shared/ui/icon/icons/IconEye.vue';
+import IconHeart from '@/shared/ui/icon/icons/IconHeart.vue';
 
 const props = defineProps<{
   totals: AnalyticsTotals;
@@ -12,6 +17,14 @@ const props = defineProps<{
 
 const model = defineModel<AnalyticsMetric>({ required: true });
 const { t, locale } = useI18n();
+
+const icons: Record<AnalyticsMetric, unknown> = {
+  chats: IconChat,
+  gifts: IconCoins,
+  likes: IconHeart,
+  diamonds: IconDiamond,
+  peakViewers: IconEye,
+};
 
 const items = computed(() =>
   analyticsMetrics.map((metric) => ({
@@ -28,7 +41,7 @@ const { focusIndex, select, onKeydown, setElement } = useRovingSelection(items, 
 
 <template>
   <div
-    class="metric-strip"
+    class="kpi-strip"
     role="radiogroup"
     :aria-label="t('analytics.metricPicker')"
     @keydown="onKeydown"
@@ -37,7 +50,7 @@ const { focusIndex, select, onKeydown, setElement } = useRovingSelection(items, 
       v-for="(item, index) in items"
       :key="item.metric"
       :ref="(element) => setElement(index, element)"
-      class="metric-strip__tile"
+      class="kpi-strip__card"
       type="button"
       role="radio"
       :aria-checked="index === selectedIndex"
@@ -45,67 +58,68 @@ const { focusIndex, select, onKeydown, setElement } = useRovingSelection(items, 
       :style="{ '--metric-color': metricColor[item.metric] }"
       @click="select(index)"
     >
-      <span class="metric-strip__label">{{ item.label }}</span>
-      <span class="metric-strip__value">{{ item.value }}</span>
+      <span class="kpi-strip__icon">
+        <component
+          :is="icons[item.metric]"
+          :size="15"
+        />
+      </span>
+      <span class="kpi-strip__label">{{ item.label }}</span>
+      <span class="kpi-strip__value">{{ item.value }}</span>
     </button>
   </div>
 </template>
 
 <style scoped>
-.metric-strip {
+.kpi-strip {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
-.metric-strip__tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
+.kpi-strip__card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: var(--space-3);
+  align-items: center;
   min-width: 0;
   padding: var(--space-4) var(--space-5);
   border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-bg-panel);
   color: var(--color-text);
   font-family: var(--font-family);
   text-align: left;
   cursor: pointer;
   outline: none;
-  transform: none;
 }
 
-.metric-strip__tile::before {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 2px;
-  background: var(--metric-color);
-  opacity: 0.45;
-  content: '';
+.kpi-strip__card:hover {
+  border-color: var(--color-border-strong);
 }
 
-.metric-strip__tile:hover {
-  background: var(--color-bg-raised);
-}
-
-.metric-strip__tile[aria-checked='true'] {
+.kpi-strip__card[aria-checked='true'] {
   border-color: var(--metric-color);
-  background: var(--color-bg-raised);
 }
 
-.metric-strip__tile[aria-checked='true']::before {
-  opacity: 1;
-}
-
-.metric-strip__tile:focus-visible {
+.kpi-strip__card:focus-visible {
   box-shadow: var(--focus-ring);
 }
 
-.metric-strip__label {
+.kpi-strip__icon {
+  display: inline-flex;
+  grid-row: span 2;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--metric-color) 16%, transparent);
+  color: var(--metric-color);
+}
+
+.kpi-strip__label {
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -113,10 +127,31 @@ const { focusIndex, select, onKeydown, setElement } = useRovingSelection(items, 
   white-space: nowrap;
 }
 
-.metric-strip__value {
+.kpi-strip__value {
   font-size: 20px;
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
+}
+
+@media (width < 1100px) {
+  .kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (width < 720px) {
+  .kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .kpi-strip__card {
+    padding: var(--space-4);
+  }
+
+  .kpi-strip__value {
+    font-size: 18px;
+  }
 }
 </style>

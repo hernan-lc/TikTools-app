@@ -52,10 +52,10 @@ const subtitle = computed(() => {
       :metric="metric"
     />
     <p
-      v-if="singleDay"
+      v-if="singleDay && approximate"
       class="activity-panel__note"
     >
-      {{ approximate ? t('analytics.activity.approximate') : t('analytics.activity.hourlyHint') }}
+      {{ t('analytics.activity.approximate') }}
     </p>
   </BasePanel>
 </template>

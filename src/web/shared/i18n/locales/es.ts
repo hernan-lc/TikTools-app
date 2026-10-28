@@ -107,15 +107,26 @@ export default {
       diamonds: 'Diamantes',
       peakViewers: 'Máx. espectadores',
     },
+    kpi: {
+      peakAvg: 'máx. {peak} · prom. {avg}',
+      single: '{value} en el rango',
+    },
     activity: {
       title: 'Actividad',
       today: 'Actividad de hoy',
+      range: '{span} · {count} días',
+      total: 'Total {value}',
+      average: 'Prom. {value}',
+      bestDay: 'Mejor {date}',
+      bestHour: 'Pico {hour}',
       hourlyHint: 'Las barras apilan cada métrica en su color; elige una métrica arriba para resaltarla. El máximo de espectadores usa su propia escala.',
+      dailyHint: 'Totales diarios de la métrica elegida. La línea punteada marca el promedio diario; la etiqueta marca el mejor día.',
       approximate: 'Aproximado: los datos antiguos se agrupan por la última hora de actividad de cada espectador.',
     },
     facts: {
       title: 'Sesión',
       sessions: 'Sesiones',
+      sessionsValue: '{count} sesiones en el rango',
       peakViewers: 'Máximo de espectadores',
       giftEvents: 'Eventos de regalo',
       likeEvents: 'Eventos de me gusta',
@@ -123,8 +134,16 @@ export default {
       shares: 'Compartidos',
       joins: 'Entradas',
     },
+    mix: {
+      label: 'Mezcla de interacción entre chats, regalos, me gusta y diamantes',
+    },
+    spotlight: {
+      label: 'Fans destacados',
+      interactions: '{count} interacciones',
+    },
     contributors: {
       title: 'Mejores espectadores',
+      subtitle: '{count} fans · ordenados por interacciones',
       search: 'Buscar espectadores…',
       rank: 'Puesto',
       viewer: 'Espectador',

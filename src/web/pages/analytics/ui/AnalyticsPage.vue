@@ -8,8 +8,9 @@ import {
   analyticsRangeKeys,
   dayToIsoDate,
   formatDayDate,
-  isoDateToDay,
+  formatSpan,
   isSingleDaySpan,
+  isoDateToDay,
   resolveAnalyticsRange,
   systemDay,
   type AnalyticsRangeKey,
@@ -71,6 +72,10 @@ const emptyDescription = computed(() => {
   return t('analytics.empty.hint');
 });
 
+const spanLabel = computed(() =>
+  summary.value ? formatSpan({ startDay: summary.value.startDay, endDay: summary.value.endDay }, locale.value) : '',
+);
+
 function refresh(): void {
   void store.load(creator.value, span.value);
 }
@@ -91,24 +96,38 @@ watch([range, metric, query, customStart, customEnd], persist);
 
 <template>
   <div class="analytics-page">
-    <header class="analytics-page__toolbar">
-      <AnalyticsRangeBar
-        v-model:range="range"
-        v-model:start="customStart"
-        v-model:end="customEnd"
-      />
-      <span class="analytics-page__spacer" />
-      <span
-        v-if="creator"
-        class="analytics-page__creator"
-      >@{{ creator.replace(/^@/, '') }}</span>
-      <BaseIconButton
-        :label="t('analytics.refresh')"
-        :disabled="loading"
-        @click="refresh"
-      >
-        <IconRefresh />
-      </BaseIconButton>
+    <header class="analytics-page__header">
+      <div class="analytics-page__heading">
+        <h1 class="analytics-page__title">
+          {{ t('analytics.title') }}
+        </h1>
+        <p
+          v-if="summary"
+          class="analytics-page__subtitle"
+        >
+          {{ spanLabel }}
+          <span aria-hidden="true">·</span>
+          {{ t('analytics.facts.sessionsValue', { count: summary.sessions }) }}
+        </p>
+      </div>
+      <div class="analytics-page__controls">
+        <AnalyticsRangeBar
+          v-model:range="range"
+          v-model:start="customStart"
+          v-model:end="customEnd"
+        />
+        <span
+          v-if="creator"
+          class="analytics-page__creator"
+        >@{{ creator.replace(/^@/, '') }}</span>
+        <BaseIconButton
+          :label="t('analytics.refresh')"
+          :disabled="loading"
+          @click="refresh"
+        >
+          <IconRefresh />
+        </BaseIconButton>
+      </div>
     </header>
 
     <p
@@ -182,27 +201,58 @@ watch([range, metric, query, customStart, customEnd], persist);
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   min-width: 0;
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--space-6);
   overflow-y: auto;
 }
 
-.analytics-page__toolbar {
+.analytics-page__header {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.analytics-page__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.analytics-page__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+.analytics-page__subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-page__controls {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
 }
 
-.analytics-page__spacer {
-  flex: 1;
-}
-
 .analytics-page__creator {
+  padding: 2px var(--space-4);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-bg-panel);
   color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
 
 .analytics-page__error {
@@ -221,8 +271,13 @@ watch([range, metric, query, customStart, customEnd], persist);
 
 .analytics-page__main {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(240px, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 2.1fr) minmax(280px, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.analytics-page__activity {
+  min-width: 0;
 }
 
 .analytics-page__contributors {
@@ -232,11 +287,36 @@ watch([range, metric, query, customStart, customEnd], persist);
 
 .analytics-page__search {
   width: 220px;
+  max-width: 100%;
 }
 
 @media (width < 1100px) {
+  .analytics-page {
+    padding: var(--space-4);
+  }
+
   .analytics-page__main {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (width < 720px) {
+  .analytics-page {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .analytics-page__controls {
+    width: 100%;
+  }
+
+  .analytics-page__controls > :first-child {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .analytics-page__search {
+    width: 100%;
   }
 }
 </style>

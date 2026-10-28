@@ -23,11 +23,11 @@ const sort = defineModel<TableSort | null>('sort', { default: null });
 const { t, locale } = useI18n();
 
 const columns = computed(() => [
-  { key: 'rank', label: t('analytics.contributors.rank'), width: '64px', sortable: true },
+  { key: 'rank', label: t('analytics.contributors.rank'), width: '56px', sortable: true },
   { key: 'uniqueId', label: t('analytics.contributors.viewer'), sortable: true },
-  { key: 'chats', label: t('analytics.metrics.chats'), width: '96px', align: 'end' as const, sortable: true },
-  { key: 'gifts', label: t('analytics.metrics.gifts'), width: '96px', align: 'end' as const, sortable: true },
-  { key: 'diamonds', label: t('analytics.metrics.diamonds'), width: '104px', align: 'end' as const, sortable: true },
+  { key: 'chats', label: t('analytics.metrics.chats'), width: '84px', align: 'end' as const, sortable: true },
+  { key: 'gifts', label: t('analytics.metrics.gifts'), width: '84px', align: 'end' as const, sortable: true },
+  { key: 'diamonds', label: t('analytics.metrics.diamonds'), width: '96px', align: 'end' as const, sortable: true },
   {
     key: 'interactions',
     label: t('analytics.contributors.interactions'),
@@ -35,7 +35,7 @@ const columns = computed(() => [
     align: 'end' as const,
     sortable: true,
   },
-  { key: 'lastSeen', label: t('analytics.contributors.lastActive'), width: '112px', align: 'end' as const, sortable: true },
+  { key: 'lastSeen', label: t('analytics.contributors.lastActive'), width: '96px', align: 'end' as const, sortable: true },
 ]);
 
 const rows = computed(() => {
@@ -53,10 +53,7 @@ const rows = computed(() => {
     :row-key="(row: RankedContributor) => row.uniqueId"
   >
     <template #cell-rank="{ value }">
-      <span
-        class="contributors-table__rank"
-        :class="{ 'contributors-table__rank--podium': Number(value) <= 3 }"
-      >#{{ value }}</span>
+      <span class="contributors-table__rank">#{{ value }}</span>
     </template>
     <template #cell-uniqueId="{ value }">
       @{{ value }}
@@ -83,13 +80,23 @@ const rows = computed(() => {
 </template>
 
 <style scoped>
+.contributors-table {
+  overflow-x: auto;
+}
+
 .contributors-table__rank {
   color: var(--color-text-subtle);
   font-variant-numeric: tabular-nums;
 }
 
-.contributors-table__rank--podium {
-  color: var(--color-chart-3);
-  font-weight: var(--font-weight-semibold);
+@media (width < 720px) {
+  .contributors-table :deep(td:nth-child(3)),
+  .contributors-table :deep(th:nth-child(3)),
+  .contributors-table :deep(td:nth-child(4)),
+  .contributors-table :deep(th:nth-child(4)),
+  .contributors-table :deep(td:nth-child(5)),
+  .contributors-table :deep(th:nth-child(5)) {
+    display: none;
+  }
 }
 </style>

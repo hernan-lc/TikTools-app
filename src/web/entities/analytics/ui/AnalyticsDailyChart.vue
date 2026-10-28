@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useId } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AnalyticsDayRow } from '../../../../shared/messages.ts';
 import { formatCount } from '@/shared/lib/intl.ts';
@@ -13,15 +13,25 @@ const props = defineProps<{
   metric: AnalyticsMetric;
 }>();
 
-const box = { width: 720, height: 220, pad: 16 };
+const box = { width: 720, height: 220, pad: 20 };
 const gridSteps = [0, 0.5, 1];
 
 const { t, locale } = useI18n();
-const gradientId = useId();
 const values = computed(() => fillDaySeries(props.days, props.span.startDay, props.span.endDay, props.metric));
 const geometry = computed(() => buildLineGeometry(values.value, box));
 const label = computed(() => t(`analytics.metrics.${props.metric}`));
 const showDots = computed(() => values.value.length <= 62);
+const peakIndex = computed(() => {
+  let best = -1;
+  let bestValue = -1;
+  values.value.forEach((value, index) => {
+    if (value > bestValue) {
+      bestValue = value;
+      best = index;
+    }
+  });
+  return best;
+});
 const ticks = computed(() => {
   const { startDay, endDay } = props.span;
   return [...new Set([startDay, Math.round((startDay + endDay) / 2), endDay])].map((day) => ({
@@ -47,26 +57,6 @@ const gridLines = computed(() =>
     :aria-label="`${label}: ${formatCount(geometry.max, locale)}`"
     :style="{ '--metric-color': metricColor[metric] }"
   >
-    <defs>
-      <linearGradient
-        :id="gradientId"
-        x1="0"
-        y1="0"
-        x2="0"
-        y2="1"
-      >
-        <stop
-          offset="0%"
-          stop-color="var(--metric-color)"
-          stop-opacity="0.32"
-        />
-        <stop
-          offset="100%"
-          stop-color="var(--metric-color)"
-          stop-opacity="0.02"
-        />
-      </linearGradient>
-    </defs>
     <g
       v-for="line in gridLines"
       :key="line.step"
@@ -81,15 +71,10 @@ const gridLines = computed(() =>
       <text
         class="daily-chart__tick"
         :x="box.width - box.pad"
-        :y="line.y - 4"
+        :y="line.y - 5"
         text-anchor="end"
       >{{ line.label }}</text>
     </g>
-    <path
-      v-if="geometry.area"
-      :d="geometry.area"
-      :fill="`url(#${gradientId})`"
-    />
     <path
       v-if="geometry.line"
       class="daily-chart__line"
@@ -100,9 +85,10 @@ const gridLines = computed(() =>
         v-for="(point, index) in geometry.points"
         :key="index"
         class="daily-chart__dot"
+        :class="{ 'daily-chart__dot--peak': index === peakIndex && point.value > 0 }"
         :cx="point.x"
         :cy="point.y"
-        :r="values.length > 31 ? 1.6 : 2.6"
+        :r="index === peakIndex && point.value > 0 ? 4 : values.length > 31 ? 1.6 : 2.6"
       >
         <title>{{ formatDayDate(span.startDay + index, locale) }} — {{ label }}: {{ formatCount(point.value, locale) }}</title>
       </circle>
@@ -112,7 +98,7 @@ const gridLines = computed(() =>
       :key="tick.day"
       class="daily-chart__tick"
       :x="tick.x"
-      :y="box.height - 2"
+      :y="box.height - 4"
       :text-anchor="tick.anchor"
     >{{ formatDayLabel(tick.day, locale) }}</text>
   </svg>
@@ -141,11 +127,17 @@ const gridLines = computed(() =>
   stroke: var(--metric-color);
   stroke-width: 2;
   stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 .daily-chart__dot {
   fill: var(--color-bg-panel);
   stroke: var(--metric-color);
   stroke-width: 1.5;
+}
+
+.daily-chart__dot--peak {
+  fill: var(--metric-color);
+  stroke: var(--color-bg-panel);
 }
 </style>

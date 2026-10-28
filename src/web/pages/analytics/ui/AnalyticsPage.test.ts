@@ -66,22 +66,26 @@ describe('AnalyticsPage', () => {
 
   it('shows metric totals, session facts and contributors', async () => {
     const { wrapper } = await mountPage();
-    const tiles = wrapper.findAll('[role="radio"][aria-checked]').filter((tile) => tile.classes('metric-strip__tile'));
-    expect(tiles.map((tile) => tile.text())).toEqual([
-      'Chats1,520',
-      'Gifts40',
-      'Likes6,400',
-      'Diamonds900',
-      'Peak viewers210',
-    ]);
-    expect(wrapper.text()).toContain('Sessions3');
+    const tiles = wrapper.findAll('[role="radio"][aria-checked]').filter((tile) => tile.classes('kpi-strip__card'));
+    expect(tiles).toHaveLength(5);
+    expect(tiles[0]!.text()).toContain('Chats');
+    expect(tiles[0]!.text()).toContain('1,520');
+    expect(tiles[1]!.text()).toContain('Gifts');
+    expect(tiles[1]!.text()).toContain('40');
+    expect(tiles[2]!.text()).toContain('Likes');
+    expect(tiles[2]!.text()).toContain('6,400');
+    expect(tiles[3]!.text()).toContain('Diamonds');
+    expect(tiles[3]!.text()).toContain('900');
+    expect(tiles[4]!.text()).toContain('Peak viewers');
+    expect(tiles[4]!.text()).toContain('210');
+    expect(wrapper.text()).toContain('3 sessions');
     expect(wrapper.findAll('tbody tr')).toHaveLength(2);
   });
 
   it('switches the charted metric from the strip', async () => {
     const { wrapper } = await mountPage();
     expect(wrapper.get('svg[role="img"]').attributes('aria-label')).toMatch(/^Chats:/);
-    await wrapper.findAll('.metric-strip__tile')[3]!.trigger('click');
+    await wrapper.findAll('.kpi-strip__card')[3]!.trigger('click');
     expect(wrapper.get('svg[role="img"]').attributes('aria-label')).toMatch(/^Diamonds:/);
   });
 
@@ -103,6 +107,6 @@ describe('AnalyticsPage', () => {
   it('explains when there is no data', async () => {
     const { wrapper } = await mountPage(false);
     expect(wrapper.text()).toContain('No analytics yet');
-    expect(wrapper.find('.metric-strip').exists()).toBe(false);
+    expect(wrapper.find('.kpi-strip').exists()).toBe(false);
   });
 });

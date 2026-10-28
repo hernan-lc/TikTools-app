@@ -11,11 +11,11 @@ const props = defineProps<{
 
 const { t, locale } = useI18n();
 
-const facts = computed(() =>
+const rows = computed(() =>
   (
     [
-      ['sessions', props.sessions],
       ['peakViewers', props.totals.peakViewers],
+      ['sessions', props.sessions],
       ['giftEvents', props.totals.giftEvents],
       ['likeEvents', props.totals.likeEvents],
       ['follows', props.totals.follows],
@@ -27,39 +27,39 @@ const facts = computed(() =>
 </script>
 
 <template>
-  <dl class="analytics-facts">
+  <dl class="session-list">
     <div
-      v-for="fact in facts"
-      :key="fact.key"
-      class="analytics-facts__row"
+      v-for="row in rows"
+      :key="row.key"
+      class="session-list__row"
     >
-      <dt>{{ fact.label }}</dt>
-      <dd>{{ fact.value }}</dd>
+      <dt>{{ row.label }}</dt>
+      <dd>{{ row.value }}</dd>
     </div>
   </dl>
 </template>
 
 <style scoped>
-.analytics-facts {
+.session-list {
   margin: 0;
 }
 
-.analytics-facts__row {
+.session-list__row {
   display: flex;
   justify-content: space-between;
   gap: var(--space-5);
   padding: var(--space-3) var(--space-1);
 }
 
-.analytics-facts__row + .analytics-facts__row {
+.session-list__row + .session-list__row {
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
-.analytics-facts dt {
+.session-list__row dt {
   color: var(--color-text-muted);
 }
 
-.analytics-facts dd {
+.session-list__row dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);

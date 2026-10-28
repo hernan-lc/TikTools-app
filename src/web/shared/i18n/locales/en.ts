@@ -105,15 +105,26 @@ export default {
       diamonds: 'Diamonds',
       peakViewers: 'Peak viewers',
     },
+    kpi: {
+      peakAvg: 'peak {peak} · avg {avg}',
+      single: '{value} in range',
+    },
     activity: {
       title: 'Activity',
       today: 'Today timeline',
+      range: '{span} · {count} days',
+      total: 'Total {value}',
+      average: 'Avg {value}',
+      bestDay: 'Best {date}',
+      bestHour: 'Peak {hour}',
       hourlyHint: 'Hourly bars stack every metric in its color; pick a metric above to highlight it. Peak viewers use their own scale.',
+      dailyHint: 'Daily totals for the selected metric. The dashed line marks the daily average; the callout marks the best day.',
       approximate: 'Approximate: older data is grouped by each viewer’s last activity hour.',
     },
     facts: {
       title: 'Session',
       sessions: 'Sessions',
+      sessionsValue: '{count} sessions in range',
       peakViewers: 'Peak viewers',
       giftEvents: 'Gift events',
       likeEvents: 'Like events',
@@ -121,8 +132,16 @@ export default {
       shares: 'Shares',
       joins: 'Joins',
     },
+    mix: {
+      label: 'Engagement mix across chats, gifts, likes and diamonds',
+    },
+    spotlight: {
+      label: 'Top fans',
+      interactions: '{count} interactions',
+    },
     contributors: {
       title: 'Top contributors',
+      subtitle: '{count} fans · ranked by interactions',
       search: 'Search contributors…',
       rank: 'Rank',
       viewer: 'Viewer',
