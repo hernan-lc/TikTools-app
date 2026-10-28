@@ -74,3 +74,28 @@ test('sign-in still submits leading zeros as a string and clears the field', asy
   expect(ui.input.value).toBe('');
   await vi.waitFor(() => expect(ui.result.textContent).toContain('request a new code'));
 });
+
+test('a one-click join link pairs once without typing', async () => {
+  window.location.hash = '#pair=012345';
+  try {
+    request.mockResolvedValue(response(401, {}));
+    const ui = mount();
+    expect(request).toHaveBeenCalledExactlyOnceWith('/__local/pair', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: '012345' }),
+    });
+    expect(ui.input.value).toBe('');
+    await vi.waitFor(() => expect(ui.result.textContent).toContain('request a new code'));
+  } finally {
+    window.location.hash = '';
+  }
+});
+
+test('a malformed join fragment never auto-submits', () => {
+  window.location.hash = '#pair=abcdef';
+  try {
+    mount();
+    expect(request).not.toHaveBeenCalled();
+  } finally {
+    window.location.hash = '';
+  }
+});

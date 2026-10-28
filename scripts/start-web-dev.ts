@@ -35,11 +35,12 @@ try {
     await Bun.sleep(100);
   }
   if (host.exitCode !== null || !await isControlHostRunning()) throw new Error('Headless host did not become ready');
-  const adapter = spawn([binary, 'web', '--assets', join(repositoryRoot, 'src', 'web'), '--port', String(adapterPort)]);
+  const adapter = spawn([binary, 'web', '--assets', join(repositoryRoot, 'src', 'web'), '--port', String(adapterPort), '--join-origin', webUrl]);
   await waitForHttp(adapterUrl, () => adapter.exitCode === null);
   const vite = spawn([process.execPath, 'scripts/task.ts', 'serve'], { ...process.env, TIKTOOLS_WEB_PORT: String(webPort), TIKTOOLS_DEV_WEB_ADAPTER: adapterUrl });
   await waitForHttp(webUrl, () => vite.exitCode === null);
-  console.log(`\nOpen ${webUrl} and enter the pairing code printed above. Frontend changes reload automatically.\n`);
+  // optional log, already show message from vite or code message
+  console.log(`\nCtrl+click the one-click join link printed above, or open ${webUrl} and enter the pairing code. Frontend changes reload automatically.\n`);
   const exitCode = await Promise.race(children.map((child) => child.exited));
   if (process.exitCode === undefined) process.exitCode = exitCode || 1;
 } finally { cleanup(); }

@@ -87,6 +87,7 @@ try {
   await waitFor(() => /http:\/\/127\.0\.0\.1:\d+/.test(adapter.output), 'adapter ready');
   const origin = adapter.output.match(/http:\/\/127\.0\.0\.1:\d+/)[0];
   let code = adapter.output.match(/minutes\): ([0-9]{6})$/m)[1];
+  assert.match(adapter.output, /One-click join: http:\/\/127\.0\.0\.1:\d+\/#pair=[0-9]{6} \(same one-use code/);
   const wsUrl = origin.replace('http:', 'ws:') + '/__local/ws';
   const pairingPage = await (await fetch(origin)).text();
   assert.match(pairingPage, /Pairing code/);

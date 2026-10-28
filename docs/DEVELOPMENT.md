@@ -35,6 +35,24 @@ bun run dev         # same loop, skips dev-plugin preparation
 bun scripts/task.ts serve     # Vite only, against an already-running host
 ```
 
+`bun run dev` prints a one-click join link like
+`http://127.0.0.1:<vite-port>/#pair=<code>` alongside the one-use pairing
+code. Ctrl+click it to open the browser already signed in: the code travels in
+the URL fragment (never sent to the server or written to access logs), the
+pairing page clears it from the address bar immediately, and it works exactly
+once within five minutes. Typing the code manually still works.
+
+A headless agent on the same machine can pair without touching the web UI by
+posting the printed code with the adapter origin:
+
+```bash
+ADAPTER=http://127.0.0.1:<adapter-port>  # first line printed by `tiktools web`
+CODE=<six-digit-code>                     # second line printed by `tiktools web`
+curl -s -c /tmp/tiktools-jar -H "Origin: $ADAPTER" \
+  -H 'Content-Type: application/json' \
+  -d "{\"code\":\"$CODE\"}" "$ADAPTER/__local/pair"
+```
+
 Mold and kache engage automatically through
 `scripts/cargo-with-linker.mjs`. Do not add sccache: it sets
 `RUSTC_WRAPPER`, which disables the automatic kache layer covering the

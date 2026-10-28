@@ -37,6 +37,7 @@ struct App {
     asset_token: String,
     origin: String,
     authority: String,
+    join_base: String,
     auth: Mutex<Auth>,
     clients: Arc<Semaphore>,
     stopping: tokio::sync::watch::Sender<bool>,
@@ -88,17 +89,17 @@ impl App {
 
 pub async fn run(args: &[String], standalone: bool) -> i32 {
     if args.len() == 1 && matches!(args[0].as_str(), "--help" | "-h") {
-        println!("usage: tiktools web --assets <directory> [--port N]\nLocal browser adapter; start tiktools host --ipc first.");
+        println!("usage: tiktools web --assets <directory> [--port N] [--join-origin URL]\nLocal browser adapter; start tiktools host --ipc first.");
         return 0;
     }
-    let (assets, port) = match parse_options(args, standalone) {
+    let (assets, port, join_origin) = match parse_options(args, standalone) {
         Ok(options) => options,
         Err(error) => {
             eprintln!("tiktools web: {error}");
             return 2;
         }
     };
-    match start(assets, port).await {
+    match start(assets, port, join_origin).await {
         Ok(()) => 0,
         Err(error) => {
             eprintln!("tiktools web: {error}");
@@ -107,12 +108,16 @@ pub async fn run(args: &[String], standalone: bool) -> i32 {
     }
 }
 
-fn parse_options(args: &[String], standalone: bool) -> Result<(PathBuf, u16), String> {
+fn parse_options(
+    args: &[String],
+    standalone: bool,
+) -> Result<(PathBuf, u16, Option<String>), String> {
     if standalone {
         return Err("web connects to the existing host; omit --standalone".into());
     }
     let mut assets = None;
     let mut port: u16 = 8787;
+    let mut join_origin = None;
     let mut options = args.iter();
     while let Some(option) = options.next() {
         match option.as_str() {
@@ -128,17 +133,48 @@ fn parse_options(args: &[String], standalone: bool) -> Result<(PathBuf, u16), St
                     .parse()
                     .map_err(|_| "invalid port")?
             }
+            "--join-origin" => {
+                join_origin = Some(normalize_join_origin(
+                    options.next().ok_or("--join-origin requires a URL")?,
+                )?);
+            }
             _ => {
                 return Err(format!(
-                    "unknown option: {option}; use web --assets <directory> [--port N]"
+                    "unknown option: {option}; use web --assets <directory> [--port N] [--join-origin URL]"
                 ))
             }
         }
     }
-    Ok((assets.ok_or("--assets is required")?, port))
+    Ok((assets.ok_or("--assets is required")?, port, join_origin))
 }
 
-async fn start(assets: PathBuf, port: u16) -> Result<(), String> {
+/// Join links are terminal convenience only: keep them on loopback HTTP so a
+/// printed one-click URL can never point a browser at a remote host.
+fn normalize_join_origin(value: &str) -> Result<String, String> {
+    let base = value.trim_end_matches('/');
+    let (host, port_text) = base
+        .strip_prefix("http://127.0.0.1:")
+        .map(|port| ("127.0.0.1", port))
+        .or_else(|| {
+            base.strip_prefix("http://localhost:")
+                .map(|port| ("localhost", port))
+        })
+        .ok_or("join origin must be an http://127.0.0.1:<port> or http://localhost:<port> URL")?;
+    if port_text.is_empty() || !port_text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err("invalid join-origin port".into());
+    }
+    let port: u16 = port_text.parse().map_err(|_| "invalid join-origin port")?;
+    if port == 0 {
+        return Err("invalid join-origin port".into());
+    }
+    Ok(format!("http://{host}:{port}"))
+}
+
+fn join_link(join_base: &str, pairing: &str) -> String {
+    format!("{join_base}/#pair={pairing}")
+}
+
+async fn start(assets: PathBuf, port: u16, join_origin: Option<String>) -> Result<(), String> {
     let root = tokio::fs::canonicalize(assets)
         .await
         .map_err(|error| error.to_string())?;
@@ -160,14 +196,17 @@ async fn start(assets: PathBuf, port: u16) -> Result<(), String> {
     );
     let origin = format!("http://{authority}");
     let pairing = pairing_code();
+    let join_base = join_origin.unwrap_or_else(|| origin.clone());
     eprintln!(
-        "TikTools local browser: {origin}\nOne-use pairing code (valid 5 minutes): {pairing}"
+        "TikTools local browser: {origin}\nOne-use pairing code (valid 5 minutes): {pairing}\nOne-click join: {} (same one-use code, valid 5 minutes)",
+        join_link(&join_base, &pairing)
     );
     let state = Arc::new(App {
         root,
         asset_token: secret(),
         origin,
         authority,
+        join_base,
         auth: Mutex::new(Auth {
             pairing: Some(pairing),
             issued: Instant::now(),
@@ -320,7 +359,10 @@ async fn renew_pairing(State(app): State<Arc<App>>, headers: HeaderMap) -> Respo
     } else {
         pairing_code()
     };
-    eprintln!("One-use pairing code (valid 5 minutes): {code}");
+    eprintln!(
+        "One-use pairing code (valid 5 minutes): {code}\nOne-click join: {} (same one-use code, valid 5 minutes)",
+        join_link(&app.join_base, &code)
+    );
     auth.pairing = Some(code);
     auth.issued = Instant::now();
     auth.renewed_at = Some(Instant::now());
@@ -604,7 +646,7 @@ button:disabled { opacity: .55; cursor: default; }
 #result[data-kind="info"] { color: #b3c6ff; }
 #result { min-height: 1.65em; margin-top: 16px; color: #ffb3b8; font-size: 13px; }
 @media (max-width: 360px) { body { padding: 24px; border-radius: 18px; } }
-</style></head><body><h1>TikTools local browser</h1><p>Enter the six-digit, one-use pairing code printed by the Termux adapter. It expires after five minutes.</p><form id="pair"><label>Pairing code <input id="code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required></label><button>Connect</button></form><button id="renew" type="button">Request new code</button><p id="result" role="status"></p><script src="/__local/pair.js" defer></script></body></html>"#;
+</style></head><body><h1>TikTools local browser</h1><p>Enter the six-digit, one-use pairing code printed by the adapter. It expires after five minutes. The terminal one-click join link fills it in automatically.</p><form id="pair"><label>Pairing code <input id="code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" required></label><button>Connect</button></form><button id="renew" type="button">Request new code</button><p id="result" role="status"></p><script src="/__local/pair.js" defer></script></body></html>"#;
 const PAIR_SCRIPT: &str = r#"(() => {
   const form = document.getElementById('pair');
   const input = document.getElementById('code');
@@ -617,15 +659,26 @@ const PAIR_SCRIPT: &str = r#"(() => {
     renew.disabled = true;
     retryTimer = setTimeout(() => { renew.disabled = false; }, Math.min(300, Math.max(1, seconds)) * 1000);
   };
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    const code = input.value; input.value = '';
+  const submitCode = async code => {
+    input.value = '';
     try {
       const response = await fetch('/__local/pair', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
       if (response.ok) { location.replace('/'); return; }
       show('Incorrect or expired code. Try again or request a new code.');
     } catch { show('Adapter unavailable. Check Termux.'); }
+  };
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    submitCode(input.value);
   });
+  // One-click terminal links carry the one-use code in the URL fragment, which
+  // browsers never send to the server. Clear it immediately, then pair once.
+  const auto = (location.hash || '').match(/#pair=([0-9]{6})(?:&|$)/);
+  if (auto) {
+    try { history.replaceState(null, '', location.pathname); } catch {}
+    show('Signing in with the terminal link…', 'info');
+    submitCode(auto[1]);
+  }
   renew.addEventListener('click', async () => {
     renew.disabled = true; input.value = '';
     show('Requesting a new code…', 'info');
@@ -678,7 +731,7 @@ mod tests {
             false
         )
         .is_err());
-        let (_, port) = parse_options(
+        let (_, port, join_origin) = parse_options(
             &[
                 "--assets".into(),
                 "dist/web".into(),
@@ -689,6 +742,49 @@ mod tests {
         )
         .unwrap();
         assert_eq!(port, 0);
+        assert_eq!(join_origin, None);
+    }
+
+    #[test]
+    fn join_origin_stays_on_loopback_http() {
+        let (_, _, join_origin) = parse_options(
+            &[
+                "--assets".into(),
+                "dist/web".into(),
+                "--join-origin".into(),
+                "http://127.0.0.1:46201/".into(),
+            ],
+            false,
+        )
+        .unwrap();
+        assert_eq!(join_origin.as_deref(), Some("http://127.0.0.1:46201"));
+        for bad in [
+            "https://127.0.0.1:46201",
+            "http://192.168.1.20:46201",
+            "http://example.com:46201",
+            "http://127.0.0.1:0",
+            "http://127.0.0.1:notaport",
+            "http://127.0.0.1:46201/path",
+            "http://127.0.0.1:46201?code=123456",
+        ] {
+            assert!(
+                parse_options(
+                    &[
+                        "--assets".into(),
+                        "dist/web".into(),
+                        "--join-origin".into(),
+                        bad.into()
+                    ],
+                    false,
+                )
+                .is_err(),
+                "rejects {bad}"
+            );
+        }
+        assert_eq!(
+            join_link("http://127.0.0.1:46201", "413616"),
+            "http://127.0.0.1:46201/#pair=413616"
+        );
     }
 
     fn state(root: PathBuf) -> Arc<App> {
@@ -697,6 +793,7 @@ mod tests {
             asset_token: secret(),
             origin: "http://127.0.0.1:8787".into(),
             authority: "127.0.0.1:8787".into(),
+            join_base: "http://127.0.0.1:8787".into(),
             auth: Mutex::new(Auth {
                 pairing: Some("012345".into()),
                 issued: Instant::now(),
