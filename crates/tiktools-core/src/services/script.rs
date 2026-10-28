@@ -82,7 +82,7 @@ fn to_vm_value(value: &Value) -> Result<VmValue, String> {
             .as_f64()
             .map(VmValue::Number)
             .ok_or_else(|| "JSON number cannot be represented by the VM".to_owned()),
-        Value::String(value) => Ok(VmValue::String(value.clone())),
+        Value::String(value) => Ok(VmValue::String(value.clone().into())),
         Value::Array(values) => values
             .iter()
             .map(to_vm_value)
