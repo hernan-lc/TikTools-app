@@ -7,7 +7,6 @@ this branch's observations without claiming full LIVE performance or memory stab
 
 Related docs:
 
-- `LIVE_MEMORY_STABILITY.md` — resource limits, ownership, diagnostics.
 - `bun scripts/profile-live-memory.ts` — cross-platform RSS profiler
   (extended with the refactor's health columns; no Python required).
 
