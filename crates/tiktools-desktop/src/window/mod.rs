@@ -1,10 +1,11 @@
 mod domain_events;
-mod ipc;
+pub(crate) mod ipc;
 mod lifecycle;
 #[cfg(all(test, feature = "live-benchmark"))]
 mod live_benchmark;
 pub(crate) mod outbox;
 pub(crate) mod projection;
+pub(crate) mod reload;
 #[cfg(test)]
 mod smoke;
 #[cfg(test)]
@@ -41,6 +42,7 @@ pub struct DesktopApp {
     pending_host_messages: WebviewOutbox,
     pending_batch: Option<ipc::PendingBatch>,
     page_ready: bool,
+    reload: reload::MainReloadSupervisor,
     emitter: Arc<crate::event::EventLoopEmitter>,
     domain_mailbox: Arc<std::sync::Mutex<outbox::ForwardMailbox>>,
     shutting_down: bool,

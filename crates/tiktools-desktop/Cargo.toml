@@ -7,7 +7,7 @@ rust-version.workspace = true
 description = "Thin Winit/Wry desktop host for TikTools"
 
 [features]
-default = ["persistence", "plugin-install", "http"]
+default = ["persistence", "plugin-install", "http", "devtools"]
 devtools = ["wry/devtools"]
 live-benchmark = ["tiktools-core/live-benchmark"]
 plugin-install = ["tiktools-core/plugin-install"]

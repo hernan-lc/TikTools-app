@@ -53,6 +53,27 @@ pub(crate) fn is_frontend_ready_fast(raw: &str) -> bool {
         == r#"{"type":"frontend-ready"}"#
 }
 
+/// Allocation-free probe for the in-page devtools shortcut
+/// (`{"type":"open-devtools"}` plus ASCII-whitespace tolerance), posted by
+/// the main init script when the page holds keyboard focus and the Winit
+/// window never sees the key. Large payloads are rejected without parsing;
+/// classification still runs on the parsed value in Tokio.
+pub(crate) fn is_open_devtools_fast(raw: &str) -> bool {
+    if raw.len() > 128 {
+        return false;
+    }
+    raw.trim_matches(|character: char| character.is_ascii_whitespace())
+        == r#"{"type":"open-devtools"}"#
+}
+
+/// Value-level recognition for the devtools shortcut. Only the pure
+/// legacy shape matches: a message that also carries `method` is a
+/// control-plane call and must keep its normal routing.
+pub(crate) fn is_devtools_command_value(value: &serde_json::Value) -> bool {
+    value.get("type").and_then(serde_json::Value::as_str) == Some("open-devtools")
+        && value.get("method").is_none()
+}
+
 /// One parsed inbound route. The payload is parsed exactly once, off the
 /// UI thread; classification runs on the value, never by re-scanning the
 /// raw text.
@@ -155,6 +176,20 @@ pub(crate) async fn handle_webview_ipc_message(
                 response = &mut execution => Some(response),
                 _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
                     emitter.inbound_timeouts.fetch_add(1, Ordering::Relaxed);
+                    // Recovery never retries: idempotent reads may be
+                    // re-issued by the fresh page's mount, but a timed-out
+                    // mutation must not be replayed because completion is
+                    // uncertain. The error tells the page to refresh
+                    // authoritative state before any manual retry.
+                    let method = value
+                        .get("method")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default();
+                    tracing::debug!(
+                        method,
+                        idempotent = super::reload::is_idempotent_rpc_method(method),
+                        "RPC deadline exceeded; reporting without retry"
+                    );
                     if emitter.generation.load(Ordering::Acquire) == generation {
                         emit_rpc_response_for_generation(emitter, generation, &tiktools_control_api::RpcResponse::error(
                             tiktools_control_api::RpcId::extract(&value),
@@ -182,6 +217,7 @@ pub(crate) async fn handle_webview_ipc_message(
                 admission,
             }));
         }
+        InboundRoute::Legacy(value) if try_devtools_command(&value, proxy).is_some() => {}
         InboundRoute::Legacy(value)
             if try_plugin_ui_command(&value, proxy, admission.clone()).is_some() => {}
         InboundRoute::Legacy(value) => {
@@ -254,6 +290,22 @@ fn configure_projection(
         id,
         serde_json::json!({"version": 1, "generation": generation, "revision": revision, "stats": emitter.projection.diagnostics()}),
     )
+}
+
+/// Desktop-level devtools shortcut from the main frontend
+/// (`{"type":"open-devtools"}`). Posted by the init script when the page
+/// holds keyboard focus; opening the inspector is local UI chrome, so the
+/// message never reaches the control plane or the legacy page router.
+/// Returns `Some(())` when the value was the devtools shortcut.
+fn try_devtools_command(
+    value: &serde_json::Value,
+    proxy: &EventLoopProxy<DesktopEvent>,
+) -> Option<()> {
+    if !is_devtools_command_value(value) {
+        return None;
+    }
+    let _ = proxy.send_event(DesktopEvent::Command(DesktopCommand::OpenDevtools));
+    Some(())
 }
 
 /// Desktop-level plugin UI commands from the main frontend
@@ -405,6 +457,16 @@ impl DesktopApp {
     /// its handshake (see `frontend_ready`); without that handshake the
     /// transport stays failed rather than delivering to a dead page.
     pub(crate) fn fail_webview_transport(&mut self, reason: &str) {
+        // Bound explicit transport failures the same way as watchdog
+        // timeouts: once the lifecycle parks in Failed, further failures
+        // only refresh health instead of issuing another reload loop.
+        if self.reload.state() == super::reload::WebviewLifecycle::Failed {
+            tracing::error!(%reason, "WebView transport already Failed; not reloading again");
+            self.core.set_webview_error(Some(format!(
+                "WebView transport failed: {reason}; reload the window to retry"
+            )));
+            return;
+        }
         self.page_ready = false;
         self.pending_batch = None;
         self.emitter.clear_batch();
@@ -417,15 +479,16 @@ impl DesktopApp {
         match self.webview.as_ref() {
             Some(webview) => match webview.reload() {
                 Ok(()) => {
-                    tracing::error!("WebView reloaded after reliable backlog overflow");
+                    tracing::error!(%reason, "WebView lifecycle Failed: reloaded after transport failure; waiting for frontend-ready");
                     self.reload_pending = true;
                 }
                 Err(error) => {
-                    tracing::error!(%error, "WebView reload failed after reliable backlog overflow; RPC stays rejected");
+                    tracing::error!(%error, %reason, "WebView reload failed after transport failure; RPC stays rejected");
                 }
             },
             None => {
                 tracing::error!(
+                    %reason,
                     "WebView transport failed with no WebView to reload; RPC stays rejected"
                 );
             }
@@ -436,7 +499,14 @@ impl DesktopApp {
     /// `evaluate_script` call. The frontend fans the batch out to its
     /// normal per-message dispatch.
     pub(crate) fn flush_webview_batch(&mut self) {
-        if !self.page_ready || self.pending_batch.is_some() || self.shutting_down {
+        // Delivery is allowed only in Ready: the explicit lifecycle mirrors
+        // `page_ready` so a stale batch can never reach the previous or a
+        // dead document after Started/reload/recreate.
+        if !self.page_ready
+            || !self.reload.is_delivery_allowed()
+            || self.pending_batch.is_some()
+            || self.shutting_down
+        {
             return;
         }
         let Some(webview) = self.webview.as_ref() else {

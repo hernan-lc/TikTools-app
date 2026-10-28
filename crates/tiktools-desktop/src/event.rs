@@ -31,6 +31,9 @@ pub enum DesktopCommand {
         plugin_id: String,
         page_id: String,
     },
+    OpenPluginDevtools {
+        window_id: winit::window::WindowId,
+    },
     ClosePluginUi {
         plugin_id: String,
         page_id: String,

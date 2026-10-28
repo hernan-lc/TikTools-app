@@ -19,6 +19,38 @@ const WINDOWS_PACKAGED_ASSET_HOST: &str = "tiktools.localhost";
 /// `tiktools://app/index.html` reaches the WebView as
 /// `http://tiktools.app/index.html`.
 const WINDOWS_WORKAROUND_HOST: &str = "tiktools.app";
+/// Runs before any page script in the main WebView: forwards the
+/// conventional refresh/inspector shortcuts to the host. Refresh needs no
+/// transport (`location.reload()` triggers the normal Started/Ready
+/// lifecycle); devtools needs one tiny IPC message routed by the desktop
+/// layer, never by the control plane. The transport itself is only read,
+/// never replaced: on WebKitGTK `window.ipc` is a non-configurable
+/// property installed before init scripts run.
+pub(crate) const MAIN_INIT_SCRIPT: &str = r#"(function () {
+  'use strict';
+  function isReloadKey(e) {
+    if (e.key === 'F5') return true;
+    return (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'r' || e.key === 'R');
+  }
+  function isDevtoolsKey(e) {
+    if (e.key === 'F12') return true;
+    return (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i');
+  }
+  window.addEventListener('keydown', function (e) {
+    try {
+      if (isReloadKey(e)) {
+        e.preventDefault();
+        window.location.reload();
+      } else if (isDevtoolsKey(e)) {
+        e.preventDefault();
+        if (window.ipc && typeof window.ipc.postMessage === 'function') {
+          window.ipc.postMessage('{"type":"open-devtools"}');
+        }
+      }
+    } catch (err) { /* never break page input */ }
+  }, true);
+})();"#;
+
 const PACKAGED_CONTENT_SECURITY_POLICY: &str = concat!(
     "default-src 'self'; ",
     "base-uri 'none'; ",
@@ -383,6 +415,23 @@ mod tests {
             Some(PACKAGED_CONTENT_SECURITY_POLICY)
         );
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn main_init_script_forwards_shortcuts_without_touching_ipc() {
+        // F5 / Ctrl+R reload in-page (no host round-trip needed); F12 /
+        // Ctrl+Shift+I ask the host to open devtools. The transport is
+        // only read, never replaced: on WebKitGTK `window.ipc` is
+        // non-configurable before init scripts run.
+        let script = super::MAIN_INIT_SCRIPT;
+        assert!(!script.is_empty());
+        assert!(script.contains("F5"));
+        assert!(script.contains("F12"));
+        assert!(script.contains("location.reload"));
+        assert!(script.contains("open-devtools"));
+        assert!(script.contains("window.ipc && typeof window.ipc.postMessage"));
+        assert!(!script.contains("window.ipc = "));
+        assert!(!script.contains("delete window.ipc"));
     }
 
     #[test]

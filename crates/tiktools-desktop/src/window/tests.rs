@@ -2,8 +2,8 @@
 
 use super::domain_events::forward_domain_events;
 use super::ipc::{
-    classify_inbound_message, is_frontend_ready_fast, is_probably_control_rpc,
-    webview_request_too_large, InboundRoute,
+    classify_inbound_message, is_devtools_command_value, is_frontend_ready_fast,
+    is_open_devtools_fast, is_probably_control_rpc, webview_request_too_large, InboundRoute,
 };
 use super::outbox::{
     classify_webview_message, WebviewOutbox, MAX_BATCH_PER_TICK, MAX_PENDING_WEBVIEW_MESSAGES,
@@ -566,6 +566,35 @@ fn frontend_ready_fast_path_rejects_large_json_without_parsing() {
     assert!(!is_frontend_ready_fast(&smuggled));
     assert!(matches!(
         classify_inbound_message(&smuggled),
+        InboundRoute::Legacy(_)
+    ));
+}
+
+#[test]
+fn devtools_shortcut_messages_are_recognized_without_parsing() {
+    // Exact devtools shortcut (plus padding) matches for routing.
+    assert!(is_open_devtools_fast(r#"{"type":"open-devtools"}"#));
+    assert!(is_open_devtools_fast("  {\"type\":\"open-devtools\"}\n"));
+    assert!(!is_open_devtools_fast(r#"{"type":"frontend-ready"}"#));
+    assert!(!is_open_devtools_fast(r#"{"type":"disconnect"}"#));
+    assert!(!is_open_devtools_fast(r#"{"method":"system.ping"}"#));
+    // The length gate rejects large payloads without parsing.
+    let large = format!(r#"{{"type":"open-devtools","pad":"{}"}}"#, "y".repeat(1024));
+    assert!(!is_open_devtools_fast(&large));
+    // Value-level recognition is exact on the `type` field only.
+    assert!(is_devtools_command_value(
+        &serde_json::json!({"type": "open-devtools"})
+    ));
+    assert!(!is_devtools_command_value(
+        &serde_json::json!({"type": "open-devtools", "method": "system.ping"})
+    ));
+    assert!(!is_devtools_command_value(
+        &serde_json::json!({"type": "frontend-ready"})
+    ));
+    // The shortcut still classifies as legacy (never control-plane), so
+    // the Tokio dispatcher routes it without touching the ControlApi.
+    assert!(matches!(
+        classify_inbound_message(r#"{"type":"open-devtools"}"#),
         InboundRoute::Legacy(_)
     ));
 }

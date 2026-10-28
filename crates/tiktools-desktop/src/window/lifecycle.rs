@@ -6,6 +6,7 @@ use super::ipc::{
     parse_batch_ack, webview_request_too_large,
 };
 use super::outbox::WebviewOutbox;
+use super::reload::{failure_reasons, RecoveryDecision};
 use super::{DesktopApp, StartupState, FRONTEND_STARTUP_TIMEOUT};
 use crate::event::CoalescedSignals;
 use crate::event::{DesktopCommand, DesktopEvent};
@@ -141,6 +142,7 @@ impl DesktopApp {
             pending_host_messages: WebviewOutbox::new(),
             pending_batch: None,
             page_ready: false,
+            reload: super::reload::MainReloadSupervisor::new(),
             domain_mailbox,
             emitter,
             shutting_down: false,
@@ -157,21 +159,12 @@ impl DesktopApp {
         }
     }
 
-    fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<(), String> {
-        tracing::debug!("creating desktop window");
-        let window_icon =
-            WindowIcon::from_rgba(crate::icon::rgba(), crate::icon::SIZE, crate::icon::SIZE)
-                .map_err(|error| format!("could not create window icon: {error}"))?;
-        let attributes = Window::default_attributes()
-            .with_title("TikTools")
-            .with_inner_size(LogicalSize::new(900_u32, 680_u32))
-            .with_resizable(true)
-            .with_window_icon(Some(window_icon))
-            .with_visible(false);
-        let window = event_loop
-            .create_window(attributes)
-            .map_err(|error| format!("could not create window: {error}"))?;
-
+    /// Builds the main frontend WebView as a child of `window` on the UI
+    /// thread. The frontend URL, navigation policy, IPC bridge and asset
+    /// protocols are identical for the first load and every recreate, so a
+    /// recovered WebView never escapes the allowed origin and never touches
+    /// `AppCore` or user data (only the WebView handle is rebuilt).
+    fn build_main_webview(&mut self, window: &Window) -> Result<wry::WebView, String> {
         let router = self.router.clone();
         let control = self.control.clone();
         let runtime = self.runtime.clone();
@@ -193,6 +186,11 @@ impl DesktopApp {
             .with_devtools(cfg!(debug_assertions) || cfg!(feature = "devtools"))
             .with_focused(false)
             .with_autoplay(true)
+            // Page-focused shortcuts (F5/Ctrl+R reload, F12/Ctrl+Shift+I
+            // inspector): on Linux the child WebView holds keyboard focus,
+            // so the Winit window never sees these keys. The script reloads
+            // in-page and asks the host for the inspector.
+            .with_initialization_script(crate::webview::MAIN_INIT_SCRIPT)
             .with_navigation_handler(move |url| {
                 // Plugin asset URLs load inline frames in the plugin tabs;
                 // installation is enforced per request by the asset server.
@@ -224,10 +222,10 @@ impl DesktopApp {
                 match event {
                     PageLoadEvent::Started => {
                         page_emitter.advance_generation();
-                        tracing::debug!(url = %url, "frontend page load started");
+                        tracing::info!(url = %url, generation = page_emitter.generation.load(Ordering::Acquire), "WebView navigation Started");
                     }
                     PageLoadEvent::Finished => {
-                        tracing::debug!(url = %url, "frontend page load finished; waiting for frontend-ready");
+                        tracing::info!(url = %url, "WebView navigation Finished; waiting for frontend-ready");
                     }
                 }
             })
@@ -336,15 +334,38 @@ impl DesktopApp {
             url = %self.frontend.url(),
             "creating TikTools frontend WebView"
         );
-        let webview = platform::build_webview(builder, &window)
-            .map_err(|error| format!("could not create Wry WebView: {error}"))?;
-        tracing::debug!("Wry WebView created successfully");
+        platform::build_webview(builder, window)
+            .map_err(|error| format!("could not create Wry WebView: {error}"))
+    }
+
+    fn create_window(&mut self, event_loop: &ActiveEventLoop) -> Result<(), String> {
+        tracing::debug!("creating desktop window");
+        let window_icon =
+            WindowIcon::from_rgba(crate::icon::rgba(), crate::icon::SIZE, crate::icon::SIZE)
+                .map_err(|error| format!("could not create window icon: {error}"))?;
+        let attributes = Window::default_attributes()
+            .with_title("TikTools")
+            .with_inner_size(LogicalSize::new(900_u32, 680_u32))
+            .with_resizable(true)
+            .with_window_icon(Some(window_icon))
+            .with_visible(false);
+        let window = event_loop
+            .create_window(attributes)
+            .map_err(|error| format!("could not create window: {error}"))?;
+
+        let webview = self.build_main_webview(&window)?;
+        tracing::info!("Wry WebView created successfully");
 
         self.window = Some(window);
         self.webview = Some(webview);
         self.startup_state = StartupState::WebViewLoading;
-        self.startup_deadline = Some(Instant::now() + FRONTEND_STARTUP_TIMEOUT);
-        tracing::debug!("waiting for frontend-ready");
+        let now = Instant::now();
+        self.startup_deadline = Some(now + FRONTEND_STARTUP_TIMEOUT);
+        // The first navigation shares the reload watchdog: a missing
+        // `frontend-ready` on the very first document times out the same
+        // way as any later reload (plus the startup dialog path below).
+        self.reload.on_navigation_started(now);
+        tracing::info!("WebView lifecycle Loading: waiting for frontend-ready");
         if self.tray.is_none() {
             match TrayController::create(self.proxy.clone()) {
                 Ok(tray) => self.tray = Some(tray),
@@ -371,19 +392,44 @@ impl DesktopApp {
         }
     }
 
-    fn on_keyboard_input(&self, event: winit::event::KeyEvent) {
+    /// User-initiated reload on the UI thread: halt delivery to the current
+    /// document immediately, then reload. The resulting Started event
+    /// advances the generation and restarts the bounded watchdog, so a
+    /// manual refresh flows through the same lifecycle as a programmatic
+    /// one. Never touches `AppCore` or user data.
+    fn reload_webview(&mut self) {
+        if self.shutting_down {
+            return;
+        }
+        let Some(webview) = self.webview.as_ref() else {
+            return;
+        };
+        self.page_ready = false;
+        self.pending_batch = None;
+        self.emitter.clear_batch();
+        if let Err(error) = webview.reload() {
+            tracing::debug!(%error, "manual WebView reload failed");
+        }
+    }
+
+    fn on_keyboard_input(&mut self, event: winit::event::KeyEvent) {
         use winit::event::ElementState;
         use winit::keyboard::{KeyCode, PhysicalKey};
         if event.state != ElementState::Pressed || event.repeat {
             return;
         }
-        // F12 is the conventional inspector shortcut. WebView2 also handles
-        // it natively when devtools are enabled; this covers the other
-        // backends and guarantees the shortcut exists.
-        if !matches!(event.physical_key, PhysicalKey::Code(KeyCode::F12)) {
-            return;
+        // Parent-focused shortcuts. When the page itself holds keyboard
+        // focus (the common Linux case: the child WebView owns focus), the
+        // Winit window never sees the key and the init script handles it
+        // instead (F5/Ctrl+R in-page reload, F12/Ctrl+Shift+I inspector
+        // request). F12 is the conventional inspector shortcut. WebView2
+        // also handles it natively when devtools are enabled; this covers
+        // the other backends and guarantees the shortcut exists.
+        match event.physical_key {
+            PhysicalKey::Code(KeyCode::F12) => self.open_devtools(),
+            PhysicalKey::Code(KeyCode::F5) => self.reload_webview(),
+            _ => {}
         }
-        self.open_devtools();
     }
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
@@ -459,9 +505,24 @@ impl DesktopApp {
         }
         let replacing_page = self.ui_generation != 0;
         self.ui_generation = generation;
+        // Navigation Started: advance the generation (done by the caller),
+        // invalidate pending batches, and stop delivery to the previous
+        // document before a single new message can cross documents. The
+        // stale backlog is dropped without replay: recovery never retries
+        // non-idempotent RPCs, the fresh page resynchronizes through its
+        // mount reads instead.
         self.page_ready = false;
         self.pending_batch = None;
         self.emitter.clear_batch();
+        // (Re)start the bounded reload watchdog for this document.
+        let now = Instant::now();
+        self.reload.on_navigation_started(now);
+        tracing::info!(
+            generation,
+            replacing_page,
+            lifecycle = ?self.reload.state(),
+            "WebView navigation Started: batches invalidated, delivery halted, watchdog started"
+        );
         if !self.pending_host_messages.is_empty() {
             // Initial bootstrap snapshots precede the first page's full
             // authoritative fetch; only replacing an existing page creates
@@ -471,14 +532,43 @@ impl DesktopApp {
             }
             self.pending_host_messages.clear_for_reload();
         }
+        // A navigation during startup restarts the startup budget as well:
+        // the fresh document gets the full handshake window instead of
+        // inheriting the previous document's deadline.
+        if self.startup_state == StartupState::WebViewLoading {
+            self.startup_deadline = Some(now + FRONTEND_STARTUP_TIMEOUT);
+        }
     }
 
     fn frontend_ready(&mut self) {
+        // Frontend-ready: validate the current generation before marking
+        // Ready. A stale handshake from the previous document can never
+        // restore delivery or clear a newer document's watchdog.
+        let generation = self.emitter.generation.load(Ordering::Acquire);
+        if !self
+            .reload
+            .on_frontend_ready(self.ui_generation, generation)
+        {
+            tracing::warn!(
+                ui_generation = self.ui_generation,
+                emitter_generation = generation,
+                "stale frontend-ready ignored: generation mismatch"
+            );
+            return;
+        }
+        tracing::info!(
+            generation = self.ui_generation,
+            lifecycle = ?self.reload.state(),
+            "WebView frontend-ready: page Ready, IPC delivery restored"
+        );
         // A reload/recreate handshake recovers a failed transport only
         // once the fresh page is actually running: stale responses can
         // never mis-resolve the new page's calls, and the mount reads
         // resync authoritative state. Recovery runs before the startup
         // gate below so a mid-startup reload still completes startup.
+        // Authoritative resync: the rebooted frontend refetches through
+        // its mount reads; the gap marker makes any discontinuity
+        // explicit instead of replaying the dropped backlog.
         if self.reload_pending && !self.shutting_down {
             self.reload_pending = false;
             self.pending_host_messages.recover_transport();
@@ -488,7 +578,9 @@ impl DesktopApp {
                 .recover();
             self.webview_failed.store(false, Ordering::SeqCst);
             self.core.set_webview_error(None);
-            tracing::error!("WebView transport recovered after reload");
+            tracing::info!(
+                "WebView transport recovered after reload; authoritative resync via mount reads"
+            );
         }
         if !self.shutting_down {
             self.page_ready = true;
@@ -508,6 +600,111 @@ impl DesktopApp {
         self.set_window_visible(true);
         if let Some(window) = self.window.as_ref() {
             window.focus_window();
+        }
+    }
+
+    /// Recreates the main WebView on the UI thread after a failed
+    /// navigation recovery. Only the WebView handle is rebuilt with the
+    /// same URL, navigation policy and bridges: `AppCore`, user data and
+    /// the parent window are preserved.
+    fn recreate_main_webview(&mut self) -> Result<(), String> {
+        let window = self
+            .window
+            .take()
+            .ok_or_else(|| "no window to recreate the WebView in".to_owned())?;
+        if let Some(old) = self.webview.take() {
+            platform::prepare_webview_teardown(&old);
+            drop(old);
+        }
+        platform::sync_gtk_display();
+        let result = self.build_main_webview(&window);
+        self.window = Some(window);
+        match result {
+            Ok(webview) => {
+                self.webview = Some(webview);
+                self.page_ready = false;
+                self.pending_batch = None;
+                self.emitter.clear_batch();
+                self.pending_host_messages.clear_for_reload();
+                self.reload_pending = true;
+                tracing::info!("WebView recreated on the UI thread; waiting for frontend-ready");
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Polls the bounded reload watchdog on the UI thread. Runs only after
+    /// startup completed: the first load keeps the startup dialog path.
+    /// Recovery is bounded (one navigation reload, one WebView recreate,
+    /// then `Failed`): no infinite reload loops, no unbounded memory, no
+    /// replay of non-idempotent RPCs, no `AppCore` restart.
+    fn poll_reload_watchdog(&mut self) {
+        if self.shutting_down || self.startup_state != StartupState::Ready {
+            return;
+        }
+        // Batch-ack timeouts already fail the transport explicitly below;
+        // the watchdog here covers the missing `frontend-ready` case.
+        let now = Instant::now();
+        match self.reload.check_timeout(now) {
+            RecoveryDecision::Wait => {}
+            RecoveryDecision::ReloadOnce => {
+                tracing::warn!(
+                    reason = failure_reasons::RELOAD_TIMEOUT,
+                    "WebView reload timeout: attempting one controlled navigation recovery"
+                );
+                self.core.set_webview_error(Some(format!(
+                    "WebView reload timed out ({}); attempting navigation recovery",
+                    failure_reasons::RELOAD_TIMEOUT
+                )));
+                self.page_ready = false;
+                self.pending_batch = None;
+                self.emitter.clear_batch();
+                self.pending_host_messages.clear_for_reload();
+                match self.webview.as_ref() {
+                    Some(webview) => match webview.reload() {
+                        Ok(()) => {
+                            self.reload_pending = true;
+                            tracing::info!("WebView navigation recovery reload issued");
+                        }
+                        Err(error) => {
+                            tracing::error!(%error, "controlled navigation recovery reload failed");
+                        }
+                    },
+                    None => {
+                        tracing::error!("WebView reload timeout with no WebView to reload");
+                    }
+                }
+            }
+            RecoveryDecision::Recreate => {
+                tracing::warn!(
+                    reason = failure_reasons::RELOAD_TIMEOUT,
+                    "WebView reload timeout persists: recreating the WebView on the UI thread"
+                );
+                self.core.set_webview_error(Some(format!(
+                    "WebView reload timed out ({}); recreating the WebView",
+                    failure_reasons::RELOAD_TIMEOUT
+                )));
+                if let Err(error) = self.recreate_main_webview() {
+                    tracing::error!(%error, "WebView recreate failed; transport stays failed");
+                    self.reload.record_failure(failure_reasons::RELOAD_TIMEOUT);
+                }
+            }
+            RecoveryDecision::GiveUp => {
+                tracing::error!(
+                    reason = ?self.reload.failure_reason(),
+                    lifecycle = ?self.reload.state(),
+                    "WebView reload recovery exhausted; parking in Failed without further retries"
+                );
+                self.page_ready = false;
+                self.pending_batch = None;
+                self.emitter.clear_batch();
+                self.core.set_webview_error(Some(format!(
+                    "WebView reload failed ({:?}); reload the window to retry",
+                    self.reload.failure_reason().unwrap_or("unknown")
+                )));
+                self.webview_failed.store(true, Ordering::SeqCst);
+            }
         }
     }
 
@@ -709,6 +906,9 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
                 self.set_window_visible(false);
             }
             DesktopEvent::Command(DesktopCommand::OpenDevtools) => self.open_devtools(),
+            DesktopEvent::Command(DesktopCommand::OpenPluginDevtools { window_id }) => {
+                self.plugin_ui.open_devtools_for_window(window_id)
+            }
             DesktopEvent::Command(DesktopCommand::Quit) => self.shutdown(event_loop),
             DesktopEvent::Command(DesktopCommand::ShutdownComplete) => {
                 self.finalize_shutdown(event_loop)
@@ -769,13 +969,41 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
         platform::pump();
         let generation = self.emitter.generation.load(Ordering::Acquire);
         self.sync_page_generation(generation);
+        // Bounded reload watchdog: missing `frontend-ready` records a
+        // reason and attempts one controlled reload, then one recreate,
+        // then parks in Failed. Never restarts AppCore, never replays RPCs.
+        self.poll_reload_watchdog();
+        // Plugin pop-outs share the same bound: timed-out bridge checks
+        // reload once, then close/recreate, then park without looping.
+        self.plugin_ui.poll_recovery();
+        // Automatic recreates run on the UI thread through the same `open`
+        // path (same origin policy, same broker, same AppCore): at most one
+        // per failure sequence, so a permanently broken page parks instead
+        // of reopening forever.
+        for (plugin_id, page_id) in self.plugin_ui.drain_pending_recreates() {
+            if self.shutting_down {
+                continue;
+            }
+            tracing::info!(plugin = %plugin_id, page = %page_id, "recreating plugin WebView on the UI thread");
+            if let Err(error) = self.plugin_ui.open(
+                event_loop,
+                &self.core,
+                &self.control,
+                &self.runtime,
+                &self.proxy,
+                &plugin_id,
+                &page_id,
+            ) {
+                tracing::error!(%error, plugin = %plugin_id, page = %page_id, "plugin WebView recreate failed");
+            }
+        }
         if self
             .pending_batch
             .as_ref()
             .is_some_and(|batch| Instant::now() >= batch.deadline)
         {
             self.core.record_event_gap();
-            self.fail_webview_transport("batch acknowledgment deadline exceeded");
+            self.fail_webview_transport(failure_reasons::BATCH_TIMEOUT);
         }
         if self.diagnostics_at.elapsed() >= std::time::Duration::from_secs(10) {
             self.diagnostics_at = Instant::now();
@@ -788,6 +1016,13 @@ impl ApplicationHandler<DesktopEvent> for DesktopApp {
                 "retainedBatchCount": self.pending_batch.as_ref().map(|batch| batch.messages.len()).unwrap_or(0),
                 "plugins": self.plugin_ui.diagnostics(),
                 "nativeLifecycle": platform::native_lifecycle_diagnostics(),
+                "webviewLifecycle": {
+                    "state": format!("{:?}", self.reload.state()),
+                    "failureReason": self.reload.failure_reason(),
+                    "navigationRecoveries": self.reload.recovery_counts().0,
+                    "webviewRecreates": self.reload.recovery_counts().1,
+                    "pageReady": self.page_ready,
+                },
             });
             if self.diagnostic_logging {
                 use tiktools_core::HostEmitter;

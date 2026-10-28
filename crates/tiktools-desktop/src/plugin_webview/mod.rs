@@ -38,6 +38,9 @@ use wry::{Rect, WebView, WebViewBuilder};
 
 use crate::event::{DesktopCommand, DesktopEvent};
 use crate::platform;
+use crate::window::reload::{
+    failure_reasons, PluginBridgeState, PluginPageSupervisor, RecoveryDecision, WebviewLifecycle,
+};
 use assets::{allows_navigation, plugin_page_url, PluginAssetServer, PLUGIN_ASSET_SCHEME};
 use broker::PluginUiBroker;
 
@@ -162,6 +165,9 @@ struct PluginUiWindow {
     generation: Arc<AtomicU64>,
     output_generation: u64,
     owner: u64,
+    /// Explicit lifecycle for this pop-out: Loading until the first broker
+    /// round-trip proves the init script installed `window.tiktools`.
+    lifecycle: PluginPageSupervisor,
 }
 
 impl Drop for PluginUiWindow {
@@ -180,8 +186,36 @@ impl PluginUiWindow {
         let generation = self.generation.load(Ordering::Acquire);
         if generation != self.output_generation {
             self.output_generation = generation;
+            // Navigation Started: reset subscriptions for the previous page
+            // before the fresh document can inherit them, drop its stale
+            // backlog without replay, and restart the bounded bridge
+            // watchdog. Recovery never replays broker calls.
             self.output.discard_pending();
             self.topics.clear();
+            let from = self.lifecycle.state();
+            self.lifecycle
+                .on_navigation_started(std::time::Instant::now());
+            tracing::info!(
+                generation,
+                from = ?from,
+                to = ?self.lifecycle.state(),
+                "plugin WebView navigation Started: subscriptions reset, bridge watchdog started"
+            );
+        }
+    }
+
+    /// Post-navigation bridge readiness check: the first broker round-trip
+    /// on this generation proves the init script installed
+    /// `window.tiktools`. Until then delivery stays halted.
+    fn mark_bridge_ready(&mut self, plugin_id: &str, page_id: &str) {
+        if self.lifecycle.bridge() != PluginBridgeState::Ready {
+            self.lifecycle.on_bridge_message();
+            tracing::info!(
+                plugin = plugin_id,
+                page = page_id,
+                lifecycle = ?self.lifecycle.state(),
+                "plugin WebView bridge Ready: init script verified, delivery restored"
+            );
         }
     }
 
@@ -250,6 +284,18 @@ impl PluginUiWindow {
     }
 }
 
+/// Verifies the initialization script is available before a plugin window
+/// is built. The bridge check is post-navigation (first broker round-trip),
+/// but a missing or truncated script must fail fast with a diagnostic
+/// instead of opening a blank page that only times out later.
+pub fn init_script_available() -> bool {
+    !INIT_SCRIPT.is_empty()
+        && INIT_SCRIPT.contains("window.tiktools")
+        && INIT_SCRIPT.contains("__tiktools_broker_push__")
+        && INIT_SCRIPT.contains("apiVersion: 1")
+        && !INIT_SCRIPT.contains("delete window.ipc")
+}
+
 #[derive(Default)]
 pub struct PluginUiWindows {
     windows: HashMap<(String, String), PluginUiWindow>,
@@ -257,6 +303,11 @@ pub struct PluginUiWindows {
     evaluate_calls: u64,
     evaluate_bytes: u64,
     evaluate_errors: u64,
+    /// Auto-recreate budget per plugin page: at most one automatic reopen
+    /// after a timed-out window is closed. Manual reopens reset the count
+    /// by going through `open` (which clears the entry on success).
+    recreate_budget: HashMap<(String, String), u32>,
+    pending_recreates: Vec<(String, String)>,
 }
 
 impl PluginUiWindows {
@@ -327,10 +378,28 @@ impl PluginUiWindows {
         let owner = NEXT_WINDOW_OWNER.fetch_add(1, Ordering::AcqRel);
         let page_generation = generation.clone();
         let handler_generation = generation.clone();
+        // Post-navigation bridge readiness requires the init script: verify
+        // availability before the WebView is built so a missing bridge
+        // surfaces as a loud diagnostic instead of a blank page.
+        if !init_script_available() {
+            tracing::error!(
+                plugin = plugin_id,
+                page = page_id,
+                reason = failure_reasons::INIT_SCRIPT_MISSING,
+                "plugin WebView init script unavailable; not opening"
+            );
+            return Err("plugin WebView initialization script unavailable".to_owned());
+        }
         let (ipc_shutdown, shutdown_receiver) = tokio::sync::watch::channel(false);
         let mut builder = WebViewBuilder::new()
-            .with_on_page_load_handler(move |event, _url| {
-                if matches!(event, wry::PageLoadEvent::Started) { page_generation.store(NEXT_PAGE_GENERATION.fetch_add(1, Ordering::AcqRel), Ordering::Release); }
+            .with_on_page_load_handler(move |event, url| {
+                if matches!(event, wry::PageLoadEvent::Started) {
+                    let generation = NEXT_PAGE_GENERATION.fetch_add(1, Ordering::AcqRel);
+                    page_generation.store(generation, Ordering::Release);
+                    tracing::info!(url = %url, generation, "plugin WebView navigation Started");
+                } else {
+                    tracing::info!(url = %url, "plugin WebView navigation Finished; waiting for bridge Ready");
+                }
             })
             .with_devtools(cfg!(debug_assertions) || cfg!(feature = "devtools"))
             .with_autoplay(true)
@@ -347,6 +416,17 @@ impl PluginUiWindows {
                 wry::NewWindowResponse::Deny
             })
             .with_ipc_handler(move |request| {
+                // The in-page devtools shortcut never reaches the broker
+                // allowlist: opening the inspector is window chrome, not a
+                // broker call. The check is allocation-free and size-gated.
+                if crate::window::ipc::is_open_devtools_fast(request.body()) {
+                    let _ = ipc_proxy.send_event(DesktopEvent::Command(
+                        DesktopCommand::OpenPluginDevtools {
+                            window_id: ipc_window_id,
+                        },
+                    ));
+                    return;
+                }
                 // Size-gated before queueing (same bound the broker
                 // enforces): the payload moves to Tokio for handling and
                 // the response returns through `PluginUiRespond`.
@@ -426,6 +506,7 @@ impl PluginUiWindows {
         let webview = platform::build_webview(builder, &window)
             .map_err(|error| format!("could not create plugin WebView: {error}"))?;
         window.focus_window();
+        let lifecycle = PluginPageSupervisor::new(std::time::Instant::now());
         self.windows.insert(
             key,
             PluginUiWindow {
@@ -439,13 +520,15 @@ impl PluginUiWindows {
                 generation,
                 output_generation: 0,
                 owner,
+                lifecycle,
             },
         );
-        tracing::debug!(
+        tracing::info!(
             plugin = plugin_id,
             page = page_id,
             transport = "native",
-            "plugin window opened"
+            lifecycle = ?WebviewLifecycle::Loading,
+            "plugin window opened: lifecycle Loading, waiting for bridge Ready"
         );
         Ok(true)
     }
@@ -531,6 +614,15 @@ impl PluginUiWindows {
             return;
         }
         window.sync_generation();
+        // A subscription round-trip proves the bridge is live on this
+        // generation (post-navigation readiness check).
+        window.mark_bridge_ready(plugin_id, page_id);
+        if window.lifecycle.bridge() == PluginBridgeState::Ready {
+            // A working bridge resets the auto-recreate budget: the next
+            // failure sequence gets its own bounded recovery.
+            self.recreate_budget
+                .remove(&(plugin_id.to_owned(), page_id.to_owned()));
+        }
         if let Err(error) = apply_topics(&mut window.topics, effect) {
             tracing::warn!(error, "legacy subscription effect rejected");
         }
@@ -561,6 +653,13 @@ impl PluginUiWindows {
             return;
         };
         window.sync_generation();
+        // Any broker response proves the init script installed
+        // `window.tiktools` on this generation.
+        window.mark_bridge_ready(plugin_id, page_id);
+        if window.lifecycle.bridge() == PluginBridgeState::Ready {
+            self.recreate_budget
+                .remove(&(plugin_id.to_owned(), page_id.to_owned()));
+        }
         let rejection = effect.and_then(|effect| apply_topics(&mut window.topics, effect).err());
         if let Some(error) = rejection {
             let id = serde_json::from_str::<Value>(&response)
@@ -622,6 +721,14 @@ impl PluginUiWindows {
             if window.state != PluginWindowState::Open {
                 continue;
             }
+            // Hold batches until the post-navigation bridge check passes:
+            // the first broker round-trip proves `window.tiktools` is live.
+            // Queued output waits (still counted as pending for wake
+            // chaining) instead of evaluating into a page without a bridge.
+            if !window.lifecycle.is_delivery_allowed() {
+                pending |= !window.output.is_empty();
+                continue;
+            }
             if window.output.take_transport_failure() {
                 failed.push(key.clone());
                 continue;
@@ -638,7 +745,7 @@ impl PluginUiWindows {
                 self.evaluate_bytes = self.evaluate_bytes.saturating_add(script.len() as u64);
                 if let Err(error) = window.view().evaluate_script(&script) {
                     self.evaluate_errors = self.evaluate_errors.saturating_add(1);
-                    tracing::error!(%error, "plugin batch evaluation failed; closing its transport");
+                    tracing::error!(%error, plugin = %key.0, page = %key.1, reason = failure_reasons::EVALUATION_FAILED, "plugin WebView lifecycle Failed: evaluation failed; closing its transport");
                     failed.push(key.clone());
                 }
             }
@@ -654,17 +761,132 @@ impl PluginUiWindows {
                 .any(|window| window.state == PluginWindowState::Open && !window.output.is_empty())
     }
 
+    /// Bounded recovery poll for pop-out windows, run on the UI thread.
+    /// For each open window the bridge watchdog is checked: first expiry
+    /// attempts one controlled `reload()`, the next expiry closes the
+    /// faulty window and queues one automatic recreate (bounded per page),
+    /// then parks without further retries. Never restarts `AppCore`, never
+    /// replays broker calls, never loops.
+    pub(crate) fn poll_recovery(&mut self) {
+        let now = std::time::Instant::now();
+        let keys: Vec<(String, String)> = self.windows.keys().cloned().collect();
+        let mut to_close: Vec<(String, String)> = Vec::new();
+        for key in keys {
+            let Some(window) = self.windows.get_mut(&key) else {
+                continue;
+            };
+            if window.state != PluginWindowState::Open {
+                continue;
+            }
+            window.sync_generation();
+            match window.lifecycle.check_timeout(now) {
+                RecoveryDecision::Wait => {}
+                RecoveryDecision::ReloadOnce => {
+                    tracing::warn!(
+                        plugin = %key.0,
+                        page = %key.1,
+                        reason = failure_reasons::RELOAD_TIMEOUT,
+                        "plugin WebView reload timeout: attempting one controlled navigation recovery"
+                    );
+                    window.output.discard_pending();
+                    match window.view().reload() {
+                        Ok(()) => {
+                            tracing::info!(
+                                plugin = %key.0,
+                                page = %key.1,
+                                "plugin WebView navigation recovery reload issued"
+                            );
+                        }
+                        Err(error) => {
+                            tracing::error!(%error, plugin = %key.0, page = %key.1, "plugin WebView reload failed; closing");
+                            to_close.push(key.clone());
+                        }
+                    }
+                }
+                RecoveryDecision::Recreate => {
+                    tracing::warn!(
+                        plugin = %key.0,
+                        page = %key.1,
+                        reason = failure_reasons::RELOAD_TIMEOUT,
+                        "plugin WebView reload timeout persists: recreating the window"
+                    );
+                    to_close.push(key.clone());
+                    let budget = self.recreate_budget.get(&key).copied().unwrap_or(0);
+                    if budget < 1 {
+                        self.recreate_budget.insert(key.clone(), budget + 1);
+                        self.pending_recreates.push(key.clone());
+                    } else {
+                        tracing::error!(
+                            plugin = %key.0,
+                            page = %key.1,
+                            "plugin WebView recreate budget exhausted; not reopening"
+                        );
+                    }
+                }
+                RecoveryDecision::GiveUp => {
+                    tracing::error!(
+                        plugin = %key.0,
+                        page = %key.1,
+                        reason = ?window.lifecycle.failure_reason(),
+                        "plugin WebView recovery exhausted; closing without further retries"
+                    );
+                    to_close.push(key.clone());
+                }
+            }
+        }
+        for (plugin, page) in to_close {
+            self.close(&plugin, &page);
+        }
+    }
+
+    /// Drains plugin pages queued for automatic recreate (at most one per
+    /// page per failure sequence). The caller reopens them on the UI thread
+    /// with the same `open` path, preserving `AppCore` and user data.
+    pub(crate) fn drain_pending_recreates(&mut self) -> Vec<(String, String)> {
+        std::mem::take(&mut self.pending_recreates)
+    }
+
+    /// Opens the inspector for one plugin window on the UI thread.
+    /// Release builds without the `devtools` cargo feature keep the
+    /// shortcut compiled but an intentional no-op, mirroring the main
+    /// window.
+    pub(crate) fn open_devtools_for_window(&self, window_id: WindowId) {
+        #[cfg(any(debug_assertions, feature = "devtools"))]
+        {
+            for window in self.windows.values() {
+                if window.state == PluginWindowState::Open && window.handle().id() == window_id {
+                    window.view().open_devtools();
+                    return;
+                }
+            }
+        }
+        #[cfg(not(any(debug_assertions, feature = "devtools")))]
+        {
+            let _ = window_id;
+        }
+    }
+
     pub(crate) fn diagnostics(&self) -> Value {
         let mut queued = 0;
         let mut bytes = 0;
         let mut tasks = 0;
+        let mut loading = 0;
+        let mut ready = 0;
+        let mut failed = 0;
+        let mut recovering = 0;
         for window in self.windows.values() {
             let snapshot = window.output.diagnostics();
             queued += snapshot["reliableCount"].as_u64().unwrap_or(0);
             bytes += snapshot["reliableBytes"].as_u64().unwrap_or(0);
             tasks += 128usize.saturating_sub(window.ipc_slots.available_permits());
+            match window.lifecycle.state() {
+                WebviewLifecycle::Loading => loading += 1,
+                WebviewLifecycle::Ready => ready += 1,
+                WebviewLifecycle::Failed => failed += 1,
+                WebviewLifecycle::Recovering => recovering += 1,
+            }
         }
-        serde_json::json!({"openWindows": self.windows.len(), "queued": queued, "bytes": bytes, "brokerTasks": tasks, "evaluateCalls": self.evaluate_calls, "evaluateBytes": self.evaluate_bytes, "evaluateErrors": self.evaluate_errors})
+        serde_json::json!({"openWindows": self.windows.len(), "queued": queued, "bytes": bytes, "brokerTasks": tasks, "evaluateCalls": self.evaluate_calls, "evaluateBytes": self.evaluate_bytes, "evaluateErrors": self.evaluate_errors, "lifecycle": {"loading": loading, "ready": ready, "failed": failed, "recovering": recovering}, "pendingRecreates": self.pending_recreates.len()})
     }
 
     pub(crate) fn forward_prepared(
@@ -766,6 +988,33 @@ impl PluginUiWindows {
                     entry.disown_destroyed();
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } => {
+                // Parent-focused shortcuts (the page-focused case is
+                // covered by the init script). Closing windows ignore
+                // keys: their WebView is about to be torn down.
+                use winit::event::ElementState;
+                use winit::keyboard::{KeyCode, PhysicalKey};
+                if event.state == ElementState::Pressed && !event.repeat {
+                    match event.physical_key {
+                        PhysicalKey::Code(KeyCode::F12) => {
+                            self.open_devtools_for_window(window_id);
+                        }
+                        PhysicalKey::Code(KeyCode::F5) => {
+                            if let Some(window) = self
+                                .windows
+                                .get_mut(&key)
+                                .filter(|entry| entry.state == PluginWindowState::Open)
+                            {
+                                window.output.discard_pending();
+                                if let Err(error) = window.view().reload() {
+                                    tracing::debug!(%error, "plugin WebView manual reload failed");
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
             WindowEvent::Resized(size) => {
                 // Closing windows ignore resizes: their WebView is about
                 // to be torn down by the deferred close.
@@ -845,6 +1094,26 @@ fn parse_host_notification(message: &str) -> Option<(String, String, Value)> {
 const INIT_SCRIPT: &str = r#"(function () {
   'use strict';
   if (window.tiktools !== undefined) return;
+  // Page-focused shortcuts, installed even when the bridge is unavailable:
+  // F5 / Ctrl+R reload the page in place (the navigation Started event
+  // resets subscriptions for the previous document); F12 / Ctrl+Shift+I
+  // ask the host to open the inspector. The devtools request reads the
+  // transport directly and never reaches the broker allowlist.
+  window.addEventListener('keydown', function (e) {
+    try {
+      var reloadKey = e.key === 'F5' || ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'r' || e.key === 'R'));
+      var devtoolsKey = e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i'));
+      if (reloadKey) {
+        e.preventDefault();
+        window.location.reload();
+      } else if (devtoolsKey) {
+        e.preventDefault();
+        if (window.ipc && typeof window.ipc.postMessage === 'function') {
+          window.ipc.postMessage('{"type":"open-devtools"}');
+        }
+      }
+    } catch (shortcutError) { /* never break page input */ }
+  }, true);
   var ipc = (window.ipc && typeof window.ipc.postMessage === 'function') ? window.ipc : null;
   function unavailable() { return Promise.reject(new Error('plugin host is unavailable')); }
   if (!ipc) {
@@ -1076,6 +1345,18 @@ mod tests {
             })
             .to_string(),
         );
+    }
+
+    #[test]
+    fn init_script_forwards_refresh_and_devtools_shortcuts() {
+        // F5 / Ctrl+R reload in-page; F12 / Ctrl+Shift+I ask the host to
+        // open devtools. The reload path needs no transport; the devtools
+        // path reuses the captured `ipc` handle so the broker allowlist is
+        // never involved.
+        assert!(INIT_SCRIPT.contains("F5"));
+        assert!(INIT_SCRIPT.contains("F12"));
+        assert!(INIT_SCRIPT.contains("location.reload"));
+        assert!(INIT_SCRIPT.contains("open-devtools"));
     }
 
     #[test]
