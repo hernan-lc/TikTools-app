@@ -1,7 +1,13 @@
+pub(crate) mod aggregations;
 mod app_state;
 mod automation;
 mod capabilities;
 mod catalog;
+#[cfg(feature = "persistence")]
+pub(crate) mod competition_actions;
+#[cfg(feature = "persistence")]
+pub(crate) mod competition_events;
+pub(crate) mod competitions;
 pub(crate) mod declarative_http;
 pub mod globals;
 mod live;

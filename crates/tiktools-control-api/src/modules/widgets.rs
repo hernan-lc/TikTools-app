@@ -11,6 +11,18 @@ use crate::{error::ApiError, modules::blocking_task, router::ControlRouter};
 #[serde(rename_all = "camelCase")]
 pub struct WidgetsCopyParams {
     pub widget: String,
+    #[serde(default)]
+    pub ranking_id: Option<String>,
+    #[serde(default)]
+    pub visualization: Option<String>,
+    #[serde(default)]
+    pub competition_id: Option<String>,
+    #[serde(default)]
+    pub show_labels: Option<bool>,
+    #[serde(default)]
+    pub show_percentages: Option<bool>,
+    #[serde(default)]
+    pub show_legend: Option<bool>,
 }
 
 pub fn register(router: &mut ControlRouter) {
@@ -32,10 +44,33 @@ pub fn register(router: &mut ControlRouter) {
             // The clipboard round-trips with the OS session; keep it off
             // the Tokio workers like other blocking host calls.
             blocking_task("widgets clipboard", move || {
-                core.widgets_copy_obs_url(&params.widget)
+                core.widgets_copy_obs_url_with_competition(&params.widget, params.ranking_id.as_deref(), params.visualization.as_deref(), params.show_labels, params.show_percentages, params.show_legend, params.competition_id.as_deref())
             })
             .await?
             .map_err(ApiError::from)
         },
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WidgetsCopyParams;
+    use serde_json::json;
+
+    #[test]
+    fn reveal_widget_parameters_are_typed_and_backward_compatible() {
+        let legacy: WidgetsCopyParams = serde_json::from_value(json!({"widget":"likes"})).unwrap();
+        assert!(legacy.competition_id.is_none());
+        let params: WidgetsCopyParams = serde_json::from_value(json!({"widget":"ranking", "rankingId":"rank", "competitionId":"poll", "visualization":"roulette", "showLabels":false, "showPercentages":true, "showLegend":false})).unwrap();
+        assert_eq!(params.competition_id.as_deref(), Some("poll"));
+        assert_eq!(params.show_labels, Some(false));
+        assert_eq!(
+            serde_json::to_value(params).unwrap()["showPercentages"],
+            true
+        );
+        assert!(serde_json::from_value::<WidgetsCopyParams>(
+            json!({"widget":"ranking", "showLegend":"false"})
+        )
+        .is_err());
+    }
 }

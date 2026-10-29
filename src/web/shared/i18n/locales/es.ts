@@ -34,6 +34,7 @@ export default {
     automations: 'Automatizaciones',
     plugins: 'Plugins',
     overlays: 'Overlays',
+    rankings: 'Clasificaciones y competiciones',
     settings: 'Ajustes',
     toggleSidebar: 'Mostrar u ocultar la barra lateral',
   },
@@ -329,6 +330,8 @@ export default {
     viewers: {
       live: '{count} viendo ahora',
       empty: 'Aún no hay colaboradores.',
+      sourceTikTok: 'Clasificación de la sala de TikTok',
+      sourcePoints: 'Clasificación de puntos de fidelidad',
       filterTop: 'General',
       filterLikes: 'Me gusta',
       emptyLikes: 'Aún no se registraron me gusta.',

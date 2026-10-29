@@ -67,6 +67,7 @@ const builtinPages: ReadonlyArray<{ tab: BuiltinAppTab; label: string; icon: Com
   { tab: 'behavior', label: 'navigation.automations', icon: IconFlow },
   { tab: 'plugins', label: 'navigation.plugins', icon: IconPuzzle },
   { tab: 'widgets', label: 'navigation.overlays', icon: IconLayers },
+  { tab: 'rankings', label: 'navigation.rankings', icon: IconChart },
   { tab: 'settings', label: 'navigation.settings', icon: IconGear },
 ];
 

@@ -14,6 +14,8 @@ pub(crate) use analytics::writer::{AnalyticsWrite, AnalyticsWriter};
 
 #[cfg(feature = "persistence")]
 pub use sqlite::DatabaseError;
+#[cfg(feature = "persistence")]
+pub(crate) use sqlite::{GiftInput, GiftOutcome, ScoredInput, ScoredOutcome};
 
 #[cfg(feature = "persistence")]
 pub use analytics::{

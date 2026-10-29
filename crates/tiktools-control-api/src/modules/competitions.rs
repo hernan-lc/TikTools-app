@@ -1,0 +1,259 @@
+//! Competition definitions exposed through the shared control registry.
+use crate::{
+    error::ApiError,
+    modules::{Empty, OkResult},
+    router::ControlRouter,
+};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tiktools_competitions::Transition;
+pub use tiktools_competitions::{
+    ActionExecution, ActionResolution, Definition, LifecycleState, ResultRecord,
+};
+use tiktools_core::AppCore;
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompetitionId {
+    pub id: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompetitionList {
+    pub competitions: Vec<Definition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CompetitionResultsRequest {
+    pub id: String,
+    #[serde(default)]
+    pub before_generation: Option<u64>,
+    #[serde(default)]
+    pub limit: Option<usize>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CompetitionResults {
+    pub results: Vec<ResultRecord>,
+    pub next_before_generation: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompetitionActionId {
+    pub id: String,
+    pub generation: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ResolveCompetitionAction {
+    pub id: String,
+    pub generation: u64,
+    pub resolution: ActionResolution,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CompetitionActionResult {
+    pub action: Option<ActionExecution>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectWinner {
+    pub id: String,
+    pub winner_id: String,
+    pub generation: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ManualCandidates {
+    pub generation: u64,
+    pub candidates: Vec<tiktools_aggregation::Entry>,
+}
+
+pub fn register(router: &mut ControlRouter) {
+    router.register_typed::<Definition, OkResult, _, _>(
+        "competitions.create",
+        "Create a competition definition",
+        true,
+        |core: Arc<AppCore>, definition| async move {
+            crate::modules::blocking_task("competitions.create", move || {
+                core.competition_create(definition)
+            })
+            .await?
+            .map(|_| OkResult::ok())
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<Definition, OkResult, _, _>(
+        "competitions.update",
+        "Update a competition definition without results",
+        true,
+        |core: Arc<AppCore>, definition| async move {
+            crate::modules::blocking_task("competitions.update", move || {
+                core.competition_update(definition)
+            })
+            .await?
+            .map(|_| OkResult::ok())
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionId, OkResult, _, _>(
+        "competitions.delete",
+        "Delete a competition definition without results",
+        true,
+        |core: Arc<AppCore>, params: CompetitionId| async move {
+            crate::modules::blocking_task("competitions.delete", move || {
+                core.competition_delete(&params.id)
+            })
+            .await?
+            .map(|_| OkResult::ok())
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionActionId, CompetitionActionResult, _, _>(
+        "competitions.action",
+        "Read winner action status",
+        false,
+        |core: Arc<AppCore>, params: CompetitionActionId| async move {
+            crate::modules::blocking_task("competitions.action", move || {
+                core.competition_action(&params.id, params.generation)
+            })
+            .await?
+            .map(|action| CompetitionActionResult { action })
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionActionId, OkResult, _, _>(
+        "competitions.markActionUncertain",
+        "Mark a stranded running winner action uncertain",
+        true,
+        |core: Arc<AppCore>, params: CompetitionActionId| async move {
+            crate::modules::blocking_task("competitions.markActionUncertain", move || {
+                core.competition_mark_action_uncertain(&params.id, params.generation)
+            })
+            .await?
+            .map(|_| OkResult::ok())
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<ResolveCompetitionAction, OkResult, _, _>(
+        "competitions.resolveAction",
+        "Resolve an uncertain winner action without dispatching it",
+        true,
+        |core: Arc<AppCore>, params: ResolveCompetitionAction| async move {
+            crate::modules::blocking_task("competitions.resolveAction", move || {
+                core.competition_resolve_action(&params.id, params.generation, params.resolution)
+            })
+            .await?
+            .map(|_| OkResult::ok())
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionResultsRequest, CompetitionResults, _, _>(
+        "competitions.results",
+        "Read committed competition result history",
+        false,
+        |core: Arc<AppCore>, params: CompetitionResultsRequest| async move {
+            crate::modules::blocking_task("competitions.results", move || {
+                core.competition_results(
+                    &params.id,
+                    params.before_generation,
+                    params.limit.unwrap_or(10),
+                )
+            })
+            .await?
+            .map(|(results, next_before_generation)| CompetitionResults {
+                results,
+                next_before_generation,
+            })
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionId, ManualCandidates, _, _>(
+        "competitions.candidates",
+        "Read tied leaders awaiting manual selection",
+        false,
+        |core: Arc<AppCore>, params: CompetitionId| async move {
+            crate::modules::blocking_task("competitions.candidates", move || {
+                core.competition_manual_candidates(&params.id)
+            })
+            .await?
+            .map(|(generation, candidates)| ManualCandidates {
+                generation,
+                candidates,
+            })
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<SelectWinner, ResultRecord, _, _>(
+        "competitions.selectWinner",
+        "Resolve a closed manual highest-score tie",
+        true,
+        |core: Arc<AppCore>, params: SelectWinner| async move {
+            crate::modules::blocking_task("competitions.selectWinner", move || {
+                core.competition_select_winner(&params.id, &params.winner_id, params.generation)
+            })
+            .await?
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionId, ResultRecord, _, _>(
+        "competitions.finish",
+        "Close and finalize an eligible competition",
+        true,
+        |core: Arc<AppCore>, params: CompetitionId| async move {
+            crate::modules::blocking_task("competitions.finish", move || {
+                core.competition_finish(&params.id)
+            })
+            .await?
+            .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionId, LifecycleState, _, _>(
+        "competitions.state",
+        "Read durable competition lifecycle state",
+        false,
+        |core: Arc<AppCore>, params: CompetitionId| async move {
+            crate::modules::blocking_task("competitions.state", move || {
+                core.competition_state(&params.id)
+            })
+            .await?
+            .map_err(ApiError::from)
+        },
+    );
+    for (method, transition) in [
+        ("competitions.start", Transition::Start),
+        ("competitions.pause", Transition::Pause),
+        ("competitions.resume", Transition::Resume),
+        ("competitions.cancel", Transition::Cancel),
+    ] {
+        router.register_typed::<CompetitionId, LifecycleState, _, _>(
+            method,
+            "Transition competition lifecycle",
+            true,
+            move |core: Arc<AppCore>, params: CompetitionId| async move {
+                core.start_competition_timer();
+                crate::modules::blocking_task("competition transition", move || {
+                    core.competition_transition(&params.id, transition)
+                })
+                .await?
+                .map_err(ApiError::from)
+            },
+        );
+    }
+    router.register_typed::<Empty, CompetitionList, _, _>(
+        "competitions.list",
+        "List competition definitions",
+        false,
+        |core: Arc<AppCore>, _| async move {
+            core.competition_list()
+                .map(|competitions| CompetitionList { competitions })
+                .map_err(ApiError::from)
+        },
+    );
+    router.register_typed::<CompetitionId, Definition, _, _>(
+        "competitions.get",
+        "Get a competition definition",
+        false,
+        |core: Arc<AppCore>, params: CompetitionId| async move {
+            core.competition_get(&params.id).map_err(ApiError::from)
+        },
+    );
+}

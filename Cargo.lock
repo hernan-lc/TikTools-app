@@ -5277,6 +5277,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiktools-aggregation"
+version = "0.3.3"
+dependencies = [
+ "schemars",
+ "serde",
+]
+
+[[package]]
 name = "tiktools-cli"
 version = "0.3.3"
 dependencies = [
@@ -5301,6 +5309,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tiktools-competitions"
+version = "0.3.3"
+dependencies = [
+ "getrandom 0.4.3",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "tiktools-control-api"
 version = "0.3.3"
 dependencies = [
@@ -5309,6 +5327,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "tiktools-aggregation",
+ "tiktools-competitions",
  "tiktools-core",
  "tiktools-plugin-api",
  "tokio",
@@ -5330,6 +5350,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
+ "tiktools-aggregation",
+ "tiktools-competitions",
  "tiktools-plugin-api",
  "tiktools-plugin-loader",
  "tiktools-plugin-sdk",

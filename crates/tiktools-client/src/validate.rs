@@ -12,6 +12,10 @@ use tiktools_control_api::modules::automation::{
     AutomationScriptParams, AutomationSetEnablementParams, AutomationTestParams,
     AutomationUpdateParams,
 };
+use tiktools_control_api::modules::competitions::{
+    CompetitionActionId, CompetitionId, CompetitionResultsRequest,
+    Definition as CompetitionDefinition, ResolveCompetitionAction, SelectWinner,
+};
 use tiktools_control_api::modules::creators::{CreatorGetParams, CreatorsRecentParams};
 use tiktools_control_api::modules::gifts::GiftDebugParams;
 use tiktools_control_api::modules::globals::{
@@ -30,6 +34,7 @@ use tiktools_control_api::modules::points::{
     PointsViewerParams,
 };
 use tiktools_control_api::modules::processors::ProcessorTestParams;
+use tiktools_control_api::modules::rankings::{Definition, RankingId, RankingUpdate};
 use tiktools_control_api::modules::rpc::SchemaParams;
 use tiktools_control_api::modules::settings::{PluginSettingsGet, PluginSettingsSet};
 use tiktools_control_api::modules::system::SaveFileParams;
@@ -97,6 +102,35 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
             .map_err(invalid),
         "automation.runs" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "automation.snapshot" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
+        "competitions.create" | "competitions.update" => CompetitionDefinition::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "competitions.action" | "competitions.markActionUncertain" => {
+            CompetitionActionId::deserialize(params)
+                .map(|_| ())
+                .map_err(invalid)
+        }
+        "competitions.resolveAction" => ResolveCompetitionAction::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "competitions.selectWinner" => SelectWinner::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "competitions.results" => CompetitionResultsRequest::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "competitions.list" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
+        "competitions.get"
+        | "competitions.delete"
+        | "competitions.state"
+        | "competitions.finish"
+        | "competitions.candidates"
+        | "competitions.start"
+        | "competitions.pause"
+        | "competitions.resume"
+        | "competitions.cancel" => CompetitionId::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
         "creators.get" => CreatorGetParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),
@@ -186,6 +220,17 @@ pub fn validate_params(method: &str, params: &serde_json::Value) -> Result<(), C
         "plugins.install.set" => PluginInstallSetParams::deserialize(params)
             .map(|_| ())
             .map_err(invalid),
+        "rankings.create" => Definition::deserialize(params).map(|_| ()).map_err(invalid),
+        "rankings.update" => RankingUpdate::deserialize(params)
+            .map(|_| ())
+            .map_err(invalid),
+        "rankings.metrics" | "rankings.list" => {
+            Empty::deserialize(params).map(|_| ()).map_err(invalid)
+        }
+        "rankings.get" | "rankings.snapshot" | "rankings.delete" | "rankings.reset"
+        | "rankings.pause" | "rankings.resume" => {
+            RankingId::deserialize(params).map(|_| ()).map_err(invalid)
+        }
         "points.config.get" => Empty::deserialize(params).map(|_| ()).map_err(invalid),
         "points.config.set" => PartialPointsConfig::deserialize(params)
             .map(|_| ())

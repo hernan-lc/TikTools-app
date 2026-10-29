@@ -32,6 +32,7 @@ export default {
     automations: 'Automations',
     plugins: 'Plugins',
     overlays: 'Overlays',
+    rankings: 'Rankings & competitions',
     settings: 'Settings',
     toggleSidebar: 'Toggle sidebar',
   },
@@ -327,6 +328,8 @@ export default {
     viewers: {
       live: '{count} watching now',
       empty: 'No contributors yet.',
+      sourceTikTok: 'TikTok room ranking',
+      sourcePoints: 'Loyalty points ranking',
       filterTop: 'General',
       filterLikes: 'Likes',
       emptyLikes: 'No likes received yet.',

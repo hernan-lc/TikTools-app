@@ -177,6 +177,8 @@ pub struct AppCore {
     pub(crate) live_dedup: crate::live_events::dedup::LiveDedup,
     #[cfg(feature = "native-tiktok")]
     pub(crate) live_totals: crate::live_events::totals::LiveTotals,
+    pub(crate) aggregations: services::aggregations::AggregationService,
+    pub(crate) competitions: services::competitions::CompetitionService,
     option_sources: OptionSourceService,
     pub(crate) plugin_state: PluginRuntimeState,
     pub(crate) processor_state: ProcessorRuntimeState,
@@ -201,7 +203,14 @@ impl AppCore {
     /// The desktop crate supplies this for file dialogs and audio output;
     /// headless callers can keep using [`AppCore::new`].
     pub fn with_media_host(emitter: Arc<dyn HostEmitter>, media: Arc<dyn MediaHost>) -> Self {
-        let paths = AppPaths::from_environment();
+        Self::with_paths(emitter, media, AppPaths::from_environment())
+    }
+
+    fn with_paths(
+        emitter: Arc<dyn HostEmitter>,
+        media: Arc<dyn MediaHost>,
+        paths: AppPaths,
+    ) -> Self {
         if let Err(error) = paths.ensure_directories() {
             tracing::warn!(%error, "could not create all Rust host directories");
         }
@@ -288,7 +297,7 @@ impl AppCore {
             plugins,
             #[cfg(feature = "persistence")]
             analytics_writer: db::AnalyticsWriter::new(Arc::clone(&db)),
-            db,
+            db: db.clone(),
             app_state: Arc::new(AppStateService::default()),
             events: EventBus::new(256),
             emitter,
@@ -325,6 +334,14 @@ impl AppCore {
             live_dedup: crate::live_events::dedup::LiveDedup::default(),
             #[cfg(feature = "native-tiktok")]
             live_totals: crate::live_events::totals::LiveTotals::default(),
+            #[cfg(feature = "persistence")]
+            aggregations: services::aggregations::AggregationService::restore(&db),
+            #[cfg(not(feature = "persistence"))]
+            aggregations: services::aggregations::AggregationService::default(),
+            #[cfg(feature = "persistence")]
+            competitions: services::competitions::CompetitionService::restore(&db),
+            #[cfg(not(feature = "persistence"))]
+            competitions: services::competitions::CompetitionService::default(),
             option_sources: OptionSourceService::new(),
             plugin_state: PluginRuntimeState {
                 activation: RwLock::new(plugin_activation),
@@ -537,6 +554,8 @@ impl AppCore {
                 finished.await;
             }
         }
+        #[cfg(feature = "persistence")]
+        self.stop_competition_action_worker().await;
         {
             let _operation = self.live_monitor.operation.lock().await;
             self.stop_live_monitor().await;
@@ -596,6 +615,26 @@ impl AppCore {
             Err(_) => tracing::error!(
                 "points writer failed to stop within 30s; durable points work may remain unresolved"
             ),
+        }
+        #[cfg(feature = "persistence")]
+        {
+            let core = Arc::clone(self);
+            let checkpoint = tokio::task::spawn_blocking(move || {
+                services::competitions::CompetitionService::checkpoint_shutdown(&core)
+            });
+            // The checkpoint owner fences a late write after a newer host starts.
+            match tokio::time::timeout(std::time::Duration::from_secs(5), checkpoint).await {
+                Ok(Ok(Ok(()))) => {}
+                Ok(Ok(Err(error))) => {
+                    tracing::error!(%error, "competition integrity checkpoint failed")
+                }
+                Ok(Err(error)) => {
+                    tracing::error!(%error, "competition integrity checkpoint worker failed")
+                }
+                Err(_) => tracing::error!(
+                    "competition integrity checkpoint timed out; restart may be degraded"
+                ),
+            }
         }
         self.shutdown_finished.store(true, Ordering::Release);
         self.shutdown_complete.notify_waiters();

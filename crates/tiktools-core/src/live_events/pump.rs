@@ -100,6 +100,12 @@ impl AppCore {
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
                         lag_core.live_ingress.lagged.fetch_add(1, Ordering::Relaxed);
                         lag_core.record_event_gap();
+                        lag_core.aggregations.ingress_loss(count);
+                        let context =
+                            recover_rwlock_read(&lag_core.connection_context, "connection context");
+                        lag_core
+                            .live_totals
+                            .mark_like_ingress_loss(context.as_ref());
                         tracing::warn!(count, "native TikTok event receiver lagged; analytics and event stream incomplete")
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {

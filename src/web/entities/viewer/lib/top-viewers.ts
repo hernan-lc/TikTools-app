@@ -7,6 +7,7 @@ export interface RankedViewerEntry {
   nickname?: string;
   avatarUrl?: string;
   score: number;
+  provenance: 'tiktok_room' | 'loyalty_points';
 }
 
 export function rankedViewers(topViewers: readonly TopViewerPayload[], leaderboard: readonly ViewerRecord[]): RankedViewerEntry[] {
@@ -18,6 +19,7 @@ export function rankedViewers(topViewers: readonly TopViewerPayload[], leaderboa
       nickname: viewer.nickname,
       avatarUrl: viewer.avatarUrl,
       score: viewer.score,
+      provenance: 'tiktok_room',
     }));
   }
   return leaderboard.slice(0, 3).map((viewer, index) => ({
@@ -27,5 +29,6 @@ export function rankedViewers(topViewers: readonly TopViewerPayload[], leaderboa
     nickname: viewer.nickname,
     avatarUrl: viewer.avatarUrl,
     score: viewer.points,
+    provenance: 'loyalty_points',
   }));
 }

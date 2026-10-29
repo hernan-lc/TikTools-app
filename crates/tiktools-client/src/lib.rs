@@ -15,6 +15,7 @@
 pub mod analytics;
 pub mod app;
 pub mod automation;
+pub mod competitions;
 pub mod creators;
 pub mod gifts;
 pub mod globals;
@@ -23,6 +24,7 @@ pub mod media;
 pub mod plugins;
 pub mod points;
 pub mod processors;
+pub mod rankings;
 pub mod rpc;
 pub mod settings;
 pub mod system;
@@ -114,12 +116,14 @@ impl TikToolsClient {
             app::METHODS,
             automation::METHODS,
             creators::METHODS,
+            competitions::METHODS,
             gifts::METHODS,
             globals::METHODS,
             live::METHODS,
             media::METHODS,
             plugins::METHODS,
             points::METHODS,
+            rankings::METHODS,
             processors::METHODS,
             rpc::METHODS,
             settings::METHODS,

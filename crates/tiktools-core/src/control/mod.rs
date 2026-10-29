@@ -9,6 +9,7 @@
 
 mod analytics;
 mod automation;
+mod competitions;
 mod globals;
 mod helpers;
 mod live;
@@ -17,6 +18,7 @@ mod plugin_settings;
 mod plugins;
 mod points;
 mod processors;
+mod rankings;
 mod system;
 mod widgets;
 mod workflows;

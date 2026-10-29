@@ -46,10 +46,13 @@ impl WsEndpoint {
             WsEndpoint::Full => vec!["*".to_owned()],
             // Least privilege that still renders: widgets subscribe
             // explicitly after auth, but a listen-only client must still
-            // stay inside the widget topic set. Both widget topics are
+            // stay inside the widget topic set. All widget topics are
             // included so lag notifications reach widgets even before
             // the explicit subscribe lands.
-            WsEndpoint::Widgets => WIDGET_TOPICS.iter().map(|topic| topic.to_string()).collect(),
+            WsEndpoint::Widgets => WIDGET_TOPICS
+                .iter()
+                .map(|topic| topic.to_string())
+                .collect(),
         }
     }
 }

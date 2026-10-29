@@ -235,6 +235,7 @@ impl AppCore {
             "livePointsWork": live_points_work,
             "liveGenerationSeq": live_generation_seq,
             "liveIngress": live_ingress,
+            "competitionParticipation": self.competitions.diagnostics(),
             "liveDedup": live_dedup,
             "liveTotals": live_totals,
             "liveMonitor": self.live_monitor_status(),

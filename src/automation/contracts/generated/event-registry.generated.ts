@@ -5709,6 +5709,2374 @@ export const GENERATED_EVENT_REGISTRY = {
         }
       ],
       "note": "Generated from PluginEmitAutomationData JSON Schema."
+    },
+    "competition.started": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.started",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.paused": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.paused",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.resumed": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.resumed",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.cancelled": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.cancelled",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.finished": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.finished",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.winner.selected": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.winner.selected",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.action.completed": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.action.completed",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
+    },
+    "competition.action.failed": {
+      "dataInterface": "CompetitionAutomationData",
+      "sourceInterface": "CompetitionAutomationData",
+      "sampleEvent": {
+        "id": "sample-event",
+        "type": "competition.action.failed",
+        "timestamp": 0,
+        "data": {
+          "competitionId": "sample",
+          "rankingId": "sample",
+          "creatorId": "sample",
+          "roomId": "sample",
+          "generation": 1,
+          "optionId": "sample",
+          "winnerId": "sample",
+          "winnerScore": 1,
+          "selectionMode": "highest_score",
+          "selectionId": "sample",
+          "actionId": "sample",
+          "actionStatus": "pending"
+        },
+        "intel": INTEL_SAMPLE_DEFAULT
+      },
+      "fields": [
+        {
+          "path": "event.data.competitionId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Competition Id",
+            "es": "Competition Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.competitionId",
+            "es": "CompetitionAutomationData.competitionId"
+          },
+          "sample": "sample",
+          "sourceField": "competitionId"
+        },
+        {
+          "path": "event.data.rankingId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Ranking Id",
+            "es": "Ranking Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.rankingId",
+            "es": "CompetitionAutomationData.rankingId"
+          },
+          "sample": "sample",
+          "sourceField": "rankingId"
+        },
+        {
+          "path": "event.data.creatorId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Creator Id",
+            "es": "Creator Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.creatorId",
+            "es": "CompetitionAutomationData.creatorId"
+          },
+          "sample": "sample",
+          "sourceField": "creatorId"
+        },
+        {
+          "path": "event.data.roomId",
+          "tsType": "string",
+          "kind": "string",
+          "optional": false,
+          "label": {
+            "en": "Room Id",
+            "es": "Room Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.roomId",
+            "es": "CompetitionAutomationData.roomId"
+          },
+          "sample": "sample",
+          "sourceField": "roomId"
+        },
+        {
+          "path": "event.data.generation",
+          "tsType": "number",
+          "kind": "number",
+          "optional": false,
+          "label": {
+            "en": "Generation",
+            "es": "Generation"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.generation",
+            "es": "CompetitionAutomationData.generation"
+          },
+          "sample": 1,
+          "sourceField": "generation"
+        },
+        {
+          "path": "event.data.optionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Option Id",
+            "es": "Option Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.optionId",
+            "es": "CompetitionAutomationData.optionId"
+          },
+          "sample": "sample",
+          "sourceField": "optionId"
+        },
+        {
+          "path": "event.data.winnerId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Winner Id",
+            "es": "Winner Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerId",
+            "es": "CompetitionAutomationData.winnerId"
+          },
+          "sample": "sample",
+          "sourceField": "winnerId"
+        },
+        {
+          "path": "event.data.winnerScore",
+          "tsType": "number | null",
+          "kind": "number",
+          "optional": true,
+          "label": {
+            "en": "Winner Score",
+            "es": "Winner Score"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.winnerScore",
+            "es": "CompetitionAutomationData.winnerScore"
+          },
+          "sample": 1,
+          "sourceField": "winnerScore"
+        },
+        {
+          "path": "event.data.selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Mode",
+            "es": "Selection Mode"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionMode",
+            "es": "CompetitionAutomationData.selectionMode"
+          },
+          "sample": "highest_score",
+          "sourceField": "selectionMode"
+        },
+        {
+          "path": "event.data.selectionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Selection Id",
+            "es": "Selection Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.selectionId",
+            "es": "CompetitionAutomationData.selectionId"
+          },
+          "sample": "sample",
+          "sourceField": "selectionId"
+        },
+        {
+          "path": "event.data.actionId",
+          "tsType": "string | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Id",
+            "es": "Action Id"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionId",
+            "es": "CompetitionAutomationData.actionId"
+          },
+          "sample": "sample",
+          "sourceField": "actionId"
+        },
+        {
+          "path": "event.data.actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Action Status",
+            "es": "Action Status"
+          },
+          "hint": {
+            "en": "CompetitionAutomationData.actionStatus",
+            "es": "CompetitionAutomationData.actionStatus"
+          },
+          "sample": "pending",
+          "sourceField": "actionStatus"
+        },
+        {
+          "path": "event.intel.processing.status",
+          "tsType": "string",
+          "kind": "string",
+          "optional": true,
+          "label": {
+            "en": "Status",
+            "es": "Status"
+          },
+          "hint": {
+            "en": "EventIntel.processing.status",
+            "es": "EventIntel.processing.status"
+          },
+          "sample": "sample"
+        }
+      ],
+      "sourceFields": [
+        {
+          "name": "competitionId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "rankingId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "creatorId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "roomId",
+          "tsType": "string",
+          "optional": false
+        },
+        {
+          "name": "generation",
+          "tsType": "number",
+          "optional": false
+        },
+        {
+          "name": "optionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "winnerScore",
+          "tsType": "number | null",
+          "optional": true
+        },
+        {
+          "name": "selectionMode",
+          "tsType": "\"highest_score\" | \"uniform_random\" | \"weighted_random\" | null",
+          "optional": true
+        },
+        {
+          "name": "selectionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionId",
+          "tsType": "string | null",
+          "optional": true
+        },
+        {
+          "name": "actionStatus",
+          "tsType": "\"pending\" | \"running\" | \"completed\" | \"failed\" | \"uncertain\" | null",
+          "optional": true
+        }
+      ],
+      "note": "Generated from CompetitionAutomationData JSON Schema."
     }
   }
 } as const satisfies Record<string, unknown>;

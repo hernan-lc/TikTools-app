@@ -124,6 +124,8 @@ export interface WidgetTemplateSchema {
 export interface WidgetTemplate {
   id: string;
   schema: WidgetTemplateSchema;
+  topics?: readonly string[];
+  resetOnDisconnect?: boolean;
   create(search: string, clock?: WidgetClock): {
     controller: WidgetController;
     render(status: GatewayStatus, debug: boolean): VNode;

@@ -463,8 +463,11 @@ async fn admit_full(
                 // Like goals can no longer claim an exact observed count:
                 // distinguish this gap from a rule whose filter did not match.
                 core.record_event_gap();
+                let context = recover_rwlock_read(&core.connection_context, "connection context");
+                core.live_totals.mark_like_ingress_loss(context.as_ref());
             }
         }
+        core.aggregations.ingress_loss(1);
         stats.dropped_data.fetch_add(1, Ordering::Relaxed);
         stats.note_overload("shedding live data event on saturated ingress");
         return;
@@ -488,6 +491,7 @@ async fn admit_full(
         }
         Err(_) => {
             stats.dropped_critical.fetch_add(1, Ordering::Relaxed);
+            core.aggregations.ingress_loss(1);
             core.record_event_gap();
             stats.note_overload("dropping critical live event after backpressure timeout");
             tracing::warn!(
@@ -636,6 +640,8 @@ async fn run_ingress_dispatch(
         let started = now_millis();
         if let ClientEvent::Event(event) = item.event {
             if let Some(effect) = core.prepare_live_event(event) {
+                core.route_live_competition_command(&effect).await;
+                core.route_live_competition_score(&effect).await;
                 // Reserve synchronously: storage can never hold ingress hostage.
                 match effects.try_reserve() {
                     Ok(permit) => {

@@ -17,6 +17,7 @@ const BUILTIN_TABS: readonly BuiltinAppTab[] = [
   'behavior',
   'plugins',
   'widgets',
+  'rankings',
   'settings',
 ];
 

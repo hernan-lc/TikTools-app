@@ -48,6 +48,9 @@
     },
     "pluginEmit": {
       "$ref": "#/$defs/PluginEmitAutomationData"
+    },
+    "competition": {
+      "$ref": "#/$defs/CompetitionAutomationData"
     }
   },
   "required": [
@@ -65,7 +68,8 @@
     "roomStats",
     "connection",
     "pointsAwarded",
-    "pluginEmit"
+    "pluginEmit",
+    "competition"
   ],
   "$defs": {
     "AutomationUser": {
@@ -1477,6 +1481,107 @@
         "emitType",
         "depth",
         "payload"
+      ]
+    },
+    "CompetitionAutomationData": {
+      "description": "Host-generated competition context. Optional winner and action fields are\npopulated only after the relevant durable state transition.",
+      "type": "object",
+      "properties": {
+        "competitionId": {
+          "type": "string"
+        },
+        "rankingId": {
+          "type": "string"
+        },
+        "creatorId": {
+          "type": "string"
+        },
+        "roomId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "optionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "winnerId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "winnerScore": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "selectionMode": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelectionMode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selectionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actionStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActionStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "competitionId",
+        "rankingId",
+        "creatorId",
+        "roomId",
+        "generation"
+      ]
+    },
+    "SelectionMode": {
+      "type": "string",
+      "enum": [
+        "highest_score",
+        "uniform_random",
+        "weighted_random"
+      ]
+    },
+    "ActionStatus": {
+      "description": "Public execution status omits action inputs and idempotency keys.",
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "uncertain"
       ]
     }
   }

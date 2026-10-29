@@ -63,11 +63,16 @@ function start() {
     });
   } else {
     runtime = createWidgetRuntime({
+      topics: props.template.topics,
+      onGap: () => { if (props.template.resetOnDisconnect) controller.clear(); },
       onEnvelope: (envelope) => {
         lastEvents.record(envelope);
         inject(envelope);
       },
-      onStatus: (next) => { status.value = next; },
+      onStatus: (next) => {
+        if (props.template.resetOnDisconnect && (next === 'reconnecting' || next === 'auth-failed')) controller.clear();
+        status.value = next;
+      },
     });
     runtime.start();
   }

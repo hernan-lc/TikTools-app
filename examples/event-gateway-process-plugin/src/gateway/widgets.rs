@@ -30,6 +30,8 @@ const WIDGET_INDEX_HTML: &str = r#"<!doctype html>
 <li><a href="/widgets/chat/">Chat Overlay</a></li>
 <li><a href="/widgets/share/">Share Alert</a></li>
 <li><a href="/widgets/subscribe/">Subscribe Alert</a></li>
+<li><a href="/widgets/likes/">Top Likes</a></li>
+<li><a href="/widgets/ranking/">Ranking</a></li>
 </ul>
 </body>
 </html>
@@ -44,7 +46,10 @@ pub(crate) fn is_widget_index(path: &str) -> bool {
 }
 
 fn is_widget_name(name: &str) -> bool {
-    matches!(name, "follow" | "gift" | "chat" | "share" | "subscribe")
+    matches!(
+        name,
+        "follow" | "gift" | "chat" | "share" | "subscribe" | "likes" | "ranking"
+    )
 }
 
 /// Resolves the widget asset root: an explicit `widgetsDir` setting wins;

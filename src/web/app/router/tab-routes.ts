@@ -16,6 +16,7 @@ export const builtinTabPaths: Record<BuiltinAppTab, string> = {
   behavior: '/automations',
   plugins: '/plugins',
   widgets: '/overlays',
+  rankings: '/rankings',
   settings: '/settings',
 };
 

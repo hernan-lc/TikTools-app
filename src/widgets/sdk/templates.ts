@@ -9,11 +9,16 @@ import { SubscribeController, type SubscribeAlert } from '../shared/subscribe-co
 import GiftWidget from '../gift/GiftWidget.vue';
 import ChatWidget from '../chat/ChatWidget.vue';
 import LikesWidget from '../likes/LikesWidget.vue';
+import RankingWidget from '../ranking/RankingWidget.vue';
+import RevealWidget from '../ranking/RevealWidget.vue';
+import { RevealController, type RevealResult } from '../shared/reveal-controller.ts';
+import { RankingController, type RankingSnapshot } from '../shared/ranking-controller.ts';
 import { GiftController, type GiftAlertView } from '../shared/gift-controller.ts';
 import { ChatController, type ChatMessageView } from '../shared/chat-controller.ts';
-import { LikesController, type LikeBoardEntry } from '../shared/likes-controller.ts';
+import { type LikeBoardEntry } from '../shared/likes-controller.ts';
+import { NativeLikesController } from '../shared/native-likes-controller.ts';
 import { parseFollowSettings, parseShareSettings, parseSubscribeSettings, parseGiftSettings, parseChatSettings, parseLikesSettings } from '../shared/config.ts';
-import { makeTestFollowEnvelope, makeTestShareEnvelope, makeTestSubscribeEnvelope, makeTestGiftCombo, makeTestChatEnvelope, makeTestLikeEnvelope } from '../shared/test-events.ts';
+import { makeTestFollowEnvelope, makeTestShareEnvelope, makeTestSubscribeEnvelope, makeTestGiftCombo, makeTestChatEnvelope } from '../shared/test-events.ts';
 import { coreTextFields, textDefaults, type TextField } from './text.ts';
 
 function alertDesign(accent: string, options: {
@@ -160,18 +165,50 @@ const likesSchema = templateSchema('likes', alertDesign('#fb7185', { padding: 16
 export const likesTemplate = defineWidget({
   id: 'likes',
   schema: likesSchema,
-  samples: () => [
-    makeTestLikeEnvelope({ user: { userId: 'u1', uniqueId: 'ana', nickname: 'Ana' }, count: 12 }),
-    makeTestLikeEnvelope({ user: { userId: 'u2', uniqueId: 'ben', nickname: 'Ben' }, count: 34 }),
-    makeTestLikeEnvelope({ user: { userId: 'u3', uniqueId: 'cid', nickname: 'Cid' }, count: 7 }),
+  topics: ['live.likes-ranking-full', 'live.disconnected', 'event.gap'],
+  resetOnDisconnect: true,
+  samples: () => [{ topic: 'live.likes-ranking-full', data: { creatorId: 'preview', roomId: 'preview', leaders: [
+    { userId: 'u2', uniqueId: 'ben', nickname: 'Ben', rank: 1, score: 34 },
+    { userId: 'u1', uniqueId: 'ana', nickname: 'Ana', rank: 2, score: 12 },
+    { userId: 'u3', uniqueId: 'cid', nickname: 'Cid', rank: 3, score: 7 },
+  ] } },
   ],
   create(search) {
     const settings = parseLikesSettings(search);
     const entries = shallowRef<LikeBoardEntry[]>([]);
-    const controller = new LikesController({ onBoard: (next) => { entries.value = [...next]; } }, settings);
-    return { controller, render: (status, debug) => h(LikesWidget, { entries: entries.value, settings, status, debug }) };
+    const handlers = { onBoard: (next: LikeBoardEntry[]) => { entries.value = [...next]; } };
+    const degraded = shallowRef(false);
+    const controller = new NativeLikesController(handlers, settings.maxEntries, (value) => { degraded.value = value; });
+    return { controller, render: (status, debug) => h(LikesWidget, { entries: entries.value, settings, status, debug, degraded: degraded.value }) };
+  },
+});
+
+export const rankingTemplate = defineWidget({
+  id: 'ranking',
+  schema: likesSchema,
+  topics: ['ranking.updated', 'competition.result', 'event.gap'],
+  resetOnDisconnect: true,
+  samples: () => [{ topic: 'ranking.updated', data: { snapshot: { rankingId: 'preview', schemaVersion: 1, creatorId: 'preview', roomId: 'preview', revision: 1, integrityStatus: 'unknown', paused: false, entries: [{ key: 'Ana', rank: 1, score: 125 }, { key: 'Ben', rank: 2, score: 80 }, { key: 'Cid', rank: 3, score: 45 }], totalScore: 250, totalParticipants: 3 } } }],
+  create(search) {
+    const params = new URLSearchParams(search);
+    const rankingId = params.get('rankingId') || 'preview';
+    const requested = params.get('visualization');
+    if (requested === 'roulette') {
+      const result = shallowRef<RevealResult | null>(null);
+      const controller = new RevealController(rankingId, (next) => { result.value = next; }, params.get('competitionId') || undefined);
+      return { controller, render: (status, debug) => h(RevealWidget, { result: result.value, status, debug }) };
+    }
+    const visualization = requested === 'bar' || requested === 'pie' || requested === 'donut' || requested === 'poll' ? requested : 'ranking';
+    const showLabels = params.get('showLabels') !== 'false';
+    const showPercentages = params.get('showPercentages') === 'true';
+    const showLegend = params.get('showLegend') !== 'false';
+    const snapshot = shallowRef<RankingSnapshot | null>(null);
+    const controller = new RankingController(rankingId, (next) => { snapshot.value = next; });
+    return { controller, render: (status, debug) => h(RankingWidget, { snapshot: snapshot.value, visualization, status, debug, showLabels, showPercentages, showLegend }) };
   },
 });
 
 export const widgetTemplates = { follow: followTemplate, gift: giftTemplate, chat: chatTemplate, share: shareTemplate, subscribe: subscribeTemplate, likes: likesTemplate };
 export type WidgetKind = keyof typeof widgetTemplates;
+/** Standalone registry also includes visualizations that do not use the alert editor. */
+export const standaloneWidgetTemplates = { ...widgetTemplates, ranking: rankingTemplate };

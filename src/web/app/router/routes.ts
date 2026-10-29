@@ -45,6 +45,7 @@ export const routes: RouteRecordRaw[] = [
         meta: { tab: 'widgets' },
         component: () => import('@/pages/overlays/ui/OverlaysPage.vue'),
       },
+      { path: 'rankings', name: 'rankings', meta: { tab: 'rankings' }, component: () => import('@/pages/rankings/ui/RankingsPage.vue') },
       {
         path: 'settings',
         name: 'settings',

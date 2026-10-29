@@ -2,6 +2,9 @@
 
 import type { JsonValue } from './json-value.ts';
 
+export interface ActionStatus {
+}
+
 export interface AutomationCreator {
   "uniqueId": string;
   "roomId": string;
@@ -49,6 +52,21 @@ export interface ChatAutomationEmote {
   "index"?: number | null;
   "emoteType"?: number | null;
   "packageId"?: string | null;
+}
+
+export interface CompetitionAutomationData {
+  "competitionId": string;
+  "rankingId": string;
+  "creatorId": string;
+  "roomId": string;
+  "generation": number;
+  "optionId"?: string | null;
+  "winnerId"?: string | null;
+  "winnerScore"?: number | null;
+  "selectionMode"?: "highest_score" | "uniform_random" | "weighted_random" | null;
+  "selectionId"?: string | null;
+  "actionId"?: string | null;
+  "actionStatus"?: "pending" | "running" | "completed" | "failed" | "uncertain" | null;
 }
 
 export interface ConnectionAutomationData {
@@ -253,6 +271,9 @@ export interface RoomStatsAutomationData {
   "method": string;
   "msgId": string;
   "isHistory": boolean;
+}
+
+export interface SelectionMode {
 }
 
 export interface SocialAutomationData {

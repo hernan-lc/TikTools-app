@@ -52,6 +52,7 @@ pub struct ControlApi {
 
 impl ControlApi {
     pub fn new(core: Arc<AppCore>) -> Self {
+        core.start_competition_timer();
         let mut router = ControlRouter::new();
         Self::register_all(&mut router);
         Self { core, router }
@@ -66,6 +67,8 @@ impl ControlApi {
         modules::settings::register(router);
         modules::live::register(router);
         modules::points::register(router);
+        modules::rankings::register(router);
+        modules::competitions::register(router);
         modules::automation::register(router);
         modules::processors::register(router);
         modules::media::register(router);
@@ -86,6 +89,10 @@ impl ControlApi {
             "globals.delete",
             "workflows.delete",
             "points.reset",
+            "competitions.delete",
+            "competitions.cancel",
+            "rankings.delete",
+            "rankings.reset",
             "creators.history.clear",
             "system.shutdown",
         ] {

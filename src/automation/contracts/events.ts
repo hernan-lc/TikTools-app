@@ -13,6 +13,14 @@ export const BUILTIN_EVENT_TYPES = [
   'tiktok.disconnected',
   'points.awarded',
   'plugin.emit',
+  'competition.started',
+  'competition.paused',
+  'competition.resumed',
+  'competition.cancelled',
+  'competition.finished',
+  'competition.winner.selected',
+  'competition.action.completed',
+  'competition.action.failed',
 ] as const;
 
 export type AutomationEventType = typeof BUILTIN_EVENT_TYPES[number];
@@ -32,4 +40,12 @@ export const BUILTIN_EVENT_CONTRACTS: Record<AutomationEventType, string> = {
   'tiktok.disconnected': 'ConnectionAutomationData',
   'points.awarded': 'PointsAwardedAutomationData',
   'plugin.emit': 'PluginEmitAutomationData',
+  'competition.started': 'CompetitionAutomationData',
+  'competition.paused': 'CompetitionAutomationData',
+  'competition.resumed': 'CompetitionAutomationData',
+  'competition.cancelled': 'CompetitionAutomationData',
+  'competition.finished': 'CompetitionAutomationData',
+  'competition.winner.selected': 'CompetitionAutomationData',
+  'competition.action.completed': 'CompetitionAutomationData',
+  'competition.action.failed': 'CompetitionAutomationData',
 };

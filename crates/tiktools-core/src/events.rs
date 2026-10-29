@@ -90,6 +90,42 @@ pub enum DomainEvent {
         room_id: String,
         leaders: Vec<Value>,
     },
+    /// Bounded wider native like projection for read-only widgets.
+    #[serde(rename = "live.likes-ranking-full", rename_all = "camelCase")]
+    LiveLikesRankingFull {
+        creator_id: String,
+        room_id: String,
+        leaders: Vec<Value>,
+        #[serde(default)]
+        integrity_status: String,
+    },
+    #[serde(rename = "competition.started")]
+    CompetitionStarted(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.paused")]
+    CompetitionPaused(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.resumed")]
+    CompetitionResumed(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.cancelled")]
+    CompetitionCancelled(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.finished")]
+    CompetitionFinished(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.winner.selected")]
+    CompetitionWinnerSelected(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.action.completed")]
+    CompetitionActionCompleted(crate::contracts::CompetitionAutomationData),
+    #[serde(rename = "competition.action.failed")]
+    CompetitionActionFailed(crate::contracts::CompetitionAutomationData),
+    /// A committed, immutable result for read-only reveal clients. This is
+    /// a presentation snapshot and never triggers automation.
+    #[serde(rename = "competition.result", rename_all = "camelCase")]
+    CompetitionResult {
+        result: tiktools_competitions::RevealSnapshot,
+    },
+    /// Presentation-only snapshot; reconnecting clients use rankings.snapshot.
+    #[serde(rename = "ranking.updated", rename_all = "camelCase")]
+    RankingUpdated {
+        snapshot: tiktools_aggregation::Snapshot,
+    },
     #[serde(rename = "room.stats", rename_all = "camelCase")]
     RoomStats {
         viewers: u64,
@@ -144,6 +180,17 @@ impl DomainEvent {
             Self::LiveEvent { .. } => "live.event",
             Self::LiveUiEvent { .. } => "live.ui-event",
             Self::LiveLikesRanking { .. } => "live.likes-ranking",
+            Self::LiveLikesRankingFull { .. } => "live.likes-ranking-full",
+            Self::CompetitionStarted(..) => "competition.started",
+            Self::CompetitionPaused(..) => "competition.paused",
+            Self::CompetitionResumed(..) => "competition.resumed",
+            Self::CompetitionCancelled(..) => "competition.cancelled",
+            Self::CompetitionFinished(..) => "competition.finished",
+            Self::CompetitionWinnerSelected(..) => "competition.winner.selected",
+            Self::CompetitionActionCompleted(..) => "competition.action.completed",
+            Self::CompetitionActionFailed(..) => "competition.action.failed",
+            Self::CompetitionResult { .. } => "competition.result",
+            Self::RankingUpdated { .. } => "ranking.updated",
             Self::RoomStats { .. } => "room.stats",
             Self::GiftsCatalog { .. } => "gifts.catalog",
             Self::LiveReconnecting { .. } => "live.reconnecting",
@@ -208,6 +255,8 @@ impl DomainEvent {
             Self::LiveEvent { .. }
                 | Self::LiveUiEvent { .. }
                 | Self::LiveLikesRanking { .. }
+                | Self::LiveLikesRankingFull { .. }
+                | Self::RankingUpdated { .. }
                 | Self::RoomStats { .. }
                 | Self::AnalyticsUpdated { .. }
                 | Self::GiftsCatalog { .. }
@@ -349,6 +398,11 @@ impl EventBus {
             truncated: last < latest,
             events,
         }
+    }
+
+    /// Whether a presentation subscriber can receive lossy snapshots.
+    pub fn has_domain_subscribers(&self) -> bool {
+        self.lossy.receiver_count() > 0
     }
 
     pub fn subscribe_domain(&self) -> DomainSubscription {
@@ -759,6 +813,34 @@ mod tests {
                 "analytics.updated",
                 |data| assert_eq!(data["creatorUniqueId"], "creator"),
             ),
+            (
+                DomainEvent::CompetitionResult {
+                    result: tiktools_competitions::ResultRecord {
+                        schema_version: 1,
+                        competition_id: "poll".into(),
+                        generation: 1,
+                        ranking_id: "rank".into(),
+                        ranking_revision: 2,
+                        finalized_at: 3,
+                        selection: tiktools_competitions::Selection {
+                            mode: tiktools_competitions::SelectionMode::WeightedRandom,
+                            tie_policy: tiktools_competitions::TiePolicy::Stable,
+                            eligible: vec![tiktools_competitions::Candidate {
+                                key: "a".into(),
+                                weight: 3,
+                            }],
+                            winner: Some("a".into()),
+                        },
+                    }
+                    .reveal_snapshot()
+                    .unwrap(),
+                },
+                "competition.result",
+                |data| {
+                    assert_eq!(data["result"]["rankingId"], "rank");
+                    assert_eq!(data["result"]["selection"]["winner"], "a");
+                },
+            ),
             (DomainEvent::Shutdown, "shutdown", |data| {
                 assert!(data.is_null(), "unit variants carry null data")
             }),
@@ -770,7 +852,7 @@ mod tests {
         let cases = all_variant_cases();
         assert_eq!(
             cases.len(),
-            24,
+            25,
             "a DomainEvent variant is missing test coverage"
         );
         for (event, topic, check_data) in &cases {

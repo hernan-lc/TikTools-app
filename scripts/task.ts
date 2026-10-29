@@ -131,6 +131,7 @@ async function tests(): Promise<void> {
   // built assets and Playwright browsers; run them explicitly with
   // `bun scripts/task.ts e2e ...` after `bun run build`.
   await tool('vitest', 'run');
+  await tool('vitest', 'run', '--config', 'vitest.widgets.config.ts');
 }
 
 /** Fail when a required Rust regression test no longer exists: a bare

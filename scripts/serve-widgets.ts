@@ -40,7 +40,7 @@ function portFromArgs(): number {
 
 const port = portFromArgs();
 
-const WIDGET_KINDS = ['follow', 'gift', 'chat', 'share', 'subscribe'];
+const WIDGET_KINDS = ['follow', 'gift', 'chat', 'share', 'subscribe', 'likes', 'ranking'];
 
 const missing: string[] = [];
 for (const kind of WIDGET_KINDS) {

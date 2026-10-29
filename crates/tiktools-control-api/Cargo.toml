@@ -14,6 +14,8 @@ native-tiktok = ["tiktools-core/native-tiktok"]
 http = ["tiktools-core/http"]
 
 [dependencies]
+tiktools-aggregation = { path = "../tiktools-aggregation" }
+tiktools-competitions = { path = "../tiktools-competitions" }
 tiktools-core = { path = "../tiktools-core" }
 tiktools-plugin-api = { path = "../tiktools-plugin-api" }
 serde.workspace = true

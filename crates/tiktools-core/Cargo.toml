@@ -25,6 +25,8 @@ native-tiktok = ["dep:tiktools-tiktok"]
 live-benchmark = ["native-tiktok"]
 
 [dependencies]
+tiktools-aggregation = { path = "../tiktools-aggregation" }
+tiktools-competitions = { path = "../tiktools-competitions" }
 tiktools-plugin-api = { path = "../tiktools-plugin-api" }
 tiktools-plugin-sdk = { path = "../tiktools-plugin-sdk" }
 tiktools-plugin-loader = { path = "../tiktools-plugin-loader", default-features = false }

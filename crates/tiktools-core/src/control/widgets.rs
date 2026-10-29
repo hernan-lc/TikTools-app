@@ -18,7 +18,15 @@ pub const GATEWAY_DEFAULT_PORT: u16 = 17_452;
 
 /// OBS widget names served by the gateway (`/widgets/<kind>/`). Keep in sync
 /// with the gateway route allowlist and `GATEWAY_WIDGET_KINDS`.
-const VALID_WIDGETS: &[&str] = &["follow", "gift", "chat", "share", "subscribe"];
+const VALID_WIDGETS: &[&str] = &[
+    "follow",
+    "gift",
+    "chat",
+    "share",
+    "subscribe",
+    "likes",
+    "ranking",
+];
 
 /// Loopback probe budget per connection phase. The gateway answers from
 /// memory on loopback, so anything slower means it is not there.
@@ -217,9 +225,82 @@ impl AppCore {
     /// deliberately not a running gateway — the URL stays valid, so OBS can
     /// hold it while the gateway (re)starts.
     pub fn widgets_copy_obs_url(&self, widget: &str) -> Result<WidgetsCopyResult, OperationError> {
+        self.widgets_copy_obs_url_with_ranking(widget, None, None)
+    }
+
+    pub fn widgets_copy_obs_url_with_ranking(
+        &self,
+        widget: &str,
+        ranking_id: Option<&str>,
+        visualization: Option<&str>,
+    ) -> Result<WidgetsCopyResult, OperationError> {
+        self.widgets_copy_obs_url_with_display(widget, ranking_id, visualization, None, None, None)
+    }
+
+    pub fn widgets_copy_obs_url_with_display(
+        &self,
+        widget: &str,
+        ranking_id: Option<&str>,
+        visualization: Option<&str>,
+        show_labels: Option<bool>,
+        show_percentages: Option<bool>,
+        show_legend: Option<bool>,
+    ) -> Result<WidgetsCopyResult, OperationError> {
+        self.widgets_copy_obs_url_with_competition(
+            widget,
+            ranking_id,
+            visualization,
+            show_labels,
+            show_percentages,
+            show_legend,
+            None,
+        )
+    }
+
+    pub fn widgets_copy_obs_url_with_competition(
+        &self,
+        widget: &str,
+        ranking_id: Option<&str>,
+        visualization: Option<&str>,
+        show_labels: Option<bool>,
+        show_percentages: Option<bool>,
+        show_legend: Option<bool>,
+        competition_id: Option<&str>,
+    ) -> Result<WidgetsCopyResult, OperationError> {
+        if let Some(competition_id) = competition_id {
+            if widget != "ranking"
+                || visualization != Some("roulette")
+                || self.competition_get(competition_id)?.ranking_id
+                    != ranking_id.unwrap_or_default()
+            {
+                return Err(OperationError::invalid(
+                    "competition must match the roulette ranking",
+                ));
+            }
+        }
+        if widget == "ranking" {
+            let id = ranking_id
+                .filter(|id| !id.is_empty())
+                .ok_or_else(|| OperationError::invalid("rankingId is required"))?;
+            self.ranking_get(id)?;
+            if visualization.is_some_and(|value| {
+                !["ranking", "bar", "pie", "donut", "poll", "roulette"].contains(&value)
+            }) {
+                return Err(OperationError::invalid("invalid ranking visualization"));
+            }
+        } else if ranking_id.is_some()
+            || visualization.is_some()
+            || show_labels.is_some()
+            || show_percentages.is_some()
+            || show_legend.is_some()
+        {
+            return Err(OperationError::invalid(
+                "ranking options require ranking widget",
+            ));
+        }
         if !VALID_WIDGETS.contains(&widget) {
             return Err(OperationError::invalid(
-                "widget must be one of: follow, gift, chat, share, subscribe",
+                "widget must be one of: follow, gift, chat, share, subscribe, likes, ranking",
             ));
         }
         let plugin = self.require_discovered(GATEWAY_PLUGIN_ID)?;
@@ -238,8 +319,30 @@ impl AppCore {
             std::net::IpAddr::V4(_) => GATEWAY_LOOPBACK_V4.to_owned(),
             std::net::IpAddr::V6(addr) => format!("[{addr}]"),
         };
+        let query = if widget == "ranking" {
+            let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+            serializer.append_pair("rankingId", ranking_id.expect("validated ranking"));
+            if let Some(visualization) = visualization {
+                serializer.append_pair("visualization", visualization);
+            }
+            if let Some(competition_id) = competition_id {
+                serializer.append_pair("competitionId", competition_id);
+            }
+            for (name, value) in [
+                ("showLabels", show_labels),
+                ("showPercentages", show_percentages),
+                ("showLegend", show_legend),
+            ] {
+                if let Some(value) = value {
+                    serializer.append_pair(name, if value { "true" } else { "false" });
+                }
+            }
+            format!("?{}", serializer.finish())
+        } else {
+            String::new()
+        };
         let mut url = format!(
-            "http://{host}:{port}/widgets/{widget}/#token={}",
+            "http://{host}:{port}/widgets/{widget}/{query}#token={}",
             percent_encode_fragment(&credential)
         );
         let key = format!("widgets.design.{widget}");
@@ -968,7 +1071,10 @@ mod tests {
         let outcome = block_on_current_thread(probe_gateway("127.0.0.1".parse().unwrap(), 9));
         assert_eq!(outcome, ProbeOutcome::NotListening);
         // Healthy gateway shape: /health plus every bundle answers 200.
-        let port = serve_canned(vec![("/health", 200), ("/widgets/", 200)], 6);
+        let port = serve_canned(
+            vec![("/health", 200), ("/widgets/", 200)],
+            1 + VALID_WIDGETS.len(),
+        );
         let outcome = block_on_current_thread(probe_gateway("127.0.0.1".parse().unwrap(), port));
         assert_eq!(outcome, ProbeOutcome::Ready);
         // Health OK but bundles missing: assets missing, not unreachable.

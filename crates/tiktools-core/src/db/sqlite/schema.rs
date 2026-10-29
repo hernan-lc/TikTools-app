@@ -76,6 +76,155 @@ CREATE TABLE IF NOT EXISTS gift_catalog (
 );
 "#;
 const AUTOMATION_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS aggregation_definitions (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  room_id TEXT NOT NULL,
+  schema_version INTEGER NOT NULL,
+  definition_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_aggregation_scope ON aggregation_definitions(creator_id, room_id);
+CREATE TABLE IF NOT EXISTS competition_definitions (
+  id TEXT PRIMARY KEY,
+  ranking_id TEXT NOT NULL,
+  schema_version INTEGER NOT NULL,
+  definition_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_competition_ranking ON competition_definitions(ranking_id);
+CREATE TABLE IF NOT EXISTS competition_state (
+  competition_id TEXT PRIMARY KEY,
+  state_json TEXT NOT NULL
+);
+INSERT OR IGNORE INTO competition_state(competition_id, state_json)
+  SELECT id, '{"lifecycle":"draft","generation":0,"deadlineMs":null,"remainingMs":null}' FROM competition_definitions;
+-- A generation is marked open before it accepts votes. Only a drained host
+-- may checkpoint it as clean; an unclean restart must not forget possible loss.
+CREATE TABLE IF NOT EXISTS competition_integrity_checkpoints (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('open','clean','degraded')),
+  PRIMARY KEY (competition_id, generation)
+);
+CREATE TABLE IF NOT EXISTS competition_integrity_owners (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  owner TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation)
+);
+CREATE TABLE IF NOT EXISTS competition_participation_counts (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  participants INTEGER NOT NULL DEFAULT 0,
+  contributions INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (competition_id, generation)
+);
+CREATE TABLE IF NOT EXISTS competition_participants (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  participant_id TEXT NOT NULL,
+  option_id TEXT NOT NULL,
+  votes INTEGER NOT NULL CHECK(votes > 0),
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (competition_id, generation, participant_id)
+);
+CREATE INDEX IF NOT EXISTS idx_competition_participants_option ON competition_participants(competition_id, generation, option_id);
+CREATE TABLE IF NOT EXISTS competition_contributions (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  event_identity TEXT NOT NULL,
+  participant_id TEXT NOT NULL,
+  option_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (competition_id, generation, event_identity)
+);
+CREATE INDEX IF NOT EXISTS idx_competition_contributions_created ON competition_contributions(competition_id, generation, created_at);
+-- One receipt per canonical source event, including events ignored before
+-- selection or during pause. Scores are decimal text to retain full u64.
+-- High-water marks are retained for the entire competition generation;
+-- they are updated in the same transaction as contribution admission.
+-- Gift-only voters count as participants without creating a command selection.
+CREATE TABLE IF NOT EXISTS competition_gift_participants (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  participant_id TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation, participant_id)
+);
+CREATE TABLE IF NOT EXISTS competition_gift_receipts (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  event_identity TEXT NOT NULL,
+  participant_id TEXT NOT NULL,
+  gift_id TEXT NOT NULL,
+  group_id TEXT NOT NULL,
+  observed_quantity TEXT NOT NULL,
+  price TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation, event_identity)
+);
+CREATE TABLE IF NOT EXISTS competition_gift_combo_prices (
+  competition_id TEXT NOT NULL, generation INTEGER NOT NULL, participant_id TEXT NOT NULL,
+  gift_id TEXT NOT NULL, group_id TEXT NOT NULL, price TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation, participant_id, gift_id, group_id)
+);
+CREATE TABLE IF NOT EXISTS competition_gift_combo_counts (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  count INTEGER NOT NULL CHECK(count >= 0),
+  PRIMARY KEY (competition_id, generation)
+);
+CREATE TABLE IF NOT EXISTS competition_gift_combos (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  participant_id TEXT NOT NULL,
+  gift_id TEXT NOT NULL,
+  group_id TEXT NOT NULL,
+  quantity TEXT NOT NULL,
+  diamonds TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation, participant_id, gift_id, group_id)
+);
+CREATE TABLE IF NOT EXISTS competition_scored_contributions (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  event_identity TEXT NOT NULL,
+  participant_id TEXT NOT NULL,
+  option_id TEXT,
+  score TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (competition_id, generation, source, event_identity)
+);
+CREATE INDEX IF NOT EXISTS idx_competition_scores_option ON competition_scored_contributions(competition_id, generation, option_id);
+CREATE TABLE IF NOT EXISTS competition_results (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  ranking_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  result_json TEXT NOT NULL,
+  PRIMARY KEY (competition_id, generation)
+);
+CREATE INDEX IF NOT EXISTS idx_competition_results_created ON competition_results(competition_id, created_at);
+CREATE TABLE IF NOT EXISTS competition_action_outbox (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  action_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  action_json TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'failed', 'uncertain')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (competition_id, generation),
+  FOREIGN KEY (competition_id, generation) REFERENCES competition_results(competition_id, generation)
+);
+CREATE INDEX IF NOT EXISTS idx_competition_outbox_status ON competition_action_outbox(status, created_at);
+-- Separate table is a non-destructive upgrade for existing outboxes.
+CREATE TABLE IF NOT EXISTS competition_action_diagnostics (
+  competition_id TEXT NOT NULL,
+  generation INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (competition_id, generation),
+  FOREIGN KEY (competition_id, generation) REFERENCES competition_action_outbox(competition_id, generation)
+);
+
 CREATE TABLE IF NOT EXISTS automation_workflows (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,

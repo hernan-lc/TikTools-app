@@ -227,6 +227,32 @@ pub struct PluginEmitAutomationData {
     pub payload: Value,
 }
 
+/// Host-generated competition context. Optional winner and action fields are
+/// populated only after the relevant durable state transition.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CompetitionAutomationData {
+    pub competition_id: String,
+    pub ranking_id: String,
+    pub creator_id: String,
+    pub room_id: String,
+    pub generation: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub option_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub winner_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub winner_score: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_mode: Option<tiktools_competitions::SelectionMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action_status: Option<tiktools_competitions::ActionStatus>,
+}
+
 /// Root used by the schema generator so every public automation contract is
 /// emitted into one deterministic `$defs` collection.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -247,6 +273,7 @@ pub struct AutomationContracts {
     pub connection: ConnectionAutomationData,
     pub points_awarded: PointsAwardedAutomationData,
     pub plugin_emit: PluginEmitAutomationData,
+    pub competition: CompetitionAutomationData,
 }
 
 /// Returns the complete schema as JSON for the repository generator.

@@ -5,7 +5,11 @@
 //! a Rust type stay as JSON so an existing database can be opened without a
 //! destructive migration.
 
+mod aggregations;
 mod behavior;
+mod competitions;
+mod gift_accounting;
+pub(crate) use competitions::{GiftInput, GiftOutcome, ScoredInput, ScoredOutcome};
 mod meta;
 mod points;
 mod schema;

@@ -9,9 +9,17 @@ use super::config::GatewayConfig;
 use std::collections::HashMap;
 
 /// Topics a widget-scoped credential may subscribe to. Widgets render
-/// `live.event` alerts and observe `event.gap` markers; wildcards and every
+/// `live.event` alerts, ranking snapshots and `event.gap` markers; wildcards and every
 /// other topic stay exclusive to the full gateway token.
-pub(crate) const WIDGET_TOPICS: &[&str] = &["live.event", "event.gap"];
+pub(crate) const WIDGET_TOPICS: &[&str] = &[
+    "live.event",
+    "event.gap",
+    "ranking.updated",
+    "competition.result",
+    "live.likes-ranking",
+    "live.likes-ranking-full",
+    "live.disconnected",
+];
 
 pub(crate) fn widget_topics_allowed(topics: &[String]) -> bool {
     topics

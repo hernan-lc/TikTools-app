@@ -9,12 +9,14 @@
 pub mod api;
 pub mod args;
 pub mod automation;
+pub mod competitions;
 pub mod globals;
 pub mod live;
 pub mod media;
 pub mod plugins;
 pub mod points;
 pub mod processors;
+pub mod rankings;
 pub mod raw;
 pub mod system;
 pub mod template;
@@ -52,6 +54,8 @@ pub enum Plan {
     Processors(processors::Command),
     Live(live::Command),
     Points(points::Command),
+    Rankings(rankings::Command),
+    Competitions(competitions::Command),
     Automation(automation::Command),
     Globals(globals::Command),
     Workflows(workflows::Command),
@@ -128,6 +132,8 @@ pub fn parse_command(args: &[String]) -> Result<Plan, CommandError> {
         "processor" | "processors" => Plan::Processors(processors::parse(rest)?),
         "live" => Plan::Live(live::parse(rest)?),
         "points" => Plan::Points(points::parse(rest)?),
+        "ranking" => Plan::Rankings(rankings::parse(rest)?),
+        "competition" => Plan::Competitions(competitions::parse(rest)?),
         "automation" => Plan::Automation(automation::parse(rest)?),
         "globals" => Plan::Globals(globals::parse(rest)?),
         "workflow" => Plan::Workflows(workflows::parse(rest)?),
@@ -159,6 +165,14 @@ pub async fn execute_plan(client: &TikToolsClient, plan: Plan) -> Result<Output,
         Plan::Points(command) => Ok(Output::new(
             "points",
             points::execute(client, command).await?,
+        )),
+        Plan::Rankings(command) => Ok(Output::new(
+            "ranking",
+            rankings::execute(client, command).await?,
+        )),
+        Plan::Competitions(command) => Ok(Output::new(
+            "competition",
+            competitions::execute(client, command).await?,
         )),
         Plan::Automation(command) => Ok(Output::new(
             "automation",

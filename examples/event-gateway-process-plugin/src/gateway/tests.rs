@@ -152,7 +152,7 @@ fn widget_segments_map_names_to_index_and_reject_traversal() {
         widget_asset_segments("/widgets/gift"),
         Some(vec!["gift".to_owned(), "index.html".to_owned()])
     );
-    for kind in ["chat", "share", "subscribe"] {
+    for kind in ["chat", "share", "subscribe", "likes", "ranking"] {
         assert_eq!(
             widget_asset_segments(&format!("/widgets/{kind}/")),
             Some(vec![kind.to_owned(), "index.html".to_owned()]),
@@ -358,9 +358,24 @@ fn widget_endpoints_restrict_credentials_and_topics() {
     assert_eq!(WsEndpoint::Full.initial_topics(), vec!["*".to_owned()]);
     assert_eq!(
         WsEndpoint::Widgets.initial_topics(),
-        vec!["live.event".to_owned(), "event.gap".to_owned()]
+        vec![
+            "live.event".to_owned(),
+            "event.gap".to_owned(),
+            "ranking.updated".to_owned(),
+            "competition.result".to_owned(),
+            "live.likes-ranking".to_owned(),
+            "live.likes-ranking-full".to_owned(),
+            "live.disconnected".to_owned()
+        ]
     );
     assert!(widget_topics_allowed(&["live.event".to_owned()]));
+    assert!(widget_topics_allowed(&["ranking.updated".to_owned()]));
+    assert!(widget_topics_allowed(&["competition.result".to_owned()]));
+    assert!(widget_topics_allowed(&["live.likes-ranking".to_owned()]));
+    assert!(widget_topics_allowed(&[
+        "live.likes-ranking-full".to_owned()
+    ]));
+    assert!(widget_topics_allowed(&["live.disconnected".to_owned()]));
     assert!(widget_topics_allowed(&[
         "live.event".to_owned(),
         "event.gap".to_owned()

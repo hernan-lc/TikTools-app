@@ -12,6 +12,7 @@ type LikesWidgetProps = {
   status: GatewayStatus;
   settings: LikesWidgetSettings;
   debug: boolean;
+  degraded?: boolean;
 };
 
 const props = defineProps<LikesWidgetProps>();
@@ -39,6 +40,7 @@ function rowText(field: 'name' | 'count', entry: LikeBoardEntry): string {
   <WidgetStage :debug="props.debug" :status="props.status" class="likes-stage">
     <div class="likes-board" role="status" aria-label="Top likes">
       <p v-if="title" class="likes-title">{{ title }}</p>
+      <p v-if="props.degraded" class="likes-empty">Ranking incomplete</p>
       <ol class="likes-list">
         <li
           v-for="(entry, index) in props.entries"

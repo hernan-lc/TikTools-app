@@ -46,9 +46,9 @@ describe('viewer profile', () => {
 describe('rankedViewers', () => {
   it('prefers native TikTok ranking and falls back to the points top 3', () => {
     const native: TopViewerPayload[] = [{ rank: 1, score: 50, delta: 0, uniqueId: 'a', nickname: 'A', userId: '1' }];
-    expect(rankedViewers(native, [record]).map((entry) => entry.uniqueId)).toEqual(['a']);
+    expect(rankedViewers(native, [record])).toEqual([expect.objectContaining({ uniqueId: 'a', score: 50, provenance: 'tiktok_room' })]);
     expect(rankedViewers([], [record])).toEqual([
-      expect.objectContaining({ uniqueId: 'luna', rank: 1, score: 420 }),
+      expect.objectContaining({ uniqueId: 'luna', rank: 1, score: 420, provenance: 'loyalty_points' }),
     ]);
   });
 });

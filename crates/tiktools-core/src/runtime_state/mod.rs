@@ -60,7 +60,6 @@ pub(crate) struct AutomationRuntimeState {
     /// are occupied are intentionally dropped; live delivery must remain
     /// responsive and disposable events must not create an unbounded task
     /// backlog.
-    #[cfg(feature = "native-tiktok")]
     pub(crate) slots: Arc<tokio::sync::Semaphore>,
     /// Saturation diagnostics: admitted vs. rejected automation work.
     pub(crate) admitted: AtomicU64,
@@ -82,7 +81,6 @@ impl Default for AutomationRuntimeState {
             last_events_at: RwLock::new(BTreeMap::new()),
             last_context_emit_at: AtomicU64::new(0),
             sequence: AtomicU64::new(0),
-            #[cfg(feature = "native-tiktok")]
             slots: Arc::new(tokio::sync::Semaphore::new(32)),
             admitted: AtomicU64::new(0),
             rejected: AtomicU64::new(0),
