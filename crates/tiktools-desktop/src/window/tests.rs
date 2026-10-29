@@ -200,6 +200,10 @@ fn committed_reveals_coalesce_per_competition_but_lifecycle_remains_reliable() {
         r#"{"result":{"competitionId":"a","generation":2}}"#,
     ));
     outbox.push(domain_event(
+        "competition.result",
+        r#"{"result":{"competitionId":"a","generation":1}}"#,
+    ));
+    outbox.push(domain_event(
         "competition.finished",
         r#"{"competitionId":"a"}"#,
     ));

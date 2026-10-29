@@ -168,6 +168,8 @@ pub(crate) struct QueuedWebviewMessage {
     pub(crate) javascript_literal: Option<std::sync::Arc<str>>,
     class: WebviewMessageClass,
     coalesce_key: Option<String>,
+    /// Persisted competition generation, used only for committed reveals.
+    coalesce_generation: Option<u64>,
     pub(crate) plugin: Option<PluginRoute>,
 }
 
@@ -223,6 +225,16 @@ impl QueuedWebviewMessage {
             javascript_literal: Some(javascript_literal.into()),
             class: classify_value(value),
             coalesce_key: webview_coalesce_key(value),
+            coalesce_generation: (value
+                .pointer("/params/topic")
+                .and_then(serde_json::Value::as_str)
+                == Some("competition.result"))
+            .then(|| {
+                value
+                    .pointer("/params/data/result/generation")
+                    .and_then(serde_json::Value::as_u64)
+            })
+            .flatten(),
             plugin,
         })
     }
@@ -404,6 +416,7 @@ impl WebviewOutbox {
                     javascript_literal: Some(literal.into()),
                     class: WebviewMessageClass::Critical,
                     coalesce_key: None,
+                    coalesce_generation: None,
                     plugin: None,
                 }),
                 Err(_) => self.fail(),
@@ -422,6 +435,7 @@ impl WebviewOutbox {
             javascript_literal: None,
             class: WebviewMessageClass::Critical,
             coalesce_key: None,
+            coalesce_generation: None,
             plugin: None,
         });
     }
@@ -436,6 +450,16 @@ impl WebviewOutbox {
             return;
         }
         if let Some(key) = message.coalesce_key.as_deref() {
+            if let Some(generation) = message.coalesce_generation {
+                if self.lossy.iter().any(|queued| {
+                    queued.coalesce_key.as_deref() == Some(key)
+                        && queued
+                            .coalesce_generation
+                            .is_some_and(|prior| prior > generation)
+                }) {
+                    return;
+                }
+            }
             self.lossy.retain(|queued| {
                 let keep = queued.coalesce_key.as_deref() != Some(key);
                 if !keep {
