@@ -881,6 +881,17 @@ mod integration_tests {
             minimum_participants: 2,
         })
         .unwrap();
+        // A draft cannot be rebound to a ranking carrying old vote scores.
+        let draft = core.competition_get("poll").unwrap();
+        core.aggregations
+            .engine
+            .lock()
+            .unwrap()
+            .apply_assignment("rank", None, ("a", 1))
+            .unwrap();
+        assert!(core.competition_update(draft.clone()).is_err());
+        core.ranking_reset("rank").unwrap();
+        core.competition_update(draft).unwrap();
         let draft_command = NativeLiveEvent {
             base: CanonicalLiveEvent::Chat(ChatEvent {
                 user: EventUser {
@@ -1471,7 +1482,7 @@ mod integration_tests {
             schema_version: 1,
             id: "poll".into(),
             name: "Poll".into(),
-            kind: CompetitionKind::Poll,
+            kind: CompetitionKind::Roulette,
             ranking_id: "rank".into(),
             options: vec![
                 OptionDefinition {
@@ -1730,12 +1741,21 @@ mod integration_tests {
         let original: String = connection.query_row("SELECT result_json FROM competition_results WHERE competition_id='poll' AND generation=1", [], |row| row.get(0)).unwrap();
         connection.execute("UPDATE competition_results SET result_json='invalid' WHERE competition_id='poll' AND generation=1", []).unwrap();
         assert!(core.db.latest_competition_results().is_err());
+        let mut reveals = core.events.subscribe_domain();
         tokio::time::sleep(std::time::Duration::from_millis(550)).await;
         core.competition_timer_tick(true).unwrap();
         assert_eq!(
             core.competition_state("timed-poll").unwrap().lifecycle,
             tiktools_competitions::Lifecycle::Finished
         );
+        let mut revealed = false;
+        while let Ok(event) = reveals.try_recv() {
+            if let crate::events::DomainEvent::CompetitionResult { result } = event {
+                assert_ne!(result.competition_id, "poll");
+                revealed |= result.competition_id == "timed-poll";
+            }
+        }
+        assert!(revealed, "a corrupt result must not block other reveals");
         connection.execute("UPDATE competition_results SET result_json=?1 WHERE competition_id='poll' AND generation=1", [&original]).unwrap();
         drop(connection);
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
@@ -1798,6 +1818,12 @@ mod integration_tests {
             "timed-poll".to_owned(),
             Some(tiktools_competitions::ActionStatus::Uncertain)
         )));
+        *core.competitions.action_inflight.lock().unwrap() = Some(("timed-poll".into(), 1));
+        let error = core
+            .competition_mark_action_uncertain("timed-poll", 1)
+            .unwrap_err();
+        assert_eq!(error.message, "competition action is still executing");
+        *core.competitions.action_inflight.lock().unwrap() = None;
         assert_eq!(
             core.competition_action("timed-poll", 1)
                 .unwrap()
@@ -1913,6 +1939,104 @@ mod integration_tests {
         );
         after_loss.shutdown().await;
         drop(after_loss);
+        let _ = std::fs::remove_dir_all(root);
+    }
+    #[cfg(feature = "persistence")]
+    #[tokio::test]
+    async fn session_ranking_recovers_after_drained_shutdown() {
+        use tiktools_aggregation::model::{Definition, SourceRule};
+        use tiktools_tiktok::events::LikeEvent;
+        let root = std::env::temp_dir().join(format!(
+            "tiktools-session-checkpoint-{}-{}",
+            std::process::id(),
+            crate::now_millis()
+        ));
+        let paths = crate::paths::AppPaths {
+            data: root.join("data"),
+            plugins: root.join("plugins"),
+            plugin_data: root.join("plugin-data"),
+            builtin_plugins: root.join("builtin"),
+            development_plugins: None,
+            logs: root.join("logs"),
+            temp: root.join("temp"),
+            root: root.clone(),
+        };
+        let core = Arc::new(AppCore::with_paths(
+            Arc::new(Emitter),
+            Arc::new(crate::NoopMediaHost),
+            paths.clone(),
+        ));
+        *core.connection_context.write().unwrap() = Some(LiveContext {
+            unique_id: "creator".into(),
+            room_id: "room".into(),
+            connection_id: "session".into(),
+        });
+        core.ranking_create(Definition {
+            schema_version: 1,
+            id: "likes".into(),
+            creator_id: "creator".into(),
+            room_id: "room".into(),
+            group_by: Default::default(),
+            window: Default::default(),
+            user_limits: None,
+            capacity: 20,
+            limit: 1,
+            sources: vec![SourceRule {
+                source: "tiktok.like".into(),
+                metric: "like.count".into(),
+                weight: 1,
+                enabled: true,
+                gift_multipliers: Default::default(),
+            }],
+        })
+        .unwrap();
+        core.handle_live_event(NativeLiveEvent {
+            base: CanonicalLiveEvent::Like(LikeEvent {
+                user: EventUser {
+                    id: 42,
+                    nickname: "Alice".into(),
+                    ..Default::default()
+                },
+                count: 7,
+                total: 9000,
+            }),
+            metadata: EventMetadata {
+                method: "WebcastLikeMessage".into(),
+                msg_id: 123,
+                is_history: false,
+            },
+            gift: None,
+        })
+        .await;
+        assert_eq!(core.ranking_snapshot("likes").unwrap().total_score, 7);
+        core.shutdown().await;
+        drop(core);
+        let restored = Arc::new(AppCore::with_paths(
+            Arc::new(Emitter),
+            Arc::new(crate::NoopMediaHost),
+            paths.clone(),
+        ));
+        let snapshot = restored.ranking_snapshot("likes").unwrap();
+        assert_eq!(snapshot.total_score, 7);
+        assert_eq!(snapshot.entries[0].label, "Alice");
+        drop(restored);
+        let after_unclean = Arc::new(AppCore::with_paths(
+            Arc::new(Emitter),
+            Arc::new(crate::NoopMediaHost),
+            paths,
+        ));
+        assert_eq!(
+            after_unclean
+                .ranking_snapshot("likes")
+                .unwrap()
+                .integrity_status,
+            "degraded"
+        );
+        let health = after_unclean.system_health();
+        assert_eq!(health["aggregations"]["degraded"], 1);
+        assert_eq!(health["status"], "degraded");
+        after_unclean.shutdown().await;
+        drop(after_unclean);
         let _ = std::fs::remove_dir_all(root);
     }
     #[cfg(not(feature = "persistence"))]
@@ -2187,6 +2311,7 @@ mod integration_tests {
             ("likes", "tiktok.like", "like.count"),
             ("diamonds", "tiktok.gift", "gift.diamonds"),
             ("gifts", "tiktok.gift", "gift.count"),
+            ("shares", "tiktok.share", "share.count"),
         ] {
             core.ranking_create(Definition {
                 schema_version: 1,
@@ -2274,6 +2399,46 @@ mod integration_tests {
         assert_eq!(
             core.ranking_snapshot("gifts").unwrap().integrity_status,
             "unknown"
+        );
+        let mut share = NativeLiveEvent {
+            base: CanonicalLiveEvent::Social(tiktools_tiktok::events::SocialEvent {
+                user: EventUser {
+                    id: 1,
+                    ..Default::default()
+                },
+                action: 3,
+                share_count: 9000,
+                ..Default::default()
+            }),
+            metadata: EventMetadata {
+                method: "social".into(),
+                msg_id: 1001,
+                is_history: false,
+            },
+            gift: None,
+        };
+        core.handle_live_event(share.clone()).await;
+        core.handle_live_event(share.clone()).await;
+        if let CanonicalLiveEvent::Social(social) = &mut share.base {
+            social.action = 0;
+            social.share_count = 9001;
+        }
+        share.metadata.msg_id += 1;
+        core.handle_live_event(share.clone()).await;
+        if let CanonicalLiveEvent::Social(social) = &mut share.base {
+            social.action = 3;
+        }
+        share.metadata.msg_id += 1;
+        share.metadata.is_history = true;
+        core.handle_live_event(share).await;
+        let shares = core.ranking_snapshot("shares").unwrap();
+        assert_eq!(
+            shares.total_score, 1,
+            "only one classified, non-replayed share counts"
+        );
+        assert_eq!(
+            shares.integrity_status, "degraded",
+            "unseen historical packets must report a gap"
         );
         core.shutdown().await;
     }
@@ -2372,6 +2537,99 @@ mod integration_tests {
         assert_eq!(bonus.total_score, 36);
         assert_eq!(bonus.entries[0].key, "71");
         assert_eq!(bonus.revision, 2);
+        let mut late_price = NativeLiveEvent {
+            base: CanonicalLiveEvent::Gift(GiftEvent {
+                user: EventUser {
+                    id: 71,
+                    ..Default::default()
+                },
+                gift_id: 9,
+                group_id: 94,
+                repeat_count: 1,
+                diamond_count: 0,
+                ..Default::default()
+            }),
+            metadata: EventMetadata {
+                method: "WebcastGiftMessage".into(),
+                msg_id: 8100,
+                is_history: false,
+            },
+            gift: None,
+        };
+        core.handle_live_event(late_price.clone()).await;
+        if let CanonicalLiveEvent::Gift(gift) = &mut late_price.base {
+            gift.diamond_count = 2;
+            gift.repeat_end = true;
+        }
+        late_price.metadata.msg_id += 1;
+        core.handle_live_event(late_price).await;
+        let bonus = core.ranking_snapshot("bonus").unwrap();
+        assert_eq!(
+            bonus.total_score, 36,
+            "zero-delta final cannot add retroactive diamonds"
+        );
+        assert_eq!(bonus.integrity_status, "degraded");
+        // A price arriving with a larger repeat count can include both new
+        // gifts and retroactive value. Reject that ambiguous packet, then
+        // accept the next provably incremental contribution.
+        let mut price_with_progress = NativeLiveEvent {
+            base: CanonicalLiveEvent::Gift(GiftEvent {
+                user: EventUser {
+                    id: 71,
+                    ..Default::default()
+                },
+                gift_id: 9,
+                group_id: 95,
+                repeat_count: 1,
+                diamond_count: 0,
+                ..Default::default()
+            }),
+            metadata: EventMetadata {
+                method: "WebcastGiftMessage".into(),
+                msg_id: 8200,
+                is_history: false,
+            },
+            gift: None,
+        };
+        core.handle_live_event(price_with_progress.clone()).await;
+        if let CanonicalLiveEvent::Gift(gift) = &mut price_with_progress.base {
+            gift.diamond_count = 2;
+            gift.repeat_count = 2;
+        }
+        price_with_progress.metadata.msg_id += 1;
+        core.handle_live_event(price_with_progress.clone()).await;
+        assert_eq!(core.ranking_snapshot("bonus").unwrap().total_score, 36);
+        if let CanonicalLiveEvent::Gift(gift) = &mut price_with_progress.base {
+            gift.repeat_count = 3;
+        }
+        price_with_progress.metadata.msg_id += 1;
+        core.handle_live_event(price_with_progress).await;
+        assert_eq!(core.ranking_snapshot("bonus").unwrap().total_score, 48);
+        let ambiguous = NativeLiveEvent {
+            base: CanonicalLiveEvent::Gift(GiftEvent {
+                user: EventUser {
+                    id: 71,
+                    ..Default::default()
+                },
+                gift_id: 9,
+                group_id: 0,
+                repeat_count: 3,
+                diamond_count: 2,
+                ..Default::default()
+            }),
+            metadata: EventMetadata {
+                method: "WebcastGiftMessage".into(),
+                msg_id: 8300,
+                is_history: false,
+            },
+            gift: None,
+        };
+        let before = core.ranking_snapshot("gifts").unwrap().total_score;
+        core.handle_live_event(ambiguous).await;
+        let gifts = core.ranking_snapshot("gifts").unwrap();
+        assert_eq!(gifts.total_score, before);
+        assert_eq!(gifts.integrity_status, "degraded");
+        assert_eq!(core.ranking_snapshot("bonus").unwrap().total_score, 48);
         core.shutdown().await;
     }
     #[tokio::test]

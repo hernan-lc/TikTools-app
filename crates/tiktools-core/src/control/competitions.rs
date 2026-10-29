@@ -54,7 +54,10 @@ impl AppCore {
                         let mut snapshots = Vec::new();
                         for (id, instance, revision) in tokens {
                             if published.get(&id) != Some(&(instance, revision)) {
-                                if let Some(snapshot) = engine.snapshot_unranked(&id) {
+                                // Browser widgets render at most 100 rows; keep
+                                // presentation traffic bounded independently of
+                                // the complete control API and selection state.
+                                if let Some(snapshot) = engine.snapshot_unranked_capped(&id, 100) {
                                     snapshots.push(snapshot);
                                     published.insert(id, (instance, revision));
                                 }
@@ -163,7 +166,7 @@ impl AppCore {
         // Presentation refresh must not block host-owned deadlines
         // or winner finalization when a stored result is corrupt.
         if refresh_due && self.events.has_domain_subscribers() {
-            match self.db.latest_competition_results() {
+            match self.db.latest_competition_results_for_presentation() {
                 Ok(results) => {
                     for result in results {
                         match result.reveal_snapshot() {
@@ -206,6 +209,7 @@ impl AppCore {
             CompetitionKind::Poll
                 | CompetitionKind::WeightedPoll
                 | CompetitionKind::TeamBattle
+                | CompetitionKind::Roulette
                 | CompetitionKind::RandomDraw
                 | CompetitionKind::WeightedDraw
         ) {
@@ -374,6 +378,7 @@ impl AppCore {
                 tiktools_competitions::CompetitionKind::Poll
                     | tiktools_competitions::CompetitionKind::WeightedPoll
                     | tiktools_competitions::CompetitionKind::TeamBattle
+                    | tiktools_competitions::CompetitionKind::Roulette
                     | tiktools_competitions::CompetitionKind::RandomDraw
                     | tiktools_competitions::CompetitionKind::WeightedDraw
             ) || !ranking
@@ -433,6 +438,7 @@ impl AppCore {
             tiktools_competitions::CompetitionKind::Poll
                 | tiktools_competitions::CompetitionKind::WeightedPoll
                 | tiktools_competitions::CompetitionKind::TeamBattle
+                | tiktools_competitions::CompetitionKind::Roulette
         ) || !ranking
             .sources
             .iter()
@@ -581,8 +587,18 @@ impl AppCore {
                 "competition definitions unavailable",
             ));
         }
-        if self.ranking_get(&definition.ranking_id).is_err() {
-            return Err(OperationError::invalid("ranking not found"));
+        let ranking = self
+            .ranking_get(&definition.ranking_id)
+            .map_err(|_| OperationError::invalid("ranking not found"))?;
+        if ranking
+            .sources
+            .iter()
+            .any(|source| source.source == "competition.vote")
+            && self.ranking_snapshot(&ranking.id)?.total_score != 0
+        {
+            return Err(OperationError::conflict(
+                "reset the vote ranking before updating a competition",
+            ));
         }
         if !recover_mutex(&self.competitions.definitions, "competition definitions")
             .contains_key(&definition.id)
@@ -798,6 +814,22 @@ impl AppCore {
         }
         #[cfg(feature = "persistence")]
         {
+            // Hold the same guard used by the worker from before claiming
+            // until execution ends, preventing recovery of a live invocation.
+            let in_flight = recover_mutex(
+                &self.competitions.action_inflight,
+                "competition action in flight",
+            );
+            if in_flight
+                .as_ref()
+                .is_some_and(|(active_id, active_generation)| {
+                    active_id == id && *active_generation == generation
+                })
+            {
+                return Err(OperationError::conflict(
+                    "competition action is still executing",
+                ));
+            }
             let changed = self
                 .db
                 .mark_competition_action_uncertain(

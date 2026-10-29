@@ -84,6 +84,21 @@ CREATE TABLE IF NOT EXISTS aggregation_definitions (
   definition_json TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_aggregation_scope ON aggregation_definitions(creator_id, room_id);
+-- Single-use clean shutdown snapshots. Recovery consumes a checkpoint before
+-- accepting new events so a later crash cannot replay stale accounting.
+CREATE TABLE IF NOT EXISTS aggregation_session_checkpoints (
+  ranking_id TEXT PRIMARY KEY,
+  schema_version INTEGER NOT NULL,
+  checkpoint_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS aggregation_checkpoint_owner (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+  owner TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS aggregation_checkpoint_run (
+  singleton INTEGER PRIMARY KEY CHECK(singleton = 1),
+  status TEXT NOT NULL CHECK(status IN ('open', 'clean'))
+);
 CREATE TABLE IF NOT EXISTS competition_definitions (
   id TEXT PRIMARY KEY,
   ranking_id TEXT NOT NULL,

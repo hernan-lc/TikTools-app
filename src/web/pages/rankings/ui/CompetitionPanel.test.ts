@@ -78,6 +78,53 @@ describe('competition controls', () => {
     await wrapper.get('form').trigger('submit'); await flushPromises();
     expect(calls.find((call) => call.method === 'competitions.create')?.params).toMatchObject({ id: 'battle', kind: 'team_battle', rankingId: 'vote' });
   });
+  it('creates an option roulette using the selected winner policy', async () => {
+    const { wrapper, calls } = await setup();
+    const fields = wrapper.findAll('input');
+    await fields[0]!.setValue('wheel'); await fields[1]!.setValue('Wheel');
+    await wrapper.findAll('select').find((item) => item.find('option[value="roulette"]').exists())!.setValue('roulette');
+    await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
+    const optionFields = wrapper.findAll('fieldset input');
+    await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
+    await optionFields[5]!.setValue('b'); await optionFields[6]!.setValue('B'); await optionFields[7]!.setValue('!b');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(calls.find((call) => call.method === 'competitions.create')?.params).toMatchObject({ id: 'wheel', kind: 'roulette', rankingId: 'vote' });
+  });
+  it('edits a draft without losing additional commands or action inputs', async () => {
+    const draft = { ...poll, options: [{ id: 'a', label: 'A', commands: ['!a', '!alpha'], giftIds: [], imageUrl: null, onWin: { actionId: 'tnt', inputs: { amount: 20 } } }, { id: 'b', label: 'B', commands: ['!b'], giftIds: [], imageUrl: null, onWin: null }] };
+    const { client, calls } = createFakeControlClient((method) => {
+      if (method === 'automation.list') return { actions: [{ id: 'tnt', name: 'TNT', enabled: true }] };
+      if (method === 'competitions.list') return { competitions: [draft] };
+      if (method === 'competitions.state') return { lifecycle: 'draft', generation: 0, deadlineMs: null, remainingMs: null };
+      if (method === 'competitions.results') return { results: [] };
+      return { ok: true };
+    });
+    const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
+    await flushPromises();
+    await wrapper.findAll('select').find((item) => item.find('option[value="poll"]').exists() && item.find('option[value=""]').exists() && item.text().includes('Poll (poll)'))!.setValue('poll');
+    await flushPromises();
+    await wrapper.findAll('button').find((item) => item.text() === 'Edit competition')!.trigger('click');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(calls.find((call) => call.method === 'competitions.update')?.params).toMatchObject({ id: 'poll', options: [{ commands: ['!a', '!alpha'], onWin: { actionId: 'tnt', inputs: { amount: 20 } } }, { commands: ['!b'] }] });
+  });
+  it('configures typed winner action inputs', async () => {
+    const { wrapper, calls } = await setup();
+    const fields = wrapper.findAll('input');
+    await fields[0]!.setValue('poll'); await fields[1]!.setValue('Poll');
+    await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
+    const optionFields = wrapper.findAll('fieldset input');
+    await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
+    await optionFields[5]!.setValue('b'); await optionFields[6]!.setValue('B'); await optionFields[7]!.setValue('!b');
+    const first = wrapper.find('fieldset');
+    await first.get('select').setValue('tnt');
+    await first.findAll('button').find((item) => item.text() === 'Add action input')!.trigger('click');
+    const row = first.get('.action-input');
+    await row.findAll('input')[0]!.setValue('amount');
+    await row.get('select').setValue('number');
+    await row.findAll('input')[1]!.setValue('20');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(calls.find((call) => call.method === 'competitions.create')?.params).toMatchObject({ options: [{ onWin: { actionId: 'tnt', inputs: { amount: 20 } } }, { onWin: null }] });
+  });
   it('selects a tied leader with the current competition generation', async () => {
     const { client, calls } = createFakeControlClient((method) => {
       if (method === 'automation.list') return { actions: [] };

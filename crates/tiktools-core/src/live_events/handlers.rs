@@ -218,6 +218,19 @@ impl AppCore {
                         vec![("like.count", like.count), ("event.count", 1)],
                     )
                 }
+                CanonicalLiveEvent::Gift(gift)
+                    if !totals.is_null()
+                        && ((gift.group_id != 0 && (gift.user.id == 0 || gift.gift_id == 0))
+                            || (gift.group_id == 0
+                                && (event.gift_streakable()
+                                    || gift.repeat_count > 1
+                                    || gift.combo_count > 1))) =>
+                {
+                    self.aggregations
+                        .mark_gap(&context.unique_id, &context.room_id, "tiktok.gift");
+                    tracing::warn!(msg_id = %event.msg_id(), "ambiguous gift streak identity; ranking contribution rejected");
+                    ("", String::new(), None, Vec::new())
+                }
                 CanonicalLiveEvent::Gift(gift) if !totals.is_null() => {
                     let user = if gift.user.id != 0 {
                         gift.user.id.to_string()
@@ -230,11 +243,19 @@ impl AppCore {
                     let count = gift.repeat_count.max(gift.combo_count).max(1);
                     let mut metrics = vec![
                         ("gift.count", increment),
-                        ("event.count", u64::from(increment > 0 || diamonds > 0)),
+                        ("event.count", u64::from(increment > 0)),
                     ];
-                    if price > 0 && count.checked_mul(price).is_some() {
+                    // A newly discovered price can make LiveTotals' cumulative
+                    // diamond high-water jump for quantities already observed.
+                    // Do not credit that retroactive amount or a zero-delta final.
+                    let max_incremental = increment.checked_mul(price);
+                    if price > 0
+                        && count.checked_mul(price).is_some()
+                        && max_incremental.is_some_and(|maximum| diamonds <= maximum)
+                        && increment > 0
+                    {
                         metrics.push(("gift.diamonds", diamonds));
-                    } else if increment > 0 || count.checked_mul(price).is_none() {
+                    } else if increment > 0 || diamonds > 0 || count.checked_mul(price).is_none() {
                         self.aggregations.metric_gap(
                             &context.unique_id,
                             &context.room_id,

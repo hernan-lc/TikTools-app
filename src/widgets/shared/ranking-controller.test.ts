@@ -10,6 +10,7 @@ describe('ranking snapshot adapter', () => {
     const received: number[] = [];
     const controller = new RankingController('r', (value) => { if (value) received.push(value.revision); });
     expect(controller.handleEnvelope(snapshot(2))).toBe(true);
+    expect(controller.handleEnvelope(snapshot(2))).toBe(false);
     expect(controller.handleEnvelope(snapshot(1))).toBe(false);
     controller.clear();
     expect(controller.handleEnvelope(snapshot(1))).toBe(true);
@@ -28,5 +29,12 @@ describe('ranking snapshot adapter', () => {
   test('rejects malformed and imprecise scores', () => {
     expect(parseRankingSnapshot(snapshot(1, Number.MAX_SAFE_INTEGER + 1))).toBeNull();
     expect(parseRankingSnapshot({ topic: 'ranking.updated', data: {} })).toBeNull();
+  });
+  test('preserves window and accounting diagnostics', () => {
+    const event = snapshot(1);
+    Object.assign(event.data.snapshot, { window: { type: 'rolling', durationMs: 1000, maxEvents: 20 }, rejected: 2, dropped: 1, limited: 3, cooldownRejected: 4 });
+    expect(parseRankingSnapshot(event)).toMatchObject({ window: { type: 'rolling', durationMs: 1000, maxEvents: 20 }, rejected: 2, dropped: 1, limited: 3, cooldownRejected: 4 });
+    Object.assign(event.data.snapshot, { window: { type: 'rolling', durationMs: 0, maxEvents: 20 } });
+    expect(parseRankingSnapshot(event)).toBeNull();
   });
 });

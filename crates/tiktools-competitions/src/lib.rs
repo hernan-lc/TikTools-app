@@ -363,9 +363,17 @@ pub struct RevealSnapshot {
     pub competition_id: String,
     pub ranking_id: String,
     pub generation: u64,
-    pub selection: Selection,
+    pub selection: RevealSelection,
     pub eligible_count: usize,
     pub other_weight: u64,
+}
+/// Presentation-only subset; the complete selection remains in the result record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RevealSelection {
+    pub mode: SelectionMode,
+    pub eligible: Vec<Candidate>,
+    pub winner: Option<String>,
 }
 impl ResultRecord {
     pub fn reveal_snapshot(&self) -> Result<RevealSnapshot, Error> {
@@ -411,9 +419,8 @@ impl ResultRecord {
             competition_id: self.competition_id.clone(),
             ranking_id: self.ranking_id.clone(),
             generation: self.generation,
-            selection: Selection {
+            selection: RevealSelection {
                 mode: self.selection.mode,
-                tie_policy: self.selection.tie_policy,
                 eligible,
                 winner: self.selection.winner.clone(),
             },
@@ -471,16 +478,20 @@ impl Selection {
         };
         match self.mode {
             SelectionMode::HighestScore => {
+                let highest = self.eligible.iter().map(|c| c.weight).max().unwrap();
+                let mut leaders = self.eligible.iter().filter(|c| c.weight == highest);
+                let first = leaders.next().expect("nonempty candidates");
+                let tied = leaders.next().is_some();
                 if chosen.is_none() {
-                    let highest = self.eligible.iter().map(|c| c.weight).max().unwrap();
-                    if self.tie_policy != TiePolicy::NoWinner
-                        || self.eligible.iter().filter(|c| c.weight == highest).count() < 2
-                    {
+                    if self.tie_policy != TiePolicy::NoWinner || !tied {
                         return Err(Error::InvalidCandidate);
                     }
                 }
                 if let Some(chosen) = chosen {
-                    if self.eligible.iter().any(|c| c.weight > chosen.weight) {
+                    if chosen.weight != highest
+                        || (tied && self.tie_policy == TiePolicy::NoWinner)
+                        || (tied && self.tie_policy == TiePolicy::Stable && chosen.key != first.key)
+                    {
                         return Err(Error::InvalidCandidate);
                     }
                 }
@@ -561,7 +572,7 @@ pub fn select(
     mode: SelectionMode,
     tie: TiePolicy,
 ) -> Result<Selection, Error> {
-    if eligible.is_empty() {
+    if eligible.is_empty() || eligible.len() > 100_000 {
         return Err(Error::Empty);
     }
     if eligible
@@ -790,6 +801,65 @@ impl Competition {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn persisted_highest_score_selection_enforces_tie_policy() {
+        let eligible = vec![
+            Candidate {
+                key: "a".into(),
+                weight: 5,
+            },
+            Candidate {
+                key: "b".into(),
+                weight: 5,
+            },
+        ];
+        let mut selection = Selection {
+            mode: SelectionMode::HighestScore,
+            tie_policy: TiePolicy::Stable,
+            eligible,
+            winner: Some("b".into()),
+        };
+        assert_eq!(selection.validate(), Err(Error::InvalidCandidate));
+        selection.winner = Some("a".into());
+        assert_eq!(selection.validate(), Ok(()));
+        selection.tie_policy = TiePolicy::NoWinner;
+        assert_eq!(selection.validate(), Err(Error::InvalidCandidate));
+        selection.winner = None;
+        assert_eq!(selection.validate(), Ok(()));
+    }
+    #[test]
+    fn reveal_projection_keeps_winner_and_omitted_weight() {
+        let selection = Selection {
+            mode: SelectionMode::WeightedRandom,
+            tie_policy: TiePolicy::Stable,
+            eligible: (0..1000)
+                .map(|i| Candidate {
+                    key: format!("user-{i:04}"),
+                    weight: 1,
+                })
+                .collect(),
+            winner: Some("user-0999".into()),
+        };
+        let record = ResultRecord {
+            schema_version: 1,
+            competition_id: "c".into(),
+            generation: 1,
+            ranking_id: "r".into(),
+            ranking_revision: 1,
+            finalized_at: 1,
+            selection,
+        };
+        let reveal = record.reveal_snapshot().unwrap();
+        assert_eq!(reveal.eligible_count, 1000);
+        assert_eq!(reveal.selection.eligible.len(), 256);
+        assert_eq!(reveal.other_weight, 744);
+        assert!(reveal
+            .selection
+            .eligible
+            .iter()
+            .any(|entry| entry.key == "user-0999"));
+        assert_eq!(record.selection.eligible.len(), 1000);
+    }
     #[test]
     fn command_index_is_scoped_reusable_and_updates_atomically() {
         use crate::participants::CommandIndex;

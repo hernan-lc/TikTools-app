@@ -26,6 +26,13 @@ const duration = ref(60);
 const maxEvents = ref(10000);
 const selectedMetric = ref('');
 const sources = ref<RankingSource[]>([]);
+const giftOverrides = ref<Record<string, { giftId: string; multiplier: number }[]>>({});
+const limitUsers = ref(false);
+const maxContributions = ref(0);
+const cooldownMs = ref(0);
+const maxUsers = ref(10000);
+const editing = shallowRef<RankingDefinition | null>(null);
+const resetOnUpdate = ref(false);
 const visualization = ref<'ranking' | 'bar' | 'pie' | 'donut' | 'poll' | 'roulette'>('ranking');
 const showLabels = ref(true);
 const showPercentages = ref(false);
@@ -34,6 +41,7 @@ const current = computed(() => rankings.value.find((ranking) => ranking.id === s
 let disposed = false;
 let request = 0;
 function metricKey(metric: MetricDescriptor): string { return JSON.stringify([metric.source, metric.metric]); }
+function sourceKey(source: RankingSource): string { return JSON.stringify([source.source, source.metric]); }
 function validInteger(value: number, max: number): boolean { return Number.isSafeInteger(value) && value > 0 && value <= max; }
 async function refresh(): Promise<void> {
   try {
@@ -64,25 +72,72 @@ function addSource(): void {
   const metric = metrics.value.find((item) => metricKey(item) === selectedMetric.value);
   if (!metric || sources.value.some((item) => item.source === metric.source && item.metric === metric.metric)) return;
   sources.value.push({ source: metric.source, metric: metric.metric, weight: 1, enabled: true });
+  if (metric.source === 'tiktok.gift') giftOverrides.value[metricKey(metric)] = [];
+}
+function editRanking(): void {
+  if (!current.value || !snapshot.value?.paused) return;
+  const definition = current.value;
+  editing.value = definition;
+  id.value = definition.id; creator.value = definition.creatorId; room.value = definition.roomId;
+  group.value = definition.groupBy; limit.value = definition.limit;
+  windowType.value = definition.window.type;
+  if (definition.window.type === 'rolling') { duration.value = definition.window.durationMs / 1000; maxEvents.value = definition.window.maxEvents; }
+  sources.value = definition.sources.map((source) => ({ ...source }));
+  giftOverrides.value = Object.fromEntries(definition.sources.filter((source) => source.source === 'tiktok.gift').map((source) => [sourceKey(source), Object.entries(source.giftMultipliers ?? {}).map(([giftId, multiplier]) => ({ giftId, multiplier }))]));
+  limitUsers.value = !!definition.userLimits;
+  maxContributions.value = definition.userLimits?.maxContributions ?? 0;
+  cooldownMs.value = definition.userLimits?.cooldownMs ?? 0;
+  maxUsers.value = definition.userLimits?.maxUsers ?? 10000;
+  resetOnUpdate.value = false; error.value = ''; message.value = '';
+}
+function cancelEdit(): void {
+  editing.value = null; id.value = ''; creator.value = ''; room.value = ''; group.value = 'user';
+  limit.value = 10; windowType.value = 'session'; duration.value = 60; maxEvents.value = 10000; sources.value = []; resetOnUpdate.value = false;
+  limitUsers.value = false; maxContributions.value = 0; cooldownMs.value = 0; maxUsers.value = 10000;
+  giftOverrides.value = {};
 }
 async function create(): Promise<void> {
   error.value = ''; message.value = '';
   if (!id.value.trim() || !creator.value.trim() || !room.value.trim() || !sources.value.length
     || !validInteger(limit.value, 100000) || sources.value.some((source) => !Number.isSafeInteger(source.weight) || source.weight < 0 || source.weight > 1_000_000_000)
-    || (windowType.value === 'rolling' && (!validInteger(duration.value, 86_400_000) || !validInteger(maxEvents.value, 100000)))) {
+    || (limitUsers.value && (!validInteger(maxUsers.value, 100000) || !Number.isSafeInteger(maxContributions.value) || maxContributions.value < 0 || !Number.isSafeInteger(cooldownMs.value) || cooldownMs.value < 0 || (maxContributions.value === 0 && cooldownMs.value === 0)))
+    || (windowType.value === 'rolling' && (!validInteger(duration.value * 1000, 86_400_000_000) || !validInteger(maxEvents.value, 100000)))) {
     error.value = 'Complete all fields and use valid positive limits and nonnegative integer weights.'; return;
   }
   const voteSource = sources.value.some((source) => source.source === 'competition.vote');
-  if ((voteSource && (group.value !== 'option' || windowType.value !== 'session' || sources.value.some((source) => !['competition.vote', 'tiktok.like', 'tiktok.share', 'tiktok.gift'].includes(source.source))))
+  for (const source of sources.value.filter((item) => item.source === 'tiktok.gift')) {
+    const rules = giftOverrides.value[sourceKey(source)] ?? [];
+    const ids = rules.map((rule) => rule.giftId.trim());
+    if (rules.length > 512 || ids.some((id) => !id || id.length > 128) || new Set(ids).size !== ids.length || rules.some((rule) => !Number.isSafeInteger(rule.multiplier) || rule.multiplier < 0 || rule.multiplier > 1_000_000_000)) {
+      error.value = 'Gift overrides require unique gift IDs and nonnegative integer multipliers.'; return;
+    }
+  }
+  if ((voteSource && (group.value !== 'option' || windowType.value !== 'session' || limitUsers.value || sources.value.some((source) => !['competition.vote', 'tiktok.like', 'tiktok.share', 'tiktok.gift'].includes(source.source))))
     || (!voteSource && ['option', 'team', 'custom_key'].includes(group.value))
     || (group.value === 'gift' && sources.value.some((source) => source.source !== 'tiktok.gift'))) {
-    error.value = 'Vote rankings require option grouping and a session window. Gift grouping requires gift metrics; team and custom routing are not yet available.'; return;
+    error.value = 'Vote rankings require option grouping, a session window, and competition participation limits. Gift grouping requires gift metrics; team and custom routing are not yet available.'; return;
   }
-  const definition: RankingDefinition = { schemaVersion: 1, id: id.value.trim(), creatorId: creator.value.trim(), roomId: room.value.trim(), groupBy: group.value,
+  const definition: RankingDefinition = { ...editing.value, schemaVersion: 1, id: id.value.trim(), creatorId: creator.value.trim(), roomId: room.value.trim(), groupBy: group.value,
     window: windowType.value === 'session' ? { type: 'session' } : { type: 'rolling', durationMs: duration.value * 1000, maxEvents: maxEvents.value },
-    sources: sources.value.map((source) => ({ ...source })), limit: limit.value, capacity: 100000 };
+    sources: sources.value.map((source) => {
+      const result = { ...source };
+      if (source.source === 'tiktok.gift') {
+        const rules = giftOverrides.value[sourceKey(source)] ?? [];
+        if (rules.length) result.giftMultipliers = Object.fromEntries(rules.map((rule) => [rule.giftId.trim(), rule.multiplier]));
+        else delete result.giftMultipliers;
+      }
+      return result;
+    }), limit: limit.value, capacity: editing.value?.capacity ?? 100000 };
+  if (limitUsers.value) definition.userLimits = { maxContributions: maxContributions.value || null, cooldownMs: cooldownMs.value || null, maxUsers: maxUsers.value };
+  else delete definition.userLimits;
   busy.value = true;
-  try { await client.call('rankings.create', { ...definition }); await refresh(); selected.value = definition.id; id.value = ''; message.value = 'Ranking created.'; }
+  try {
+    const wasEditing = !!editing.value;
+    if (wasEditing) await client.call('rankings.update', { definition, reset: resetOnUpdate.value });
+    else await client.call('rankings.create', { ...definition });
+    await refresh(); selected.value = definition.id; if (wasEditing) { cancelEdit(); await loadSnapshot(); } else id.value = '';
+    message.value = wasEditing ? 'Ranking updated.' : 'Ranking created.';
+  }
   catch (failure) { error.value = errorMessage(failure); } finally { busy.value = false; }
 }
 async function operation(method: 'pause' | 'resume' | 'reset'): Promise<void> {
@@ -118,7 +173,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
   <main class="rankings-page">
     <h1>Rankings &amp; competitions</h1>
     <p class="hint">
-      Rankings use accepted host events. Command polls currently support vote-only rankings.
+      Rankings use accepted host events. Polls can combine votes with eligible likes, shares, and gifts.
     </p>
     <p
       v-if="error"
@@ -134,7 +189,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
       {{ message }}
     </p>
     <div class="columns">
-      <BasePanel title="Create ranking">
+      <BasePanel :title="editing ? 'Edit ranking' : 'Create ranking'">
         <form
           class="form"
           @submit.prevent="create"
@@ -142,6 +197,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
           <label>Ranking ID<input
             v-model="id"
             maxlength="128"
+            :disabled="!!editing"
             required
           ></label>
           <label>Creator ID<input
@@ -175,6 +231,12 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
             min="1"
             max="100000"
           ></label>
+          <label><input v-model="limitUsers" type="checkbox"> Limit contributions per user</label>
+          <template v-if="limitUsers">
+            <label>Maximum contributions per user (0 for unlimited)<input v-model.number="maxContributions" type="number" min="0" step="1"></label>
+            <label>Cooldown per user in milliseconds (0 for none)<input v-model.number="cooldownMs" type="number" min="0" step="1"></label>
+            <label>Maximum tracked users<input v-model.number="maxUsers" type="number" min="1" max="100000" step="1"></label>
+          </template>
           <label>Metric<select v-model="selectedMetric"><option
             v-for="metric in metrics"
             :key="metricKey(metric)"
@@ -199,15 +261,26 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
               ></label><BaseButton @click="sources.splice(index, 1)">
                 Remove
               </BaseButton>
+              <template v-if="source.source === 'tiktok.gift'">
+                <p>Gift overrides multiply this metric's weight. A multiplier of 0 disables the gift.</p>
+                <div v-for="(rule, ruleIndex) in giftOverrides[sourceKey(source)]" :key="ruleIndex" class="gift-rule">
+                  <label>Gift ID<input v-model="rule.giftId" maxlength="128"></label>
+                  <label>Multiplier<input v-model.number="rule.multiplier" type="number" min="0" max="1000000000" step="1"></label>
+                  <BaseButton @click="giftOverrides[sourceKey(source)]?.splice(ruleIndex, 1)">Remove override</BaseButton>
+                </div>
+                <BaseButton :disabled="(giftOverrides[sourceKey(source)]?.length ?? 0) >= 512" @click="(giftOverrides[sourceKey(source)] ??= []).push({ giftId: '', multiplier: 1 })">Add gift override</BaseButton>
+              </template>
             </li>
           </ul>
+          <label v-if="editing"><input v-model="resetOnUpdate" type="checkbox"> Reset scores when updating scoring or scope</label>
           <BaseButton
             type="submit"
             variant="primary"
             :disabled="busy"
           >
-            Create ranking
+            {{ editing ? 'Save ranking' : 'Create ranking' }}
           </BaseButton>
+          <BaseButton v-if="editing" @click="cancelEdit">Cancel edit</BaseButton>
         </form>
       </BasePanel>
       <BasePanel title="Ranking preview">
@@ -224,6 +297,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
             </p>
             <template v-else>
               <p>Participants: {{ snapshot.totalParticipants }} · Score: {{ snapshot.totalScore }} · {{ snapshot.integrityStatus }}<span v-if="snapshot.paused"> · Paused</span></p>
+              <p v-if="snapshot.rejected || snapshot.dropped || snapshot.limited || snapshot.cooldownRejected">Rejected: {{ snapshot.rejected }} · Dropped: {{ snapshot.dropped }} · Limited: {{ snapshot.limited }} · Cooldown: {{ snapshot.cooldownRejected }}</p>
               <ol>
                 <li
                   v-for="entry in snapshot.entries"
@@ -236,6 +310,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.();
               </p>
             </template>
             <div class="actions">
+              <BaseButton :disabled="busy || !snapshot?.paused" @click="editRanking">Edit definition</BaseButton>
               <BaseButton
                 :disabled="busy"
                 @click="operation(snapshot?.paused ? 'resume' : 'pause')"
