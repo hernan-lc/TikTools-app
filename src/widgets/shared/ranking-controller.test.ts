@@ -16,6 +16,18 @@ describe('ranking snapshot adapter', () => {
     expect(controller.handleEnvelope(snapshot(1))).toBe(true);
     expect(received).toEqual([2, 1]);
   });
+  test('accepts a recreated ranking and rejects updates from the retired instance', () => {
+    const controller = new RankingController('r', () => {});
+    const first = snapshot(20);
+    const second = snapshot(1);
+    Object.assign(first.data.snapshot, { instanceId: 'a'.repeat(32) });
+    Object.assign(second.data.snapshot, { instanceId: 'b'.repeat(32) });
+    expect(controller.handleEnvelope(first)).toBe(true);
+    expect(controller.handleEnvelope(second)).toBe(true);
+    expect(controller.handleEnvelope(first)).toBe(false);
+    Object.assign(second.data.snapshot, { instanceId: 'invalid' });
+    expect(parseRankingSnapshot(second)).toBeNull();
+  });
   test('uses native labels and accepts only safe artwork URLs', () => {
     const event = snapshot(1);
     Object.assign(event.data.snapshot.entries[0]!, { label: 'Alice', nickname: 'Alice', avatarUrl: 'https://cdn.example/avatar.png' });

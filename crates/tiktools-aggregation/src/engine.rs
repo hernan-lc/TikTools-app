@@ -42,6 +42,7 @@ pub struct Engine {
 struct Ranking {
     definition: Definition,
     instance: u64,
+    instance_id: String,
     state: Aggregation,
     paused: bool,
     rejected: u64,
@@ -73,6 +74,7 @@ pub enum DefinitionError {
     NotPaused,
     ResetRequired,
     RevisionOverflow,
+    IdentityUnavailable,
 }
 
 impl Engine {
@@ -126,6 +128,9 @@ impl Engine {
             || snapshot.creator_id != ranking.definition.creator_id
             || snapshot.room_id != ranking.definition.room_id
             || snapshot.window != ranking.definition.window
+            || snapshot.instance_id.as_ref().is_some_and(|id| {
+                id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
             || snapshot.entries.len() != snapshot.total_participants
             || snapshot.entries.len() > ranking.definition.capacity
             || !matches!(snapshot.integrity_status.as_str(), "unknown" | "degraded")
@@ -207,6 +212,9 @@ impl Engine {
         ranking.window_events = checkpoint.window_events.iter().cloned().collect();
         ranking.last_time = checkpoint.last_time;
         ranking.users = checkpoint.users.clone();
+        if let Some(instance_id) = &snapshot.instance_id {
+            ranking.instance_id = instance_id.clone();
+        }
         Ok(())
     }
     pub fn create(&mut self, definition: Definition) -> Result<(), DefinitionError> {
@@ -255,6 +263,12 @@ impl Engine {
         if self.rankings.contains_key(&definition.id) {
             return Err(DefinitionError::Duplicate);
         }
+        let mut identity = [0u8; 16];
+        getrandom::fill(&mut identity).map_err(|_| DefinitionError::IdentityUnavailable)?;
+        let instance_id = identity
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
         for source in &definition.sources {
             let ids = self.by_source.entry(source.source.clone()).or_default();
             if !ids.contains(&definition.id) {
@@ -272,6 +286,7 @@ impl Engine {
             Ranking {
                 definition,
                 instance,
+                instance_id,
                 state,
                 paused: false,
                 rejected: 0,
@@ -815,6 +830,7 @@ impl Engine {
             let limit = r.definition.limit.min(cap);
             let mut snapshot = r.state.snapshot_candidates(limit);
             snapshot.ranking_id = r.definition.id.clone();
+            snapshot.instance_id = Some(r.instance_id.clone());
             snapshot.creator_id = r.definition.creator_id.clone();
             snapshot.room_id = r.definition.room_id.clone();
             snapshot.window = r.definition.window.clone();
@@ -836,6 +852,7 @@ impl Engine {
                 .state
                 .snapshot_candidates(ranking.definition.capacity);
             snapshot.ranking_id = ranking.definition.id.clone();
+            snapshot.instance_id = Some(ranking.instance_id.clone());
             snapshot.creator_id = ranking.definition.creator_id.clone();
             snapshot.room_id = ranking.definition.room_id.clone();
             snapshot.window = ranking.definition.window.clone();

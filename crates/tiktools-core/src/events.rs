@@ -645,6 +645,7 @@ mod tests {
             room_id: "room".into(),
             window: Default::default(),
             revision: 1,
+            instance_id: None,
             integrity_status: "unknown".into(),
             rejected: 0,
             dropped: 0,

@@ -98,6 +98,9 @@ pub struct Snapshot {
     pub room_id: String,
     pub window: model::Window,
     pub revision: u64,
+    /// Opaque identity of this ranking instance, retained by clean checkpoints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance_id: Option<String>,
     /// Accounting completeness cannot be inferred from local state alone.
     pub integrity_status: String,
     pub rejected: u64,
@@ -310,6 +313,7 @@ impl Aggregation {
             room_id: String::new(),
             window: model::Window::Session,
             revision: self.revision,
+            instance_id: None,
             integrity_status: "unknown".into(),
             rejected: 0,
             dropped: 0,
@@ -511,7 +515,12 @@ mod engine_tests {
         assert_eq!(presentation.rank(limit).entries.len(), 1);
         assert_eq!(source.selection_snapshot("rank").unwrap().entries.len(), 2);
         let mut target = Engine::default();
-        target.create(definition).unwrap();
+        target.create(definition.clone()).unwrap();
+        let fresh_identity = target.snapshot("rank").unwrap().instance_id.unwrap();
+        assert_ne!(
+            Some(&fresh_identity),
+            checkpoint.snapshot.instance_id.as_ref()
+        );
         let mut corrupt = checkpoint.clone();
         corrupt.snapshot.total_score += 1;
         assert_eq!(
@@ -519,6 +528,16 @@ mod engine_tests {
             Err(crate::Error::IncompatibleDefinition)
         );
         assert_eq!(target.snapshot("rank").unwrap().total_score, 0);
+        let mut legacy = checkpoint.clone();
+        legacy.snapshot.instance_id = None;
+        let mut legacy_target = Engine::default();
+        legacy_target.create(definition).unwrap();
+        let legacy_identity = legacy_target.snapshot("rank").unwrap().instance_id;
+        legacy_target.restore_session_checkpoint(&legacy).unwrap();
+        assert_eq!(
+            legacy_target.snapshot("rank").unwrap().instance_id,
+            legacy_identity
+        );
         target.restore_session_checkpoint(&checkpoint).unwrap();
         assert_eq!(
             target.selection_snapshot("rank"),

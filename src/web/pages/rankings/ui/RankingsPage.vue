@@ -6,7 +6,7 @@ import { useControlClient } from '@/shared/api/use-control-client.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BasePanel from '@/shared/ui/panel/BasePanel.vue';
 import CompetitionPanel from './CompetitionPanel.vue';
-import { parseRankingSnapshot, type RankingSnapshot } from '../../../../widgets/shared/ranking-controller.ts';
+import { RankingController, type RankingSnapshot } from '../../../../widgets/shared/ranking-controller.ts';
 
 const client = useControlClient();
 const rankings = shallowRef<RankingDefinition[]>([]);
@@ -40,6 +40,7 @@ const showLegend = ref(true);
 const current = computed(() => rankings.value.find((ranking) => ranking.id === selected.value));
 let disposed = false;
 let request = 0;
+let snapshotController: RankingController | null = null;
 function metricKey(metric: MetricDescriptor): string { return JSON.stringify([metric.source, metric.metric]); }
 function sourceKey(source: RankingSource): string { return JSON.stringify([source.source, source.metric]); }
 function validInteger(value: number, max: number): boolean { return Number.isSafeInteger(value) && value > 0 && value <= max; }
@@ -62,10 +63,7 @@ async function loadSnapshot(): Promise<void> {
   if (!target) { snapshot.value = null; return; }
   try {
     const result = await client.call<unknown>('rankings.snapshot', { id: target });
-    const next = parseRankingSnapshot({ topic: 'ranking.updated', data: { snapshot: result } });
-    if (!disposed && token === request && target === selected.value && next) {
-      if (!snapshot.value || snapshot.value.rankingId !== target || next.revision >= snapshot.value.revision) snapshot.value = next;
-    }
+    if (!disposed && token === request && target === selected.value) snapshotController?.handleEnvelope({ topic: 'ranking.updated', data: { snapshot: result } });
   } catch (failure) { if (!disposed && token === request) error.value = errorMessage(failure); }
 }
 function addSource(): void {
@@ -155,18 +153,17 @@ async function copyUrl(): Promise<void> {
     message.value = 'OBS URL copied to the clipboard.';
   } catch (failure) { error.value = errorMessage(failure); } finally { busy.value = false; }
 }
-watch(selected, () => { snapshot.value = null; void loadSnapshot(); });
+watch(selected, (id) => { snapshotController?.dispose(); snapshot.value = null; snapshotController = id ? new RankingController(id, (value) => { snapshot.value = value; }) : null; void loadSnapshot(); });
 let offTopic: (() => void) | undefined;
 let offGap: (() => void) | undefined;
 onMounted(() => {
   offTopic = client.onTopic('ranking.updated', (data) => {
-    const next = parseRankingSnapshot({ topic: 'ranking.updated', data });
-    if (next && next.rankingId === selected.value && (!snapshot.value || next.revision >= snapshot.value.revision)) snapshot.value = next;
+    snapshotController?.handleEnvelope({ topic: 'ranking.updated', data });
   });
-  offGap = client.onGap(() => { snapshot.value = null; void refresh(); void loadSnapshot(); });
+  offGap = client.onGap(() => { snapshotController?.clear(); void refresh(); void loadSnapshot(); });
   void refresh();
 });
-onBeforeUnmount(() => { disposed = true; request += 1; offTopic?.(); offGap?.(); });
+onBeforeUnmount(() => { disposed = true; request += 1; snapshotController?.dispose(); offTopic?.(); offGap?.(); });
 </script>
 
 <template>
