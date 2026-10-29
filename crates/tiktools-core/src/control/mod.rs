@@ -10,6 +10,8 @@
 mod analytics;
 mod automation;
 mod competitions;
+#[cfg(test)]
+pub(crate) use competitions::bound_ranking_presentation;
 mod globals;
 mod helpers;
 mod live;

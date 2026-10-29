@@ -654,6 +654,9 @@ mod tests {
             total_score: 100,
             total_participants: 100,
         };
+        let snapshot = crate::control::bound_ranking_presentation(snapshot);
+        assert_eq!(snapshot.total_score, 100);
+        assert_eq!(snapshot.total_participants, 100);
         let envelope = DomainEvent::RankingUpdated { snapshot }
             .to_envelope()
             .unwrap();
@@ -663,6 +666,7 @@ mod tests {
         )
         .unwrap();
         assert!(frame.len() < tiktools_plugin_api::MAX_FRAME_BYTES);
+        assert!(frame.len() < 1024 * 1024);
     }
 
     /// One representative value per variant plus its stable topic and a

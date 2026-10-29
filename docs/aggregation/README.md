@@ -2,7 +2,7 @@
 
 The Rust host owns ranking accounting. Accepted native LIVE deltas are applied before presentation events are published. Consumers can request `rankings.snapshot` and subscribe to the `ranking.updated` domain topic. Updates are coalesced and may be dropped; control clients should request a fresh snapshot after connecting or detecting a gap. The widget-scoped gateway allows `ranking.updated` and receives periodic refreshes every five seconds for read-only reconnection. The `revision` identifies changes within a ranking instance, not across host restarts or deletion and recreation.
 
-Presentation events carry at most the first 100 entries, matching the widget's rendering limit; totals still include all participants. The control snapshot uses the configured Top N, and winner selection uses the complete bounded ranking.
+Presentation events carry at most the first 100 entries, matching the widget's rendering limit; totals still include all participants. To stay within transport limits, unusually large snapshots omit optional identity and artwork, then reduce the visible prefix if needed. The control snapshot uses the configured Top N, and winner selection uses the complete bounded ranking.
 
 `TIKTOOLS_RANKING_PUBLISH_INTERVAL_MS` controls the background polling interval in milliseconds (default 250, clamped to 50–1000). This interval also controls competition deadline polling. Top candidates are selected from a shared ordered index and ranked outside the ingestion lock; no snapshots are assembled while no domain subscriber exists.
 

@@ -3,6 +3,31 @@ use super::OperationError;
 use crate::{recover_mutex, AppCore};
 use tiktools_competitions::Definition;
 
+/// Presentation transports have a per-message limit. Preserve accounting
+/// totals and order while dropping optional artwork/identity first, then
+/// reducing the visible prefix if unusually escaped text remains too large.
+pub(crate) fn bound_ranking_presentation(
+    mut snapshot: tiktools_aggregation::Snapshot,
+) -> tiktools_aggregation::Snapshot {
+    const BUDGET: usize = 512 * 1024;
+    let fits = |value: &tiktools_aggregation::Snapshot| {
+        serde_json::to_vec(value).is_ok_and(|bytes| bytes.len() <= BUDGET)
+    };
+    if fits(&snapshot) {
+        return snapshot;
+    }
+    for entry in &mut snapshot.entries {
+        entry.metadata = Default::default();
+    }
+    if fits(&snapshot) {
+        return snapshot;
+    }
+    while !snapshot.entries.is_empty() && !fits(&snapshot) {
+        snapshot.entries.truncate(snapshot.entries.len() / 2);
+    }
+    snapshot
+}
+
 impl AppCore {
     /// Starts one host-owned deadline worker. It uses weak ownership so it
     /// cannot keep an otherwise stopped AppCore alive.
@@ -70,7 +95,7 @@ impl AppCore {
                 for (snapshot, limit) in snapshots {
                     core.events
                         .publish_domain(crate::events::DomainEvent::RankingUpdated {
-                            snapshot: snapshot.rank(limit),
+                            snapshot: bound_ranking_presentation(snapshot.rank(limit)),
                         });
                 }
                 #[cfg(feature = "native-tiktok")]
