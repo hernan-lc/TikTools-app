@@ -185,6 +185,37 @@ fn ranking_snapshots_coalesce_per_ranking_without_losing_other_rankings() {
 }
 
 #[test]
+fn committed_reveals_coalesce_per_competition_but_lifecycle_remains_reliable() {
+    let mut outbox = WebviewOutbox::new();
+    outbox.push(domain_event(
+        "competition.result",
+        r#"{"result":{"competitionId":"a","generation":1}}"#,
+    ));
+    outbox.push(domain_event(
+        "competition.result",
+        r#"{"result":{"competitionId":"b","generation":1}}"#,
+    ));
+    outbox.push(domain_event(
+        "competition.result",
+        r#"{"result":{"competitionId":"a","generation":2}}"#,
+    ));
+    outbox.push(domain_event(
+        "competition.finished",
+        r#"{"competitionId":"a"}"#,
+    ));
+    assert_eq!(outbox.lossy.len(), 2);
+    assert_eq!(outbox.reliable.len(), 1);
+    assert!(outbox
+        .lossy
+        .iter()
+        .any(|item| item.body.contains(r#""competitionId":"a","generation":2"#)));
+    assert!(outbox
+        .lossy
+        .iter()
+        .any(|item| item.body.contains(r#""competitionId":"b","generation":1"#)));
+}
+
+#[test]
 fn lossy_lane_never_exceeds_bound() {
     let mut outbox = WebviewOutbox::new();
     for index in 0..(MAX_PENDING_WEBVIEW_MESSAGES + 50) {

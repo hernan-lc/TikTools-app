@@ -93,6 +93,12 @@ fn webview_coalesce_key(value: &serde_json::Value) -> Option<String> {
         let ranking = value.pointer("/params/data/snapshot/rankingId")?.as_str()?;
         return Some(format!("domain:{topic}:{ranking}"));
     }
+    if topic == "competition.result" {
+        let competition = value
+            .pointer("/params/data/result/competitionId")?
+            .as_str()?;
+        return Some(format!("domain:{topic}:{competition}"));
+    }
     if topic == "plugin.progress" {
         let plugin = value
             .get("params")
@@ -128,6 +134,7 @@ fn classify_value(value: &serde_json::Value) -> WebviewMessageClass {
             | "analytics.updated"
             | "gifts.catalog"
             | "ranking.updated"
+            | "competition.result"
             | "live.likes-ranking"
             | "live.likes-ranking-full"
             | "ui.points.snapshot"

@@ -257,6 +257,7 @@ impl DomainEvent {
                 | Self::LiveLikesRanking { .. }
                 | Self::LiveLikesRankingFull { .. }
                 | Self::RankingUpdated { .. }
+                | Self::CompetitionResult { .. }
                 | Self::RoomStats { .. }
                 | Self::AnalyticsUpdated { .. }
                 | Self::GiftsCatalog { .. }
