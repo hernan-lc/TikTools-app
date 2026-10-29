@@ -185,6 +185,17 @@ fn ranking_snapshots_coalesce_per_ranking_without_losing_other_rankings() {
 }
 
 #[test]
+fn ranking_coalescing_compares_revisions_only_within_an_instance() {
+    let mut outbox = WebviewOutbox::new();
+    outbox.push(domain_event("ranking.updated", r#"{"snapshot":{"rankingId":"a","instanceId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","revision":9}}"#));
+    outbox.push(domain_event("ranking.updated", r#"{"snapshot":{"rankingId":"a","instanceId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","revision":3}}"#));
+    assert!(outbox.lossy[0].contains(r#""revision":9"#));
+    outbox.push(domain_event("ranking.updated", r#"{"snapshot":{"rankingId":"a","instanceId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","revision":1}}"#));
+    assert_eq!(outbox.lossy.len(), 1);
+    assert!(outbox.lossy[0].contains(r#""revision":1"#));
+}
+
+#[test]
 fn committed_reveals_coalesce_per_competition_but_lifecycle_remains_reliable() {
     let mut outbox = WebviewOutbox::new();
     outbox.push(domain_event(
