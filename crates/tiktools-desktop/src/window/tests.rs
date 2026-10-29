@@ -158,6 +158,33 @@ fn domain_snapshots_coalesce_but_feed_and_lifecycle_do_not() {
 }
 
 #[test]
+fn ranking_snapshots_coalesce_per_ranking_without_losing_other_rankings() {
+    let mut outbox = WebviewOutbox::new();
+    outbox.push(domain_event(
+        "ranking.updated",
+        r#"{"snapshot":{"rankingId":"a","revision":1}}"#,
+    ));
+    outbox.push(domain_event(
+        "ranking.updated",
+        r#"{"snapshot":{"rankingId":"b","revision":1}}"#,
+    ));
+    outbox.push(domain_event(
+        "ranking.updated",
+        r#"{"snapshot":{"rankingId":"a","revision":2}}"#,
+    ));
+    assert!(outbox.reliable.is_empty());
+    assert_eq!(outbox.lossy.len(), 2);
+    assert!(outbox
+        .lossy
+        .iter()
+        .any(|item| item.body.contains(r#""rankingId":"a","revision":2"#)));
+    assert!(outbox
+        .lossy
+        .iter()
+        .any(|item| item.body.contains(r#""rankingId":"b","revision":1"#)));
+}
+
+#[test]
 fn lossy_lane_never_exceeds_bound() {
     let mut outbox = WebviewOutbox::new();
     for index in 0..(MAX_PENDING_WEBVIEW_MESSAGES + 50) {

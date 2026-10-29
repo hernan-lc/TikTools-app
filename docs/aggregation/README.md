@@ -4,6 +4,8 @@ The Rust host owns ranking accounting. Accepted native LIVE deltas are applied b
 
 Presentation events carry at most the first 100 entries, matching the widget's rendering limit; totals still include all participants. To stay within transport limits, unusually large snapshots omit optional identity and artwork, then reduce the visible prefix if needed. The control snapshot uses the configured Top N, and winner selection uses the complete bounded ranking.
 
+The desktop WebView coalesces pending ranking snapshots by ranking ID and keeps lifecycle events on its reliable lane. Like snapshots are also replaceable; clients recover the latest snapshot after a gap or reconnect.
+
 `TIKTOOLS_RANKING_PUBLISH_INTERVAL_MS` controls the background polling interval in milliseconds (default 250, clamped to 50–1000). This interval also controls competition deadline polling. Top candidates are selected from a shared ordered index and ranked outside the ingestion lock; no snapshots are assembled while no domain subscriber exists.
 
 `system.health.aggregations` reports the number of rankings, paused and degraded rankings, and aggregate rejected, dropped, limited, and cooldown-rejected counts. Degraded rankings also affect the overall health status. These counters describe local state and do not establish upstream completeness.
