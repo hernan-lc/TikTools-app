@@ -6,7 +6,7 @@ import { useControlClient } from '@/shared/api/use-control-client.ts';
 import BaseButton from '@/shared/ui/button/BaseButton.vue';
 import BasePanel from '@/shared/ui/panel/BasePanel.vue';
 import CompetitionPanel from './CompetitionPanel.vue';
-import { RankingController, type RankingSnapshot } from '../../../../widgets/shared/ranking-controller.ts';
+import { RankingController, parseRankingSnapshot, type RankingSnapshot } from '../../../../widgets/shared/ranking-controller.ts';
 
 const client = useControlClient();
 const rankings = shallowRef<RankingDefinition[]>([]);
@@ -60,10 +60,18 @@ async function refresh(): Promise<void> {
 async function loadSnapshot(): Promise<void> {
   const target = selected.value;
   const token = ++request;
+  const initialSnapshot = snapshot.value;
   if (!target) { snapshot.value = null; return; }
   try {
     const result = await client.call<unknown>('rankings.snapshot', { id: target });
-    if (!disposed && token === request && target === selected.value) snapshotController?.handleEnvelope({ topic: 'ranking.updated', data: { snapshot: result } });
+    if (!disposed && token === request && target === selected.value) {
+      const envelope = { topic: 'ranking.updated', data: { snapshot: result } };
+      const next = parseRankingSnapshot(envelope);
+      // A push may have arrived while this request was in flight. An older
+      // response from another instance cannot be ordered by revision.
+      if (next && snapshot.value !== initialSnapshot && snapshot.value?.instanceId !== next.instanceId) return;
+      snapshotController?.handleEnvelope(envelope);
+    }
   } catch (failure) { if (!disposed && token === request) error.value = errorMessage(failure); }
 }
 function addSource(): void {

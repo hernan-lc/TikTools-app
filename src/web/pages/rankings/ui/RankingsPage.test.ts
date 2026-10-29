@@ -24,6 +24,27 @@ function button(wrapper: Awaited<ReturnType<typeof setup>>['wrapper'], name: str
   return wrapper.findAll('button').find((item) => item.text() === name)!;
 }
 describe('rankings management', () => {
+  it('does not replace a pushed new instance with an older in-flight response', async () => {
+    let resolveSnapshot!: (value: unknown) => void;
+    let publish!: (data: unknown) => void;
+    const { client } = createFakeControlClient((method) => {
+      if (method === 'rankings.list') return { rankings: [definition] };
+      if (method === 'rankings.metrics') return { metrics: [] };
+      if (method === 'competitions.list') return { competitions: [] };
+      if (method === 'automation.list') return { actions: [] };
+      if (method === 'rankings.snapshot') return new Promise((resolve) => { resolveSnapshot = resolve; });
+      return { ok: true };
+    });
+    client.onTopic = (topic, callback) => { if (topic === 'ranking.updated') publish = callback as (data: unknown) => void; return () => {}; };
+    const wrapper = mountWithPlugins(RankingsPage, { global: { plugins: storePlugins(client) } });
+    await flushPromises();
+    await wrapper.findAll('select').find((item) => item.find('option[value="top"]').exists())!.setValue('top');
+    publish({ snapshot: { ...snapshot, instanceId: 'b'.repeat(32), entries: [{ key: '43', label: 'Bob', rank: 1, score: 5 }] } });
+    resolveSnapshot({ ...snapshot, instanceId: 'a'.repeat(32), revision: 20 });
+    await flushPromises();
+    expect(wrapper.text()).toContain('Bob — 5');
+    expect(wrapper.text()).not.toContain('Alice — 5');
+  });
   it('loads an authoritative snapshot and requests a scoped OBS URL', async () => {
     const { wrapper, calls } = await setup();
     const ranking = wrapper.findAll('select').find((item) => item.find('option[value="top"]').exists())!;
