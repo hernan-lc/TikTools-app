@@ -251,7 +251,10 @@ onMounted(() => { if (!initial) void useLive(); });
               </option>
             </select>
           </FormField>
-          <FormField :label="t('rankingsPage.form.window')">
+          <FormField
+            :label="t('rankingsPage.form.window')"
+            group
+          >
             <BaseSegmented
               v-model="windowType"
               :options="windowOptions"

@@ -513,10 +513,8 @@ impl Selection {
                 let mut leaders = self.eligible.iter().filter(|c| c.weight == highest);
                 let first = leaders.next().expect("nonempty candidates");
                 let tied = leaders.next().is_some();
-                if chosen.is_none() {
-                    if self.tie_policy != TiePolicy::NoWinner || !tied {
-                        return Err(Error::InvalidCandidate);
-                    }
+                if chosen.is_none() && (self.tie_policy != TiePolicy::NoWinner || !tied) {
+                    return Err(Error::InvalidCandidate);
                 }
                 if let Some(chosen) = chosen {
                     if chosen.weight != highest

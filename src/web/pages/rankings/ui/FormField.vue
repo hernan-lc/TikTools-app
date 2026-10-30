@@ -1,12 +1,18 @@
 <script setup lang="ts">
-defineProps<{ label: string }>();
+/** `group` labels a composite control (e.g. a segmented picker) instead of wrapping a single input. */
+defineProps<{ label: string; group?: boolean }>();
 </script>
 
 <template>
-  <label class="form-field">
+  <component
+    :is="group ? 'div' : 'label'"
+    class="form-field"
+    :role="group ? 'group' : undefined"
+    :aria-label="group ? label : undefined"
+  >
     <span class="form-field__label">{{ label }}</span>
     <slot />
-  </label>
+  </component>
 </template>
 
 <style scoped>

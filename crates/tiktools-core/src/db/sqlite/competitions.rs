@@ -47,6 +47,7 @@ fn decode_result(
 /// generation can become active again. Otherwise replay after resume or a
 /// later option switch could turn an ignored event into a vote. Receipts
 /// share the generation's existing bounded contribution budget.
+#[allow(clippy::too_many_arguments)]
 fn record_ignored_command(
     tx: rusqlite::Transaction<'_>,
     competition: &str,
@@ -203,6 +204,7 @@ impl DatabaseManager {
             .map(|json| serde_json::from_str(&json).map_err(DatabaseError::from))
             .transpose()
     }
+    #[cfg(test)]
     pub(crate) fn transition_competition(
         &self,
         id: &str,
@@ -298,6 +300,7 @@ impl DatabaseManager {
     /// Persist a command vote and its replay identity in one transaction.
     /// The store fails closed at its fixed generation capacity: it never evicts
     /// identities while the generation can still accept contributions.
+    #[cfg(test)]
     pub(crate) fn route_competition_command(
         &self,
         id: &str,
@@ -909,6 +912,7 @@ impl DatabaseManager {
     }
     /// Atomically advance expired active competitions. A bounded number of
     /// definitions is allowed by the host, so this scan stays bounded.
+    #[cfg(test)]
     pub(crate) fn expire_due_competitions(&self, now: u64) -> Result<usize, DatabaseError> {
         self.expire_due_competitions_owned(now, None)
     }
@@ -954,6 +958,7 @@ impl DatabaseManager {
     }
     /// Inserts at most one result for a competition generation. A retry reads
     /// the committed record, even if the retry proposes a different draw.
+    #[cfg(test)]
     pub(crate) fn store_competition_result(
         &self,
         result: &ResultRecord,
@@ -1373,6 +1378,7 @@ impl DatabaseManager {
         let connection = self.open(&self.automation_path())?;
         Ok(connection.execute("UPDATE competition_action_outbox SET status='uncertain', updated_at=?1 WHERE status='running'", [now])?)
     }
+    #[cfg(test)]
     pub(crate) fn complete_competition_action(
         &self,
         competition_id: &str,
