@@ -2365,3 +2365,54 @@ async fn concurrent_shutdown_waits_for_resource_cleanup() {
     .await
     .expect("all shutdown callers observe completion");
 }
+
+#[tokio::test]
+async fn external_ranking_contribution_is_idempotent_and_grouped_by_team() {
+    use tiktools_aggregation::model::{Definition, GroupBy, SourceRule};
+    isolated_test_home();
+    let core = Arc::new(AppCore::new(Arc::new(RecordingEmitter::default())));
+    let id = format!("teams-{}", now_millis());
+    core.ranking_create(Definition {
+        schema_version: 1,
+        id: id.clone(),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        group_by: GroupBy::Team,
+        window: Default::default(),
+        user_limits: None,
+        capacity: 10,
+        limit: 10,
+        sources: vec![SourceRule {
+            source: "plugin.quiz.answer".into(),
+            metric: "value".into(),
+            weight: 2,
+            enabled: true,
+            gift_multipliers: Default::default(),
+        }],
+    })
+    .unwrap();
+    let input = control::ExternalContribution {
+        event_id: format!("{id}-1"),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        source: "plugin.quiz.answer".into(),
+        user: Some("u1".into()),
+        label: None,
+        team: Some("red".into()),
+        custom_key: None,
+        option: None,
+        metrics: [("value".to_owned(), 5)].into(),
+    };
+    assert!(!core.ranking_contribute(input.clone()).unwrap().duplicate);
+    assert!(core.ranking_contribute(input.clone()).unwrap().duplicate);
+    let snapshot = core.ranking_snapshot(&id).unwrap();
+    assert_eq!(snapshot.total_score, 10);
+    assert_eq!(snapshot.entries[0].key, "red");
+    assert!(core
+        .ranking_contribute(control::ExternalContribution {
+            source: "tiktok.like".into(),
+            ..input
+        })
+        .is_err());
+    core.ranking_delete(&id).unwrap();
+}

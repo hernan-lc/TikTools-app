@@ -113,6 +113,26 @@ impl DatabaseManager {
         )?;
         Ok(())
     }
+    /// Record an external contribution identity. Returns false for a replay.
+    /// Keys older than seven days are pruned opportunistically.
+    pub(crate) fn admit_external_contribution(
+        &self,
+        event_id: &str,
+        now: i64,
+    ) -> Result<bool, DatabaseError> {
+        let connection = self.open(&self.automation_path())?;
+        let inserted = connection.execute(
+            "INSERT OR IGNORE INTO aggregation_external_events(event_id,accepted_at) VALUES (?1,?2)",
+            params![event_id, now],
+        )? == 1;
+        if inserted && now % 64 == 0 {
+            connection.execute(
+                "DELETE FROM aggregation_external_events WHERE accepted_at < ?1",
+                [now.saturating_sub(7 * 24 * 60 * 60 * 1000)],
+            )?;
+        }
+        Ok(inserted)
+    }
     pub(crate) fn load_aggregation_definitions(&self) -> Result<Vec<Definition>, DatabaseError> {
         let connection = self.open(&self.automation_path())?;
         let mut statement = connection

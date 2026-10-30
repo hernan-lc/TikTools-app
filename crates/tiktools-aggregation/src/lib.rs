@@ -417,6 +417,54 @@ mod engine_tests {
     use crate::engine::Engine;
     use crate::model::{Contribution, Definition, SourceRule};
     #[test]
+    fn daily_window_resets_at_local_midnight() {
+        use crate::model::Window;
+        const DAY: u64 = 86_400_000;
+        let mut engine = Engine::default();
+        engine
+            .create(Definition {
+                schema_version: 1,
+                id: "daily".into(),
+                creator_id: "c".into(),
+                room_id: "r".into(),
+                group_by: Default::default(),
+                // UTC-5: local midnight is 05:00 UTC.
+                window: Window::Daily {
+                    utc_offset_minutes: -300,
+                },
+                user_limits: None,
+                capacity: 3,
+                limit: 3,
+                sources: vec![SourceRule {
+                    source: "like".into(),
+                    metric: "count".into(),
+                    weight: 1,
+                    enabled: true,
+                    gift_multipliers: Default::default(),
+                }],
+            })
+            .unwrap();
+        let event = Contribution {
+            creator_id: "c",
+            room_id: "r",
+            source: "like",
+            user: Some("u"),
+            gift: None,
+            option: None,
+            team: None,
+            custom_key: None,
+            metrics: &[("count", 3)],
+        };
+        let base = 10 * DAY + 3_600_000; // 01:00 UTC = 20:00 local, previous day.
+        engine.apply_at(&event, base);
+        engine.apply_at(&event, base + 3_000_000); // 01:50 UTC, same local day.
+        assert_eq!(engine.snapshot("daily").unwrap().total_score, 6);
+        engine.expire_at(base + 4 * 3_600_000 + 1); // 05:00 UTC: local midnight.
+        assert_eq!(engine.snapshot("daily").unwrap().total_score, 0);
+        engine.apply_at(&event, base + 5 * 3_600_000);
+        assert_eq!(engine.snapshot("daily").unwrap().total_score, 3);
+    }
+    #[test]
     fn checkpoint_preserves_rolling_expiry_and_user_limits() {
         use crate::model::{UserLimits, Window};
         let definition = Definition {

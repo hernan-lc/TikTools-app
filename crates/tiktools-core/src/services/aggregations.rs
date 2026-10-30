@@ -16,6 +16,33 @@ pub(crate) struct AggregationService {
     persisted: Mutex<std::collections::HashMap<String, (u64, u64)>>,
     #[cfg(feature = "persistence")]
     pub(crate) checkpoint_started: std::sync::atomic::AtomicBool,
+    /// Without persistence, external idempotency keys are kept in memory.
+    #[cfg(not(feature = "persistence"))]
+    pub(crate) external_seen: Mutex<ExternalSeen>,
+}
+
+/// Bounded FIFO set of recently admitted external contribution keys.
+#[cfg(not(feature = "persistence"))]
+#[derive(Default)]
+pub(crate) struct ExternalSeen {
+    keys: std::collections::HashSet<String>,
+    order: std::collections::VecDeque<String>,
+}
+
+#[cfg(not(feature = "persistence"))]
+impl ExternalSeen {
+    pub(crate) fn admit(&mut self, key: String) -> bool {
+        if !self.keys.insert(key.clone()) {
+            return false;
+        }
+        self.order.push_back(key);
+        if self.order.len() > 100_000 {
+            if let Some(old) = self.order.pop_front() {
+                self.keys.remove(&old);
+            }
+        }
+        true
+    }
 }
 
 impl AggregationService {

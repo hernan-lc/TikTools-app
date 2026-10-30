@@ -37,6 +37,7 @@ pub use live::{LiveChannel, LiveChannelsResult, LiveStatus};
 pub use plugin_settings::{PluginConnectionResult, PluginProvisionResult, PluginSettingsResult};
 pub use plugins::{PluginActionOutcome, PluginInstallResult};
 pub use processors::ProcessorOutcomeDto;
+pub use rankings::{ContributionOutcome, ExternalContribution};
 pub use system::{DoctorCheck, DoctorReport};
 pub use widgets::{WidgetsCopyResult, WidgetsState, WidgetsStatusResult, GATEWAY_PLUGIN_ID};
 

@@ -157,7 +157,7 @@ impl Engine {
             return Err(Error::IncompatibleDefinition);
         }
         match ranking.definition.window {
-            Window::Session if !checkpoint.window_events.is_empty() => {
+            Window::Session | Window::Daily { .. } if !checkpoint.window_events.is_empty() => {
                 return Err(Error::IncompatibleDefinition)
             }
             Window::Rolling { max_events, .. } => {
@@ -233,6 +233,7 @@ impl Engine {
             || definition.capacity == 0
             || definition.limit == 0
             || matches!(&definition.window, Window::Rolling { duration_ms, max_events } if *duration_ms == 0 || *max_events == 0 || *max_events > 100_000)
+            || matches!(&definition.window, Window::Daily { utc_offset_minutes } if !(-840..=840).contains(utc_offset_minutes))
             || definition.user_limits.as_ref().is_some_and(|limits| {
                 limits.max_users == 0
                     || limits.max_users > 100_000
@@ -704,6 +705,24 @@ impl Engine {
         Ok(UserDecision::Allowed)
     }
     fn expire_ranking(ranking: &mut Ranking, now: u64) -> Result<(), Error> {
+        if let Window::Daily { utc_offset_minutes } = ranking.definition.window {
+            let day = |time: u64| {
+                (time.min(i64::MAX as u64) as i64)
+                    .saturating_add(i64::from(utc_offset_minutes) * 60_000)
+                    .div_euclid(86_400_000)
+            };
+            let previous = ranking.last_time;
+            ranking.last_time = previous.max(now);
+            if previous != 0 && day(ranking.last_time) != day(previous) {
+                ranking.state.reset()?;
+                ranking.users.clear();
+                ranking.rejected = 0;
+                ranking.dropped = 0;
+                ranking.limited = 0;
+                ranking.cooldown_rejected = 0;
+            }
+            return Ok(());
+        }
         ranking.last_time = ranking.last_time.max(now);
         let Window::Rolling { duration_ms, .. } = ranking.definition.window else {
             return Ok(());
@@ -804,6 +823,10 @@ impl Engine {
             ranking.dropped = ranking.dropped.saturating_add(count);
             let _ = ranking.state.touch();
         }
+    }
+    /// Whether any ranking consumes `source`; lets adapters skip unused work.
+    pub fn has_source(&self, source: &str) -> bool {
+        self.by_source.contains_key(source)
     }
     /// Small change tokens used by coalesced presentation publishers.
     pub fn change_tokens(&self) -> Vec<(String, u64, u64)> {

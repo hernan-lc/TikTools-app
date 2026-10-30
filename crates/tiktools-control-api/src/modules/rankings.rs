@@ -105,6 +105,23 @@ pub fn register(router: &mut ControlRouter) {
             .map_err(ApiError::from)
         },
     );
+    router.register_typed::<
+        tiktools_core::control::ExternalContribution,
+        tiktools_core::control::ContributionOutcome,
+        _,
+        _,
+    >(
+        "rankings.contribute",
+        "Apply an idempotent plugin or custom ranking contribution",
+        true,
+        |core: Arc<AppCore>, params| async move {
+            crate::modules::blocking_task("rankings.contribute", move || {
+                core.ranking_contribute(params)
+            })
+            .await?
+            .map_err(ApiError::from)
+        },
+    );
     router.register_typed::<RankingId, OkResult, _, _>(
         "rankings.reset",
         "Reset a ranking",
