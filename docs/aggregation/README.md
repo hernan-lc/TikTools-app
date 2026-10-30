@@ -1,4 +1,4 @@
-# Aggregation work in progress
+# Rankings and competitions
 
 The Rust host owns ranking accounting. Accepted native LIVE deltas are applied before presentation events are published. Consumers can request `rankings.snapshot` and subscribe to the `ranking.updated` domain topic. Updates are coalesced and may be dropped; control clients should request a fresh snapshot after connecting or detecting a gap. The widget-scoped gateway allows `ranking.updated` and receives periodic refreshes every five seconds for read-only reconnection. `instanceId` identifies a ranking instance and is retained on clean checkpoint recovery; `revision` identifies changes within that instance. Legacy snapshots and checkpoints may omit the identity.
 
@@ -44,7 +44,7 @@ Active command-vote competitions use a conservative integrity checkpoint. A clea
 
 Ranking snapshots include optional source-provided display identity and artwork, with a stable key fallback for the label. Metadata is bounded by ranking capacity, changes only alongside accepted scoring, and is evicted when an entry expires. The widget accepts HTTP(S) artwork without embedded credentials. Command-vote option labels are reconstructed from stored competition definitions.
 
-The desktop navigation includes Rankings & competitions. It creates and previews session or rolling rankings, edits paused ranking definitions, copies ranking OBS URLs, and creates and operates competitions with existing automation actions. Scoring or scope changes require an explicit reset. Workflow references and the full visualization editor are not yet implemented in this page.
+The desktop navigation includes Rankings & competitions, split into Rankings and Competitions tabs. It creates and previews session, daily or rolling rankings (prefilled from the connected LIVE), edits paused ranking definitions, copies ranking OBS URLs, and creates and operates every competition kind with option or user winner actions. Scoring or scope changes require an explicit reset. "Automate the winner" opens Automations with a new rule triggered by `competition.winner.selected`; Automations accepts a `?trigger=<event type>` query for such links. Ranking widget colors, title and card layout are edited in Overlays → Ranking & competition.
 
 For a manual highest-score tie, `competitions.candidates` returns the tied leaders from the full closed ranking. `competitions.selectWinner` accepts the competition ID, generation, and one tied winner ID; the decision is stored once before its action is dispatched. The management page offers the same choice.
 
