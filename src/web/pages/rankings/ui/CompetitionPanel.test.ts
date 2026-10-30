@@ -20,6 +20,11 @@ async function setup() {
   await flushPromises();
   return { wrapper, calls };
 }
+async function openForm(wrapper: Awaited<ReturnType<typeof setup>>['wrapper'], id: string, name: string) {
+  await wrapper.findAll('button').find((item) => item.text() === 'New competition')!.trigger('click');
+  await wrapper.get('[data-field="id"]').setValue(id);
+  await wrapper.get('[data-field="name"]').setValue(name);
+}
 describe('competition controls', () => {
   it('offers mixed like and share rankings but excludes unsupported sources', async () => {
     const { client } = createFakeControlClient((method) => {
@@ -34,14 +39,13 @@ describe('competition controls', () => {
       { source: 'tiktok.follow', metric: 'event.count', weight: 1, enabled: true }] };
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [mixed, gift] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
+    await wrapper.findAll('button').find((item) => item.text() === 'New competition')!.trigger('click');
     expect(wrapper.find('option[value="mixed"]').exists()).toBe(true);
     expect(wrapper.find('option[value="unsupported"]').exists()).toBe(false);
   });
   it('creates a command poll with explicit option routing', async () => {
     const { wrapper, calls } = await setup();
-    const fields = wrapper.findAll('input');
-    await fields[0]!.setValue('poll');
-    await fields[1]!.setValue('Poll');
+    await openForm(wrapper, 'poll', 'Poll');
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
@@ -54,8 +58,7 @@ describe('competition controls', () => {
   });
   it('rejects ambiguous gift bindings before sending a definition', async () => {
     const { wrapper, calls } = await setup();
-    const fields = wrapper.findAll('input');
-    await fields[0]!.setValue('poll'); await fields[1]!.setValue('Poll');
+    await openForm(wrapper, 'poll', 'Poll');
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const items = wrapper.findAll('fieldset');
     for (const [index, item] of items.entries()) {
@@ -68,9 +71,8 @@ describe('competition controls', () => {
   });
   it('creates a team battle with the same durable option ranking', async () => {
     const { wrapper, calls } = await setup();
-    const fields = wrapper.findAll('input');
-    await fields[0]!.setValue('battle'); await fields[1]!.setValue('Battle');
-    await wrapper.findAll('select').find((item) => item.find('option[value="team_battle"]').exists())!.setValue('team_battle');
+    await openForm(wrapper, 'battle', 'Battle');
+    await wrapper.get('input[value="team_battle"]').setValue(true);
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('red'); await optionFields[1]!.setValue('Red'); await optionFields[2]!.setValue('!red');
@@ -80,9 +82,8 @@ describe('competition controls', () => {
   });
   it('creates an option roulette using the selected winner policy', async () => {
     const { wrapper, calls } = await setup();
-    const fields = wrapper.findAll('input');
-    await fields[0]!.setValue('wheel'); await fields[1]!.setValue('Wheel');
-    await wrapper.findAll('select').find((item) => item.find('option[value="roulette"]').exists())!.setValue('roulette');
+    await openForm(wrapper, 'wheel', 'Wheel');
+    await wrapper.get('input[value="roulette"]').setValue(true);
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
@@ -101,7 +102,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.findAll('select').find((item) => item.find('option[value="poll"]').exists() && item.find('option[value=""]').exists() && item.text().includes('Poll (poll)'))!.setValue('poll');
+    await wrapper.get('[data-competition="poll"]').trigger('click');
     await flushPromises();
     await wrapper.findAll('button').find((item) => item.text() === 'Edit competition')!.trigger('click');
     await wrapper.get('form').trigger('submit'); await flushPromises();
@@ -109,8 +110,7 @@ describe('competition controls', () => {
   });
   it('configures typed winner action inputs', async () => {
     const { wrapper, calls } = await setup();
-    const fields = wrapper.findAll('input');
-    await fields[0]!.setValue('poll'); await fields[1]!.setValue('Poll');
+    await openForm(wrapper, 'poll', 'Poll');
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
@@ -137,8 +137,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    const select = wrapper.findAll('select').find((item) => item.find('option[value="poll"]').exists() && !item.find('option[value="team_battle"]').exists())!;
-    await select.setValue('poll'); await flushPromises();
+    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
     const candidate = wrapper.findAll('select').find((item) => item.find('option[value="b"]').exists())!;
     await candidate.setValue('b');
     await wrapper.findAll('button').find((item) => item.text() === 'Select winner')!.trigger('click'); await flushPromises();
@@ -155,8 +154,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    const select = wrapper.findAll('select').find((item) => item.find('option[value="poll"]').exists() && !item.find('option[value="team_battle"]').exists())!;
-    await select.setValue('poll'); await flushPromises();
+    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('execution_failed');
     await wrapper.findAll('button').find((item) => item.text() === 'Mark completed')!.trigger('click'); await flushPromises();
     expect(calls.find((call) => call.method === 'competitions.resolveAction')?.params).toEqual({ id: 'poll', generation: 1, resolution: 'completed' });
@@ -164,8 +162,7 @@ describe('competition controls', () => {
   });
   it('reads lifecycle and starts through the control API', async () => {
     const { wrapper, calls } = await setup();
-    const select = wrapper.findAll('select').find((item) => item.find('option[value="poll"]').exists() && !item.find('option[value="team_battle"]').exists())!;
-    await select.setValue('poll'); await flushPromises();
+    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('Status: draft');
     await wrapper.findAll('button').find((item) => item.text() === 'Copy winner reveal OBS URL')!.trigger('click'); await flushPromises();
     expect(calls.find((call) => call.method === 'widgets.copyObsUrl')?.params).toEqual({ widget: 'ranking', rankingId: 'vote', visualization: 'roulette', competitionId: 'poll' });

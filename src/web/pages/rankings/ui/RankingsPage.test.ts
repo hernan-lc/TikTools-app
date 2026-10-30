@@ -38,7 +38,7 @@ describe('rankings management', () => {
     client.onTopic = (topic, callback) => { if (topic === 'ranking.updated') publish = callback as (data: unknown) => void; return () => {}; };
     const wrapper = mountWithPlugins(RankingsPage, { global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.findAll('select').find((item) => item.find('option[value="top"]').exists())!.setValue('top');
+    await wrapper.get('[data-ranking="top"]').trigger('click');
     publish({ snapshot: { ...snapshot, instanceId: 'b'.repeat(32), entries: [{ key: '43', label: 'Bob', rank: 1, score: 5 }] } });
     resolveSnapshot({ ...snapshot, instanceId: 'a'.repeat(32), revision: 20 });
     await flushPromises();
@@ -47,8 +47,7 @@ describe('rankings management', () => {
   });
   it('loads an authoritative snapshot and requests a scoped OBS URL', async () => {
     const { wrapper, calls } = await setup();
-    const ranking = wrapper.findAll('select').find((item) => item.find('option[value="top"]').exists())!;
-    await ranking.setValue('top');
+    await wrapper.get('[data-ranking="top"]').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Alice — 5');
     const visualization = wrapper.findAll('select').find((item) => item.find('option[value="donut"]').exists())!;
@@ -61,6 +60,7 @@ describe('rankings management', () => {
   });
   it('creates a backend definition from the metric controls', async () => {
     const { wrapper, calls } = await setup();
+    await button(wrapper, 'New ranking').trigger('click');
     const inputs = wrapper.findAll('input');
     await inputs[0]!.setValue('new-rank');
     await inputs[1]!.setValue('creator');
@@ -72,7 +72,7 @@ describe('rankings management', () => {
   });
   it('edits a paused definition and preserves scores when reset is not selected', async () => {
     const { wrapper, calls } = await setup(true);
-    await wrapper.findAll('select').find((item) => item.find('option[value="top"]').exists())!.setValue('top');
+    await wrapper.get('[data-ranking="top"]').trigger('click');
     await flushPromises();
     await button(wrapper, 'Edit definition').trigger('click');
     const topEntries = wrapper.findAll('label').find((label) => label.text().startsWith('Top entries'))!;
@@ -82,6 +82,7 @@ describe('rankings management', () => {
   });
   it('configures bounded per-user contribution rules', async () => {
     const { wrapper, calls } = await setup();
+    await button(wrapper, 'New ranking').trigger('click');
     const inputs = wrapper.findAll('input');
     await inputs[0]!.setValue('limited'); await inputs[1]!.setValue('creator'); await inputs[2]!.setValue('room');
     await button(wrapper, 'Add metric').trigger('click');
@@ -93,9 +94,10 @@ describe('rankings management', () => {
   });
   it('configures per-gift multipliers on a gift source', async () => {
     const { wrapper, calls } = await setup();
+    await button(wrapper, 'New ranking').trigger('click');
     const inputs = wrapper.findAll('input');
     await inputs[0]!.setValue('gifts'); await inputs[1]!.setValue('creator'); await inputs[2]!.setValue('room');
-    const metric = wrapper.findAll('select').find((item) => item.findAll('option').some((option) => option.text().includes('gift.diamonds')))!;
+    const metric = wrapper.findAll('select').find((item) => item.find(`option[value='${JSON.stringify(['tiktok.gift', 'gift.diamonds'])}']`).exists())!;
     await metric.setValue(JSON.stringify(['tiktok.gift', 'gift.diamonds']));
     await button(wrapper, 'Add metric').trigger('click');
     await button(wrapper, 'Add gift override').trigger('click');
