@@ -879,6 +879,8 @@ mod integration_tests {
             vote_limit: 1,
             allow_switch: true,
             minimum_participants: 2,
+            target_score: None,
+            on_user_win: None,
         })
         .unwrap();
         // A draft cannot be rebound to a ranking carrying old vote scores.
@@ -1511,6 +1513,8 @@ mod integration_tests {
             vote_limit: 1,
             allow_switch: true,
             minimum_participants: 1,
+            target_score: None,
+            on_user_win: None,
         })
         .unwrap();
         core.competition_transition("poll", Transition::Start)
@@ -1714,6 +1718,8 @@ mod integration_tests {
             vote_limit: 1,
             allow_switch: false,
             minimum_participants: 1,
+            target_score: None,
+            on_user_win: None,
         })
         .unwrap();
         core.competition_transition("timed-poll", Transition::Start)
@@ -1877,6 +1883,8 @@ mod integration_tests {
             vote_limit: 1,
             allow_switch: false,
             minimum_participants: 1,
+            target_score: None,
+            on_user_win: None,
         })
         .unwrap();
         core.competition_transition("clean-poll", Transition::Start)

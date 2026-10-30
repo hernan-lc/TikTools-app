@@ -17,6 +17,29 @@ impl AppCore {
         }
         let weak = Arc::downgrade(self);
         *slot = Some(tokio::spawn(async move {
+            // Nothing has been claimed by this process yet, so any `running`
+            // row belongs to a host that died mid-action. Its side effect may
+            // or may not have happened: mark it uncertain for explicit
+            // resolution, never re-run it automatically.
+            if let Some(core) = weak.upgrade() {
+                let db = core.db.clone();
+                let now = crate::now_millis().min(i64::MAX as u64) as i64;
+                match tokio::task::spawn_blocking(move || {
+                    db.mark_interrupted_competition_actions_uncertain(now)
+                })
+                .await
+                {
+                    Ok(Ok(0)) => {}
+                    Ok(Ok(count)) => tracing::warn!(
+                        count,
+                        "interrupted competition actions marked uncertain; resolve them explicitly"
+                    ),
+                    Ok(Err(error)) => {
+                        tracing::error!(%error, "cannot recover interrupted competition actions")
+                    }
+                    Err(error) => tracing::error!(%error, "action recovery worker failed"),
+                }
+            }
             loop {
                 let Some(core) = weak.upgrade() else {
                     break;

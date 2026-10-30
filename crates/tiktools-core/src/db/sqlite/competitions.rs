@@ -975,7 +975,6 @@ impl DatabaseManager {
             || result.ranking_id.len() > 128
             || result.generation > i64::MAX as u64
             || result.finalized_at > i64::MAX as u64
-            || result.selection.eligible.is_empty()
             || result.selection.eligible.len() > 100_000
         {
             return Err(DatabaseError::Invalid("invalid competition result".into()));

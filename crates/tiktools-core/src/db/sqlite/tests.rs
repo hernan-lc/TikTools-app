@@ -298,6 +298,8 @@ fn competition_result_is_immutable_across_retry_and_reopen() {
         vote_limit: 1,
         allow_switch: false,
         minimum_participants: 1,
+        target_score: None,
+        on_user_win: None,
     })
     .unwrap();
     db.transition_competition("poll", Transition::Start, 100)
@@ -548,6 +550,8 @@ fn competition_definition_survives_reopen() {
         vote_limit: 1,
         allow_switch: false,
         minimum_participants: 1,
+        target_score: None,
+        on_user_win: None,
     };
     db.insert_aggregation_definition(&tiktools_aggregation::model::Definition {
         schema_version: 1,
@@ -628,6 +632,8 @@ fn competition_deadline_expiry_is_durable_and_idempotent() {
         vote_limit: 1,
         allow_switch: false,
         minimum_participants: 1,
+        target_score: None,
+        on_user_win: None,
     };
     db.insert_competition_definition(&definition).unwrap();
     db.transition_competition("timer", Transition::Start, 100)
@@ -677,6 +683,8 @@ fn competition_command_votes_are_transactional_scoped_and_replay_safe() {
         vote_limit: 2,
         allow_switch: true,
         minimum_participants: 1,
+        target_score: None,
+        on_user_win: None,
     };
     db.insert_aggregation_definition(&tiktools_aggregation::model::Definition {
         schema_version: 1,
@@ -1191,6 +1199,8 @@ fn competition_gift_admission_commits_identity_combo_and_score_together() {
         vote_limit: 1,
         allow_switch: false,
         minimum_participants: 0,
+        target_score: None,
+        on_user_win: None,
     })
     .unwrap();
     db.transition_competition_owned("poll", Transition::Start, 100, Some("owner"))

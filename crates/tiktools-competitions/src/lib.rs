@@ -173,6 +173,13 @@ pub struct Definition {
     pub vote_limit: u64,
     pub allow_switch: bool,
     pub minimum_participants: u64,
+    /// Leaderboard challenges: the leader must reach this score to win.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_score: Option<u64>,
+    /// Action for winners that are users rather than options (participant
+    /// draws and leaderboard challenges).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_user_win: Option<WinnerAction>,
 }
 impl Definition {
     /// Reject ambiguous command and gift routing rather than choosing an
@@ -185,8 +192,23 @@ impl Definition {
             || self.name.len() > 256
             || self.ranking_id.is_empty()
             || self.ranking_id.len() > 128
-            || self.options.is_empty()
+            || (self.options.is_empty() != (self.kind == CompetitionKind::LeaderboardChallenge))
             || self.options.len() > 256
+            || (self.kind == CompetitionKind::LeaderboardChallenge
+                && self.selection_mode != SelectionMode::HighestScore)
+            || (self.target_score.is_some() && self.kind != CompetitionKind::LeaderboardChallenge)
+            || self.target_score == Some(0)
+            || (self.on_user_win.is_some()
+                && !matches!(
+                    self.kind,
+                    CompetitionKind::LeaderboardChallenge
+                        | CompetitionKind::RandomDraw
+                        | CompetitionKind::WeightedDraw
+                ))
+            || self
+                .on_user_win
+                .as_ref()
+                .is_some_and(|action| action.action_id.is_empty() || action.action_id.len() > 128)
             || (self.kind == CompetitionKind::RandomDraw
                 && self.selection_mode != SelectionMode::UniformRandom)
             || (self.kind == CompetitionKind::WeightedDraw
@@ -450,7 +472,16 @@ impl Selection {
     /// Validate a record before persistence or recovery; the eligible set is
     /// sorted, unique, bounded, and the winner must belong to it.
     pub fn validate(&self) -> Result<(), Error> {
-        if self.eligible.is_empty() || self.eligible.len() > 100_000 {
+        // An empty eligible set records an explicit no-winner outcome, such
+        // as a leaderboard challenge whose target nobody reached.
+        if self.eligible.is_empty() {
+            return if self.winner.is_none() {
+                Ok(())
+            } else {
+                Err(Error::Empty)
+            };
+        }
+        if self.eligible.len() > 100_000 {
             return Err(Error::Empty);
         }
         if self
@@ -884,6 +915,8 @@ mod tests {
             vote_limit: 1,
             allow_switch: false,
             minimum_participants: 1,
+            target_score: None,
+            on_user_win: None,
         };
         let mut index = CommandIndex::default();
         index.register(&definition, "creator", "room").unwrap();
@@ -976,6 +1009,8 @@ mod tests {
             vote_limit: 1,
             allow_switch: false,
             minimum_participants: 1,
+            target_score: None,
+            on_user_win: None,
         };
         assert!(definition.validate().is_err());
         definition.options[1].commands[0] = "!other".into();
