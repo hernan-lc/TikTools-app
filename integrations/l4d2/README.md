@@ -104,12 +104,65 @@ Left4DHooks fails to load), `spawn_infected_nolimit`:
    `127.0.0.1`), **RCON port** (default `27015`), and the
    **RCON password** (secret field, never logged). Timeouts and the
    per-minute rate limit live under Advanced.
-3. Run **Test connection** as a *live* action (dry-run test consoles
-   never call plugin backends by design). Expect a summary like
+3. Press **Probar conexión** in the same Ajustes tab for a one-click
+   live check (no automation needed; uses the saved settings — save
+   first if you edited them). Or run **Test connection** as a *live*
+   action (dry-run test consoles never call plugin backends by
+   design). Expect a summary like
    `Connected: map c1m1_hotel (4 survivors, 12 commons, 812/2048 entities).`
 
 > Import note: templates/profiles referencing `l4d2.*` actions refuse
 > with a clear error unless this plugin is installed and enabled.
+
+## 3b. Same-machine clients: prefer the LAN IP over loopback
+
+Measured on Linux (2026-10-29, kernel packet log + full 2×2
+source/destination matrix against `srcds_linux` bound to `0.0.0.0:27015`):
+
+- UDP game packets with a **loopback source** (`127.0.0.0/8`) reach the
+  server socket but are **never answered**; the same packets with a **LAN
+  source** get a challenge reply within the same second.
+- TCP/RCON is unaffected: `127.0.1.1:27015` authenticates fine (the RCON
+  listener binds that address; `127.0.0.1:27015` and the LAN IP refuse
+  TCP — point TikTools at `127.0.1.1` when both run on this box).
+- Firewall tables (`filter`/`nat`/`mangle`/`raw`) are all ACCEPT and the
+  engine ban lists are empty — the drop is the dedicated-server binary
+  ignoring loopback-sourced game traffic, not your network.
+
+Practical rule: **game client connects via the server's LAN IP**
+(`connect 192.168.18.130:27015`), **TikTools RCON via `127.0.1.1`**.
+Give the server box a DHCP reservation so the LAN IP is stable.
+On Windows the loopback path is untested — if `connect 127.0.0.1`
+fails there the same way, use the LAN IP as well.
+
+## 3c. Windows machines (RCON path — verified protocol, Windows steps pending evidence)
+
+The RCON transport is plain TCP and platform-independent; only the
+addresses change. Status honesty: everything below follows the same
+protocol verified live on Linux — the Windows end-to-end run itself is
+still pending your evidence.
+
+1. **Server:** keep SRCDS where it is (Linux here), or run SRCDS on
+   Windows — either is reachable over TCP. No server change needed.
+   Private server + modded clients: `sv_consistency 0` (already set on
+   the test server); stock server + modded clients: disable/quarantine
+   the colliding addons (see §3b and `scan_addon_conflicts`).
+2. **TikTools Desktop on Windows:** install, enable L4D2 Interactive,
+   set RCON host to the **server's LAN IP** (e.g. `192.168.18.130`),
+   port `27015`, password. Press **Probar conexión** — expect
+   `Connected: map c1m1_hotel (...)`. RCON host `127.0.0.1` only works
+   when TikTools and SRCDS share the same box.
+3. **Game client on Windows:** Steam → L4D2 → enable the developer
+   console → `connect <server LAN IP>:27015`. Pick a survivor so spawns
+   have an anchor (`NO_SURVIVOR` otherwise — correct, not an error).
+4. **Spawn test (either OS):** `tiktools plugin action
+   l4d2.spawn_common --config '{"count":3}' --live`, or the automation
+   of your choice. Expect `game confirmed 3/3` and the horde in view.
+
+The L4D2api local-host path (no RCON, no dedicated server) is a separate
+prototype and is NOT runnable yet — its Windows flow stays gated in that
+repo. Do not build it expecting a playable integration: `cargo test`
+already proves what the workspace guarantees.
 
 ## 4. Protocol reference
 
