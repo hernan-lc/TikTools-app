@@ -72,7 +72,7 @@ describe('competition controls', () => {
   it('creates a team battle with the same durable option ranking', async () => {
     const { wrapper, calls } = await setup();
     await openForm(wrapper, 'battle', 'Battle');
-    await wrapper.get('input[value="team_battle"]').setValue(true);
+    await wrapper.get('[data-field="type"]').setValue('team_battle');
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('red'); await optionFields[1]!.setValue('Red'); await optionFields[2]!.setValue('!red');
@@ -83,7 +83,7 @@ describe('competition controls', () => {
   it('creates an option roulette using the selected winner policy', async () => {
     const { wrapper, calls } = await setup();
     await openForm(wrapper, 'wheel', 'Wheel');
-    await wrapper.get('input[value="roulette"]').setValue(true);
+    await wrapper.get('[data-field="type"]').setValue('roulette');
     await wrapper.findAll('select').find((item) => item.find('option[value="vote"]').exists())!.setValue('vote');
     const optionFields = wrapper.findAll('fieldset input');
     await optionFields[0]!.setValue('a'); await optionFields[1]!.setValue('A'); await optionFields[2]!.setValue('!a');
@@ -102,7 +102,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.get('[data-competition="poll"]').trigger('click');
+    await wrapper.get('[data-item="poll"]').trigger('click');
     await flushPromises();
     await wrapper.findAll('button').find((item) => item.text() === 'Edit competition')!.trigger('click');
     await wrapper.get('form').trigger('submit'); await flushPromises();
@@ -137,7 +137,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-item="poll"]').trigger('click'); await flushPromises();
     const candidate = wrapper.findAll('select').find((item) => item.find('option[value="b"]').exists())!;
     await candidate.setValue('b');
     await wrapper.findAll('button').find((item) => item.text() === 'Select winner')!.trigger('click'); await flushPromises();
@@ -154,7 +154,7 @@ describe('competition controls', () => {
     });
     const wrapper = mountWithPlugins(CompetitionPanel, { props: { rankings: [ranking] }, global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
+    await wrapper.get('[data-item="poll"]').trigger('click'); await flushPromises();
     expect(wrapper.text()).toContain('execution_failed');
     await wrapper.findAll('button').find((item) => item.text() === 'Mark completed')!.trigger('click'); await flushPromises();
     expect(calls.find((call) => call.method === 'competitions.resolveAction')?.params).toEqual({ id: 'poll', generation: 1, resolution: 'completed' });
@@ -162,9 +162,9 @@ describe('competition controls', () => {
   });
   it('reads lifecycle and starts through the control API', async () => {
     const { wrapper, calls } = await setup();
-    await wrapper.get('[data-competition="poll"]').trigger('click'); await flushPromises();
-    expect(wrapper.text()).toContain('Status: draft');
-    await wrapper.findAll('button').find((item) => item.text() === 'Copy winner reveal OBS URL')!.trigger('click'); await flushPromises();
+    await wrapper.get('[data-item="poll"]').trigger('click'); await flushPromises();
+    expect(wrapper.text()).toContain('Draft');
+    await wrapper.findAll('button').find((item) => item.text() === 'Copy winner reveal URL')!.trigger('click'); await flushPromises();
     expect(calls.find((call) => call.method === 'widgets.copyObsUrl')?.params).toEqual({ widget: 'ranking', rankingId: 'vote', visualization: 'roulette', competitionId: 'poll' });
     await wrapper.findAll('button').find((item) => item.text() === 'Start')!.trigger('click'); await flushPromises();
     expect(calls.find((call) => call.method === 'competitions.start')?.params).toEqual({ id: 'poll' });

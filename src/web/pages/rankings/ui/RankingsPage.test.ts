@@ -38,7 +38,7 @@ describe('rankings management', () => {
     client.onTopic = (topic, callback) => { if (topic === 'ranking.updated') publish = callback as (data: unknown) => void; return () => {}; };
     const wrapper = mountWithPlugins(RankingsPage, { global: { plugins: storePlugins(client) } });
     await flushPromises();
-    await wrapper.get('[data-ranking="top"]').trigger('click');
+    await wrapper.get('[data-item="top"]').trigger('click');
     publish({ snapshot: { ...snapshot, instanceId: 'b'.repeat(32), entries: [{ key: '43', label: 'Bob', rank: 1, score: 5 }] } });
     resolveSnapshot({ ...snapshot, instanceId: 'a'.repeat(32), revision: 20 });
     await flushPromises();
@@ -47,7 +47,7 @@ describe('rankings management', () => {
   });
   it('loads an authoritative snapshot and requests a scoped OBS URL', async () => {
     const { wrapper, calls } = await setup();
-    await wrapper.get('[data-ranking="top"]').trigger('click');
+    await wrapper.get('[data-item="top"]').trigger('click');
     await flushPromises();
     expect(wrapper.text()).toContain('Alice — 5');
     const visualization = wrapper.findAll('select').find((item) => item.find('option[value="donut"]').exists())!;
@@ -72,7 +72,7 @@ describe('rankings management', () => {
   });
   it('edits a paused definition and preserves scores when reset is not selected', async () => {
     const { wrapper, calls } = await setup(true);
-    await wrapper.get('[data-ranking="top"]').trigger('click');
+    await wrapper.get('[data-item="top"]').trigger('click');
     await flushPromises();
     await button(wrapper, 'Edit definition').trigger('click');
     const topEntries = wrapper.findAll('label').find((label) => label.text().startsWith('Top entries'))!;
