@@ -1943,6 +1943,102 @@ mod integration_tests {
     }
     #[cfg(feature = "persistence")]
     #[tokio::test]
+    async fn runtime_ranking_checkpoint_survives_crash_and_reset() {
+        use tiktools_aggregation::model::{Definition, SourceRule};
+        use tiktools_tiktok::events::LikeEvent;
+        let root = std::env::temp_dir().join(format!(
+            "tiktools-runtime-checkpoint-{}-{}",
+            std::process::id(),
+            crate::now_millis()
+        ));
+        let paths = crate::paths::AppPaths {
+            data: root.join("data"),
+            plugins: root.join("plugins"),
+            plugin_data: root.join("plugin-data"),
+            builtin_plugins: root.join("builtin"),
+            development_plugins: None,
+            logs: root.join("logs"),
+            temp: root.join("temp"),
+            root: root.clone(),
+        };
+        let open = || {
+            Arc::new(AppCore::with_paths(
+                Arc::new(Emitter),
+                Arc::new(crate::NoopMediaHost),
+                paths.clone(),
+            ))
+        };
+        let core = open();
+        *core.connection_context.write().unwrap() = Some(LiveContext {
+            unique_id: "creator".into(),
+            room_id: "room".into(),
+            connection_id: "session".into(),
+        });
+        core.ranking_create(Definition {
+            schema_version: 1,
+            id: "likes".into(),
+            creator_id: "creator".into(),
+            room_id: "room".into(),
+            group_by: Default::default(),
+            window: Default::default(),
+            user_limits: None,
+            capacity: 20,
+            limit: 5,
+            sources: vec![SourceRule {
+                source: "tiktok.like".into(),
+                metric: "like.count".into(),
+                weight: 1,
+                enabled: true,
+                gift_multipliers: Default::default(),
+            }],
+        })
+        .unwrap();
+        let like = |msg_id, count| NativeLiveEvent {
+            base: CanonicalLiveEvent::Like(LikeEvent {
+                user: EventUser {
+                    id: 42,
+                    nickname: "Alice".into(),
+                    ..Default::default()
+                },
+                count,
+                total: 9000,
+            }),
+            metadata: EventMetadata {
+                method: "WebcastLikeMessage".into(),
+                msg_id,
+                is_history: false,
+            },
+            gift: None,
+        };
+        core.handle_live_event(like(1, 7)).await;
+        use crate::services::aggregations::AggregationService;
+        assert_eq!(AggregationService::checkpoint_changed(&core), 1);
+        // Unchanged rankings are not rewritten.
+        assert_eq!(AggregationService::checkpoint_changed(&core), 0);
+        // Accepted after the last runtime write: lost by the crash below.
+        core.handle_live_event(like(2, 5)).await;
+        assert_eq!(core.ranking_snapshot("likes").unwrap().total_score, 12);
+        drop(core); // No shutdown: simulates a crash.
+
+        let recovered = open();
+        let snapshot = recovered.ranking_snapshot("likes").unwrap();
+        assert_eq!(snapshot.total_score, 7);
+        assert_eq!(snapshot.integrity_status, "degraded");
+        assert_eq!(snapshot.entries[0].label, "Alice");
+        recovered.ranking_reset("likes").unwrap();
+        drop(recovered); // Crash again before any runtime write.
+
+        let after_reset = open();
+        assert_eq!(
+            after_reset.ranking_snapshot("likes").unwrap().total_score,
+            0
+        );
+        after_reset.shutdown().await;
+        drop(after_reset);
+        let _ = std::fs::remove_dir_all(root);
+    }
+    #[cfg(feature = "persistence")]
+    #[tokio::test]
     async fn session_ranking_recovers_after_drained_shutdown() {
         use tiktools_aggregation::model::{Definition, SourceRule};
         use tiktools_tiktok::events::LikeEvent;
@@ -2025,13 +2121,10 @@ mod integration_tests {
             Arc::new(crate::NoopMediaHost),
             paths,
         ));
-        assert_eq!(
-            after_unclean
-                .ranking_snapshot("likes")
-                .unwrap()
-                .integrity_status,
-            "degraded"
-        );
+        // The clean checkpoint survives the unclean exit, marked degraded.
+        let snapshot = after_unclean.ranking_snapshot("likes").unwrap();
+        assert_eq!(snapshot.integrity_status, "degraded");
+        assert_eq!(snapshot.total_score, 7);
         let health = after_unclean.system_health();
         assert_eq!(health["aggregations"]["degraded"], 1);
         assert_eq!(health["status"], "degraded");

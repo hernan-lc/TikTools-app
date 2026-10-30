@@ -40,6 +40,8 @@ impl AppCore {
         }
         #[cfg(feature = "persistence")]
         self.start_competition_action_worker();
+        #[cfg(feature = "persistence")]
+        crate::services::aggregations::AggregationService::start_checkpoints(self);
         let weak = std::sync::Arc::downgrade(self);
         let interval_ms = std::env::var("TIKTOOLS_RANKING_PUBLISH_INTERVAL_MS")
             .ok()

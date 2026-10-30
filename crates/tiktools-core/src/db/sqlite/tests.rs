@@ -89,12 +89,16 @@ fn ranking_definitions_survive_reopen_and_delete() {
         reopened.load_aggregation_definitions().unwrap(),
         vec![definition.clone()]
     );
+    // Loading does not consume: a crash before the next write keeps it.
+    for _ in 0..2 {
+        assert!(reopened
+            .load_aggregation_checkpoint("likes", "owner")
+            .unwrap()
+            .is_some());
+    }
+    reopened.clear_aggregation_checkpoint("likes").unwrap();
     assert!(reopened
-        .take_aggregation_checkpoint("likes", "owner")
-        .unwrap()
-        .is_some());
-    assert!(reopened
-        .take_aggregation_checkpoint("likes", "owner")
+        .load_aggregation_checkpoint("likes", "owner")
         .unwrap()
         .is_none());
     reopened
@@ -108,7 +112,7 @@ fn ranking_definitions_survive_reopen_and_delete() {
     updated.limit = 5;
     assert!(reopened.update_aggregation_definition(&updated).unwrap());
     assert!(reopened
-        .take_aggregation_checkpoint("likes", "new-owner")
+        .load_aggregation_checkpoint("likes", "new-owner")
         .unwrap()
         .is_none());
     assert!(reopened
@@ -120,6 +124,66 @@ fn ranking_definitions_survive_reopen_and_delete() {
     );
     assert!(reopened.delete_aggregation_definition("likes").unwrap());
     assert!(reopened.load_aggregation_definitions().unwrap().is_empty());
+    let _ = fs::remove_dir_all(paths.root);
+}
+
+#[test]
+fn runtime_checkpoint_survives_unclean_exit() {
+    use tiktools_aggregation::engine::Engine;
+    use tiktools_aggregation::model::{Contribution, Definition, SourceRule};
+    let paths = paths();
+    paths.ensure_directories().unwrap();
+    let db = DatabaseManager::new(paths.clone());
+    let definition = Definition {
+        schema_version: 1,
+        id: "gifts".into(),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        group_by: Default::default(),
+        window: Default::default(),
+        user_limits: None,
+        capacity: 10,
+        limit: 10,
+        sources: vec![SourceRule {
+            source: "tiktok.gift".into(),
+            metric: "gift.diamonds".into(),
+            weight: 1,
+            enabled: true,
+            gift_multipliers: Default::default(),
+        }],
+    };
+    db.insert_aggregation_definition(&definition).unwrap();
+    db.claim_aggregation_checkpoints("crashed").unwrap();
+    let mut engine = Engine::default();
+    engine.create(definition.clone()).unwrap();
+    let event = Contribution {
+        creator_id: "creator",
+        room_id: "room",
+        source: "tiktok.gift",
+        user: Some("user"),
+        gift: None,
+        option: None,
+        team: None,
+        custom_key: None,
+        metrics: &[("gift.diamonds", 30)],
+    };
+    assert!(engine.apply_at(&event, 1).is_empty());
+    // Runtime write, then the process dies without finishing the run.
+    db.save_aggregation_checkpoint(&engine.session_checkpoint("gifts").unwrap(), "crashed")
+        .unwrap();
+    let reopened = DatabaseManager::new(paths.clone());
+    assert!(!reopened.claim_aggregation_checkpoints("next").unwrap());
+    let checkpoint = reopened
+        .load_aggregation_checkpoint("gifts", "next")
+        .unwrap()
+        .unwrap();
+    let mut restored = Engine::default();
+    restored.create(definition).unwrap();
+    restored.restore_session_checkpoint(&checkpoint).unwrap();
+    restored.mark_recovery_gap("gifts").unwrap();
+    let snapshot = restored.snapshot("gifts").unwrap();
+    assert_eq!(snapshot.total_score, 30);
+    assert_eq!(snapshot.integrity_status, "degraded");
     let _ = fs::remove_dir_all(paths.root);
 }
 
@@ -176,7 +240,7 @@ fn rolling_checkpoint_survives_sqlite_and_preserves_limits() {
     db.finish_aggregation_checkpoints("owner").unwrap();
     assert!(db.claim_aggregation_checkpoints("next").unwrap());
     let checkpoint = db
-        .take_aggregation_checkpoint("rolling", "next")
+        .load_aggregation_checkpoint("rolling", "next")
         .unwrap()
         .unwrap();
     let mut restored = Engine::default();

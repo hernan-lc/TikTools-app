@@ -26,8 +26,8 @@ impl DatabaseManager {
         }
         Ok(())
     }
-    /// Store a complete, validated clean-shutdown checkpoint only for the
-    /// exact definition currently in storage. The transaction fences edits.
+    /// Store a complete, validated checkpoint (runtime or clean shutdown) only
+    /// for the exact definition currently in storage. The transaction fences edits.
     pub(crate) fn save_aggregation_checkpoint(
         &self,
         checkpoint: &SessionCheckpoint,
@@ -78,16 +78,17 @@ impl DatabaseManager {
         Ok(())
     }
 
-    /// Consume once before ingress starts. Failure leaves the row intact;
-    /// once consumed, a crash cannot make the same checkpoint appear clean.
-    pub(crate) fn take_aggregation_checkpoint(
+    /// Read the newest durable checkpoint without consuming it. A row is
+    /// replaced by later runtime or shutdown writes; keeping it means a crash
+    /// before the next write restores this older state (an undercount marked
+    /// degraded), never an empty ranking. Clean vs unclean comes from the run row.
+    pub(crate) fn load_aggregation_checkpoint(
         &self,
         id: &str,
         owner: &str,
     ) -> Result<Option<SessionCheckpoint>, DatabaseError> {
-        let mut connection = self.open(&self.automation_path())?;
-        let tx = connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-        let current_owner: Option<String> = tx
+        let connection = self.open(&self.automation_path())?;
+        let current_owner: Option<String> = connection
             .query_row(
                 "SELECT owner FROM aggregation_checkpoint_owner WHERE singleton=1",
                 [],
@@ -99,16 +100,18 @@ impl DatabaseManager {
                 "aggregation checkpoint owner changed".into(),
             ));
         }
-        let json: Option<String> = tx.query_row("SELECT checkpoint_json FROM aggregation_session_checkpoints WHERE ranking_id=?1 AND schema_version=1", [id], |row| row.get(0)).optional()?;
-        let checkpoint = json.map(|json| serde_json::from_str(&json)).transpose()?;
-        if checkpoint.is_some() {
-            tx.execute(
-                "DELETE FROM aggregation_session_checkpoints WHERE ranking_id=?1",
-                [id],
-            )?;
-        }
-        tx.commit()?;
-        Ok(checkpoint)
+        let json: Option<String> = connection.query_row("SELECT checkpoint_json FROM aggregation_session_checkpoints WHERE ranking_id=?1 AND schema_version=1", [id], |row| row.get(0)).optional()?;
+        Ok(json.map(|json| serde_json::from_str(&json)).transpose()?)
+    }
+    /// Drop a ranking's checkpoint before an in-memory reset so a crash
+    /// afterwards cannot resurrect the pre-reset accounting.
+    pub(crate) fn clear_aggregation_checkpoint(&self, id: &str) -> Result<(), DatabaseError> {
+        let connection = self.open(&self.automation_path())?;
+        connection.execute(
+            "DELETE FROM aggregation_session_checkpoints WHERE ranking_id=?1",
+            [id],
+        )?;
+        Ok(())
     }
     pub(crate) fn load_aggregation_definitions(&self) -> Result<Vec<Definition>, DatabaseError> {
         let connection = self.open(&self.automation_path())?;

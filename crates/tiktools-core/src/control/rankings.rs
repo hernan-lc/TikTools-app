@@ -145,6 +145,20 @@ impl AppCore {
         let _mutation = recover_mutex(&self.aggregations.mutations, "ranking mutations");
         let _competition = recover_mutex(&self.competitions.mutations, "competition mutations");
         self.ensure_ranking_not_in_use(id)?;
+        if !recover_mutex(&self.aggregations.engine, "aggregations")
+            .definitions()
+            .iter()
+            .any(|definition| definition.id == id)
+        {
+            return Err(OperationError::not_found("ranking not found"));
+        }
+        // Clear durable state first: a crash after the in-memory reset must
+        // not restore the discarded scores from an older runtime checkpoint.
+        #[cfg(feature = "persistence")]
+        if let Err(error) = self.db.clear_aggregation_checkpoint(id) {
+            tracing::error!(%error, "ranking checkpoint clear failed");
+            return Err(OperationError::unavailable("ranking reset failed"));
+        }
         recover_mutex(&self.aggregations.engine, "aggregations")
             .reset(id)
             .ok_or_else(|| OperationError::not_found("ranking not found"))?

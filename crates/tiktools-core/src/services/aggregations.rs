@@ -10,6 +10,12 @@ pub(crate) struct AggregationService {
     pub(crate) mutations: Mutex<()>,
     #[cfg(feature = "persistence")]
     pub(crate) checkpoint_owner: Option<String>,
+    /// Change token `(instance, revision)` of the last durable write per
+    /// ranking. Guarded in practice by `mutations`.
+    #[cfg(feature = "persistence")]
+    persisted: Mutex<std::collections::HashMap<String, (u64, u64)>>,
+    #[cfg(feature = "persistence")]
+    pub(crate) checkpoint_started: std::sync::atomic::AtomicBool,
 }
 
 impl AggregationService {
@@ -44,7 +50,8 @@ impl AggregationService {
             }
             Err(error) => tracing::error!(%error, "cannot load ranking definitions"),
         }
-        // Consume ordinary session checkpoints before admission begins. Vote
+        // Restore the newest checkpoint before admission begins. After an
+        // unclean exit it lags the lost run, so the ranking is marked degraded. Vote
         // rankings are rebuilt separately from their authoritative ledger.
         {
             for definition in engine.definitions() {
@@ -57,7 +64,7 @@ impl AggregationService {
                 }
                 let recovered = match checkpoint_owner
                     .as_deref()
-                    .map(|owner| db.take_aggregation_checkpoint(&definition.id, owner))
+                    .map(|owner| db.load_aggregation_checkpoint(&definition.id, owner))
                 {
                     None => false,
                     Some(Ok(Some(checkpoint))) => {
@@ -201,7 +208,137 @@ impl AggregationService {
             engine: Mutex::new(engine),
             mutations: Mutex::new(()),
             checkpoint_owner,
+            persisted: Mutex::default(),
+            checkpoint_started: std::sync::atomic::AtomicBool::new(false),
         }
+    }
+
+    /// Rankings persisted through session checkpoints. Vote rankings are
+    /// rebuilt from the competition ledger instead.
+    #[cfg(feature = "persistence")]
+    fn checkpointed(engine: &Engine) -> Vec<String> {
+        engine
+            .definitions()
+            .into_iter()
+            .filter(|definition| {
+                !definition
+                    .sources
+                    .iter()
+                    .any(|source| source.source == "competition.vote")
+            })
+            .map(|definition| definition.id)
+            .collect()
+    }
+
+    /// Snapshot one ranking under the engine lock (memory only) and write it
+    /// outside that lock, so LIVE ingestion never waits on SQLite. Callers
+    /// hold `mutations`, which fences reset, update and delete.
+    #[cfg(feature = "persistence")]
+    fn persist_one(
+        core: &crate::AppCore,
+        owner: &str,
+        id: &str,
+        only_changed: bool,
+    ) -> Result<bool, crate::db::DatabaseError> {
+        let (token, checkpoint) = {
+            let engine = crate::recover_mutex(&core.aggregations.engine, "aggregations");
+            let Some(token) = engine
+                .change_tokens()
+                .into_iter()
+                .find(|(active, _, _)| active == id)
+                .map(|(_, instance, revision)| (instance, revision))
+            else {
+                return Ok(false);
+            };
+            if only_changed
+                && crate::recover_mutex(&core.aggregations.persisted, "ranking checkpoints").get(id)
+                    == Some(&token)
+            {
+                return Ok(false);
+            }
+            (token, engine.session_checkpoint(id))
+        };
+        let checkpoint = checkpoint.map_err(|error| {
+            tracing::error!(?error, ranking = %id, "aggregation snapshot failed");
+            crate::db::DatabaseError::Invalid("aggregation snapshot failed".into())
+        })?;
+        core.db.save_aggregation_checkpoint(&checkpoint, owner)?;
+        crate::recover_mutex(&core.aggregations.persisted, "ranking checkpoints")
+            .insert(id.to_owned(), token);
+        Ok(true)
+    }
+
+    /// Runtime durability: write rankings changed since their last checkpoint.
+    /// The lock is taken per ranking so control operations are never queued
+    /// behind a whole pass. A crash loses at most one interval of accounting
+    /// and the next start marks affected rankings degraded.
+    #[cfg(feature = "persistence")]
+    pub(crate) fn checkpoint_changed(core: &crate::AppCore) -> usize {
+        use std::sync::atomic::Ordering;
+        let Some(owner) = core.aggregations.checkpoint_owner.as_deref() else {
+            return 0;
+        };
+        let ids = Self::checkpointed(&crate::recover_mutex(
+            &core.aggregations.engine,
+            "aggregations",
+        ));
+        crate::recover_mutex(&core.aggregations.persisted, "ranking checkpoints")
+            .retain(|id, _| ids.contains(id));
+        let mut written = 0;
+        for id in ids {
+            let _mutation = crate::recover_mutex(&core.aggregations.mutations, "ranking mutations");
+            // Checked under the lock: once shutdown begins, only its final
+            // checkpoint may write, so a late pass cannot follow the clean mark.
+            if core.shutdown_started.load(Ordering::Acquire) {
+                break;
+            }
+            match Self::persist_one(core, owner, &id, true) {
+                Ok(true) => written += 1,
+                Ok(false) => {}
+                Err(error) => {
+                    tracing::warn!(%error, ranking = %id, "runtime ranking checkpoint failed")
+                }
+            }
+        }
+        written
+    }
+
+    /// Starts the runtime checkpoint loop once. Weak ownership keeps it from
+    /// extending AppCore's lifetime.
+    #[cfg(feature = "persistence")]
+    pub(crate) fn start_checkpoints(core: &std::sync::Arc<crate::AppCore>) {
+        use std::sync::atomic::Ordering;
+        if core.aggregations.checkpoint_owner.is_none()
+            || core
+                .aggregations
+                .checkpoint_started
+                .swap(true, Ordering::AcqRel)
+        {
+            return;
+        }
+        let interval = std::time::Duration::from_millis(
+            std::env::var("TIKTOOLS_RANKING_CHECKPOINT_INTERVAL_MS")
+                .ok()
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(10_000)
+                .clamp(1_000, 300_000),
+        );
+        let weak = std::sync::Arc::downgrade(core);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(interval).await;
+                let Some(core) = weak.upgrade() else {
+                    break;
+                };
+                if core.shutdown_started.load(Ordering::Acquire) {
+                    break;
+                }
+                let pass = tokio::task::spawn_blocking(move || Self::checkpoint_changed(&core));
+                if let Err(error) = pass.await {
+                    tracing::error!(%error, "ranking checkpoint worker failed");
+                }
+            }
+        });
     }
 
     #[cfg(feature = "persistence")]
@@ -235,45 +372,22 @@ impl AggregationService {
                 == 0;
         #[cfg(not(feature = "native-tiktok"))]
         let ingress_complete = true;
-        let definitions = {
+        let ids = {
             let mut engine = crate::recover_mutex(&core.aggregations.engine, "aggregations");
             if !ingress_complete {
                 engine.mark_ingress_loss(1);
             }
-            engine
-                .definitions()
-                .into_iter()
-                .filter(|definition| {
-                    !definition
-                        .sources
-                        .iter()
-                        .any(|source| source.source == "competition.vote")
-                })
-                .collect::<Vec<_>>()
+            Self::checkpointed(&engine)
         };
         // Materialize one bounded ranking at a time. A large number of
         // high-cardinality definitions must not multiply snapshot memory.
+        // Unchanged rankings already have an identical durable row.
         let mut first_error = None;
-        for definition in definitions {
-            let checkpoint = crate::recover_mutex(&core.aggregations.engine, "aggregations")
-                .session_checkpoint(&definition.id);
-            match checkpoint {
-                Ok(checkpoint) => {
-                    if let Err(error) = core.db.save_aggregation_checkpoint(&checkpoint, owner) {
-                        tracing::error!(%error, ranking = %definition.id, "aggregation checkpoint failed");
-                        if first_error.is_none() {
-                            first_error = Some(error);
-                        }
-                    }
-                }
-                Err(tiktools_aggregation::Error::IncompatibleDefinition) => {}
-                Err(error) => {
-                    tracing::error!(?error, ranking = %definition.id, "aggregation snapshot failed");
-                    if first_error.is_none() {
-                        first_error = Some(crate::db::DatabaseError::Invalid(
-                            "aggregation snapshot failed".into(),
-                        ));
-                    }
+        for id in ids {
+            if let Err(error) = Self::persist_one(core, owner, &id, true) {
+                tracing::error!(%error, ranking = %id, "aggregation checkpoint failed");
+                if first_error.is_none() {
+                    first_error = Some(error);
                 }
             }
         }
