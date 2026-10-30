@@ -208,7 +208,7 @@ export const rankingTemplate = defineWidget({
   },
 });
 
-export const widgetTemplates = { follow: followTemplate, gift: giftTemplate, chat: chatTemplate, share: shareTemplate, subscribe: subscribeTemplate, likes: likesTemplate };
+export const widgetTemplates = { follow: followTemplate, gift: giftTemplate, chat: chatTemplate, share: shareTemplate, subscribe: subscribeTemplate, likes: likesTemplate, ranking: rankingTemplate };
 export type WidgetKind = keyof typeof widgetTemplates;
-/** Standalone registry also includes visualizations that do not use the alert editor. */
-export const standaloneWidgetTemplates = { ...widgetTemplates, ranking: rankingTemplate };
+/** Standalone registry; ranking visualizations share the editor design schema. */
+export const standaloneWidgetTemplates = { ...widgetTemplates };

@@ -23,7 +23,12 @@ const message = ref('');
 const busy = ref(false);
 const id = ref('');
 const name = ref('');
-const competitionType = ref<'poll' | 'team_battle' | 'roulette' | 'random_draw' | 'weighted_draw'>('poll');
+const competitionType = ref<'poll' | 'team_battle' | 'roulette' | 'random_draw' | 'weighted_draw' | 'leaderboard_challenge'>('poll');
+const targetScore = ref(0);
+const userActionId = ref('');
+let originalUserAction: CompetitionDefinition['onUserWin'] = null;
+const challenge = computed(() => competitionType.value === 'leaderboard_challenge');
+const userWinner = computed(() => ['leaderboard_challenge', 'random_draw', 'weighted_draw'].includes(competitionType.value));
 const rankingId = ref('');
 const duration = ref(0);
 const voteLimit = ref(1);
@@ -35,7 +40,7 @@ type InputRow = { key: string; value: string; kind: 'string' | 'number' | 'boole
 const blankOption = () => ({ id: '', label: '', command: '', actionId: '', imageUrl: '', giftIds: '', originalAction: null as CompetitionDefinition['options'][number]['onWin'], inputs: [] as InputRow[] });
 const options = ref([blankOption(), blankOption()]);
 const editing = shallowRef<CompetitionDefinition | null>(null);
-const eligibleRankings = computed(() => props.rankings.filter((r) => r.groupBy === 'option' && r.window.type === 'session' && r.sources.length > 0 && r.sources.some((s) => s.source === 'competition.vote' && s.metric === 'event.count') && r.sources.every((s) => ['competition.vote', 'tiktok.like', 'tiktok.share', 'tiktok.gift'].includes(s.source))));
+const eligibleRankings = computed(() => challenge.value ? props.rankings.filter((r) => !r.sources.some((s) => s.source === 'competition.vote')) : props.rankings.filter((r) => r.groupBy === 'option' && r.window.type === 'session' && r.sources.length > 0 && r.sources.some((s) => s.source === 'competition.vote' && s.metric === 'event.count') && r.sources.every((s) => ['competition.vote', 'tiktok.like', 'tiktok.share', 'tiktok.gift'].includes(s.source))));
 let disposed = false;
 let request = 0;
 async function refresh(): Promise<void> {
@@ -81,11 +86,13 @@ function editCompetition(): void {
   competitionType.value = definition.kind === 'weighted_poll' ? 'poll' : definition.kind;
   duration.value = (definition.durationMs ?? 0) / 1000; voteLimit.value = definition.voteLimit; allowSwitch.value = definition.allowSwitch;
   minimumParticipants.value = definition.minimumParticipants; tiePolicy.value = definition.tiePolicy; mode.value = definition.selectionMode;
+  targetScore.value = definition.targetScore ?? 0; originalUserAction = definition.onUserWin ?? null; userActionId.value = originalUserAction?.actionId ?? '';
   options.value = definition.options.map((option) => ({ id: option.id, label: option.label, command: option.commands.join(', '), actionId: option.onWin?.actionId ?? '', imageUrl: option.imageUrl ?? '', giftIds: option.giftIds.join(', '), originalAction: option.onWin, inputs: Object.entries(option.onWin?.inputs ?? {}).flatMap(([key, value]): InputRow[] => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? [{ key, value: String(value), kind: typeof value as InputRow['kind'] }] : []) }));
   error.value = ''; message.value = '';
 }
 function cancelEdit(): void {
   editing.value = null; id.value = ''; name.value = ''; rankingId.value = ''; competitionType.value = 'poll'; duration.value = 0; voteLimit.value = 1; allowSwitch.value = false; minimumParticipants.value = 1; tiePolicy.value = 'stable'; mode.value = 'highest_score'; options.value = [blankOption(), blankOption()];
+  targetScore.value = 0; userActionId.value = ''; originalUserAction = null;
 }
 async function create(): Promise<void> {
   error.value = ''; message.value = '';
@@ -98,21 +105,28 @@ async function create(): Promise<void> {
       error.value = 'Action inputs require unique names and valid values.'; return;
     }
   }
-  if (!id.value.trim() || !name.value.trim() || !eligibleRankings.value.some((ranking) => ranking.id === rankingId.value)
+  if (challenge.value && (!id.value.trim() || !name.value.trim() || !eligibleRankings.value.some((ranking) => ranking.id === rankingId.value)
+    || !Number.isSafeInteger(targetScore.value) || targetScore.value < 0 || !Number.isSafeInteger(minimumParticipants.value) || minimumParticipants.value < 1 || !Number.isSafeInteger(duration.value * 1000) || duration.value < 0 || duration.value > 86400000)) {
+    error.value = 'Choose an ordinary ranking and enter a valid target, duration and minimum participants.'; return;
+  }
+  if (!challenge.value && (!id.value.trim() || !name.value.trim() || !eligibleRankings.value.some((ranking) => ranking.id === rankingId.value)
     || cleaned.length < 1 || cleaned.some((option) => !option.id || !option.label || (option.commands.length === 0 && option.giftIds.length === 0) || option.commands.length > 64 || option.commands.some((command) => !/^!\S+$/.test(command)))
     || new Set(cleaned.map((option) => option.id)).size !== cleaned.length || new Set(commands).size !== commands.length
     || new Set(gifts).size !== gifts.length || cleaned.some((option) => option.giftIds.length > 256 || option.giftIds.some((gift) => !/^[1-9][0-9]{0,19}$/.test(gift) || BigInt(gift) > 18446744073709551615n))
-    || !Number.isSafeInteger(voteLimit.value) || voteLimit.value < 1 || !Number.isSafeInteger(minimumParticipants.value) || minimumParticipants.value < 1 || !Number.isSafeInteger(duration.value * 1000) || duration.value < 0 || duration.value > 86400000) {
+    || !Number.isSafeInteger(voteLimit.value) || voteLimit.value < 1 || !Number.isSafeInteger(minimumParticipants.value) || minimumParticipants.value < 1 || !Number.isSafeInteger(duration.value * 1000) || duration.value < 0 || duration.value > 86400000)) {
     error.value = 'Choose a vote ranking and enter unique options, commands, gift IDs, and valid limits.'; return;
   }
-  const definition: CompetitionDefinition = { schemaVersion: 1, id: id.value.trim(), name: name.value.trim(), kind: competitionType.value === 'weighted_draw' ? 'weighted_draw' : competitionType.value === 'random_draw' ? 'random_draw' : competitionType.value === 'team_battle' ? 'team_battle' : competitionType.value === 'roulette' ? 'roulette' : voteLimit.value === 1 && editing.value?.kind !== 'weighted_poll' ? 'poll' : 'weighted_poll', rankingId: rankingId.value,
-    options: cleaned.map((option) => {
+  const definition: CompetitionDefinition = { schemaVersion: 1, id: id.value.trim(), name: name.value.trim(), kind: challenge.value ? 'leaderboard_challenge' : competitionType.value === 'weighted_draw' ? 'weighted_draw' : competitionType.value === 'random_draw' ? 'random_draw' : competitionType.value === 'team_battle' ? 'team_battle' : competitionType.value === 'roulette' ? 'roulette' : voteLimit.value === 1 && editing.value?.kind !== 'weighted_poll' ? 'poll' : 'weighted_poll', rankingId: rankingId.value,
+    options: challenge.value ? [] : cleaned.map((option) => {
       const inputs: Record<string, unknown> = Object.create(null);
       if (option.originalAction?.actionId === option.actionId) for (const [key, value] of Object.entries(option.originalAction.inputs)) if (value === null || typeof value === 'object') inputs[key] = value;
       for (const input of option.inputs) inputs[input.key.trim()] = input.kind === 'number' ? Number(input.value) : input.kind === 'boolean' ? input.value === 'true' : input.value;
       return { id: option.id, label: option.label, commands: option.commands, giftIds: option.giftIds, imageUrl: option.imageUrl || null, onWin: option.actionId ? { actionId: option.actionId, inputs } : null };
     }),
-    selectionMode: competitionType.value === 'weighted_draw' ? 'weighted_random' : competitionType.value === 'random_draw' ? 'uniform_random' : mode.value, tiePolicy: tiePolicy.value, durationMs: duration.value ? duration.value * 1000 : null, voteLimit: voteLimit.value, allowSwitch: allowSwitch.value, minimumParticipants: minimumParticipants.value };
+    selectionMode: competitionType.value === 'weighted_draw' ? 'weighted_random' : competitionType.value === 'random_draw' ? 'uniform_random' : mode.value, tiePolicy: tiePolicy.value, durationMs: duration.value ? duration.value * 1000 : null, voteLimit: voteLimit.value, allowSwitch: allowSwitch.value, minimumParticipants: minimumParticipants.value,
+    targetScore: challenge.value && targetScore.value > 0 ? targetScore.value : null,
+    onUserWin: userWinner.value && userActionId.value ? { actionId: userActionId.value, inputs: originalUserAction?.actionId === userActionId.value ? originalUserAction.inputs : {} } : null };
+  if (challenge.value) definition.selectionMode = 'highest_score';
   busy.value = true;
   try { const wasEditing = !!editing.value; await client.call(wasEditing ? 'competitions.update' : 'competitions.create', { ...definition }); await refresh(); selected.value = definition.id; if (wasEditing) { cancelEdit(); await detail(); } else { id.value = ''; name.value = ''; } message.value = wasEditing ? 'Competition updated.' : 'Competition created.'; }
   catch (failure) { error.value = errorMessage(failure); } finally { busy.value = false; }
@@ -180,7 +194,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; subscriptions.forEach((of
         >
           {{ message }}
         </p>
-        <label>Type<select v-model="competitionType"><option value="poll">Poll</option><option value="team_battle">Team battle</option><option value="roulette">Option roulette</option><option value="random_draw">Participant draw</option><option value="weighted_draw">Weighted participant draw</option></select></label>
+        <label>Type<select v-model="competitionType"><option value="poll">Poll</option><option value="team_battle">Team battle</option><option value="roulette">Option roulette</option><option value="random_draw">Participant draw</option><option value="weighted_draw">Weighted participant draw</option><option value="leaderboard_challenge">Leaderboard challenge</option></select></label>
         <label>Competition ID<input
           v-model="id"
           :disabled="!!editing"
@@ -192,7 +206,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; subscriptions.forEach((of
           required
           maxlength="256"
         ></label>
-        <label>Vote ranking<select v-model="rankingId"><option value="">Select a vote ranking</option><option
+        <label>{{ challenge ? 'Ranking' : 'Vote ranking' }}<select v-model="rankingId"><option value="">Select a ranking</option><option
           v-for="ranking in eligibleRankings"
           :key="ranking.id"
           :value="ranking.id"
@@ -219,8 +233,21 @@ onBeforeUnmount(() => { disposed = true; request += 1; subscriptions.forEach((of
           type="checkbox"
         > Allow option switching</label>
         <p v-if="competitionType === 'random_draw' || competitionType === 'weighted_draw'">The draw selects one participant {{ competitionType === 'random_draw' ? 'uniformly' : 'using their committed score' }}. Option winner actions are not used.</p>
-        <label v-if="competitionType !== 'random_draw' && competitionType !== 'weighted_draw'">Winner selection<select v-model="mode"><option value="highest_score">Highest score</option><option value="uniform_random">Uniform random eligible option</option><option value="weighted_random">Weighted random eligible option</option></select></label>
-        <label v-if="competitionType !== 'random_draw' && competitionType !== 'weighted_draw' && mode === 'highest_score'">Tie policy<select v-model="tiePolicy"><option value="stable">Stable</option><option value="random">Random</option><option value="manual">Manual</option><option value="no_winner">No winner</option></select></label>
+        <p v-if="challenge">The ranking leader wins when the competition finishes. With a target, nobody wins unless the leader reached it.</p>
+        <label v-if="challenge">Target score (0 for none)<input
+          v-model.number="targetScore"
+          type="number"
+          min="0"
+          step="1"
+        ></label>
+        <label v-if="userWinner">Winning user action (optional)<select v-model="userActionId"><option value="">No action</option><option
+          v-for="available in actions"
+          :key="available.id"
+          :value="available.id"
+        >{{ available.name || available.id }}</option></select></label>
+        <label v-if="!challenge && competitionType !== 'random_draw' && competitionType !== 'weighted_draw'">Winner selection<select v-model="mode"><option value="highest_score">Highest score</option><option value="uniform_random">Uniform random eligible option</option><option value="weighted_random">Weighted random eligible option</option></select></label>
+        <label v-if="competitionType !== 'random_draw' && competitionType !== 'weighted_draw' && (challenge || mode === 'highest_score')">Tie policy<select v-model="tiePolicy"><option value="stable">Stable</option><option value="random">Random</option><option value="manual">Manual</option><option value="no_winner">No winner</option></select></label>
+        <template v-if="!challenge">
         <fieldset
           v-for="(option, index) in options"
           :key="index"
@@ -271,6 +298,7 @@ onBeforeUnmount(() => { disposed = true; request += 1; subscriptions.forEach((of
         >
           Add option
         </BaseButton>
+        </template>
         <BaseButton
           type="submit"
           variant="primary"

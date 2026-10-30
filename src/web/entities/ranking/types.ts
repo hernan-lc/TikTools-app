@@ -7,7 +7,7 @@ export interface RankingDefinition {
   creatorId: string;
   roomId: string;
   groupBy: 'user' | 'gift' | 'event_type' | 'option' | 'team' | 'custom_key';
-  window: { type: 'session' } | { type: 'rolling'; durationMs: number; maxEvents: number };
+  window: { type: 'session' } | { type: 'rolling'; durationMs: number; maxEvents: number } | { type: 'daily'; utcOffsetMinutes: number };
   sources: RankingSource[];
   limit: number;
   capacity: number;

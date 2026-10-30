@@ -21,7 +21,10 @@ const creator = ref('');
 const room = ref('');
 const group = ref<RankingDefinition['groupBy']>('user');
 const limit = ref(10);
-const windowType = ref<'session' | 'rolling'>('session');
+const windowType = ref<'session' | 'rolling' | 'daily'>('session');
+const utcOffset = ref(-new Date().getTimezoneOffset());
+const customSource = ref('');
+const customMetric = ref('value');
 const duration = ref(60);
 const maxEvents = ref(10000);
 const selectedMetric = ref('');
@@ -80,6 +83,13 @@ function addSource(): void {
   sources.value.push({ source: metric.source, metric: metric.metric, weight: 1, enabled: true });
   if (metric.source === 'tiktok.gift') giftOverrides.value[metricKey(metric)] = [];
 }
+/** Plugin emits arrive as `plugin.<pluginId>.<eventType>`; agents use `custom.*`. */
+function addCustomSource(): void {
+  const source = customSource.value.trim(); const metric = customMetric.value.trim();
+  if (!/^(plugin|custom)\.[\w.-]+$/.test(source) || source.length > 128 || !metric || metric.length > 128) { error.value = 'Custom sources must start with plugin. or custom. and name a metric (event.count or value).'; return; }
+  if (sources.value.some((item) => item.source === source && item.metric === metric)) return;
+  sources.value.push({ source, metric, weight: 1, enabled: true }); customSource.value = '';
+}
 function editRanking(): void {
   if (!current.value || !snapshot.value?.paused) return;
   const definition = current.value;
@@ -88,6 +98,7 @@ function editRanking(): void {
   group.value = definition.groupBy; limit.value = definition.limit;
   windowType.value = definition.window.type;
   if (definition.window.type === 'rolling') { duration.value = definition.window.durationMs / 1000; maxEvents.value = definition.window.maxEvents; }
+  if (definition.window.type === 'daily') utcOffset.value = definition.window.utcOffsetMinutes;
   sources.value = definition.sources.map((source) => ({ ...source }));
   giftOverrides.value = Object.fromEntries(definition.sources.filter((source) => source.source === 'tiktok.gift').map((source) => [sourceKey(source), Object.entries(source.giftMultipliers ?? {}).map(([giftId, multiplier]) => ({ giftId, multiplier }))]));
   limitUsers.value = !!definition.userLimits;
@@ -98,7 +109,7 @@ function editRanking(): void {
 }
 function cancelEdit(): void {
   editing.value = null; id.value = ''; creator.value = ''; room.value = ''; group.value = 'user';
-  limit.value = 10; windowType.value = 'session'; duration.value = 60; maxEvents.value = 10000; sources.value = []; resetOnUpdate.value = false;
+  limit.value = 10; windowType.value = 'session'; utcOffset.value = -new Date().getTimezoneOffset(); duration.value = 60; maxEvents.value = 10000; sources.value = []; resetOnUpdate.value = false;
   limitUsers.value = false; maxContributions.value = 0; cooldownMs.value = 0; maxUsers.value = 10000;
   giftOverrides.value = {};
 }
@@ -107,7 +118,8 @@ async function create(): Promise<void> {
   if (!id.value.trim() || !creator.value.trim() || !room.value.trim() || !sources.value.length
     || !validInteger(limit.value, 100000) || sources.value.some((source) => !Number.isSafeInteger(source.weight) || source.weight < 0 || source.weight > 1_000_000_000)
     || (limitUsers.value && (!validInteger(maxUsers.value, 100000) || !Number.isSafeInteger(maxContributions.value) || maxContributions.value < 0 || !Number.isSafeInteger(cooldownMs.value) || cooldownMs.value < 0 || (maxContributions.value === 0 && cooldownMs.value === 0)))
-    || (windowType.value === 'rolling' && (!validInteger(duration.value * 1000, 86_400_000_000) || !validInteger(maxEvents.value, 100000)))) {
+    || (windowType.value === 'rolling' && (!validInteger(duration.value * 1000, 86_400_000_000) || !validInteger(maxEvents.value, 100000)))
+    || (windowType.value === 'daily' && (!Number.isSafeInteger(utcOffset.value) || Math.abs(utcOffset.value) > 840))) {
     error.value = 'Complete all fields and use valid positive limits and nonnegative integer weights.'; return;
   }
   const voteSource = sources.value.some((source) => source.source === 'competition.vote');
@@ -119,12 +131,13 @@ async function create(): Promise<void> {
     }
   }
   if ((voteSource && (group.value !== 'option' || windowType.value !== 'session' || limitUsers.value || sources.value.some((source) => !['competition.vote', 'tiktok.like', 'tiktok.share', 'tiktok.gift'].includes(source.source))))
-    || (!voteSource && ['option', 'team', 'custom_key'].includes(group.value))
+    || (!voteSource && group.value === 'option' && sources.value.some((source) => !/^(plugin|custom)\./.test(source.source)))
+    || (['team', 'custom_key'].includes(group.value) && sources.value.some((source) => !/^(plugin|custom)\./.test(source.source)))
     || (group.value === 'gift' && sources.value.some((source) => source.source !== 'tiktok.gift'))) {
-    error.value = 'Vote rankings require option grouping, a session window, and competition participation limits. Gift grouping requires gift metrics; team and custom routing are not yet available.'; return;
+    error.value = 'Vote rankings require option grouping, a session window, and competition participation limits. Gift grouping requires gift metrics; team and custom-key grouping require plugin. or custom. sources.'; return;
   }
   const definition: RankingDefinition = { ...editing.value, schemaVersion: 1, id: id.value.trim(), creatorId: creator.value.trim(), roomId: room.value.trim(), groupBy: group.value,
-    window: windowType.value === 'session' ? { type: 'session' } : { type: 'rolling', durationMs: duration.value * 1000, maxEvents: maxEvents.value },
+    window: windowType.value === 'session' ? { type: 'session' } : windowType.value === 'daily' ? { type: 'daily', utcOffsetMinutes: utcOffset.value } : { type: 'rolling', durationMs: duration.value * 1000, maxEvents: maxEvents.value },
     sources: sources.value.map((source) => {
       const result = { ...source };
       if (source.source === 'tiktok.gift') {
@@ -216,7 +229,14 @@ onBeforeUnmount(() => { disposed = true; request += 1; snapshotController?.dispo
             required
           ></label>
           <label>Group by<select v-model="group"><option value="user">User</option><option value="gift">Gift</option><option value="event_type">Event type</option><option value="option">Option</option><option value="team">Team</option><option value="custom_key">Custom key</option></select></label>
-          <label>Window<select v-model="windowType"><option value="session">Session</option><option value="rolling">Rolling</option></select></label>
+          <label>Window<select v-model="windowType"><option value="session">Session (persistent until reset)</option><option value="rolling">Rolling</option><option value="daily">Daily (resets at midnight)</option></select></label>
+          <label v-if="windowType === 'daily'">UTC offset in minutes<input
+            v-model.number="utcOffset"
+            type="number"
+            min="-840"
+            max="840"
+            step="15"
+          ></label>
           <template v-if="windowType === 'rolling'">
             <label>Duration (seconds)<input
               v-model.number="duration"
@@ -249,6 +269,15 @@ onBeforeUnmount(() => { disposed = true; request += 1; snapshotController?.dispo
           >{{ metric.source }} · {{ metric.metric }} — {{ metric.description }}</option></select></label>
           <BaseButton @click="addSource">
             Add metric
+          </BaseButton>
+          <label>Plugin or custom source<input
+            v-model="customSource"
+            maxlength="128"
+            placeholder="plugin.my-plugin.answer"
+          ></label>
+          <label>Custom metric<select v-model="customMetric"><option value="value">value</option><option value="event.count">event.count</option></select></label>
+          <BaseButton @click="addCustomSource">
+            Add custom source
           </BaseButton>
           <ul class="sources">
             <li

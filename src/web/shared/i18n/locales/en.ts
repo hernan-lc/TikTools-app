@@ -681,6 +681,17 @@ export default {
       share: { name: 'Share alert', description: 'Shows a card every time a viewer shares the LIVE.' },
       subscribe: { name: 'Subscribe alert', description: 'Shows a card every time a viewer subscribes.' },
       likes: { name: 'Top likes', description: 'A live leaderboard of the viewers with the most likes.' },
+      ranking: { name: 'Ranking & competition', description: 'Any configured ranking as a list, bar, pie, donut, poll or roulette reveal.' },
+    },
+    rankingSource: {
+      ranking: 'Ranking',
+      choose: 'Choose a ranking',
+      visualization: 'Visualization',
+      competition: 'Competition to reveal',
+      labels: 'Show labels',
+      percentages: 'Show percentages',
+      legend: 'Show legend',
+      visualizations: { ranking: 'List', bar: 'Bars', pie: 'Pie', donut: 'Donut', poll: 'Poll', roulette: 'Roulette reveal' },
     },
     gateway: {
       title: 'Event gateway',

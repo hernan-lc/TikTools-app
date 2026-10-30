@@ -683,6 +683,17 @@ export default {
       share: { name: 'Alerta de compartido', description: 'Muestra una tarjeta cada vez que alguien comparte el LIVE.' },
       subscribe: { name: 'Alerta de suscripción', description: 'Muestra una tarjeta cada vez que alguien se suscribe.' },
       likes: { name: 'Top de me gusta', description: 'Una tabla en vivo de los espectadores con más me gusta.' },
+      ranking: { name: 'Ranking y competición', description: 'Cualquier ranking configurado como lista, barras, tarta, dona, encuesta o ruleta.' },
+    },
+    rankingSource: {
+      ranking: 'Ranking',
+      choose: 'Elige un ranking',
+      visualization: 'Visualización',
+      competition: 'Competición a revelar',
+      labels: 'Mostrar etiquetas',
+      percentages: 'Mostrar porcentajes',
+      legend: 'Mostrar leyenda',
+      visualizations: { ranking: 'Lista', bar: 'Barras', pie: 'Tarta', donut: 'Dona', poll: 'Encuesta', roulette: 'Ruleta' },
     },
     gateway: {
       title: 'Pasarela de eventos',
