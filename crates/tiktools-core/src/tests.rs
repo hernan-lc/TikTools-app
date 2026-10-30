@@ -2523,3 +2523,152 @@ fn private_core(name: &str) -> (Arc<AppCore>, PathBuf) {
     ));
     (core, root)
 }
+
+#[cfg(feature = "native-tiktok")]
+#[tokio::test]
+async fn committed_point_awards_feed_points_rankings() {
+    use tiktools_aggregation::model::{Definition, SourceRule};
+    use tiktools_tiktok::events::{CanonicalLiveEvent, ChatEvent, EventMetadata, EventUser};
+    let (core, root) = private_core("points-ranking");
+    let context = LiveContext {
+        unique_id: "creator".into(),
+        room_id: "room".into(),
+        connection_id: "session".into(),
+    };
+    core.ranking_create(Definition {
+        schema_version: 1,
+        id: "points".into(),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        group_by: Default::default(),
+        window: Default::default(),
+        user_limits: None,
+        capacity: 10,
+        limit: 10,
+        sources: vec![SourceRule {
+            source: "points.awarded".into(),
+            metric: "points.delta".into(),
+            weight: 1,
+            enabled: true,
+            gift_multipliers: Default::default(),
+        }],
+    })
+    .unwrap();
+    let event = |msg_id| NativeLiveEvent {
+        base: CanonicalLiveEvent::Chat(ChatEvent {
+            user: EventUser {
+                id: 42,
+                nickname: "Alice".into(),
+                ..Default::default()
+            },
+            comment: "hi".into(),
+            ..Default::default()
+        }),
+        metadata: EventMetadata {
+            method: "WebcastChatMessage".into(),
+            msg_id,
+            is_history: false,
+        },
+        gift: None,
+    };
+    // Fractions are truncated; sub-point and negative awards never count.
+    core.observe_points_award(&event(1), &context, 12.7);
+    core.observe_points_award(&event(2), &context, 0.5);
+    core.observe_points_award(&event(3), &context, -5.0);
+    let snapshot = core.ranking_snapshot("points").unwrap();
+    assert_eq!(snapshot.total_score, 12);
+    assert_eq!(snapshot.entries[0].key, "42");
+    assert_eq!(snapshot.entries[0].label, "Alice");
+    assert_eq!(snapshot.integrity_status, "unknown");
+    // An award without a replay-safe identity degrades instead of guessing.
+    core.observe_points_award(&event(0), &context, 3.0);
+    assert_eq!(
+        core.ranking_snapshot("points").unwrap().integrity_status,
+        "degraded"
+    );
+    core.shutdown().await;
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[cfg(feature = "persistence")]
+#[tokio::test]
+async fn user_winner_action_is_queued_once_for_a_challenge() {
+    use tiktools_aggregation::model::{Definition as Ranking, SourceRule};
+    use tiktools_competitions::{
+        CompetitionKind, Definition, SelectionMode, TiePolicy, Transition, WinnerAction,
+    };
+    let (core, root) = private_core("user-winner-action");
+    core.ranking_create(Ranking {
+        schema_version: 1,
+        id: "score".into(),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        group_by: Default::default(),
+        window: Default::default(),
+        user_limits: None,
+        capacity: 10,
+        limit: 10,
+        sources: vec![SourceRule {
+            source: "custom.score".into(),
+            metric: "value".into(),
+            weight: 1,
+            enabled: true,
+            gift_multipliers: Default::default(),
+        }],
+    })
+    .unwrap();
+    core.competition_create(Definition {
+        schema_version: 1,
+        id: "challenge".into(),
+        name: "Challenge".into(),
+        kind: CompetitionKind::LeaderboardChallenge,
+        ranking_id: "score".into(),
+        options: Vec::new(),
+        selection_mode: SelectionMode::HighestScore,
+        tie_policy: TiePolicy::Stable,
+        duration_ms: None,
+        vote_limit: 1,
+        allow_switch: false,
+        minimum_participants: 1,
+        target_score: None,
+        on_user_win: Some(WinnerAction {
+            action_id: "reward".into(),
+            inputs: serde_json::json!({}),
+        }),
+    })
+    .unwrap();
+    core.ranking_contribute(control::ExternalContribution {
+        event_id: "1".into(),
+        creator_id: "creator".into(),
+        room_id: "room".into(),
+        source: "custom.score".into(),
+        user: Some("bob".into()),
+        label: None,
+        team: None,
+        custom_key: None,
+        option: None,
+        metrics: [("value".to_owned(), 9)].into(),
+    })
+    .unwrap();
+    core.competition_transition("challenge", Transition::Start)
+        .unwrap();
+    let result = core.competition_finish("challenge").unwrap();
+    assert_eq!(result.selection.winner.as_deref(), Some("bob"));
+    let action = core
+        .competition_action("challenge", result.generation)
+        .unwrap()
+        .expect("user winner action queued");
+    assert_eq!(action.action_id, "reward");
+    // Finishing again returns the stored result without a second action.
+    let again = core.competition_finish("challenge").unwrap();
+    assert_eq!(again, result);
+    assert_eq!(
+        core.competition_action("challenge", result.generation)
+            .unwrap()
+            .unwrap()
+            .created_at,
+        action.created_at
+    );
+    core.shutdown().await;
+    let _ = std::fs::remove_dir_all(root);
+}
