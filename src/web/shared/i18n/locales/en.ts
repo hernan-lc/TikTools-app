@@ -1243,6 +1243,7 @@ export default {
       cancel: 'Cancel',
       refresh: 'Refresh',
       copyReveal: 'Copy winner reveal URL',
+      automate: 'Automate the winner',
       copied: 'Winner reveal OBS URL copied.',
       copyFailed: 'Could not copy the widget URL.',
       tiedWinner: 'Tied winner',

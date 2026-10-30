@@ -1245,6 +1245,7 @@ export default {
       cancel: 'Cancelar',
       refresh: 'Actualizar',
       copyReveal: 'Copiar URL de revelación',
+      automate: 'Automatizar al ganador',
       copied: 'URL de OBS para revelar al ganador copiada.',
       copyFailed: 'No se pudo copiar la URL del widget.',
       tiedWinner: 'Ganador del empate',

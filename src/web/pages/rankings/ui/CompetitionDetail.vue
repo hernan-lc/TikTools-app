@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, inject, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { routerKey } from 'vue-router';
 import type { CompetitionAction, CompetitionDefinition, CompetitionResult, CompetitionState } from '@/entities/competition/types.ts';
 import { errorMessage } from '@/shared/api/control-client.ts';
 import { useControlClient } from '@/shared/api/use-control-client.ts';
@@ -71,6 +72,12 @@ async function copyRevealUrl(): Promise<void> {
     if (!result.ok) throw new Error(t('competitionsPanel.operate.copyFailed'));
     emit('notify', t('competitionsPanel.operate.copied'), false);
   } catch (failure) { emit('notify', errorMessage(failure), true); }
+}
+
+// Opens Automations with a new rule triggered by this event type.
+const router = inject(routerKey, null);
+function automateWinner(): void {
+  void router?.push({ name: 'automations', query: { trigger: 'competition.winner.selected' } });
 }
 
 const subscriptions: (() => void)[] = [];
@@ -194,9 +201,15 @@ onBeforeUnmount(() => { disposed = true; subscriptions.forEach((off) => off()); 
           </template>
         </div>
       </section>
-      <section class="block">
+      <section class="block block--row">
         <BaseButton @click="copyRevealUrl">
           {{ t('competitionsPanel.operate.copyReveal') }}
+        </BaseButton>
+        <BaseButton
+          v-if="router"
+          @click="automateWinner"
+        >
+          {{ t('competitionsPanel.operate.automate') }}
         </BaseButton>
       </section>
     </div>
@@ -209,6 +222,7 @@ onBeforeUnmount(() => { disposed = true; subscriptions.forEach((off) => off()); 
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .actions--end { align-items: end; }
 .block { display: grid; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-border); justify-items: start; }
+.block--row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .block h3 { margin: 0; font-size: 14px; }
 .block ul { margin: 0; padding-left: var(--space-4); }
 </style>
