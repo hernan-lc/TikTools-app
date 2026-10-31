@@ -46,7 +46,9 @@ test('style variables omit unset optionals and invalid values', () => {
 
 test('every template exposes one schema for editor and preview defaults', () => {
   for (const [kind, template] of Object.entries(widgetTemplates)) {
-    expect(template.schema.textFields).toEqual(Object.keys(textDefaults[kind as keyof typeof textDefaults]) as TextField[]);
+    const defaults = Object.keys(textDefaults[kind as keyof typeof textDefaults]) as TextField[];
+    // Rankings expose only the title line their widget renders (see rankingSchema).
+    expect(template.schema.textFields).toEqual(kind === 'ranking' ? ['title'] : defaults);
     expect(template.schema.defaultDesign.background).toBeTruthy();
     expect(template.schema.defaultDesign.accent).toBeTruthy();
     expect(resolveWidgetDesign(template, {}).text).toBeUndefined();
